@@ -1,4 +1,5 @@
-# ROCK 4D UEFI Firmware Builder
+# EDK2 UEFI for Rockchip RK3576 based SBC
+# Radxa ROCK 4D UEFI Firmware Builder
 
 [English](#english) | [中文](#chinese)
 
