@@ -32,7 +32,6 @@
   BaseLib
   DebugLib
   IoLib
-  TimerLib
   GpioLib
   RK806
   PWMLib

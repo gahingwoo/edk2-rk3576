@@ -93,6 +93,15 @@
 ################################################################################
 [PcdsFixedAtBuild.common]
 
+  # Debug visibility (override Rockchip.dsc.inc RELEASE defaults which set
+  # PcdDebugPropertyMask=0x00 → DebugLib PrintEnabled bit cleared → all
+  # DEBUG output suppressed regardless of error level).
+  # 0x80000042 = ERROR | INFO | WARN | LOAD
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000042
+  gEfiMdePkgTokenSpaceGuid.PcdFixedDebugPrintErrorLevel|0x80000042
+  # 0x2F = ASSERT|PRINT|CODE|CLEAR_MEM|ASSERT_BREAKPOINT
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
+
   # ROCK 4D / RK3576 system memory layout (override RK3588Base 1GB default).
   # PcdSystemMemorySize affects the SEC entry stub's UEFI region calculation:
   #   UefiMemoryBase = SystemMemoryEnd+1 - UefiRegionSize

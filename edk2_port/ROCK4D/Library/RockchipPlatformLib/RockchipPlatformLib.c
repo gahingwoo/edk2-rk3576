@@ -26,7 +26,6 @@
 #include <Base.h>
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
-#include <Library/TimerLib.h>
 #include <Library/GpioLib.h>
 #include <Library/RK806.h>
 #include <Library/PWMLib.h>
@@ -361,21 +360,19 @@ Usb2PhyResume (
   )
 {
   /*
-   * Step 1+2: Ungate ALL USB-related clocks in CLKGATE_CON(47)
-   * (covers USB_ROOT, USB3OTG0, USB3OTG1 for both DWC3 controllers).
-   * Write 0xFFFF<<16 mask + all-zero data = ungate every bit.
+   * Step 1+2: Ungate ALL USB-related clocks in CLKGATE_CON(47).
+   * Covers ACLK/PCLK_USB_ROOT, USB3OTG0 + USB3OTG1, REF and SUSPEND
+   * for both DWC3 controllers. Write 0xFFFF mask + all-zero data.
    */
   MmioWrite32 (CRU_CLKGATE_CON(47), 0xFFFF0000);
 
   /*
-   * Step 3: USB2 PHY — minimal init
-   *
-   * Match RK3588 EDK2 style (ROCK5B): just deassert SIDDQ to power on
-   * the analog block. DWC3 core will do GUSB2PHYCFG_PHYSOFTRST in
-   * Dwc3CoreSoftReset() which handles the rest.
-   *
-   * RK3576 SIDDQ: usb2phy_grf + 0x10 bit 13
-   *   Write upper-mask format: mask=bit13<<16=0x20000000, data=0
+   * Step 3: USB2 PHY — deassert SIDDQ on each PHY.
+   * usb2phy_grf @ 0x2602E000 (u2phy0 +0), 0x26030000 (u2phy1 +0).
+   * SIDDQ register: GRF + 0x10 bit 13.  Write upper-half mask form:
+   *   mask = (1 << 13) << 16 = 0x20000000, data = 0  → bit13 = 0.
+   * RK3588/ROCK5B reference does the same minimal init; DWC3 core
+   * does PHYSOFTRST in Dwc3CoreSoftReset() which handles the rest.
    */
   MmioWrite32 (USB2PHY0_BASE + 0x10, 0x20000000);
   MmioWrite32 (USB2PHY1_BASE + 0x10, 0x20000000);
@@ -384,7 +381,7 @@ Usb2PhyResume (
   GpioPinWrite (2, GPIO_PIN_PD2, TRUE);
   GpioPinSetDirection (2, GPIO_PIN_PD2, GPIO_PIN_OUTPUT);
 
-  DEBUG ((DEBUG_INFO, "Usb2PhyResume: clocks ungated, both PHYs powered on, OTG 5V enabled\n"));
+  DEBUG ((DEBUG_INFO, "Usb2PhyResume: clocks ungated, both PHYs SIDDQ deasserted, OTG 5V enabled\n"));
   DEBUG ((DEBUG_INFO, "  u2phy0 GRF @ 0x%lx, u2phy1 GRF @ 0x%lx\n",
     (UINT64)USB2PHY0_BASE, (UINT64)USB2PHY1_BASE));
 }

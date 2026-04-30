@@ -360,40 +360,28 @@ Usb2PhyResume (
   )
 {
   /*
-   * Step 1: Enable USB root clocks
+   * Step 1+2: Ungate ALL USB-related clocks in CLKGATE_CON(47).
+   * Covers ACLK/PCLK_USB_ROOT, USB3OTG0 + USB3OTG1, REF and SUSPEND
+   * for both DWC3 controllers. Write 0xFFFF mask + all-zero data.
    */
-  MmioWrite32 (CRU_CLKGATE_CON(47),
-    (1U << (1 + 16)) | (0U << 1));   /* ACLK_USB_ROOT: ungate */
-  MmioWrite32 (CRU_CLKGATE_CON(47),
-    (1U << (2 + 16)) | (0U << 2));   /* PCLK_USB_ROOT: ungate */
+  MmioWrite32 (CRU_CLKGATE_CON(47), 0xFFFF0000);
 
   /*
-   * Step 2: Enable USB3 OTG0 clocks (DRD0 — primary USB port)
+   * Step 3: USB2 PHY — deassert SIDDQ on each PHY.
+   * usb2phy_grf @ 0x2602E000 (u2phy0 +0), 0x26030000 (u2phy1 +0).
+   * SIDDQ register: GRF + 0x10 bit 13.  Write upper-half mask form:
+   *   mask = (1 << 13) << 16 = 0x20000000, data = 0  → bit13 = 0.
+   * RK3588/ROCK5B reference does the same minimal init; DWC3 core
+   * does PHYSOFTRST in Dwc3CoreSoftReset() which handles the rest.
    */
-  MmioWrite32 (CRU_CLKGATE_CON(47),
-    (1U << (5 + 16)) | (0U << 5));   /* ACLK_USB3OTG0: ungate */
-  MmioWrite32 (CRU_CLKGATE_CON(47),
-    (1U << (6 + 16)) | (0U << 6));   /* CLK_REF_USB3OTG0: ungate */
-  MmioWrite32 (CRU_CLKGATE_CON(47),
-    (1U << (7 + 16)) | (0U << 7));   /* CLK_SUSPEND_USB3OTG0: ungate */
-
-  /*
-   * Step 3: USB2 PHY — via usb2phy_grf (0x2602E000)
-   *
-   * The Rockchip Inno USB2 PHY uses GRF registers for control.
-   * Exact power-on sequence requires TRM or phy-rockchip-inno-usb2.c.
-   * For now, just ensure clocks are enabled; U-Boot SPL may have
-   * already powered on the PHY for USB boot.
-   *
-   * NOTE: USB2PHY0_BASE = 0x2602E000 (corrected, was 0x2B000000)
-   *       USB2PHY1_BASE = 0x26030000 (corrected, was 0x2B010000)
-   */
+  MmioWrite32 (USB2PHY0_BASE + 0x10, 0x20000000);
+  MmioWrite32 (USB2PHY1_BASE + 0x10, 0x20000000);
 
   /* Also enable USB OTG 5V: GPIO2 PD2 (vcc5v0_otg, active-high) */
   GpioPinWrite (2, GPIO_PIN_PD2, TRUE);
   GpioPinSetDirection (2, GPIO_PIN_PD2, GPIO_PIN_OUTPUT);
 
-  DEBUG ((DEBUG_INFO, "Usb2PhyResume: USB clocks ungated, OTG 5V enabled\n"));
+  DEBUG ((DEBUG_INFO, "Usb2PhyResume: clocks ungated, both PHYs SIDDQ deasserted, OTG 5V enabled\n"));
   DEBUG ((DEBUG_INFO, "  u2phy0 GRF @ 0x%lx, u2phy1 GRF @ 0x%lx\n",
     (UINT64)USB2PHY0_BASE, (UINT64)USB2PHY1_BASE));
 }

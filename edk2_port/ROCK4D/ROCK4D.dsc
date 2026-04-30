@@ -34,10 +34,9 @@
   RK_PLATFORM_FVMAIN_MODULES     = $(PLATFORM_DIRECTORY)/ROCK4D.Modules.fdf.inc
   FIRMWARE_VER                   = "0.1"
 
-  # Feature flags — RK3576/ROCK4D specific overrides
-  # ROCK4D / RK3576: Until RK3588-hardcoded peripheral drivers are ported to
-  # the RK3576 register map (see rk3576.dtsi in mainline Linux), keep them
-  # disabled to allow boot to UEFI Shell.
+  # ROCK4D / RK3576: SD/eMMC temporarily disabled — enabling RK_SD_ENABLE
+  # broke boot (no serial). Need to bisect: SD lib init or RkSdmmcDxe binding
+  # likely hangs on RK3576 GPIO/CRU mismatch. Re-enable after debug.
   DEFINE RK_SD_ENABLE            = FALSE
   DEFINE RK_EMMC_ENABLE          = FALSE
   DEFINE RK_NOR_FLASH_ENABLE     = FALSE
@@ -66,6 +65,12 @@
   DEFINE RK_AMD_GOP_ENABLE       = FALSE
   DEFINE NETWORK_ENABLE          = FALSE
   DEFINE RK_X86_EMULATOR_ENABLE  = FALSE
+  # Static SMBIOS tables (Type 0/1/2/3/4/7/9/11/16/17/19/32) — required so
+  # UiApp banner shows "<NNNN> MB RAM" and OS sees system info.
+  DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
+  # USB host: DWC3 controllers @ 0x23000000 + 0x23400000 (PCDs in
+  # RK3576Base.dsc.inc). RK3576 has no EHCI/OHCI -> set count to 0 below.
+  DEFINE RK_USB_ENABLE             = TRUE
 
   # Use RK3588 platform include (well-tested foundation)
   # RK3576-specific PCDs override below
@@ -76,15 +81,25 @@
   RockchipPlatformLib|$(PLATFORM_DIRECTORY)/Library/RockchipPlatformLib/RockchipPlatformLib.inf
   # RK3576-specific SDRAM detection (overrides RK3588 SdramLib)
   SdramLib|Silicon/Rockchip/RK3576/Library/SdramLib/SdramLib.inf
+  # RK3576-specific MMC platform glue (CRU clock setup, card-detect GPIO).
+  # Default in Rockchip.dsc.inc points to Null stubs.
+  RkSdmmcPlatformLib|Silicon/Rockchip/RK3576/Library/RkSdmmcPlatformLib/RkSdmmcPlatformLib.inf
+  DwcSdhciPlatformLib|Silicon/Rockchip/RK3576/Library/DwcSdhciPlatformLib/DwcSdhciPlatformLib.inf
+  # RK3576 OTP block lives at a different MMIO base than RK3588 (0xFECC0000)
+  # and the silicon revision on ROCK 4D firewalls all access -> Data Abort.
+  # Use a stub that returns zeros instead of touching the controller.
+  OtpLib|Silicon/Rockchip/RK3576/Library/OtpLib/OtpLib.inf
 
 ################################################################################
 [PcdsFixedAtBuild.common]
 
-  # Debug print level: enable INFO + WARN + LOAD + ERROR (was default 0x80000000 ERROR-only)
+  # Debug visibility (override Rockchip.dsc.inc RELEASE defaults which set
+  # PcdDebugPropertyMask=0x00 → DebugLib PrintEnabled bit cleared → all
+  # DEBUG output suppressed regardless of error level).
   # 0x80000042 = ERROR | INFO | WARN | LOAD
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000042
   gEfiMdePkgTokenSpaceGuid.PcdFixedDebugPrintErrorLevel|0x80000042
-  # Enable assert/print/code/clear-mem in DebugLib (bit0=ASSERT,bit1=PRINT,bit2=CODE,bit3=CLEAR_MEM,bit5=ASSERT_BREAKPOINT)
+  # 0x2F = ASSERT|PRINT|CODE|CLEAR_MEM|ASSERT_BREAKPOINT
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
 
   # ROCK 4D / RK3576 system memory layout (override RK3588Base 1GB default).
@@ -109,15 +124,22 @@
 
   # eMMC (sdhci @ 0x2A330000)
   gRK3576TokenSpaceGuid.PcdSdhciBaseAddr|0x2A330000
+  # DwcSdhciDxe driver uses this PCD (RK3588 default 0xfe2e0000 → MMU fault on RK3576).
+  gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress|0x2A330000
 
   # SD card (sdmmc @ 0x2A310000)
   gRK3576TokenSpaceGuid.PcdSdmmcBaseAddr|0x2A310000
+  # RkSdmmcDxe driver uses this PCD (RK3588 default 0xfe2c0000 → MMU fault on RK3576).
+  gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress|0x2A310000
 
   # SPI NOR flash (sfc0 @ 0x2A340000)
   gRK3576TokenSpaceGuid.PcdFspiBaseAddr|0x2A340000
 
   # USB DWC3 (0x23000000, 0x23400000)
   gRockchipTokenSpaceGuid.PcdDwc3BaseAddresses|{ UINT32(0x23000000), UINT32(0x23400000) }
+  # RK3576 has no EHCI/OHCI controllers (RK3588 has 2). Override to 0
+  # to skip the legacy USB2 path that would otherwise hit invalid MMIO.
+  gRockchipTokenSpaceGuid.PcdNumEhciController|0
 
   # I2C
   gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x23, 0x51 }
