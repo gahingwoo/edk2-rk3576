@@ -1,0 +1,18 @@
+#/** @file
+#
+#  ROCK 4D Vendor Device Tree (pre-compiled DTB)
+#
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = DeviceTree-Vendor
+  FILE_GUID                      = a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+  MODULE_TYPE                    = USER_DEFINED
+  VERSION_STRING                 = 1.0
+
+[Binaries]
+  BIN|devicetree/vendor/rk3576-rock-4d.dtb

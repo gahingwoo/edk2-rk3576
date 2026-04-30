@@ -1,0 +1,85 @@
+# ==============================================================================
+# OS / editor junk
+# ==============================================================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+.claude/
+
+# ==============================================================================
+# Backups
+# ==============================================================================
+*.tar.gz
+*.tar.xz
+*.tgz
+rock4d_package_backup_*
+
+# ==============================================================================
+# Upstream third-party trees (cloned at build time, see README)
+# ==============================================================================
+# top-level
+edk2_port/edk2/
+edk2_port/edk2-non-osi/
+edk2_port/edk2-platforms/
+edk2_port/edk2-rockchip-non-osi/
+edk2_port/misc/rkbin/
+
+# inside the edk2-rockchip wrapper
+edk2_port/edk2-rockchip/edk2/
+edk2_port/edk2-rockchip/edk2-non-osi/
+edk2_port/edk2-rockchip/edk2-platforms/
+edk2_port/edk2-rockchip/edk2-rockchip-non-osi/
+edk2_port/edk2-rockchip/edk2-non-osi-link
+edk2_port/edk2-rockchip/arm-trusted-firmware/
+
+# huge upstream device-tree mirror (98 MB of Rockchip DTBs)
+edk2_port/edk2-rockchip/devicetree/
+
+# ==============================================================================
+# Build output / logs
+# ==============================================================================
+**/Build/
+**/Conf/.cache/
+edk2_port/edk2-rockchip/Conf/
+edk2_port/edk2-rockchip/build_rock4d.log
+edk2_port/edk2-rockchip/idblock.bin
+edk2_port/edk2-rockchip/idblock-mainline.bin
+edk2_port/edk2-rockchip/images/
+
+# generated FIT image inputs / outputs left in edk2_port/
+edk2_port/BL33_AP_UEFI.Fv
+edk2_port/bl31_*.bin
+edk2_port/bl32.bin
+edk2_port/rk3576-rock-4d.dtb
+edk2_port/rk3576-rock-4d_EFI.its
+edk2_port/rk3576-rock-4d_EFI.itb
+
+# ==============================================================================
+# Generic build artifacts
+# ==============================================================================
+*.efi
+*.fd
+*.fv
+*.Fv
+*.pdb
+*.map
+*.obj
+*.o
+*.lib
+*.a
+*.so
+*.dll
+*.exe
+*.OBJ
+*.PDB
+*.MAP
+*.DEBUG
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

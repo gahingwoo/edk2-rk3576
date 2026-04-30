@@ -1,0 +1,174 @@
+## @file
+#
+#  Copyright (c) 2021-2022, Rockchip Limited. All rights reserved.
+#  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  DEC_SPECIFICATION              = 0x00010019
+  PACKAGE_NAME                   = RK3588
+  PACKAGE_GUID                   = 26e6ce4a-45e7-11ec-9726-f42a7dcb925d
+  PACKAGE_VERSION                = 0.1
+
+################################################################################
+#
+# Include Section - list of Include Paths that are provided by this package.
+#                   Comments are used for Keywords and Module Types.
+#
+# Supported Module Types:
+#  BASE SEC PEI_CORE PEIM DXE_CORE DXE_DRIVER DXE_RUNTIME_DRIVER DXE_SMM_DRIVER DXE_SAL_DRIVER UEFI_DRIVER UEFI_APPLICATION
+#
+################################################################################
+[Includes.common]
+  Include                        # Root include for the package
+
+[Guids.common]
+  gRK3588TokenSpaceGuid = { 0x32594b40, 0x45e7, 0x11ec, { 0xbb, 0xc1, 0xf4, 0x2a, 0x7d, 0xcb, 0x92, 0x5d } }
+  gRK3588DxeFormSetGuid = { 0x10f41c33, 0xa468, 0x42cd, { 0x85, 0xee, 0x70, 0x43, 0x21, 0x3f, 0x73, 0xa3 } }
+
+[PcdsFixedAtBuild]
+  gRK3588TokenSpaceGuid.PcdCPULClusterClockPresetDefault|0|UINT32|0x00010001
+  gRK3588TokenSpaceGuid.PcdCPUB01ClusterClockPresetDefault|0|UINT32|0x00010002
+  gRK3588TokenSpaceGuid.PcdCPUB23ClusterClockPresetDefault|0|UINT32|0x00010003
+
+  gRK3588TokenSpaceGuid.PcdComboPhy0Switchable|FALSE|BOOLEAN|0x00010101
+  gRK3588TokenSpaceGuid.PcdComboPhy1Switchable|FALSE|BOOLEAN|0x00010102
+  gRK3588TokenSpaceGuid.PcdComboPhy2Switchable|FALSE|BOOLEAN|0x00010103
+  gRK3588TokenSpaceGuid.PcdComboPhy0ModeDefault|0|UINT32|0x00010104
+  gRK3588TokenSpaceGuid.PcdComboPhy1ModeDefault|0|UINT32|0x00010105
+  gRK3588TokenSpaceGuid.PcdComboPhy2ModeDefault|0|UINT32|0x00010106
+
+  gRK3588TokenSpaceGuid.PcdPcie30Supported|FALSE|BOOLEAN|0x00010201
+  gRK3588TokenSpaceGuid.PcdPcie30x2Supported|FALSE|BOOLEAN|0x00010202
+  gRK3588TokenSpaceGuid.PcdPcie30PhyModeSwitchable|FALSE|BOOLEAN|0x00010203
+  gRK3588TokenSpaceGuid.PcdPcie30PhyModeDefault|0|UINT8|0x00010204
+
+  gRK3588TokenSpaceGuid.PcdConfigTableModeDefault|0|UINT32|0x00010300
+  gRK3588TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|0|UINT32|0x00010301
+  gRK3588TokenSpaceGuid.PcdFdtCompatModeDefault|0|UINT32|0x00010351
+  gRK3588TokenSpaceGuid.PcdFdtForceGopDefault|0|UINT8|0x00010352
+  gRK3588TokenSpaceGuid.PcdFdtSupportOverridesDefault|0|UINT8|0x00010353
+  gRK3588TokenSpaceGuid.PcdFdtOverrideFixupDefault|0|UINT8|0x00010354
+  gRK3588TokenSpaceGuid.PcdFdtOverrideBasePathDefault|L""|VOID*|0x00010355
+  gRK3588TokenSpaceGuid.PcdFdtOverrideOverlayPathDefault|L""|VOID*|0x00010356
+
+  gRK3588TokenSpaceGuid.PcdHasOnBoardFanOutput|FALSE|BOOLEAN|0x10401
+
+  gRK3588TokenSpaceGuid.PcdUsbDpPhy0Supported|FALSE|BOOLEAN|0x00010501
+  gRK3588TokenSpaceGuid.PcdUsbDpPhy1Supported|FALSE|BOOLEAN|0x00010502
+  gRK3588TokenSpaceGuid.PcdDp0LaneMux|{ 0x0 }|VOID*|0x00010503
+  gRK3588TokenSpaceGuid.PcdDp1LaneMux|{ 0x0 }|VOID*|0x00010504
+
+  gRK3588TokenSpaceGuid.PcdGmac0Supported|FALSE|BOOLEAN|0x00010601
+  gRK3588TokenSpaceGuid.PcdGmac1Supported|FALSE|BOOLEAN|0x00010602
+  gRK3588TokenSpaceGuid.PcdGmac0TxDelay|0|UINT8|0x00010603
+  gRK3588TokenSpaceGuid.PcdGmac0RxDelay|0|UINT8|0x00010604
+  gRK3588TokenSpaceGuid.PcdGmac1TxDelay|0|UINT8|0x00010605
+  gRK3588TokenSpaceGuid.PcdGmac1RxDelay|0|UINT8|0x00010606
+
+  gRK3588TokenSpaceGuid.PcdI2S0Supported|FALSE|BOOLEAN|0x00010701
+  gRK3588TokenSpaceGuid.PcdI2S1Supported|FALSE|BOOLEAN|0x00010702
+
+  gRK3588TokenSpaceGuid.PcdDisplayConnectors|{ 0x0 }|UINT32[]|0x00010801 {
+    <Packages>
+      Silicon/Rockchip/RockchipPkg.dec
+    <HeaderFiles>
+      RockchipDisplay.h
+  }
+  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x0 }|DISPLAY_MODE_PRESET_VARSTORE_DATA|0x00010802 {
+    <Packages>
+      Silicon/Rockchip/RockchipPkg.dec
+      Silicon/Rockchip/RK3588/RK3588.dec
+    <HeaderFiles>
+      VarStoreData.h
+  }
+  gRK3588TokenSpaceGuid.PcdDisplayModeCustomDefault|{ 0x0 }|DISPLAY_MODE|0x00010803 {
+    <Packages>
+      Silicon/Rockchip/RockchipPkg.dec
+      Silicon/Rockchip/RK3588/RK3588.dec
+    <HeaderFiles>
+      VarStoreData.h
+  }
+  gRK3588TokenSpaceGuid.PcdDisplayForceOutputDefault|FALSE|BOOLEAN|0x00010805
+  gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutputDefault|FALSE|BOOLEAN|0x00010806
+  gRK3588TokenSpaceGuid.PcdDisplayRotationDefault|0|UINT16|0x00010807
+  gRK3588TokenSpaceGuid.PcdHdmiSignalingModeDefault|0|UINT8|0x00010808
+
+[PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
+  gRK3588TokenSpaceGuid.PcdCPULClusterClockPreset|0|UINT32|0x00000001
+  gRK3588TokenSpaceGuid.PcdCPULClusterClockCustom|0|UINT32|0x00000002
+  gRK3588TokenSpaceGuid.PcdCPUB01ClusterClockPreset|0|UINT32|0x00000003
+  gRK3588TokenSpaceGuid.PcdCPUB01ClusterClockCustom|0|UINT32|0x00000004
+  gRK3588TokenSpaceGuid.PcdCPUB23ClusterClockPreset|0|UINT32|0x00000005
+  gRK3588TokenSpaceGuid.PcdCPUB23ClusterClockCustom|0|UINT32|0x00000006
+  gRK3588TokenSpaceGuid.PcdCPULClusterVoltageMode|0|UINT32|0x00000007
+  gRK3588TokenSpaceGuid.PcdCPULClusterVoltageCustom|0|UINT32|0x00000008
+  gRK3588TokenSpaceGuid.PcdCPUB01ClusterVoltageMode|0|UINT32|0x00000009
+  gRK3588TokenSpaceGuid.PcdCPUB01ClusterVoltageCustom|0|UINT32|0x0000000A
+  gRK3588TokenSpaceGuid.PcdCPUB23ClusterVoltageMode|0|UINT32|0x0000000B
+  gRK3588TokenSpaceGuid.PcdCPUB23ClusterVoltageCustom|0|UINT32|0x0000000C
+
+  gRK3588TokenSpaceGuid.PcdComboPhy0Mode|0|UINT32|0x00000101
+  gRK3588TokenSpaceGuid.PcdComboPhy1Mode|0|UINT32|0x00000102
+  gRK3588TokenSpaceGuid.PcdComboPhy2Mode|0|UINT32|0x00000103
+
+  gRK3588TokenSpaceGuid.PcdPcie30State|0|UINT32|0x00000201
+  gRK3588TokenSpaceGuid.PcdPcie30PhyMode|0|UINT8|0x00000204
+
+  gRK3588TokenSpaceGuid.PcdConfigTableMode|0|UINT32|0x00000300
+  gRK3588TokenSpaceGuid.PcdAcpiPcieEcamCompatMode|0|UINT32|0x00000301
+  gRK3588TokenSpaceGuid.PcdFdtCompatMode|0|UINT32|0x00000351
+  gRK3588TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
+  gRK3588TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353
+  gRK3588TokenSpaceGuid.PcdFdtOverrideFixup|0|UINT8|0x00000354
+  gRK3588TokenSpaceGuid.PcdFdtOverrideBasePath|{ 0x0 }|FDT_OVERRIDE_PATH_VARSTORE_DATA|0x00000355 {
+    <Packages>
+      Silicon/Rockchip/RK3588/RK3588.dec
+    <HeaderFiles>
+      VarStoreData.h
+  }
+  gRK3588TokenSpaceGuid.PcdFdtOverrideOverlayPath|{ 0x0 }|FDT_OVERRIDE_PATH_VARSTORE_DATA|0x00000356 {
+    <Packages>
+      Silicon/Rockchip/RK3588/RK3588.dec
+    <HeaderFiles>
+      VarStoreData.h
+  }
+
+  gRK3588TokenSpaceGuid.PcdCoolingFanState|0|UINT32|0x00000401
+  gRK3588TokenSpaceGuid.PcdCoolingFanSpeed|0|UINT32|0x00000402
+
+  gRK3588TokenSpaceGuid.PcdUsbDpPhy0Usb3State|0|UINT32|0x00000501
+  gRK3588TokenSpaceGuid.PcdUsbDpPhy1Usb3State|0|UINT32|0x00000502
+
+  gRK3588TokenSpaceGuid.PcdDisplayConnectorsMask|0|UINT32|0x00000801
+  gRK3588TokenSpaceGuid.PcdDisplayModePreset|{ 0x0 }|DISPLAY_MODE_PRESET_VARSTORE_DATA|0x00000802 {
+    <Packages>
+      Silicon/Rockchip/RockchipPkg.dec
+      Silicon/Rockchip/RK3588/RK3588.dec
+    <HeaderFiles>
+      VarStoreData.h
+  }
+  gRK3588TokenSpaceGuid.PcdDisplayModeCustom|{ 0x0 }|DISPLAY_MODE|0x00000803 {
+    <Packages>
+      Silicon/Rockchip/RockchipPkg.dec
+      Silicon/Rockchip/RK3588/RK3588.dec
+    <HeaderFiles>
+      VarStoreData.h
+  }
+  gRK3588TokenSpaceGuid.PcdDisplayConnectorsPriority|{ 0x0 }|DISPLAY_CONNECTORS_PRIORITY_VARSTORE_DATA|0x00000804 {
+    <Packages>
+      Silicon/Rockchip/RockchipPkg.dec
+      Silicon/Rockchip/RK3588/RK3588.dec
+    <HeaderFiles>
+      VarStoreData.h
+  }
+  gRK3588TokenSpaceGuid.PcdDisplayForceOutput|FALSE|BOOLEAN|0x00000805
+  gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutput|FALSE|BOOLEAN|0x00000806
+  gRK3588TokenSpaceGuid.PcdDisplayRotation|0|UINT16|0x00000807
+  gRK3588TokenSpaceGuid.PcdHdmiSignalingMode|0|UINT8|0x00000808
+
+[PcdsDynamicEx]
+  gRK3588TokenSpaceGuid.PcdPcieEcamCompliantSegmentsMask|0|UINT32|0x20000001

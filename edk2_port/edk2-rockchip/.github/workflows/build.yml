@@ -1,0 +1,111 @@
+name: Build
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+    branches:
+      - master
+  pull_request:
+    paths-ignore:
+      - '**.md'
+    branches:
+      - master
+  workflow_call:
+    inputs:
+      build-configs:
+        type: string
+        required: true
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        PLATFORM:
+          - aio-3588q
+          - blade3
+          - edge2
+          - fydetab-duo
+          - h88k
+          - indiedroid-nova
+          - itx-3588j
+          - nanopc-cm3588-nas
+          - nanopc-t6
+          - nanopi-m6
+          - nanopi-r6c
+          - nanopi-r6s
+          - orangepi-5
+          - orangepi-5plus
+          - powerstation-6
+          - r58-mini
+          - r58x
+          - roc-rk3588s-pc
+          - rock-5-itx
+          - rock-5a
+          - rock-5b
+          - rock-5bplus
+          - station-m3
+        CONFIGURATION: ${{ fromJSON(format('[{0}]', inputs.build-configs || '"Debug"')) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          sudo apt-get update && \
+          sudo apt-get install -y \
+          acpica-tools \
+          binutils-aarch64-linux-gnu \
+          build-essential \
+          device-tree-compiler \
+          gettext \
+          git \
+          gcc-aarch64-linux-gnu \
+          libc6-dev-arm64-cross \
+          python3 \
+          python3-pyelftools \
+          uuid-dev
+
+      - name: Get version tag
+        id: get_version_tag
+        shell: bash
+        run: echo "version=$(git describe --tags --always)" >> $GITHUB_OUTPUT
+
+      - name: Set up Secure Boot default keys
+        run: |
+          mkdir keys
+          # We don't really need a usable PK, so just generate a public key for it and discard the private key
+          openssl req -new -x509 -newkey rsa:2048 -subj "/CN=Rockchip Platform Key/" -keyout /dev/null -outform DER -out keys/pk.cer -days 7300 -nodes -sha256
+          curl -L https://go.microsoft.com/fwlink/?LinkId=321185 -o keys/ms_kek.cer
+          curl -L https://go.microsoft.com/fwlink/?linkid=321192 -o keys/ms_db1.cer
+          curl -L https://go.microsoft.com/fwlink/?linkid=321194 -o keys/ms_db2.cer
+          curl -L https://uefi.org/sites/default/files/resources/dbxupdate_arm64.bin -o keys/arm64_dbx.bin
+
+      - name: Build platform
+        shell: bash
+        run: |
+          export EDK2_SECUREBOOT_FLAGS=" \
+              -D DEFAULT_KEYS=TRUE \
+              -D PK_DEFAULT_FILE=keys/pk.cer \
+              -D KEK_DEFAULT_FILE1=keys/ms_kek.cer \
+              -D DB_DEFAULT_FILE1=keys/ms_db1.cer \
+              -D DB_DEFAULT_FILE2=keys/ms_db2.cer \
+              -D DBX_DEFAULT_FILE1=keys/arm64_dbx.bin \
+              -D SECURE_BOOT_ENABLE=TRUE"
+
+          export EDK2_BUILD_FLAGS=" \
+              ${EDK2_SECUREBOOT_FLAGS}"
+
+          ./build.sh --device ${{matrix.PLATFORM}} --release ${{matrix.CONFIGURATION}} --edk2-flags "${EDK2_BUILD_FLAGS}"
+          mv RK3588_NOR_FLASH.img ${{matrix.PLATFORM}}_UEFI_${{matrix.CONFIGURATION}}_${{steps.get_version_tag.outputs.version}}.img
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{matrix.PLATFORM}} UEFI ${{matrix.CONFIGURATION}} image
+          path: ./*.img
+          if-no-files-found: error

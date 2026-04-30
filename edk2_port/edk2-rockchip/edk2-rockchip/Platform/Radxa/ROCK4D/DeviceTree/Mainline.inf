@@ -1,0 +1,22 @@
+#/** @file
+#
+#  ROCK 4D Mainline Device Tree (compiled from DTS source)
+#
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = DeviceTree-Mainline
+  FILE_GUID                      = b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e
+  MODULE_TYPE                    = USER_DEFINED
+  VERSION_STRING                 = 1.0
+
+[Sources]
+  devicetree/mainline/rk3576-rock-4d.dts
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec

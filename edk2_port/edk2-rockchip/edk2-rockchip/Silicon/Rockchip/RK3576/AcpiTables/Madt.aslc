@@ -1,0 +1,197 @@
+/** @file
+*  Multiple APIC Description Table (MADT)
+*
+*  RK3576: GIC-400 (GICv2)
+*    GICD @ 0x2A701000
+*    GICC @ 0x2A702000
+*
+*  CPU topology (from rk3576.dtsi):
+*    Cluster 0: 4x Cortex-A53 (MPIDR 0x000, 0x001, 0x002, 0x003)
+*    Cluster 1: 4x Cortex-A72 (MPIDR 0x100, 0x101, 0x102, 0x103)
+*
+*  Copyright (c) 2021, Jared McNeill <jmcneill@invisible.ca>
+*  Copyright (c) 2012 - 2016, ARM Limited. All rights reserved.
+*  Copyright (c) 2018, Linaro Limited. All rights reserved.
+*  Copyright (c) 2025, ROCK 4D RK3576 Port
+*
+*  SPDX-License-Identifier: BSD-2-Clause-Patent
+*
+**/
+
+#include <Library/AcpiLib.h>
+#include <Library/ArmLib.h>
+#include <Library/PcdLib.h>
+#include <IndustryStandard/Acpi.h>
+
+#include "AcpiTables.h"
+
+//
+// Multiple APIC Description Table
+//
+#pragma pack (1)
+
+typedef struct {
+  EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE_HEADER    Header;
+  EFI_ACPI_6_0_GIC_STRUCTURE                             GicInterfaces[8];
+  EFI_ACPI_6_0_GIC_DISTRIBUTOR_STRUCTURE                 GicDistributor;
+} EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE;
+
+#pragma pack ()
+
+EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
+  {
+    ACPI_HEADER (
+      EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE_SIGNATURE,
+      EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE,
+      EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE_REVISION
+      ),
+    //
+    // MADT specific fields
+    //
+    0, // LocalApicAddress
+    0, // Flags
+  },
+  {
+    // Format: EFI_ACPI_6_0_GICC_STRUCTURE_INIT(GicId, AcpiCpuUid, Mpidr,
+    //                                          Flags,
+    //                                          PmuIrq, GicBase, GicVBase, GicHBase, GsivId, GicRBase, Efficiency)
+    // Note: The GIC Structure of the primary CPU must be the first entry
+    // (see note in 5.2.12.14 GICC Structure of ACPI v6.0).
+    //
+    // RK3576 GIC-400 (GICv2):
+    //   GicBase  = GICC @ 0x2A702000
+    //   GicVBase = GICV @ 0x2A706000
+    //   GicHBase = GICH @ 0x2A704000
+    //   GicRBase = 0 (no redistributor in GICv2)
+    //
+    // CPU MPIDRs from rk3576.dtsi:
+    //   A53: cpu@0 (0x000), cpu@1 (0x001), cpu@2 (0x002), cpu@3 (0x003)
+    //   A72: cpu@100 (0x100), cpu@101 (0x101), cpu@102 (0x102), cpu@103 (0x103)
+    //
+    EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
+      // A53-0 (cluster 0, core 0)
+      0,
+      0,
+      GET_MPID (0, 0x000),
+      EFI_ACPI_6_0_GIC_ENABLED,
+      23,
+      FixedPcdGet64 (PcdGicInterruptInterfaceBase),
+      0x2A706000,
+      0x2A704000,
+      25,
+      0,
+      0
+      ),
+    EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
+      // A53-1 (cluster 0, core 1)
+      0,
+      1,
+      GET_MPID (0, 0x001),
+      EFI_ACPI_6_0_GIC_ENABLED,
+      23,
+      FixedPcdGet64 (PcdGicInterruptInterfaceBase),
+      0x2A706000,
+      0x2A704000,
+      25,
+      0,
+      0
+      ),
+    EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
+      // A53-2 (cluster 0, core 2)
+      0,
+      2,
+      GET_MPID (0, 0x002),
+      EFI_ACPI_6_0_GIC_ENABLED,
+      23,
+      FixedPcdGet64 (PcdGicInterruptInterfaceBase),
+      0x2A706000,
+      0x2A704000,
+      25,
+      0,
+      0
+      ),
+    EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
+      // A53-3 (cluster 0, core 3)
+      0,
+      3,
+      GET_MPID (0, 0x003),
+      EFI_ACPI_6_0_GIC_ENABLED,
+      23,
+      FixedPcdGet64 (PcdGicInterruptInterfaceBase),
+      0x2A706000,
+      0x2A704000,
+      25,
+      0,
+      0
+      ),
+    EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
+      // A72-0 (cluster 1, core 0)
+      0,
+      4,
+      GET_MPID (0, 0x100),
+      EFI_ACPI_6_0_GIC_ENABLED,
+      23,
+      FixedPcdGet64 (PcdGicInterruptInterfaceBase),
+      0x2A706000,
+      0x2A704000,
+      25,
+      0,
+      1
+      ),
+    EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
+      // A72-1 (cluster 1, core 1)
+      0,
+      5,
+      GET_MPID (0, 0x101),
+      EFI_ACPI_6_0_GIC_ENABLED,
+      23,
+      FixedPcdGet64 (PcdGicInterruptInterfaceBase),
+      0x2A706000,
+      0x2A704000,
+      25,
+      0,
+      1
+      ),
+    EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
+      // A72-2 (cluster 1, core 2)
+      0,
+      6,
+      GET_MPID (0, 0x102),
+      EFI_ACPI_6_0_GIC_ENABLED,
+      23,
+      FixedPcdGet64 (PcdGicInterruptInterfaceBase),
+      0x2A706000,
+      0x2A704000,
+      25,
+      0,
+      1
+      ),
+    EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
+      // A72-3 (cluster 1, core 3)
+      0,
+      7,
+      GET_MPID (0, 0x103),
+      EFI_ACPI_6_0_GIC_ENABLED,
+      23,
+      FixedPcdGet64 (PcdGicInterruptInterfaceBase),
+      0x2A706000,
+      0x2A704000,
+      25,
+      0,
+      1
+      ),
+  },
+  // GIC Distributor Entry — GICD @ 0x2A701000, GICv2
+  EFI_ACPI_6_0_GIC_DISTRIBUTOR_INIT (
+    0,
+    FixedPcdGet64 (PcdGicDistributorBase),
+    0,
+    EFI_ACPI_6_0_GIC_V2
+    ),
+};
+
+//
+// Reference the table being generated to prevent the optimizer
+// from removing the data structure from the executable
+//
+VOID *CONST  ReferenceAcpiTable = &Madt;

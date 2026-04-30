@@ -1,0 +1,27 @@
+#/** @file
+#
+#  RK3576 OTP stub library.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = OtpLib
+  FILE_GUID                      = 7C5D8E2A-1A4F-4C3B-9D8A-2E5B7C1FAE02
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OtpLib
+
+[Sources]
+  OtpLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  Silicon/Rockchip/RK3588/RK3588.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib

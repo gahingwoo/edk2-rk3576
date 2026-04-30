@@ -1,0 +1,317 @@
+/** @file
+ *
+ *  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
+ *
+ *  SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ **/
+
+#langdef en-US  "English"
+
+#string STR_NULL_STRING   #language en-US ""
+
+#string STR_FORM_SET_TITLE              #language en-US "Rockchip Platform Configuration"
+#string STR_FORM_SET_TITLE_HELP         #language en-US "Configure various platform settings."
+#string STR_FORM_SET_TITLE_SUBTITLE     #language en-US "Configuration Options"
+
+/*
+ * Common strings
+ */
+#string STR_DISABLED                                       #language en-US "Disabled"
+#string STR_ENABLED                                        #language en-US "Enabled"
+#string STR_PLUS_SIGN                                      #language en-US "+"
+#string STR_MINUS_SIGN                                     #language en-US "-"
+
+/*
+ * Display configuration
+ */
+#string STR_DISPLAY_FORM_TITLE                             #language en-US "Display"
+#string STR_DISPLAY_FORM_HELP                              #language en-US "Configure the display output."
+#string STR_DISPLAY_FORM_SUBTITLE                          #language en-US "Note: Press LCtrl+LShift+F6 at any time to reboot with default display settings."
+
+#string STR_DISPLAY_MODE_PRESET_PROMPT                     #language en-US "Preferred Mode"
+#string STR_DISPLAY_MODE_PRESET_HELP                       #language en-US "Choose the preferred display mode."
+#string STR_DISPLAY_MODE_NATIVE                            #language en-US "Native"
+#string STR_DISPLAY_MODE_CUSTOM                            #language en-US "Custom"
+#string STR_DISPLAY_MODE_640_480_60                        #language en-US "640 x 480 @ 60 Hz"
+#string STR_DISPLAY_MODE_800_600_60                        #language en-US "800 x 600 @ 60 Hz"
+#string STR_DISPLAY_MODE_1024_768_60                       #language en-US "1024 x 768 @ 60 Hz"
+#string STR_DISPLAY_MODE_1152_864_60                       #language en-US "1152 x 864 @ 60 Hz"
+#string STR_DISPLAY_MODE_1280_720_60                       #language en-US "1280 x 720 @ 60 Hz"
+#string STR_DISPLAY_MODE_1280_768_60                       #language en-US "1280 x 768 @ 60 Hz"
+#string STR_DISPLAY_MODE_1280_800_60                       #language en-US "1280 x 800 @ 60 Hz"
+#string STR_DISPLAY_MODE_1280_960_60                       #language en-US "1280 x 960 @ 60 Hz"
+#string STR_DISPLAY_MODE_1280_1024_60                      #language en-US "1280 x 1024 @ 60 Hz"
+#string STR_DISPLAY_MODE_1360_768_60                       #language en-US "1360 x 768 @ 60 Hz"
+#string STR_DISPLAY_MODE_1400_1050_60                      #language en-US "1400 x 1050 @ 60 Hz"
+#string STR_DISPLAY_MODE_1440_900_60                       #language en-US "1440 x 900 @ 60 Hz"
+#string STR_DISPLAY_MODE_1600_900_60                       #language en-US "1600 x 900 @ 60 Hz"
+#string STR_DISPLAY_MODE_1600_1200_60                      #language en-US "1600 x 1200 @ 60 Hz"
+#string STR_DISPLAY_MODE_1680_1050_60                      #language en-US "1680 x 1050 @ 60 Hz"
+#string STR_DISPLAY_MODE_1920_1080_60                      #language en-US "1920 x 1080 @ 60 Hz"
+#string STR_DISPLAY_MODE_1920_1200_60                      #language en-US "1920 x 1200 @ 60 Hz"
+#string STR_DISPLAY_MODE_2048_1152_60                      #language en-US "2048 x 1152 @ 60 Hz"
+#string STR_DISPLAY_MODE_2560_1080_60                      #language en-US "2560 x 1080 @ 60 Hz"
+#string STR_DISPLAY_MODE_2560_1440_60                      #language en-US "2560 x 1440 @ 60 Hz"
+#string STR_DISPLAY_MODE_2560_1600_60                      #language en-US "2560 x 1600 @ 60 Hz"
+#string STR_DISPLAY_MODE_3440_1440_60                      #language en-US "3440 x 1440 @ 60 Hz"
+#string STR_DISPLAY_MODE_3840_2160_30                      #language en-US "3840 x 2160 @ 30 Hz"
+#string STR_DISPLAY_MODE_3840_2160_60                      #language en-US "3840 x 2160 @ 60 Hz"
+#string STR_DISPLAY_MODE_4096_2160_30                      #language en-US "4096 x 2160 @ 30 Hz"
+#string STR_DISPLAY_MODE_4096_2160_60                      #language en-US "4096 x 2160 @ 60 Hz"
+
+#string STR_DISPLAY_MODE_CUSTOM_PIXEL_CLOCK                #language en-US "Pixel Clock (kHz)"
+#string STR_DISPLAY_MODE_CUSTOM_HORIZONTAL_ACTIVE          #language en-US "Horizontal Active"
+#string STR_DISPLAY_MODE_CUSTOM_HORIZONTAL_FRONT_PORCH     #language en-US "Horizontal Front Porch"
+#string STR_DISPLAY_MODE_CUSTOM_HORIZONTAL_SYNC_WIDTH      #language en-US "Horizontal Sync Width"
+#string STR_DISPLAY_MODE_CUSTOM_HORIZONTAL_BACK_PORCH      #language en-US "Horizontal Back Porch"
+#string STR_DISPLAY_MODE_CUSTOM_HORIZONTAL_SYNC_POLARITY   #language en-US "Horizontal Sync Polarity"
+#string STR_DISPLAY_MODE_CUSTOM_VERTICAL_ACTIVE            #language en-US "Vertical Active"
+#string STR_DISPLAY_MODE_CUSTOM_VERTICAL_FRONT_PORCH       #language en-US "Vertical Front Porch"
+#string STR_DISPLAY_MODE_CUSTOM_VERTICAL_SYNC_WIDTH        #language en-US "Vertical Sync Width"
+#string STR_DISPLAY_MODE_CUSTOM_VERTICAL_BACK_PORCH        #language en-US "Vertical Back Porch"
+#string STR_DISPLAY_MODE_CUSTOM_VERTICAL_SYNC_POLARITY     #language en-US "Vertical Sync Polarity"
+
+#string STR_DISPLAY_CONNECTORS_PRIORITY_PROMPT             #language en-US "Connector Priority"
+#string STR_DISPLAY_CONNECTORS_PRIORITY_HELP               #language en-US "Choose the order in which display connectors are probed. The first display detected will be used as the primary output."
+#string STR_DISPLAY_CONNECTOR_HDMI0                        #language en-US "HDMI 0"
+#string STR_DISPLAY_CONNECTOR_HDMI1                        #language en-US "HDMI 1"
+#string STR_DISPLAY_CONNECTOR_EDP0                         #language en-US "eDP 0"
+#string STR_DISPLAY_CONNECTOR_EDP1                         #language en-US "eDP 1"
+#string STR_DISPLAY_CONNECTOR_DP0                          #language en-US "DP 0"
+#string STR_DISPLAY_CONNECTOR_DP1                          #language en-US "DP 1"
+#string STR_DISPLAY_CONNECTOR_MIPI0                        #language en-US "DSI 0"
+#string STR_DISPLAY_CONNECTOR_MIPI1                        #language en-US "DSI 1"
+
+#string STR_DISPLAY_FORCE_OUTPUT_PROMPT                    #language en-US "Force Output"
+#string STR_DISPLAY_FORCE_OUTPUT_HELP                      #language en-US "Enable or disable the display output even when none is connected.\n\n"
+                                                                           "If the serial console is used instead, this option can be disabled to allow OSes to prefer it when possible."
+
+#string STR_DISPLAY_DUPLICATE_OUTPUT_PROMPT                #language en-US "Duplicate Primary Display"
+#string STR_DISPLAY_DUPLICATE_OUTPUT_HELP                  #language en-US "Enable or disable duplication of the primary display output on other connected displays.\n"
+                                                                           "Note that this will use the same mode/resolution everywhere, even if it is not supported by the other displays."
+
+#string STR_DISPLAY_ROTATION_PROMPT                        #language en-US "Rotation"
+#string STR_DISPLAY_ROTATION_HELP                          #language en-US "Choose the display output rotation in degrees.\n\n"
+                                                                           "Note: This option only takes effect in the boot environment. If set to a value other than 0, the OS will be unable to use the UEFI GOP service and will require a native display driver."
+#string STR_DISPLAY_ROTATION_0                             #language en-US "0"
+#string STR_DISPLAY_ROTATION_90                            #language en-US "90"
+#string STR_DISPLAY_ROTATION_180                           #language en-US "180"
+#string STR_DISPLAY_ROTATION_270                           #language en-US "270"
+
+#string STR_DISPLAY_CONNECTOR_TYPE_HDMI                    #language en-US "HDMI"
+
+#string STR_HDMI_SIGNALING_MODE_PROMPT                     #language en-US "Signaling Mode"
+#string STR_HDMI_SIGNALING_MODE_HELP                       #language en-US "Choose the preferred HDMI signaling mode.\n\n"
+                                                                           "Auto - determines mode from the connected display, otherwise falls back to DVI.\n\n"
+                                                                           "DVI - disables all data packets. This option may help the display use full range RGB and disable overscan to match the firmware output.\n\n"
+                                                                           "HDMI - allows transmission of data packets."
+#string STR_HDMI_SIGNALING_MODE_AUTO                       #language en-US "Auto"
+#string STR_HDMI_SIGNALING_MODE_DVI                        #language en-US "DVI"
+#string STR_HDMI_SIGNALING_MODE_HDMI                       #language en-US "HDMI"
+
+/*
+ * CPU Performance configuration
+ */
+#string STR_CPU_PERF_FORM_TITLE                            #language en-US "CPU Performance"
+#string STR_CPU_PERF_FORM_HELP                             #language en-US "Adjust CPU clocks and voltages."
+#string STR_CPU_PERF_FORM_SUBTITLE                         #language en-US "Note: All these settings may be overridden by the OS if supported."
+
+#string STR_CPU_PERF_CLUSTER_CLOCKS_SUBTITLE               #language en-US "Cluster Clocks"
+
+#string STR_CPU_PERF_CPUL_CLUSTER_CLOCK_PRESET_PROMPT      #language en-US "CPUL Clock Preset"
+#string STR_CPU_PERF_CPUL_CLUSTER_CLOCK_PRESET_HELP        #language en-US "Clock preset for the Arm LITTLE cores (Cortex-A55) cluster.\n\nBoot default will retain the frequency set by earlier boot stages.\n\nWARNING! Setting Maximum clock rate is NOT recommended without adequate cooling and power supply."
+#string STR_CPU_PERF_CPUL_CLUSTER_CLOCK_CUSTOM_PROMPT      #language en-US "CPUL Custom Clock (MHz)"
+#string STR_CPU_PERF_CPUL_CLUSTER_CLOCK_CUSTOM_HELP        #language en-US "Custom target clock for the Arm LITTLE cores (Cortex-A55) cluster.\n\nNote that the actual frequency will vary with voltage starting from 816 MHz."
+
+#string STR_CPU_PERF_CPUB01_CLUSTER_CLOCK_PRESET_PROMPT    #language en-US "CPUB01 Clock Preset"
+#string STR_CPU_PERF_CPUB01_CLUSTER_CLOCK_CUSTOM_PROMPT    #language en-US "CPUB01 Custom Clock (MHz)"
+
+#string STR_CPU_PERF_CPUB23_CLUSTER_CLOCK_PRESET_PROMPT    #language en-US "CPUB23 Clock Preset"
+#string STR_CPU_PERF_CPUB23_CLUSTER_CLOCK_CUSTOM_PROMPT    #language en-US "CPUB23 Custom Clock (MHz)"
+
+#string STR_CPU_PERF_CPUB_CLUSTER_CLOCK_PRESET_HELP        #language en-US "Clock preset for the selected Arm big cores (Cortex-A76) cluster.\n\nBoot default will retain the frequency set by earlier boot stages.\n\nWARNING! Setting Maximum clock rate is NOT recommended without adequate cooling and power supply."
+#string STR_CPU_PERF_CPUB_CLUSTER_CLOCK_CUSTOM_HELP        #language en-US "Custom target clock for the selected Arm big cores (Cortex-A76) cluster.\n\nNote that the actual frequency will vary with voltage starting from 816 MHz."
+
+#string STR_CPU_PERF_CLUSTER_CLOCK_PRESET_BOOTDEF          #language en-US "Boot default"
+#string STR_CPU_PERF_CLUSTER_CLOCK_PRESET_MIN              #language en-US "Minimum"
+#string STR_CPU_PERF_CLUSTER_CLOCK_PRESET_MAX              #language en-US "Maximum"
+#string STR_CPU_PERF_CLUSTER_CLOCK_PRESET_CUSTOM           #language en-US "Custom"
+
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_408              #language en-US "408"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_600              #language en-US "600"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_816              #language en-US "816"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_1008             #language en-US "1008"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_1200             #language en-US "1200"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_1416             #language en-US "1416"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_1608             #language en-US "1608"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_1800             #language en-US "1800"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_2016             #language en-US "2016"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_2208             #language en-US "2208"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_2256             #language en-US "2256"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_2304             #language en-US "2304"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_2352             #language en-US "2352"
+#string STR_CPU_PERF_CLUSTER_CLOCK_CUSTOM_2400             #language en-US "2400"
+
+#string STR_CPU_PERF_CLUSTER_VOLTAGES_SUBTITLE             #language en-US "Cluster Voltages"
+
+#string STR_CPU_PERF_CPUL_CLUSTER_VOLTAGE_MODE_PROMPT      #language en-US "CPUL Voltage Mode"
+#string STR_CPU_PERF_CPUL_CLUSTER_VOLTAGE_MODE_HELP        #language en-US "Voltage mode for the Arm LITTLE cores (Cortex-A55) cluster.\n\n Automatic = voltage is set according to predefined OPP table.\n Custom = voltage is user-controlled, affecting clock rate too due to PVTPLL."
+#string STR_CPU_PERF_CPUL_CLUSTER_VOLTAGE_CUSTOM_PROMPT    #language en-US "CPUL Custom Volt (uV)"
+#string STR_CPU_PERF_CPUL_CLUSTER_VOLTAGE_CUSTOM_HELP      #language en-US "Custom regulator voltage for the Arm LITTLE cores (Cortex-A55) cluster.\n\nUse +/- keys to increment/decrement value by the predefined step.\n\nWARNING! Higher custom voltage may cause system instability and excessive heat."
+
+#string STR_CPU_PERF_CPUB01_CLUSTER_VOLTAGE_MODE_PROMPT    #language en-US "CPUB01 Voltage Mode"
+#string STR_CPU_PERF_CPUB01_CLUSTER_VOLTAGE_CUSTOM_PROMPT  #language en-US "CPUB01 Custom Volt (uV)"
+
+#string STR_CPU_PERF_CPUB23_CLUSTER_VOLTAGE_MODE_PROMPT    #language en-US "CPUB23 Voltage Mode"
+#string STR_CPU_PERF_CPUB23_CLUSTER_VOLTAGE_CUSTOM_PROMPT  #language en-US "CPUB23 Custom Volt (uV)"
+
+#string STR_CPU_PERF_CPUB_CLUSTER_VOLTAGE_MODE_HELP        #language en-US "Voltage mode for the selected Arm big cores (Cortex-A76) cluster.\n\n Automatic = voltage is set according to predefined OPP table.\n Custom = voltage is user-controlled, affecting clock rate too due to PVTPLL."
+#string STR_CPU_PERF_CPUB_CLUSTER_VOLTAGE_CUSTOM_HELP      #language en-US "Custom regulator voltage for the selected Arm big cores (Cortex-A76) cluster.\n\nUse +/- keys to increment/decrement value by the predefined step.\n\nWARNING! Higher custom voltage may cause system instability and excessive heat."
+
+#string STR_CPU_PERF_CLUSTER_VOLTAGE_MODE_AUTO             #language en-US "Automatic"
+#string STR_CPU_PERF_CLUSTER_VOLTAGE_MODE_CUSTOM           #language en-US "Custom"
+
+/*
+ * PCIe/SATA/USB Combo PIPE PHY configuration
+ */
+#string STR_COMBO_PHY_FORM_TITLE                           #language en-US "PCIe/SATA/USB Combo PIPE PHY"
+#string STR_COMBO_PHY_FORM_HELP                            #language en-US "Configure the Combo PIPE PHY operation modes."
+#string STR_COMBO_PHY_FORM_SUBTITLE                        #language en-US "Note: the selected mode must match the interface of the connected device."
+
+#string STR_COMBO_PHY0_MODE_PROMPT                         #language en-US "PHY #0 Mode"
+#string STR_COMBO_PHY1_MODE_PROMPT                         #language en-US "PHY #1 Mode"
+#string STR_COMBO_PHY2_MODE_PROMPT                         #language en-US "PHY #2 Mode"
+
+#string STR_COMBO_PHY_MODE_UNCONNECTED                     #language en-US "Unconnected"
+#string STR_COMBO_PHY_MODE_PCIE                            #language en-US "PCIe 2.1 x1"
+#string STR_COMBO_PHY_MODE_SATA                            #language en-US "SATA 3.1"
+#string STR_COMBO_PHY_MODE_USB3                            #language en-US "USB 3.1 Gen 1"
+
+#string STR_COMBO_PHY_MODE_DEFAULT_UNCONNECTED_HELP        #language en-US "This PHY may not be wired to any slot or device."
+#string STR_COMBO_PHY_MODE_DEFAULT_PCIE_HELP               #language en-US "This PHY may be wired to an M.2 or Mini PCIe slot.\n\nConsult your platform's documentation for details on potential alternate modes, such as SATA or USB."
+#string STR_COMBO_PHY_MODE_DEFAULT_SATA_HELP               #language en-US "This PHY may be wired to a SATA or M.2 slot.\n\nConsult your platform's documentation for details on potential alternate modes, such as PCIe or USB."
+#string STR_COMBO_PHY_MODE_DEFAULT_USB3_HELP               #language en-US "This PHY is wired to an USB 3.1 Gen 1 Type-A port.\n\nConsult your platform's documentation for details on potential alternate modes, such as PCIe or SATA (via non-standard adapters)."
+
+/*
+ * USB/DP Combo PHY configuration
+ */
+#string STR_USBDP_PHY_FORM_TITLE                           #language en-US "USB/DP Combo PHY"
+#string STR_USBDP_PHY_FORM_HELP                            #language en-US "Configure the USB/DP Combo PHY operation modes."
+
+#string STR_USBDP_PHY0_USB3_STATE_PROMPT                   #language en-US "PHY #0 USB 3 SuperSpeed State"
+#string STR_USBDP_PHY1_USB3_STATE_PROMPT                   #language en-US "PHY #1 USB 3 SuperSpeed State"
+#string STR_USBDP_PHY_USB3_STATE_PROMPT                    #language en-US "Enable or disable SuperSpeed signaling on the selected PHY.\n\nIf USB 3.0 devices connected to the associated Type-C or Type-A port malfunction, disabling this option may help."
+
+/*
+ * PCI Express 3.0 configuration
+ */
+#string STR_PCIE30_FORM_TITLE                              #language en-US "PCI Express 3.0"
+#string STR_PCIE30_FORM_HELP                               #language en-US "Configure the PCIe 3.0 operation modes."
+
+#string STR_PCIE30_STATE_PROMPT                            #language en-US "Support State"
+#string STR_PCIE30_STATE_HELP                              #language en-US "Enable or disable PCIe 3.0 support."
+
+#string STR_PCIE30_PHY_MODE_PROMPT                         #language en-US "PHY Mode"
+#string STR_PCIE30_PHY_MODE_HELP                           #language en-US "Choose PHY Mode\n\nx4:\n    4l -> PCIe3 PHY lane 0123\n    2l -> Not connected\n    1l0 -> Combo PHY #1\n    1l1 -> Combo PHY #2\n    1l2 -> Combo PHY #0\n\nx2 x2:\n    4l -> PCIe3 PHY lane 01\n    2l -> PCIe3 PHY lane 23\n    1l0 -> Combo PHY #1\n    1l1 -> Combo PHY #2\n    1l2 -> Combo PHY #0\n\nx1x1 x2:\n    4l -> PCIe3 PHY lane 0\n    2l -> PCIe3 PHY lane 23\n    1l0 -> PCIe3 PHY lane 1\n    1l1 -> Combo PHY #2\n    1l2 -> Combo PHY #0\n\nx2 x1x1:\n    4l -> PCIe3 PHY lane 01\n    2l -> PCIe3 PHY lane 2\n    1l0 -> Combo PHY #1\n    1l1 -> PCIe3 PHY lane 3\n    1l2 -> Combo PHY #0\n\nx1x1 x1x1:\n    4l -> PCIe3 PHY lane 0\n    2l -> PCIe3 PHY lane 2\n    1l0 -> PCIe3 PHY lane 1\n    1l1 -> PCIe3 PHY lane 3\n    1l2 -> Combo PHY #0\n"
+#string STR_PCIE30_PHY_MODE_AGGREGATION                    #language en-US "x4"
+#string STR_PCIE30_PHY_MODE_NANBNB                         #language en-US "x2 x2"
+#string STR_PCIE30_PHY_MODE_NANBBI                         #language en-US "x1x1 x2"
+#string STR_PCIE30_PHY_MODE_NABINB                         #language en-US "x2 x1x1"
+#string STR_PCIE30_PHY_MODE_NABIBI                         #language en-US "x1x1 x1x1"
+
+/*
+ * ACPI / Device Tree configuration
+ */
+#string STR_CONFIG_TABLE_FORM_TITLE                        #language en-US "ACPI / Device Tree"
+#string STR_CONFIG_TABLE_FORM_HELP                         #language en-US "Configure the ACPI and Device Tree system tables support."
+
+#string STR_CONFIG_TABLE_MODE_PROMPT                       #language en-US "Config Table Mode"
+#string STR_CONFIG_TABLE_MODE_HELP                         #language en-US "Choose what config tables to expose to the OS.\n\n"
+                                                                           "ACPI - provides basic hardware support (USB, PCIe, SATA) for most OS/kernel versions, such as Windows, BSD, VMware ESXi. It is not recommended for Linux usage; please use a recent kernel with Device Tree instead.\n\n"
+                                                                           "Device Tree - provides extensive hardware support specific to a kernel variant.\nDepending on the platform, the firmware may include DTBs compatible with either the Rockchip SDK Linux kernel or the generic mainline/upstream kernels.\n\nIf both options are exposed, the OS will decide which one to use. Linux prefers DT, while Windows will only use ACPI."
+#string STR_CONFIG_TABLE_MODE_ACPI                         #language en-US "ACPI"
+#string STR_CONFIG_TABLE_MODE_FDT                          #language en-US "Device Tree"
+#string STR_CONFIG_TABLE_MODE_ACPI_FDT                     #language en-US "Both"
+
+#string STR_CONFIG_TABLE_ACPI_SUBTITLE                     #language en-US "ACPI Configuration"
+
+#string STR_ACPI_PCIE_ECAM_COMPAT_MODE_PROMPT              #language en-US "PCIe ECAM Compatibility Mode"
+#string STR_ACPI_PCIE_ECAM_COMPAT_MODE_HELP                #language en-US "Choose how to expose the non-standard PCIe configuration space to the OS.\n\n"
+                                                                           "Single Device - compatible with all OSes. Allows usage of a single or multi-function device. Switches are not supported.\n\n"
+                                                                           "NXPMX6 - compatible with Windows. Switches are supported.\n\n"
+                                                                           "AMAZON GRAVITON - compatible with Linux. Switches are supported.\n\n"
+                                                                           "The Auto mode selects NXPMX6 for Windows, AMAZON GRAVTION for Linux or Single Device for other OSes."
+#string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language en-US "Auto"
+#string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language en-US "Single Device"
+#string STR_ACPI_PCIE_ECAM_COMPAT_MODE_NXPMX6              #language en-US "NXPMX6"
+#string STR_ACPI_PCIE_ECAM_COMPAT_MODE_GRAVITON            #language en-US "AMAZON GRAVITON"
+
+#string STR_CONFIG_TABLE_FDT_SUBTITLE                      #language en-US "Device Tree Configuration"
+
+#string STR_FDT_COMPAT_MODE_PROMPT                         #language en-US "Compatibility Mode"
+#string STR_FDT_COMPAT_MODE_HELP                           #language en-US "Choose what Device Tree to expose to the OS.\n\n"
+                                                                           "Vendor - compatible with Rockchip SDK Linux 6.1 kernel only.\n\n"
+                                                                           "Mainline - compatible with generic upstream Linux 6.10 or newer kernel. This option is under active development and may lack certain features. Therefore, it is always recommended to use the latest kernel and firmware available in order to benefit from better device support."
+#string STR_FDT_COMPAT_MODE_VENDOR                         #language en-US "Vendor"
+#string STR_FDT_COMPAT_MODE_MAINLINE                       #language en-US "Mainline"
+
+#string STR_FDT_FORCE_GOP_PROMPT                           #language en-US "Force UEFI GOP Display"
+#string STR_FDT_FORCE_GOP_HELP                             #language en-US "This option allows using the basic display output provided by UEFI GOP (HDMI/DP/DSI) on older Linux kernels, which lack native driver support."
+
+#string STR_FDT_SUPPORT_OVERRIDES_PROMPT                   #language en-US "Support DTB override & overlays"
+#string STR_FDT_SUPPORT_OVERRIDES_HELP                     #language en-US "Enable or disable support for overriding the firmware-provided DTB and installing overlays.\n\nCheck firmware documentation for more details."
+
+#string STR_FDT_OVERRIDE_SUBTITLE                          #language en-US "DTB Override"
+
+#string STR_FDT_OVERRIDE_FIXUP_PROMPT                      #language en-US "Firmware Fix-ups"
+#string STR_FDT_OVERRIDE_FIXUP_HELP                        #language en-US "Enable or disable firmware fix-ups for the DTB override."
+
+#string STR_FDT_OVERRIDE_BASE_PATH_PROMPT                  #language en-US "Preferred Base DTB Path"
+#string STR_FDT_OVERRIDE_BASE_PATH_HELP                    #language en-US "Enter the preferred file or directory path for the base DTB override, relative to the file system root.\n\n"
+                                                                           "Once a boot device is selected, the firmware will scan all the supported file systems on it (FAT, ext4) and try to load the specified override.\n\n"
+                                                                           "- If a directory path is specified, the platform FDT file name will be appended to it (<PLATFORM-DT-NAME>).\n"
+                                                                           "- If a file path is specified, it will be used as is.\n"
+                                                                           "- If no override exists, the firmware-provided DTB will be used instead.\n\n"
+                                                                           "Examples:\n"
+                                                                           " \\dtbs\n"
+                                                                           " \\dtbs\\my-board.dtb\n\n"
+                                                                           "Default alternative paths:\n"
+                                                                           " \\dtb\n"
+                                                                           " \\dtb\\base\n"
+                                                                           " \\dtb\\rockchip\n\n"
+                                                                           "To reset this option to the default value, set it to a space character, save and reboot."
+
+#string STR_FDT_OVERRIDE_OVERLAY_PATH_PROMPT               #language en-US "Preferred Overlays Path"
+#string STR_FDT_OVERRIDE_OVERLAY_PATH_HELP                 #language en-US "Enter the preferred directory path for the DTB overlays, relative to the file system root.\n\n"
+                                                                           "Once a boot device is selected, the firmware will scan all the supported file systems on it (FAT, ext4) and try to load all overlays in the specified directory.\n\n"
+                                                                           "- If the installation of an overlay fails, all other overlays will be discarded.\n\n"
+                                                                           "Examples:\n"
+                                                                           " \\my-overlays\n"
+                                                                           " \\dtbs\\overlays\n\n"
+                                                                           "Default alternative paths:\n"
+                                                                           " \\dtb\\overlays\n"
+                                                                           " \\dtb\\overlays\\<PLATFORM-DT-NAME>\n\n"
+                                                                           "To reset this option to the default value, set it to a space character, save and reboot."
+
+/*
+ * Cooling fan configuration
+ */
+
+#string STR_COOLING_FAN_FORM_TITLE                         #language en-US "Cooling Fan"
+#string STR_COOLING_FAN_FORM_HELP                          #language en-US "Configure the on-board cooling fan."
+
+#string STR_COOLING_FAN_STATE_PROMPT                       #language en-US "On-board Fan"
+#string STR_COOLING_FAN_STATE_HELP                         #language en-US "Enable or disable the on-board fan output."
+
+#string STR_COOLING_FAN_SPEED_PROMPT                       #language en-US "Fan Speed (%)"
+#string STR_COOLING_FAN_SPEED_HELP                         #language en-US "PWM duty cycle of on-board fan output."
+
+/*
+ * Debug Serial Port configuration
+ */
+#string STR_DEBUG_SERIAL_PORT_FORM_TITLE                   #language en-US "Debug Serial Port"
+#string STR_DEBUG_SERIAL_PORT_FORM_HELP                    #language en-US "Configure the debug (UART) serial port."
+#string STR_DEBUG_SERIAL_PORT_SUBTITLE                     #language en-US "Note: These settings only take effect in UEFI and might be overridden by the OS. Earlier boot messages will be printed at the default settings."
+
+#string STR_DEBUG_SERIAL_PORT_BAUD_RATE_PROMPT             #language en-US "Baud Rate"

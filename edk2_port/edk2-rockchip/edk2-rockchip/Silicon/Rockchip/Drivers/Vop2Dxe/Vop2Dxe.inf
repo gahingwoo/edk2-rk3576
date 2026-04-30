@@ -1,0 +1,44 @@
+## @file
+#  The Vop2 driver file.
+#
+#  Copyright (c) 2022 Rockchip Electronics Co. Ltd.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = Vop2Dxe
+  FILE_GUID                      = 1cbb3666-99fe-11ec-9927-f42a7dcb925d
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+
+  ENTRY_POINT                    = Vop2DxeInitialize
+
+[Sources]
+  Vop2Dxe.c
+
+[Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3588/RK3588.dec
+
+[LibraryClasses]
+  TimerLib
+  IoLib
+  DebugLib
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  RockchipDisplayLib
+  UefiDriverEntryPoint
+  CruLib
+
+[Protocols]
+  gRockchipCrtcProtocolGuid
+
+[Depex]
+  TRUE

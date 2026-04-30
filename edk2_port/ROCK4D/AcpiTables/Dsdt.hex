@@ -1,0 +1,26 @@
+/*
+ * 
+ * Intel ACPI Component Architecture
+ * ASL+ Optimizing Compiler/Disassembler version 20230628 (64-bit version)
+ * Copyright (c) 2000 - 2023 Intel Corporation
+ * 
+ * Compilation of "Dsdt.asl" - Wed Apr 22 19:22:39 2026
+ * 
+ * C source code output
+ * AML code block contains 0x2A bytes
+ *
+ */
+#ifndef __DSDT_HEX__
+#define __DSDT_HEX__
+
+unsigned char dsdt_aml_code[] =
+{
+    0x44,0x53,0x44,0x54,0x2A,0x00,0x00,0x00,  /* 00000000    "DSDT*..." */
+    0x02,0x71,0x52,0x4B,0x43,0x50,0x20,0x20,  /* 00000008    ".qRKCP  " */
+    0x52,0x4B,0x33,0x35,0x37,0x36,0x20,0x20,  /* 00000010    "RK3576  " */
+    0x02,0x00,0x00,0x00,0x49,0x4E,0x54,0x4C,  /* 00000018    "....INTL" */
+    0x28,0x06,0x23,0x20,0x10,0x05,0x5F,0x53,  /* 00000020    "(.# .._S" */
+    0x42,0x5F                                 /* 00000028    "B_"       */
+};
+
+#endif

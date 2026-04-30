@@ -1,0 +1,33 @@
+## @file
+#
+#  RkSdmmcDxe platform helper library — RK3576 variant.
+#  Programs SD clock via direct CRU writes (no SCMI on RK3576).
+#
+#  Copyright (c) 2023, Mario Bălănică <mariobalanica02@gmail.com>
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = Rk3576SdmmcPlatformLib
+  FILE_GUID                      = b9039d6e-6d84-4f32-bfc5-9c328ed3e661
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = RkSdmmcPlatformLib
+
+[Sources]
+  RkSdmmcPlatformLib.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  DebugLib
+  GpioLib
+  IoLib
+  RockchipPlatformLib

@@ -1,0 +1,20 @@
+#/** @file
+#  Minimal ACPI tables for Radxa ROCK 4D (RK3576)
+#  Primary boot mode is FDT (Device Tree) for Armbian/Radxa/Rockchip BSP.
+#
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#**/
+
+[Defines]
+  INF_VERSION    = 0x0001001A
+  BASE_NAME      = AcpiTables
+  FILE_GUID      = d9b5ff64-c4d4-498e-9367-d44fa912e64b
+  MODULE_TYPE    = USER_DEFINED
+  VERSION_STRING = 1.0
+
+[Sources.AARCH64]
+  Dsdt.asl
+
+[Packages]
+  MdePkg/MdePkg.dec

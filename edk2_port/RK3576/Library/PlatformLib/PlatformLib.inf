@@ -1,0 +1,29 @@
+## @file
+#
+#  RK3576 Silicon-level Platform Library
+#
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = RK3576PlatformLib
+  FILE_GUID                      = 3c7a2e1f-8b4d-4e9a-a2c6-1f5d8e0b3c8d
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = RK3576PlatformLib
+
+[Sources]
+  PlatformLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib

@@ -1,0 +1,29 @@
+#/** @file
+#
+#  SDRAM size detection for RK3576
+#  OS registers at PMU1_GRF (0x26026000) + 0x200
+#
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION    = 0x0001001A
+  BASE_NAME      = RK3576SdramLib
+  FILE_GUID      = e3f4a5b6-c7d8-4e9f-a0b1-c2d3e4f5a6b7
+  MODULE_TYPE    = BASE
+  VERSION_STRING = 1.0
+  LIBRARY_CLASS  = SdramLib
+
+[Sources]
+  SdramLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  IoLib
+  DebugLib

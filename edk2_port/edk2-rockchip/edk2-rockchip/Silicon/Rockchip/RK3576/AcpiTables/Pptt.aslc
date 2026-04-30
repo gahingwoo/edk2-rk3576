@@ -1,0 +1,270 @@
+/** @file
+ *
+ *  RK3576 SoC Processor Properties Topology Table
+ *
+ *  CPU topology (from rk3576.dtsi):
+ *    Cluster 0: 4x Cortex-A53 (little)
+ *    Cluster 1: 4x Cortex-A72 (big)
+ *
+ *  Cache hierarchy (from ARM TRM):
+ *    A53: 32KB L1D, 32KB L1I, 128KB L2 (per-cluster shared)
+ *    A72: 48KB L1D, 48KB L1I, 512KB-1MB L2 (per-cluster shared)
+ *    No L3 cache on RK3576.
+ *
+ *  This table is based on the ACPI 6.2 spec because Windows
+ *  (tested with build 22621.1992) is not able to properly parse
+ *  newer revisions:
+ *    - ACPI 6.3 (rev 2) leads to doubled L3 cache size.
+ *    - ACPI 6.4 (rev 3) leads to a 0x7E bug check due to the new
+ *      Cache ID field in the Cache Type Structure (see Table 5.140).
+ *
+ *  Copyright (c) 2023, Mario Bălănică <mariobalanica02@gmail.com>
+ *  Copyright (c) 2025, ROCK 4D RK3576 Port
+ *
+ *  SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ **/
+
+#include "AcpiTables.h"
+
+#pragma pack(1)
+typedef struct {
+  EFI_ACPI_6_2_PPTT_STRUCTURE_PROCESSOR    Package;
+} RK3576_PPTT_PACKAGE_NODE;
+
+typedef struct {
+  EFI_ACPI_6_2_PPTT_STRUCTURE_PROCESSOR    Cluster;
+} RK3576_PPTT_CLUSTER_NODE;
+
+typedef struct {
+  EFI_ACPI_6_2_PPTT_STRUCTURE_PROCESSOR    Core;
+  UINT32                                   L1DCacheRef;
+  UINT32                                   L1ICacheRef;
+  UINT32                                   L2CacheRef;
+} RK3576_PPTT_CORE_NODE;
+
+typedef struct {
+  EFI_ACPI_6_2_PROCESSOR_PROPERTIES_TOPOLOGY_TABLE_HEADER    Header;
+  RK3576_PPTT_PACKAGE_NODE                                   Package;
+  RK3576_PPTT_CLUSTER_NODE                                   Clusters[2];
+  RK3576_PPTT_CORE_NODE                                      Cores[8];
+  EFI_ACPI_6_2_PPTT_STRUCTURE_CACHE                          A53L1DCache;
+  EFI_ACPI_6_2_PPTT_STRUCTURE_CACHE                          A53L1ICache;
+  EFI_ACPI_6_2_PPTT_STRUCTURE_CACHE                          A53L2Cache;
+  EFI_ACPI_6_2_PPTT_STRUCTURE_CACHE                          A72L1DCache;
+  EFI_ACPI_6_2_PPTT_STRUCTURE_CACHE                          A72L1ICache;
+  EFI_ACPI_6_2_PPTT_STRUCTURE_CACHE                          A72L2Cache;
+} RK3576_PPTT;
+#pragma pack()
+
+///
+/// For PPTT struct processor flags
+///
+#define EFI_ACPI_6_2_PPTT_PACKAGE_NOT_PHYSICAL  0x0
+#define EFI_ACPI_6_2_PPTT_PACKAGE_PHYSICAL      0x1
+#define EFI_ACPI_6_2_PPTT_PROCESSOR_ID_INVALID  0x0
+#define EFI_ACPI_6_2_PPTT_PROCESSOR_ID_VALID    0x1
+
+///
+/// For PPTT struct cache flags
+///
+#define EFI_ACPI_6_2_PPTT_CACHE_SIZE_INVALID       0x0
+#define EFI_ACPI_6_2_PPTT_CACHE_SIZE_VALID         0x1
+#define EFI_ACPI_6_2_PPTT_NUMBER_OF_SETS_INVALID   0x0
+#define EFI_ACPI_6_2_PPTT_NUMBER_OF_SETS_VALID     0x1
+#define EFI_ACPI_6_2_PPTT_ASSOCIATIVITY_INVALID    0x0
+#define EFI_ACPI_6_2_PPTT_ASSOCIATIVITY_VALID      0x1
+#define EFI_ACPI_6_2_PPTT_ALLOCATION_TYPE_INVALID  0x0
+#define EFI_ACPI_6_2_PPTT_ALLOCATION_TYPE_VALID    0x1
+#define EFI_ACPI_6_2_PPTT_CACHE_TYPE_INVALID       0x0
+#define EFI_ACPI_6_2_PPTT_CACHE_TYPE_VALID         0x1
+#define EFI_ACPI_6_2_PPTT_WRITE_POLICY_INVALID     0x0
+#define EFI_ACPI_6_2_PPTT_WRITE_POLICY_VALID       0x1
+#define EFI_ACPI_6_2_PPTT_LINE_SIZE_INVALID        0x0
+#define EFI_ACPI_6_2_PPTT_LINE_SIZE_VALID          0x1
+
+#define PPTT_DATA_CACHE_ATTRIBUTES                                                \
+  {                                                                               \
+    EFI_ACPI_6_2_CACHE_ATTRIBUTES_ALLOCATION_READ_WRITE,                          \
+    EFI_ACPI_6_2_CACHE_ATTRIBUTES_CACHE_TYPE_DATA,                                \
+    EFI_ACPI_6_2_CACHE_ATTRIBUTES_WRITE_POLICY_WRITE_BACK                         \
+  }
+
+#define PPTT_INST_CACHE_ATTRIBUTES                                                \
+  {                                                                               \
+    EFI_ACPI_6_2_CACHE_ATTRIBUTES_ALLOCATION_READ,                                \
+    EFI_ACPI_6_2_CACHE_ATTRIBUTES_CACHE_TYPE_INSTRUCTION,                         \
+    EFI_ACPI_6_2_CACHE_ATTRIBUTES_WRITE_POLICY_WRITE_BACK                         \
+  }
+
+#define PPTT_UNIFIED_CACHE_ATTRIBUTES                                             \
+  {                                                                               \
+    EFI_ACPI_6_2_CACHE_ATTRIBUTES_ALLOCATION_READ_WRITE,                          \
+    EFI_ACPI_6_2_CACHE_ATTRIBUTES_CACHE_TYPE_UNIFIED,                             \
+    EFI_ACPI_6_2_CACHE_ATTRIBUTES_WRITE_POLICY_WRITE_BACK                         \
+  }
+
+#define RK3576_PPTT_CLUSTER_NODE_INIT(ClusterUid)  {                              \
+  {                                               /* Cluster */                   \
+    EFI_ACPI_6_2_PPTT_TYPE_PROCESSOR,             /* Type */                      \
+    sizeof (RK3576_PPTT_CLUSTER_NODE),            /* Length */                    \
+    {                                             /* Reserved[2] */               \
+      EFI_ACPI_RESERVED_BYTE,                                                     \
+      EFI_ACPI_RESERVED_BYTE                                                      \
+    },                                                                            \
+    {                                             /* Flags */                     \
+      EFI_ACPI_6_2_PPTT_PACKAGE_NOT_PHYSICAL,                                     \
+      EFI_ACPI_6_2_PPTT_PROCESSOR_ID_VALID                                        \
+    },                                                                            \
+    OFFSET_OF (RK3576_PPTT, Package),             /* Parent */                    \
+    ClusterUid,                                   /* AcpiProcessorId */           \
+    0                                             /* NumberOfPrivateResources */  \
+  }                                                                               \
+}
+
+#define RK3576_PPTT_CORE_NODE_INIT(ClusterIndex, CoreUid,                         \
+                                   L1DCacheField, L1ICacheField, L2CacheField)  { \
+  {                                               /* Core */                      \
+    EFI_ACPI_6_2_PPTT_TYPE_PROCESSOR,             /* Type */                      \
+    sizeof (RK3576_PPTT_CORE_NODE),               /* Length */                    \
+    {                                             /* Reserved[2] */               \
+      EFI_ACPI_RESERVED_BYTE,                                                     \
+      EFI_ACPI_RESERVED_BYTE                                                      \
+    },                                                                            \
+    {                                             /* Flags */                     \
+      EFI_ACPI_6_2_PPTT_PACKAGE_NOT_PHYSICAL,                                     \
+      EFI_ACPI_6_2_PPTT_PROCESSOR_ID_VALID                                        \
+    },                                                                            \
+    OFFSET_OF (RK3576_PPTT,                                                       \
+               Clusters[ClusterIndex]),           /* Parent */                    \
+    CoreUid,                                      /* AcpiProcessorId */           \
+    3                                             /* NumberOfPrivateResources */  \
+  },                                                                              \
+  OFFSET_OF (RK3576_PPTT, L1DCacheField),         /* L1DCacheRef */               \
+  OFFSET_OF (RK3576_PPTT, L1ICacheField),         /* L1ICacheRef */               \
+  OFFSET_OF (RK3576_PPTT, L2CacheField)           /* L2CacheRef */                \
+}
+
+#define RK3576_PPTT_A53_CORE_NODE_INIT(ClusterIndex, CoreUid)                     \
+  RK3576_PPTT_CORE_NODE_INIT (                                                    \
+    ClusterIndex, CoreUid,                                                        \
+    A53L1DCache, A53L1ICache, A53L2Cache                                          \
+  )
+
+#define RK3576_PPTT_A72_CORE_NODE_INIT(ClusterIndex, CoreUid)                     \
+  RK3576_PPTT_CORE_NODE_INIT (                                                    \
+    ClusterIndex, CoreUid,                                                        \
+    A72L1DCache, A72L1ICache, A72L2Cache                                          \
+  )
+
+#define RK3576_PPTT_CACHE_NODE_INIT(NextLevelOfCache, Size,                       \
+                                    NumberOfSets, Attributes)  {                  \
+  EFI_ACPI_6_2_PPTT_TYPE_CACHE,                   /* Type */                      \
+  sizeof (EFI_ACPI_6_2_PPTT_STRUCTURE_CACHE),     /* Length */                    \
+  {                                               /* Reserved[2] */               \
+    EFI_ACPI_RESERVED_BYTE,                                                       \
+    EFI_ACPI_RESERVED_BYTE                                                        \
+  },                                                                              \
+  {                                               /* Flags */                     \
+    EFI_ACPI_6_2_PPTT_CACHE_SIZE_VALID,                                           \
+    EFI_ACPI_6_2_PPTT_NUMBER_OF_SETS_VALID,                                       \
+    EFI_ACPI_6_2_PPTT_ASSOCIATIVITY_VALID,                                        \
+    EFI_ACPI_6_2_PPTT_ALLOCATION_TYPE_VALID,                                      \
+    EFI_ACPI_6_2_PPTT_CACHE_TYPE_VALID,                                           \
+    EFI_ACPI_6_2_PPTT_WRITE_POLICY_VALID,                                         \
+    EFI_ACPI_6_2_PPTT_LINE_SIZE_VALID                                             \
+  },                                                                              \
+  NextLevelOfCache,                               /* NextLevelOfCache */          \
+  Size,                                           /* Size */                      \
+  NumberOfSets,                                   /* NumberOfSets */              \
+  Size / NumberOfSets / 64,                       /* Associativity */             \
+  Attributes,                                     /* Attributes */                \
+  64                                              /* LineSize */                  \
+}
+
+STATIC RK3576_PPTT  Pptt = {
+  {
+    ACPI_HEADER (
+      EFI_ACPI_6_2_PROCESSOR_PROPERTIES_TOPOLOGY_TABLE_STRUCTURE_SIGNATURE,
+      RK3576_PPTT,
+      EFI_ACPI_6_2_PROCESSOR_PROPERTIES_TOPOLOGY_TABLE_REVISION
+      ),
+  },
+  {
+    {                                             /* Package */
+      EFI_ACPI_6_2_PPTT_TYPE_PROCESSOR,           /* Type */
+      sizeof (RK3576_PPTT_PACKAGE_NODE),          /* Length */
+      {                                           /* Reserved[2] */
+        EFI_ACPI_RESERVED_BYTE,
+        EFI_ACPI_RESERVED_BYTE
+      },
+      {                                           /* Flags */
+        EFI_ACPI_6_2_PPTT_PACKAGE_PHYSICAL,
+        EFI_ACPI_6_2_PPTT_PROCESSOR_ID_VALID
+      },
+      0,                                          /* Parent */
+      8,                                          /* AcpiProcessorId */
+      0                                           /* NumberOfPrivateResources (no L3) */
+    },
+  },
+  {                                               /* Clusters — 2 clusters on RK3576 */
+    RK3576_PPTT_CLUSTER_NODE_INIT (9),            /* Cluster 0: 4x A53 (little) */
+    RK3576_PPTT_CLUSTER_NODE_INIT (10),           /* Cluster 1: 4x A72 (big) */
+  },
+  {                                               /* Cores */
+    RK3576_PPTT_A53_CORE_NODE_INIT (0, 0),        /* A53-0 */
+    RK3576_PPTT_A53_CORE_NODE_INIT (0, 1),        /* A53-1 */
+    RK3576_PPTT_A53_CORE_NODE_INIT (0, 2),        /* A53-2 */
+    RK3576_PPTT_A53_CORE_NODE_INIT (0, 3),        /* A53-3 */
+    RK3576_PPTT_A72_CORE_NODE_INIT (1, 4),        /* A72-0 */
+    RK3576_PPTT_A72_CORE_NODE_INIT (1, 5),        /* A72-1 */
+    RK3576_PPTT_A72_CORE_NODE_INIT (1, 6),        /* A72-2 */
+    RK3576_PPTT_A72_CORE_NODE_INIT (1, 7),        /* A72-3 */
+  },
+  /* Cortex-A53 caches (from ARM Cortex-A53 TRM) */
+  RK3576_PPTT_CACHE_NODE_INIT (
+    /* A53L1DCache */
+    OFFSET_OF (RK3576_PPTT, A53L2Cache),          /* NextLevelOfCache */
+    SIZE_32KB,                                    /* Size */
+    128,                                          /* NumberOfSets */
+    PPTT_DATA_CACHE_ATTRIBUTES                    /* Attributes */
+    ),
+  RK3576_PPTT_CACHE_NODE_INIT (
+    /* A53L1ICache */
+    OFFSET_OF (RK3576_PPTT, A53L2Cache),          /* NextLevelOfCache */
+    SIZE_32KB,                                    /* Size */
+    256,                                          /* NumberOfSets (2-way) */
+    PPTT_INST_CACHE_ATTRIBUTES                    /* Attributes */
+    ),
+  RK3576_PPTT_CACHE_NODE_INIT (
+    /* A53L2Cache — per-cluster shared */
+    0,                                            /* NextLevelOfCache */
+    SIZE_256KB,                                   /* Size (256KB on RK3576 A53 cluster) */
+    512,                                          /* NumberOfSets */
+    PPTT_UNIFIED_CACHE_ATTRIBUTES                 /* Attributes */
+    ),
+  /* Cortex-A72 caches (from ARM Cortex-A72 TRM) */
+  RK3576_PPTT_CACHE_NODE_INIT (
+    /* A72L1DCache */
+    OFFSET_OF (RK3576_PPTT, A72L2Cache),          /* NextLevelOfCache */
+    SIZE_32KB,                                    /* Size (32KB on A72) */
+    128,                                          /* NumberOfSets */
+    PPTT_DATA_CACHE_ATTRIBUTES                    /* Attributes */
+    ),
+  RK3576_PPTT_CACHE_NODE_INIT (
+    /* A72L1ICache */
+    OFFSET_OF (RK3576_PPTT, A72L2Cache),          /* NextLevelOfCache */
+    SIZE_64KB,                                    /* Size (48KB on A72, rounded to 64KB) */
+    256,                                          /* NumberOfSets */
+    PPTT_INST_CACHE_ATTRIBUTES                    /* Attributes */
+    ),
+  RK3576_PPTT_CACHE_NODE_INIT (
+    /* A72L2Cache — per-cluster shared */
+    0,                                            /* NextLevelOfCache */
+    SIZE_512KB,                                   /* Size */
+    1024,                                         /* NumberOfSets */
+    PPTT_UNIFIED_CACHE_ATTRIBUTES                 /* Attributes */
+    )
+};
+
+VOID *CONST  ReferenceAcpiTable = &Pptt;

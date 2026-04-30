@@ -1,0 +1,31 @@
+## @file
+#
+#  DwcSdhciDxe platform helper library — RK3576 variant.
+#  Programs eMMC clock via direct CRU writes.
+#
+#  Copyright (c) 2023, Mario Bălănică <mariobalanica02@gmail.com>
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = Rk3576DwcSdhciPlatformLib
+  FILE_GUID                      = c1b04dc8-ce5b-4e87-9e4d-6c4a2b3d6e02
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = DwcSdhciPlatformLib
+
+[Sources]
+  DwcSdhciPlatformLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  DebugLib
+  IoLib
+  RockchipPlatformLib

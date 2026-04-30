@@ -1,0 +1,123 @@
+/*
+ * Copyright (C) 2024 Rockchip Electronic Co.,Ltd
+ * Copyright (C) 2025 ROCK 4D RK3576 Port
+ *
+ * FIT image: ATF BL31 + OP-TEE + EDK2 UEFI + DTB for RK3576
+ *
+ * BL31 load addresses (OSS TF-A mainline, extracted via extractbl31.py):
+ *   Seg 0: paddr=0x3fe70000  (PMUSRAM)
+ *   Seg 1: paddr=0x40040000  (DRAM — BL31 main code, entry point)
+ *   Seg 2: paddr=0x4005d000  (DRAM — BL31 coherent mem / data)
+ *
+ * EDK2 load address: 0x40800000
+ *   Matches BL33_BASE in TF-A plat/rockchip/rk3576/platform.mk.
+ *   BL31 unconditionally branches to this address after init.
+ *   PcdFvBaseAddress=0x00200000: SEC decompresses FvMain there.
+ */
+
+/dts-v1/;
+
+/ {
+	description = "FIT Image with ATF/OP-TEE/UEFI for RK3576";
+	#address-cells = <1>;
+
+	images {
+		edk2 {
+			description = "EDK2 UEFI Firmware";
+			data = /incbin/("./BL33_AP_UEFI.Fv");
+			type = "standalone";
+			arch = "arm64";
+			os = "EDK2";
+			compression = "none";
+			load = <0x40800000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		atf-1 {
+			description = "ARM Trusted Firmware BL31 (main, entry)";
+			data = /incbin/("./bl31_0x40040000.bin");
+			type = "firmware";
+			arch = "arm64";
+			os = "arm-trusted-firmware";
+			compression = "none";
+			load = <0x40040000>;
+			entry = <0x40040000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		atf-2 {
+			description = "ARM Trusted Firmware BL31 (PMUSRAM)";
+			data = /incbin/("./bl31_0x3fe70000.bin");
+			type = "firmware";
+			arch = "arm64";
+			os = "arm-trusted-firmware";
+			compression = "none";
+			load = <0x3fe70000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		atf-3 {
+			description = "ARM Trusted Firmware BL31 (coherent data)";
+			data = /incbin/("./bl31_0x4005d000.bin");
+			type = "firmware";
+			arch = "arm64";
+			os = "arm-trusted-firmware";
+			compression = "none";
+			load = <0x4005d000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		optee {
+			description = "OP-TEE";
+			data = /incbin/("./bl32.bin");
+			type = "firmware";
+			arch = "arm64";
+			os = "op-tee";
+			compression = "none";
+			load = <0x8400000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		fdt {
+			description = "SPL DTB";
+			data = /incbin/("./@DEVICE@.dtb");
+			type = "flat_dt";
+			arch = "arm64";
+			compression = "none";
+			hash {
+				algo = "sha256";
+			};
+		};
+		nvdata {
+			description = "UEFI Non-Volatile Data";
+			data-position = <0x006C0000>;
+			data-size = <0x00030000>;
+			type = "standalone";
+			arch = "arm64";
+			compression = "none";
+			load = <0x007C0000>;
+		};
+	};
+
+	configurations {
+		default = "conf";
+		conf {
+			description = "@DEVICE@";
+			rollback-index = <0x0>;
+			firmware = "atf-1";
+			loadables = "edk2", "atf-2", "atf-3", "optee", "nvdata";
+			fdt = "fdt";
+			signature {
+				algo = "sha256,rsa2048";
+				padding = "pss";
+				key-name-hint = "dev";
+				sign-images = "fdt", "firmware", "loadables";
+			};
+		};
+	};
+};

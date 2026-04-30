@@ -1,0 +1,111 @@
+/*
+ * Copyright (C) 2020 Rockchip Electronic Co.,Ltd
+ *
+ * Simple U-boot fit source file containing ATF/OP-TEE/UEFI/dtb
+ */
+
+/dts-v1/;
+
+/ {
+	description = "FIT Image with ATF/OP-TEE/UEFI";
+	#address-cells = <1>;
+
+	images {
+		edk2 {
+			description = "UEFI";
+			data = /incbin/("./BL33_AP_UEFI.Fv");
+			type = "standalone";
+			arch = "arm64";
+			os = "EDK2";
+			compression = "none";
+			load = <0x00200000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		atf-1 {
+			description = "ARM Trusted Firmware";
+			data = /incbin/("./bl31_0x00040000.bin");
+			type = "firmware";
+			arch = "arm64";
+			os = "arm-trusted-firmware";
+			compression = "none";
+			load = <0x00040000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		atf-2 {
+			description = "ARM Trusted Firmware";
+			data = /incbin/("./bl31_0x000f0000.bin");
+			type = "firmware";
+			arch = "arm64";
+			os = "arm-trusted-firmware";
+			compression = "none";
+			load = <0x000f0000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		atf-3 {
+			description = "ARM Trusted Firmware";
+			data = /incbin/("./bl31_0xff100000.bin");
+			type = "firmware";
+			arch = "arm64";
+			os = "arm-trusted-firmware";
+			compression = "none";
+			load = <0xff100000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		optee {
+			description = "OP-TEE";
+			data = /incbin/("./bl32.bin");
+			type = "firmware";
+			arch = "arm64";
+			os = "op-tee";
+			compression = "none";
+			load = <0x8400000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+		fdt {
+			description = "UEFI dtb";
+			data = /incbin/("./@DEVICE@.dtb");
+			type = "flat_dt";
+			arch = "arm64";
+			compression = "none";
+			hash {
+				algo = "sha256";
+			};
+		};
+		nvdata {
+			description = "UEFI Non-Volatile Data";
+			data-position = <0x006C0000>; /* 0x007C0000 - 0x100000 FIT offset */
+			data-size = <0x00030000>; /* NV_VARIABLE_STORE + NV_FTW_WORKING + NV_FTW_SPARE */
+			type = "standalone";
+			arch = "arm64";
+			compression = "none";
+			load = <0x007C0000>;
+		};
+	};
+
+	configurations {
+		default = "conf";
+		conf {
+			description = "@DEVICE@";
+			rollback-index = <0x0>;
+			firmware = "atf-1";
+			loadables = "edk2", "atf-2", "atf-3", "optee", "nvdata";
+			fdt = "fdt";
+			signature {
+				algo = "sha256,rsa2048";
+				padding = "pss";
+				key-name-hint = "dev";
+				sign-images = "fdt", "firmware", "loadables";
+			};
+		};
+	};
+};

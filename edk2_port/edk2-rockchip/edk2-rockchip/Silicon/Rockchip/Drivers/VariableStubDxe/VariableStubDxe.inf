@@ -1,0 +1,36 @@
+## @file
+#  Stub Variable arch provider for platforms without RkFvbDxe (RK3576).
+#  See VariableStubDxe.c for rationale.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = VariableStubDxe
+  FILE_GUID                      = 7C5D2E92-1A4F-4C3B-9D8A-2E5B7C1FAE01
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = VariableStubDxeEntry
+
+[Sources]
+  VariableStubDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  MemoryAllocationLib
+
+[Protocols]
+  gEfiVariableArchProtocolGuid       ## PRODUCES
+  gEfiVariableWriteArchProtocolGuid  ## PRODUCES
+
+[Depex]
+  TRUE
