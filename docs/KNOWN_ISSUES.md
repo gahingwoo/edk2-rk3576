@@ -1,27 +1,80 @@
 # Known issues
 
-## Display output (HDMI / DSI) — not implemented
+## Display (HDMI) — no signal from UEFI
 
-The RK3588 display drivers in upstream `edk2-rockchip` are SoC-specific and
-cannot be reused as-is for RK3576:
+`RK3576SimpleFbDxe` allocates a 1920×1080 framebuffer in DRAM and installs a
+proper EFI `GraphicsOutputProtocol`, and it programs `VOP2 WIN0_YRGB_MST` to
+that buffer:
+
+```
+RK3576SimpleFb: GOP installed — 1920x1080 FB @ 0xEEB30000 stride 7680
+```
+
+**However**, the HDMI TX PHY and VOP2 timing engine are **not** initialised
+by EDK2, and U-Boot SPL on RK3576 does not bring them up either. The result
+is that nothing leaves the SoC pin until the Linux DRM driver takes over the
+display controller — at which point GRUB (via `efifb` on the surviving GOP)
+and Fedora both render normally.
+
+Concretely missing / TODO:
+
+* RK3576-specific HDMI TX PHY init (bases at `0x27DA0000` /
+  HDPTXPHY GRF at `0x26032000`)
+* RK3576 VOP2 mode-set (the existing `Vop2Dxe.c` is RK3588-only — different
+  GRF map and plane-mask layout)
+* EDID readout (DDC over I²C5 or via SCDC)
+
+The RK3588 display drivers in `edk2-rockchip` cannot be reused as-is:
 
 * `DwHdmiQpLib.c` hard-codes `RK3588_SYS_GRF_BASE`, `RK3588_VO1_GRF_BASE`,
-  and the `RK3588_*_MASK` constants.
-* `Vop2Dxe.c` only carries `mVpDataRK3588`, `mVpPlaneMaskRK3588`, and
-  `RK3588_*_PD_*` defines.
+  `RK3588_*_MASK`.
+* `Vop2Dxe.c` only carries `mVpDataRK3588`, `mVpPlaneMaskRK3588`,
+  `RK3588_*_PD_*`.
 * `LcdGraphicsOutputDxe.inf` references only `gRK3588TokenSpaceGuid`.
-* No simple-framebuffer / `GenericGop` fallback exists in `edk2-rockchip`.
 
-The RK3576 HDMI controller lives at `0x27DA0000`. U-Boot proper does have
-a working HDMI init path (`HdmiTxIomux()` with the appropriate CRU clock
-ungating), which can serve as a reference for an RK3576-specific port.
+**Workaround:** boot via UART; let GRUB or Linux bring up the panel.
 
-**Workaround:** boot UEFI over UART only.
+## PCIe — link training fails in UEFI
+
+`Rk3576PciHostBridgeLib` brings the controller out of reset and DBI is
+reachable (`VID:DID = 0x1D87:0x3576`, the RK3576 PCIe vendor/device pair),
+but `PciHostBridgeDxe` times out waiting for L0:
+
+```
+PCIe0: Set link speed Gen1 x1 (initial training)...
+PCIe0: Assert PERST#...
+PCIe0: Enable LTSSM...
+PCIe0: Deassert PERST# (100ms done)...
+PCIe0: Waiting for Gen1 link up (up to 1s)...
+PCIe: LTSSM_STATUS=0x0003000D
+PCIe: LTSSM_STATUS=0x00000003
+PCIe: Link up timeout!
+Error: Image at … start failed: Unsupported
+```
+
+* `0x0003000D` = LTSSM in `Polling.Active`/`Polling.Configuration`
+* `0x00000003` = LTSSM dropped back to `Polling.LinkUp`/`Polling.Active`
+
+The same slot + endpoint works under Linux, so the PHY is reaching the link
+partner — what we are still missing on the EDK2 path is most likely:
+
+* Combo PHY0 lane-0 RX equalisation / signal-detect calibration
+* The `wait-for-link` poll window in `Rk3576PciHostBridgeLib` may need to be
+  extended past 1 s with retries
+* RC interrupts for hot-plug-style retraining
+
+The driver does not crash the boot — it just refuses to expose the bridge
+to `PciBusDxe`, so no NVMe / WiFi attached to PCIe is usable from UEFI.
 
 ## ACPI tables are stubs
 
-Tables under `ROCK4D/AcpiTables/` are minimal placeholders. The firmware
-boots in **FDT mode** by default, which is the supported configuration.
+Tables under `RK3576/AcpiTables/` are minimal placeholders. The firmware
+boots in **FDT mode** by default, which is the supported configuration. The
+`AcpiPlatformDxe` from RK3588 is intentionally rejected at runtime:
+
+```
+AcpiPlatform: ACPI support is disabled by the settings.
+```
 
 ## EDK2 commit must be pinned
 
@@ -54,6 +107,34 @@ The EDK2 GCC linker script references `/Scripts/GccBase.lds` as an
 ```bash
 sudo ln -sfn $PWD/edk2/BaseTools/Scripts/GccBase.lds /Scripts/GccBase.lds
 ```
+
+## `FtwPei: Both working and spare block are invalid`
+
+Cosmetic. Variable services run as `VariableStubDxe` (in-RAM, volatile) on
+this port, so the FTW headers are intentionally not initialised:
+
+```
+FtwPei: Work block header valid bit check error
+FtwPei: Both working and spare block are invalid.
+Firmware Volume for Variable Store is corrupted
+…
+VariableStubDxe: in-RAM Variable services installed (volatile). Success
+```
+
+UEFI variables therefore do **not persist** across reboots in this build.
+
+## SDMMC0 identification spam when no card is present
+
+Harmless:
+
+```
+DwSdExecTrb: Command error. CmdIndex=1, IntStatus=104
+EmmcIdentification: Executing Cmd1 fails with Device Error
+…
+```
+
+The DwMmcHc driver fans out CMD1/CMD8/CMD55/CMD7/CMD3 to detect a card on
+SDMMC0; with no card inserted these fail and the controller is dropped.
 
 ## Duplicate overlay copies
 

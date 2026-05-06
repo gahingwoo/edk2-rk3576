@@ -11,5 +11,8 @@
   # Vendor Device Tree (pre-compiled DTB from U-Boot upstream)
   INF RuleOverride = DTB $(PLATFORM_DIRECTORY)/DeviceTree/Vendor.inf
 
+  # Mainline Device Tree (mainline kernel DTS + UEFI overlay, built at compile time)
+  INF RuleOverride = DTB $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
+
   # Splash screen logo
   INF $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf

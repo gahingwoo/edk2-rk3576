@@ -818,6 +818,22 @@ CruWrite (
   MmioWrite32 (PMU1CRU_BASE + Reg, TempVal);
 }
 
+/* MainCruWrite: HIWORD write to the main CRU (CRU_BASE = 0x27200000).
+ * Used for RK3576 HDPTX PHY resets which are in the main CRU, not PMU1CRU. */
+STATIC
+VOID
+MainCruWrite (
+  UINTN  Reg,
+  UINTN  Mask,
+  UINTN  Val
+  )
+{
+  UINT32  TempVal = 0;
+
+  TempVal = (Mask << 16) | (Val & Mask);
+  MmioWrite32 (CRU_BASE + Reg, TempVal);
+}
+
 STATIC
 VOID
 HdptxPrePowerUp (
@@ -828,12 +844,14 @@ HdptxPrePowerUp (
 
   /* assert lane/cmn/init reset */
 #ifdef SOC_RK3576
-  /* RK3576: single PHY, PMU1CRU SOFTRST_CON01 bits 9/10/11 */
-  PHY_TRACE ("PrePowerUp: assert ALL_RST (init|cmn|lane) -> PMU1CRU+0xA04 mask=0x%x\n",
+  /* RK3576: single PHY, main CRU SOFTRST_CON28 (0xA70) bits 4/3/2.
+   * SRST_HDPTX_INIT=450(bit2), SRST_HDPTX_CMN=451(bit3), SRST_HDPTX_LANE=452(bit4)
+   * Verified from dt-bindings/reset/rockchip,rk3576-cru.h + vendor DTB. */
+  PHY_TRACE ("PrePowerUp: assert ALL_RST (init|cmn|lane) -> CRU+0xA70 mask=0x%x\n",
              RK3576_HDPTX_ALL_RST);
-  CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_ALL_RST, RK3576_HDPTX_ALL_RST);
-  PHY_TRACE ("PrePowerUp: PMU1CRU_SOFTRST_CON01=0x%08x\n",
-             MmioRead32 (0x27220000 + RK3576_PMU1CRU_SOFTRST_CON01));
+  MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_ALL_RST, RK3576_HDPTX_ALL_RST);
+  PHY_TRACE ("PrePowerUp: CRU_SOFTRST_CON28=0x%08x\n",
+             MmioRead32 (CRU_BASE + RK3576_CRU_SOFTRST_CON28));
 #else
   if (!Hdptx->Id) {
     CruWrite (PMU1CRU_SOFTRST_CON03, 0x3800, 0x3800);
@@ -861,8 +879,8 @@ HdptxPostEnablePll (
   NanoSecondDelay (10000);
   /* deassert init reset */
 #ifdef SOC_RK3576
-  PHY_TRACE ("PostEnablePll: deassert INIT_RST (bit %u)\n", 9);
-  CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_INIT_RST, 0);
+  PHY_TRACE ("PostEnablePll: deassert INIT_RST (CRU+0xA70 bit2)\n");
+  MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_INIT_RST, 0);
 #else
   if (!Hdptx->Id) {
     CruWrite (PMU1CRU_SOFTRST_CON03, BIT (11), 0);
@@ -877,8 +895,8 @@ HdptxPostEnablePll (
   NanoSecondDelay (10000);
   /* deassert cmn reset */
 #ifdef SOC_RK3576
-  PHY_TRACE ("PostEnablePll: deassert CMN_RST (bit %u)\n", 10);
-  CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_CMN_RST, 0);
+  PHY_TRACE ("PostEnablePll: deassert CMN_RST (CRU+0xA70 bit3)\n");
+  MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_CMN_RST, 0);
 #else
   if (!Hdptx->Id) {
     CruWrite (PMU1CRU_SOFTRST_CON03, BIT (12), 0);
@@ -1305,8 +1323,8 @@ HdptxPostEnableLane (
 
   /* deassert lane reset */
 #ifdef SOC_RK3576
-  PHY_TRACE ("PostEnableLane: deassert LANE_RST (bit %u)\n", 11);
-  CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_LANE_RST, 0);
+  PHY_TRACE ("PostEnableLane: deassert LANE_RST (CRU+0xA70 bit4)\n");
+  MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_LANE_RST, 0);
 #else
   if (!Hdptx->Id) {
     CruWrite (PMU1CRU_SOFTRST_CON03, BIT (13), 0);

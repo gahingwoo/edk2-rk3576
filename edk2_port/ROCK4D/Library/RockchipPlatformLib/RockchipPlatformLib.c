@@ -29,6 +29,7 @@
 #include <Library/GpioLib.h>
 #include <Library/RK806.h>
 #include <Library/PWMLib.h>
+#include <Library/TimerLib.h>
 #include <Soc.h>
 #include <VarStoreData.h>
 
@@ -338,13 +339,10 @@ UsbPortPowerEnable (
 /*
  * Usb2PhyResume — USB2 PHY wakeup + USB clock enable
  *
- * CORRECTED: USB2 PHY registers are in usb2phy_grf syscon @ 0x2602E000
- * (NOT 0x2B000000 — that address was WRONG, copied from RK3588).
- *
- * Per mainline rk3576.dtsi:
+ * Per mainline rk3576.dtsi + Linux rk3576_usb2phy_tuning():
  *   usb2phy_grf: syscon@2602e000  (size 0x4000)
- *     u2phy0 @ offset 0x0000 (size 0x10)
- *     u2phy1 @ offset 0x2000 (size 0x10)
+ *     u2phy0 @ offset 0x0000  (USB-C OTG port, DWC3 @ 0x23000000)
+ *     u2phy1 @ offset 0x2000  (USB-A HOST port, DWC3 @ 0x23400000)
  *
  * USB DWC3 clocks (from clk-rk3576.c):
  *   ACLK_USB_ROOT       → CLKGATE_CON(47), bit 1
@@ -352,6 +350,10 @@ UsbPortPowerEnable (
  *   ACLK_USB3OTG0       → CLKGATE_CON(47), bit 5
  *   CLK_REF_USB3OTG0    → CLKGATE_CON(47), bit 6
  *   CLK_SUSPEND_USB3OTG0 → CLKGATE_CON(47), bit 7
+ *
+ * USB2 PHY resets in main CRU SOFTRST_CON28 (CRU_BASE + 0xA70):
+ *   bit 0 = SRST_USB2PHY0_U2_0  (CRU reset ID 448)
+ *   bit 1 = SRST_USB2PHY1_U2_0  (CRU reset ID 449)
  */
 VOID
 EFIAPI
@@ -360,28 +362,61 @@ Usb2PhyResume (
   )
 {
   /*
-   * Step 1+2: Ungate ALL USB-related clocks in CLKGATE_CON(47).
+   * Step 1: Ungate ALL USB-related clocks in CLKGATE_CON(47).
    * Covers ACLK/PCLK_USB_ROOT, USB3OTG0 + USB3OTG1, REF and SUSPEND
    * for both DWC3 controllers. Write 0xFFFF mask + all-zero data.
    */
   MmioWrite32 (CRU_CLKGATE_CON(47), 0xFFFF0000);
 
   /*
-   * Step 3: USB2 PHY — deassert SIDDQ on each PHY.
-   * usb2phy_grf @ 0x2602E000 (u2phy0 +0), 0x26030000 (u2phy1 +0).
-   * SIDDQ register: GRF + 0x10 bit 13.  Write upper-half mask form:
-   *   mask = (1 << 13) << 16 = 0x20000000, data = 0  → bit13 = 0.
-   * RK3588/ROCK5B reference does the same minimal init; DWC3 core
-   * does PHYSOFTRST in Dwc3CoreSoftReset() which handles the rest.
+   * Step 2: Deassert SIDDQ to power on PHY analog block.
+   * GRF+0x0010 bit 13 (SIDDQ): mask=BIT(29) → write-enable bit13, data=0.
+   * Confirmed from Linux rk3576_usb2phy_tuning():
+   *   regmap_write(grf, reg+0x0010, GENMASK(29,29) | 0x0000)
    */
-  MmioWrite32 (USB2PHY0_BASE + 0x10, 0x20000000);
-  MmioWrite32 (USB2PHY1_BASE + 0x10, 0x20000000);
+  MmioWrite32 (USB2PHY0_BASE + 0x0010, 0x20000000);
+  MmioWrite32 (USB2PHY1_BASE + 0x0010, 0x20000000);
 
-  /* Also enable USB OTG 5V: GPIO2 PD2 (vcc5v0_otg, active-high) */
+  /*
+   * Step 3: PHY CRU hard reset after exit IDDQ mode.
+   * Assert SRST_USB2PHY0_U2 (bit 0) + SRST_USB2PHY1_U2 (bit 1) in
+   * SOFTRST_CON28, hold 10 µs, deassert, then wait 150 µs for
+   * PHY analog PLL to lock before DWC3 soft reset runs.
+   * Write-mask format: upper 16 bits = enable mask, lower 16 = data.
+   */
+  MmioWrite32 (CRU_SOFTRST_CON(28), 0x00030003);  /* assert  bits 0,1 */
+  MicroSecondDelay (10);
+  MmioWrite32 (CRU_SOFTRST_CON(28), 0x00030000);  /* deassert bits 0,1 */
+  MicroSecondDelay (150);
+
+  /*
+   * Step 4: Clear phy_sus register to exit USB suspend mode.
+   * GRF+0x0000 bits 8:0 (phy_sus): write mask=0x01FF, data=0 → all zero.
+   * Confirmed from rk3576_phy_cfgs: phy_sus={0x0000, 8, 0, disable=0, enable=0x1d1}
+   * Linux calls property_enable(base, phy_sus, false) in rockchip_usb2phy_power_on().
+   */
+  MmioWrite32 (USB2PHY0_BASE + 0x0000, 0x01FF0000);
+  MmioWrite32 (USB2PHY1_BASE + 0x0000, 0x01FF0000);
+
+  /*
+   * Step 5: HS signal quality tuning (from rk3576_usb2phy_tuning):
+   *   GRF+0x000C bits 11:8 = 0x9 → HS DC Voltage Level +5.89%
+   *     mask=GENMASK(27,24)=0x0F000000, data=0x0900
+   *   GRF+0x0010 bits 4:3  = 2   → HS TX Pre-Emphasis 2x
+   *     mask=GENMASK(20,19)=0x00180000, data=0x0010
+   */
+  MmioWrite32 (USB2PHY0_BASE + 0x000C, 0x0F000900);
+  MmioWrite32 (USB2PHY1_BASE + 0x000C, 0x0F000900);
+  MmioWrite32 (USB2PHY0_BASE + 0x0010, 0x00180010);
+  MmioWrite32 (USB2PHY1_BASE + 0x0010, 0x00180010);
+
+  /* Step 6: Enable USB OTG 5V power: GPIO2 PD2 (vcc5v0_otg, active-high) */
   GpioPinWrite (2, GPIO_PIN_PD2, TRUE);
   GpioPinSetDirection (2, GPIO_PIN_PD2, GPIO_PIN_OUTPUT);
 
-  DEBUG ((DEBUG_INFO, "Usb2PhyResume: clocks ungated, both PHYs SIDDQ deasserted, OTG 5V enabled\n"));
+  DEBUG ((DEBUG_INFO,
+    "Usb2PhyResume: clocks ungated, SIDDQ deasserted, PHY CRU reset done, "
+    "phy_sus cleared, HS tuning applied, OTG 5V enabled\n"));
   DEBUG ((DEBUG_INFO, "  u2phy0 GRF @ 0x%lx, u2phy1 GRF @ 0x%lx\n",
     (UINT64)USB2PHY0_BASE, (UINT64)USB2PHY1_BASE));
 }
@@ -498,8 +533,10 @@ HdmiTxIomux (
       MmioWrite32 (CRU_CLKGATE_CON(64),
         0x03800000 | 0x0000);
         
-      /* Note: PMU clocks (PCLK_HDPTX_APB, CLK_HDMITXHDP, PHY clocks) 
-       * are in the PMU CRU. U-Boot SPL should have already ungated them.
+      /* Note: HDPTX PHY reference clock (CLK_PHY_REF_SRC, ID 526) and
+       * APB clock (PCLK_HDPTX_APB, ID 545) are in the main CRU (not PMU CRU).
+       * Both are typically ungated by U-Boot SPL during system init.
+       * If HDPTX PLL lock times out, check CRU CLKGATE registers for these.
        */
 
       DEBUG ((DEBUG_INFO, "HdmiTxIomux: VOP and HDMI clocks ungated\n"));

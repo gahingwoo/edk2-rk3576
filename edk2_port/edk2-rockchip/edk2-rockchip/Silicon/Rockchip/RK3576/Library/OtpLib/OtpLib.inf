@@ -1,6 +1,10 @@
 #/** @file
 #
-#  RK3576 OTP stub library.
+#  RK3576 OTP Library.
+#
+#  Implements direct MMIO access to the RK3576 OTP controller at 0x2A580000.
+#  Uses the same OTPC register layout as RK3588 (rk3588_otp_read protocol)
+#  with a different base address and no-secure block offset (0x1C0 = 0x700/4).
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -20,8 +24,12 @@
 [Packages]
   MdePkg/MdePkg.dec
   EmbeddedPkg/EmbeddedPkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
   Silicon/Rockchip/RK3588/RK3588.dec
 
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
+  DebugLib
+  IoLib
+  TimerLib

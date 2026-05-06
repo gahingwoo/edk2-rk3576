@@ -30,10 +30,12 @@
   IoLib
   MemoryAllocationLib
   NonDiscoverableDeviceRegistrationLib
+  TimerLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
   RockchipPlatformLib
   DevicePathLib
+  UefiLib
 
 [FixedPcd]
   gRockchipTokenSpaceGuid.PcdOhciSize
@@ -45,9 +47,11 @@
 
 [Protocols]
   gOhciDeviceProtocolGuid           ## PRODUCES
+  gEfiUsb2HcProtocolGuid            ## CONSUMES
 
 [Guids]
   gEfiEndOfDxeEventGroupGuid
+  gEfiEventReadyToBootGuid
 
 [Depex]
   TRUE

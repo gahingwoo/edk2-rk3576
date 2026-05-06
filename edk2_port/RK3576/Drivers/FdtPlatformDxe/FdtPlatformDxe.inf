@@ -1,0 +1,66 @@
+#/** @file
+#
+#  Flattened Device Tree platform driver for Rockchip RK3576
+#
+#  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = FdtPlatformDxe
+  FILE_GUID                      = 7E2B4D3C-91FA-4E6B-9D8A-BC10234567EF
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = FdtPlatformDxeInitialize
+
+[Sources]
+  FdtPlatformDxe.c
+
+[Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  DxeServicesLib
+  FdtLib
+  MemoryAllocationLib
+  PrintLib
+  RockchipPlatformLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Guids]
+  gFdtTableGuid
+  gEfiEventReadyToBootGuid
+  gEfiEventExitBootServicesGuid
+
+[Protocols]
+  gEfiLoadedImageProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+
+[Pcd]
+  gRockchipTokenSpaceGuid.PcdDeviceTreeName
+  gRK3576TokenSpaceGuid.PcdConfigTableMode
+  gRK3576TokenSpaceGuid.PcdFdtCompatMode
+  gRK3576TokenSpaceGuid.PcdFdtForceGop
+  gRK3576TokenSpaceGuid.PcdFdtSupportOverrides
+  gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
+  gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath
+  gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPath
+  gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault
+  gRK3576TokenSpaceGuid.PcdComboPhy1ModeDefault
+
+[Depex]
+  gRockchipPlatformConfigAppliedProtocolGuid

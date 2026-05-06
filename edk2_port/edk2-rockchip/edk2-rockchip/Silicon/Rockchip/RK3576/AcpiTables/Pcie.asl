@@ -137,9 +137,8 @@ Scope (\_SB_) {
   Name (PBMA, 0xABCD)   // PCI Bus Maximum
   Name (PBOF, 1)        // PCI Bus Offset
 
-  PCIE_ROOT_COMPLEX (0, 292)
-  PCIE_ROOT_COMPLEX (1, 287)
-  PCIE_ROOT_COMPLEX (2, 272)
-  PCIE_ROOT_COMPLEX (3, 277)
-  PCIE_ROOT_COMPLEX (4, 282)
+  // pce0: GIC SPI 280 -> ACPI interrupt = 280 + 32 = 312
+  PCIE_ROOT_COMPLEX (0, 312)
+  // pce1: GIC SPI 266 -> ACPI interrupt = 266 + 32 = 298
+  PCIE_ROOT_COMPLEX (1, 298)
 }

@@ -1,0 +1,45 @@
+## @file
+#  PCI Host Bridge Library instance for Rockchip RK3576
+#
+#  Copyright (c) 2016, Linaro Ltd. All rights reserved.<BR>
+#  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = Rk3576PciHostBridgeLib
+  FILE_GUID                      = 9A4E2F1C-37D8-4B5A-8EAD-CF67890B1234
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = PciHostBridgeLib
+
+#  VALID_ARCHITECTURES           = AARCH64
+
+[Sources]
+  PciHostBridgeLib.c
+  PciHostBridgeInit.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  ArmPkg/ArmPkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  DebugLib
+  DevicePathLib
+  MemoryAllocationLib
+  RockchipPlatformLib
+  UefiBootServicesTableLib
+
+[Pcd]
+  gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault
+  gRK3576TokenSpaceGuid.PcdComboPhy1ModeDefault
+
+[Depex]
+  gRockchipPlatformConfigAppliedProtocolGuid

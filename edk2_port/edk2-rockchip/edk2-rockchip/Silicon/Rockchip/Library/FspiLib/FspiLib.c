@@ -439,7 +439,7 @@ HAL_FSPI_SpiXfer (
   UINT32         dir    = op->data.dir;
   void           *pData = NULL;
 
-  HAL_ASSERT (IS_FSPI_INSTANCE (host->instance));
+  HAL_ASSERT (host->instance != NULL);
 
   if (op->data.buf.in) {
     pData = (void *)op->data.buf.in;
@@ -483,7 +483,7 @@ HAL_FSPI_Init (
   struct FSPI_REG  *pReg;
   RETURN_STATUS    ret = RETURN_SUCCESS;
 
-  HAL_ASSERT (IS_FSPI_INSTANCE (host->instance));
+  HAL_ASSERT (host->instance != NULL);
 
   pReg       = host->instance;
   pReg->MODE = 0;
@@ -514,7 +514,7 @@ HAL_FSPI_DeInit (
   struct HAL_FSPI_HOST  *host
   )
 {
-  HAL_ASSERT (IS_FSPI_INSTANCE (host->instance));
+  HAL_ASSERT (host->instance != NULL);
 
   host->instance->MODE = 0;
   FSPI_ContModeDeInit (host);
@@ -535,7 +535,7 @@ HAL_FSPI_SetDelayLines (
   uint8_t               cells
   )
 {
-  HAL_ASSERT (IS_FSPI_INSTANCE (host->instance));
+  HAL_ASSERT (host->instance != NULL);
   if (host->cs == 0) {
     WRITE_REG (host->instance->DLL_CTRL0, 1 << FSPI_DLL_CTRL0_SCLK_SMP_SEL_SHIFT | cells);
   } else {
@@ -550,7 +550,7 @@ HAL_FSPI_GetMaxIoSize (
   struct HAL_FSPI_HOST  *host
   )
 {
-  HAL_ASSERT (IS_FSPI_INSTANCE (host->instance));
+  HAL_ASSERT (host->instance != NULL);
 
   return FSPI_MAX_IOSIZE_VER4;
 }

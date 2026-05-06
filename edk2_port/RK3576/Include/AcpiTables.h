@@ -18,6 +18,7 @@
 #include <IndustryStandard/Acpi.h>
 #include <IndustryStandard/MemoryMappedConfigurationSpaceAccessTable.h>
 #include <Library/GpioLib.h>
+#include <Library/Rk3576Pcie.h>
 
 /* RK3576 has 2 PCIe controllers: pcie0 @ 0x22000000, pcie1 @ 0x22400000 */
 #define NUM_PCIE_CONTROLLER  2
@@ -121,7 +122,7 @@
 typedef struct {
   EFI_ACPI_MEMORY_MAPPED_CONFIGURATION_BASE_ADDRESS_TABLE_HEADER                           Header;
   EFI_ACPI_MEMORY_MAPPED_ENHANCED_CONFIGURATION_SPACE_BASE_ADDRESS_ALLOCATION_STRUCTURE    ConfigSpaces[2][NUM_PCIE_CONTROLLER];
-} RK3588_MCFG_TABLE;
+} RK3576_MCFG_TABLE;
 #pragma pack(pop)
 
 #endif // __ACPITABLES_H__

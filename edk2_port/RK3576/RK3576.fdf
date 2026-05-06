@@ -121,12 +121,17 @@ READ_LOCK_STATUS   = TRUE
   INF Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.inf
 
   #
+  # Simple Framebuffer GOP (reads U-Boot VOP2 state, installs GOP early)
+  #
+  INF Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf
+
+  #
   # PCI Support
   # Force-disabled on RK3576: only Rk3588PciHostBridgeLib exists, which
   # touches RK3588-specific PCIe MMIO (e.g. 0xFD8D_xxxx) that is not
   # mapped on RK3576 -> data abort, translation fault L2 (ESR=0x96000046).
   # Re-enable once an RK3576-native PciHostBridgeLib is available.
-  DEFINE RK3576_PCIE_ENABLE = FALSE
+  DEFINE RK3576_PCIE_ENABLE = TRUE
 !if $(RK3576_PCIE_ENABLE) == TRUE
   INF ArmPkg/Drivers/ArmPciCpuIo2Dxe/ArmPciCpuIo2Dxe.inf
   INF MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
@@ -156,7 +161,7 @@ READ_LOCK_STATUS   = TRUE
   #
   # Device Tree Support
   #
-  INF Silicon/Rockchip/RK3588/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf
+  INF Silicon/Rockchip/RK3576/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf
 
   #
   # Custom platform components

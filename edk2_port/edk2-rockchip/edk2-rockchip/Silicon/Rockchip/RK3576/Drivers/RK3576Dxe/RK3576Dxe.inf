@@ -43,12 +43,13 @@
   ArmLib
   PcdLib
   RockchipPlatformLib
+  TimerLib
 
 [Protocols]
   gEfiVariableWriteArchProtocolGuid         ## CONSUMES
   gRockchipPlatformConfigAppliedProtocolGuid ## PRODUCES
 
-[Pcd]
+[FixedPcd]
   gRockchipTokenSpaceGuid.CruBaseAddr
   gRK3576TokenSpaceGuid.PcdCPULClusterClockPresetDefault
   gRK3576TokenSpaceGuid.PcdCPUBClusterClockPresetDefault
@@ -63,9 +64,14 @@
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault
   gRK3576TokenSpaceGuid.PcdStatusLedGpio
   gRK3576TokenSpaceGuid.PcdStatusLedGpioPolarity
-  gRK3576TokenSpaceGuid.PcdDisplayConnectors
+  # Display connector list is set in ROCK4D.dsc using the RK3588 tokenspace
+  # (same TokenSpace the DwHdmiQpLib / Vop2Dxe library set reads from).
+  gRK3588TokenSpaceGuid.PcdDisplayConnectors
   gRK3576TokenSpaceGuid.PcdDisplayForceOutputDefault
   gRK3576TokenSpaceGuid.PcdDisplayDuplicateOutputDefault
+
+[Pcd]
+  # DynamicHii PCDs — variable write service must be available (see [Depex]).
   gRK3588TokenSpaceGuid.PcdDisplayConnectorsMask
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode
 
@@ -73,4 +79,6 @@
   gRK3576DxeFormSetGuid
 
 [Depex]
-  TRUE
+  # DynamicHii PCD accesses require the variable write arch protocol to be
+  # installed before this driver runs (PcdDisplayConnectorsMask, HdmiSignalingMode).
+  gEfiVariableWriteArchProtocolGuid

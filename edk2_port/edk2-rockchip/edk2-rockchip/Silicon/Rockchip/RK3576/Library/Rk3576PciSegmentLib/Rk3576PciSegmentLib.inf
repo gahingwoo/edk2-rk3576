@@ -1,0 +1,29 @@
+## @file
+# Instance of PCI Segment Library for Rockchip RK3576
+#
+# Copyright (c) 2025, ROCK 4D RK3576 Port
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = Rk3576PciSegmentLib
+  FILE_GUID                      = 3A1F9E7D-C842-4B67-ADE5-78901234BCDE
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = PciSegmentLib
+
+[Sources]
+  PciSegmentLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  BaseLib
+  PciLib
+  DebugLib

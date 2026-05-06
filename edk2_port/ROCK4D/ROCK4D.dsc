@@ -37,8 +37,13 @@
   # ROCK4D / RK3576: SD/eMMC temporarily disabled — enabling RK_SD_ENABLE
   # broke boot (no serial). Need to bisect: SD lib init or RkSdmmcDxe binding
   # likely hangs on RK3576 GPIO/CRU mismatch. Re-enable after debug.
-  DEFINE RK_SD_ENABLE            = FALSE
-  DEFINE RK_EMMC_ENABLE          = FALSE
+  # ROCK4D / RK3576: SD + eMMC re-enabled now that DEBUG_INFO output is
+  # visible (PcdDebugPropertyMask=0x2F). Drivers route through:
+  #   SD   : RkSdmmcDxe + DwMmcHcDxe → RkSdmmcPlatformLib (RK3576)
+  #   eMMC : DwcSdhciDxe + SdMmcPciHcDxe → DwcSdhciPlatformLib (RK3576)
+  # PHY/IO mux retained from SPL; UEFI only ungates clocks + reads CD GPIO.
+  DEFINE RK_SD_ENABLE            = TRUE
+  DEFINE RK_EMMC_ENABLE          = FALSE  # ROCK 4D has no onboard eMMC — avoids 3-min Cmd0 timeout
   DEFINE RK_NOR_FLASH_ENABLE     = FALSE
   # FVB / NV-Variable stack: depends on RkAtagsLib reading SPL atags at the
   # hardcoded address 0x1FE000. On RK3576 that physical range is firewalled
@@ -53,7 +58,7 @@
   DEFINE RK3588_GMAC_ENABLE      = FALSE
   # PCIe: disabled - no RK3576-native PciHostBridgeLib yet.
   # Rk3588PciHostBridgeLib touches RK3588-only MMIO -> crash on RK3576.
-  DEFINE RK3576_PCIE_ENABLE      = FALSE
+  DEFINE RK3576_PCIE_ENABLE      = TRUE
   DEFINE RK3588_PCIE_ENABLE      = FALSE
   # AHCI: RK3576 has no SATA controller
   DEFINE RK_AHCI_ENABLE          = FALSE
@@ -79,6 +84,10 @@
 ################################################################################
 [LibraryClasses.common]
   RockchipPlatformLib|$(PLATFORM_DIRECTORY)/Library/RockchipPlatformLib/RockchipPlatformLib.inf
+  PciHostBridgeLib|Silicon/Rockchip/RK3576/Library/Rk3576PciHostBridgeLib/Rk3576PciHostBridgeLib.inf
+  PciLib|MdePkg/Library/BasePciLibPciExpress/BasePciLibPciExpress.inf
+  PciExpressLib|MdePkg/Library/BasePciExpressLib/BasePciExpressLib.inf
+  PciSegmentLib|Silicon/Rockchip/RK3576/Library/Rk3576PciSegmentLib/Rk3576PciSegmentLib.inf
   # RK3576-specific SDRAM detection (overrides RK3588 SdramLib)
   SdramLib|Silicon/Rockchip/RK3576/Library/SdramLib/SdramLib.inf
   # RK3576-specific MMC platform glue (CRU clock setup, card-detect GPIO).
@@ -156,6 +165,11 @@
   # gPcf8563RealTimeClockLibTokenSpaceGuid.PcdI2cSlaveAddress|0x51
   # gRockchipTokenSpaceGuid.PcdRtc8563Bus|0x2
 
+  # ComboPHY modes (RK3576Base.dsc.inc is not in include chain; set here explicitly)
+  # PHY0 → PCIe (pcie2x1l0, M.2 slot) | PHY1 → USB3 (DRD1 USB-A)
+  gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault|$(COMBO_PHY_MODE_PCIE)
+  gRK3576TokenSpaceGuid.PcdComboPhy1ModeDefault|$(COMBO_PHY_MODE_USB3)
+
   # CRU base (0x27200000)
   gRockchipTokenSpaceGuid.CruBaseAddr|0x27200000
 
@@ -188,8 +202,27 @@
   # Board-specific Device Tree (Vendor = pre-compiled DTB)
   $(PLATFORM_DIRECTORY)/DeviceTree/Vendor.inf
 
+  # Mainline Device Tree (built from DTS at compile time)
+  $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
+
   # Splash screen logo
   $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
 
   # RK3576 SoC DXE driver
   Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.inf
+
+  # FDT platform fixups (PCIe/SATA/VOP device tree nodes)
+  Silicon/Rockchip/RK3576/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf
+
+!if $(RK3576_PCIE_ENABLE) == TRUE
+  # PCI support (requires RK3576_PCIE_ENABLE = TRUE)
+  ArmPkg/Drivers/ArmPciCpuIo2Dxe/ArmPciCpuIo2Dxe.inf
+  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
+  MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
+  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
+  EmbeddedPkg/Drivers/NonCoherentIoMmuDxe/NonCoherentIoMmuDxe.inf
+!endif
+
+  # Simple Framebuffer GOP — installs GOP over the VOP2 framebuffer that
+  # U-Boot leaves in place, without re-initialising VOP2 or HDMI.
+  Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf

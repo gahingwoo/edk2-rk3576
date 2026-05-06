@@ -1,0 +1,43 @@
+## @file
+#
+#  Simple Framebuffer GOP Driver for RK3576.
+#
+#  Reads VOP2 Cluster0/VP0 registers populated by U-Boot (mainline DRM/KMS
+#  stack) and installs EFI_GRAPHICS_OUTPUT_PROTOCOL over the pre-existing
+#  framebuffer, enabling early console and logo output without full VOP2 /
+#  HDMI re-initialisation from EDK2.
+#
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION    = 0x0001001a
+  BASE_NAME      = RK3576SimpleFbDxe
+  FILE_GUID      = 7f8c9d0e-1a2b-4c5d-8e9f-0a1b2c3d4e5f
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 1.0
+  ENTRY_POINT    = RK3576SimpleFbEntryPoint
+
+[Sources]
+  RK3576SimpleFbDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  IoLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid       ## PRODUCES
+
+[Depex]
+  gEfiCpuArchProtocolGuid

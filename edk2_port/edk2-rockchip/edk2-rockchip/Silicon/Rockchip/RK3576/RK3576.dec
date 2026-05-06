@@ -54,3 +54,19 @@
   # Status LED
   gRK3576TokenSpaceGuid.PcdStatusLedGpio|0xFF|UINT8|0x00010500
   gRK3576TokenSpaceGuid.PcdStatusLedGpioPolarity|TRUE|BOOLEAN|0x00010501
+
+[PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
+  # Runtime dynamic PCDs (set by RK3576Dxe at DXE phase from *Default FixedAtBuild values)
+  gRK3576TokenSpaceGuid.PcdComboPhy0Mode|0|UINT32|0x00000101
+  gRK3576TokenSpaceGuid.PcdComboPhy1Mode|0|UINT32|0x00000102
+
+  gRK3576TokenSpaceGuid.PcdConfigTableMode|0|UINT32|0x00000300
+  gRK3576TokenSpaceGuid.PcdFdtCompatMode|0|UINT32|0x00000351
+  gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
+  gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353
+  gRK3576TokenSpaceGuid.PcdFdtOverrideFixup|0|UINT8|0x00000354
+  gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath|L""|VOID*|0x00000355
+  gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPath|L""|VOID*|0x00000356
+
+  # PCIe ECAM compliant segments bitmask (set at runtime by PciHostBridgeInit)
+  gRK3576TokenSpaceGuid.PcdPcieEcamCompliantSegmentsMask|0|UINT32|0x00000600

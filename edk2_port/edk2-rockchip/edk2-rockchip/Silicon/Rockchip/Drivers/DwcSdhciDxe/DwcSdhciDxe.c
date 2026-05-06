@@ -69,6 +69,13 @@ EmmcSdMmcCapability (
   //
   Capability->Adma2 = 0;
 
+  //
+  // Override slot type to Embedded Slot (0x1) so EmmcDxe binds
+  // instead of SdDxe.  The hardware reports RemovableSlot (0x0)
+  // but the eMMC is soldered on-board.
+  //
+  Capability->SlotType = 1;
+
   Capability->Hs400 = !EMMC_DISABLE_HS400;
 
   if (EMMC_FORCE_HIGH_SPEED) {

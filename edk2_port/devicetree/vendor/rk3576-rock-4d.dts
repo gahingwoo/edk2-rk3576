@@ -733,6 +733,13 @@
 };
 &usb_drd1_dwc3 {
 	dr_mode = "host";
+	/*
+	 * combphy1 (Naneng USB3 PIPE PHY at 0x2b060000) is not initialized
+	 * by U-Boot SPL or TF-A in the mainline boot chain.  Limit DWC3 to
+	 * high-speed (USB2) to prevent SS link-training loops.  Remove this
+	 * line once a proper combphy1 UEFI/kernel driver is in place.
+	 */
+	maximum-speed = "high-speed";
 	status = "okay";
 };
 &vop {

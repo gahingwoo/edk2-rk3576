@@ -36,6 +36,7 @@
 /* Global UCTL1 Register */
 #define DWC3_GUCTL1_TX_IPGAP_LINECHECK_DIS  BIT28
 #define DWC3_GUCTL1_PARKMODE_DISABLE_SS     BIT17
+#define DWC3_GUCTL1_PARKMODE_DISABLE_HS     BIT16
 
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST         BIT31
@@ -47,8 +48,22 @@
 #define DWC3_GUSB2PHYCFG_ENBLSLPM        BIT0
 
 /* Global USB3 PIPE Control Register */
-#define DWC3_GUSB3PIPECTL_PHYSOFTRST  BIT31
-#define DWC3_GUSB3PIPECTL_DEPOCHANGE  BIT18
+#define DWC3_GUSB3PIPECTL_PHYSOFTRST    BIT31
+#define DWC3_GUSB3PIPECTL_DISRXDETINP3  BIT28  /* dis_rxdet_inp3_quirk */
+#define DWC3_GUSB3PIPECTL_DEPOCHANGE    BIT18
+/*
+ * DWC3 PG §6.2.4.5: "When SUSPHY=1, the USB3 PHY port is unconditionally
+ * placed in P3 (suspend) state and the SS port enters SSDisabled.  This bit
+ * is useful in scenarios where the USB3 PHY is not connected."
+ * This is the DWC3-defined logical off-switch for an absent USB3 PHY.
+ * Linux kernel uses this bit for maximum-speed = "high-speed" nodes.
+ */
+#define DWC3_GUSB3PIPECTL_SUSPHY        BIT17
+
+/* Global User Control Register 3 (direct MMIO, not in DWC3 struct) */
+#define DWC3_GUCTL3_OFFSET        0xC60CU  /* offset from UsbReg */
+#define DWC3_GUCTL3_DIS_U1_ENTRY  BIT0    /* dis-u1-entry-quirk */
+#define DWC3_GUCTL3_DIS_U2_ENTRY  BIT1    /* dis-u2-entry-quirk */
 
 /* Global Frame Length Adjustment Register */
 #define GFLADJ_30MHZ_REG_SEL  BIT7

@@ -69,6 +69,10 @@
   # (Rockchip.dsc.inc maps it to the common lib which uses RK3588 register addr)
   SdramLib|Silicon/Rockchip/RK3576/Library/SdramLib/SdramLib.inf
 
+  # PCI segment library for RK3576 PCIe controllers
+  PciLib|MdePkg/Library/BasePciLibPciExpress/BasePciLibPciExpress.inf
+  PciSegmentLib|Silicon/Rockchip/RK3576/Library/Rk3576PciSegmentLib/Rk3576PciSegmentLib.inf
+
 ################################################################################
 #
 # PCDs — RK3576-specific values
@@ -149,9 +153,26 @@
   gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault|1
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault|1
 
+  # RK3588 *Default PCDs: FixedAtBuild constants used as HII form factory defaults.
+  gRK3588TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_FDT)
+  gRK3588TokenSpaceGuid.PcdFdtCompatModeDefault|$(FDT_COMPAT_MODE_VENDOR)
+  gRK3588TokenSpaceGuid.PcdFdtForceGopDefault|0
+  gRK3588TokenSpaceGuid.PcdFdtSupportOverridesDefault|0
+  gRK3588TokenSpaceGuid.PcdFdtOverrideFixupDefault|0
+
   # ComboPHY defaults (board DSC overrides these)
   gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault|$(COMBO_PHY_MODE_PCIE)
   gRK3576TokenSpaceGuid.PcdComboPhy1ModeDefault|$(COMBO_PHY_MODE_USB3)
+
+[PcdsDynamicDefault.common]
+  # RK3588 runtime PCDs read by FdtPlatformDxe via LibPcdGet32 (Dynamic access).
+  # FdtPlatformDxe returns EFI_UNSUPPORTED when (PcdConfigTableMode & FDT) == 0.
+  # These must be seeded in the Dynamic PCD database; FixedAtBuild has no effect.
+  gRK3588TokenSpaceGuid.PcdConfigTableMode|$(CONFIG_TABLE_MODE_FDT)
+  gRK3588TokenSpaceGuid.PcdFdtCompatMode|$(FDT_COMPAT_MODE_VENDOR)
+  gRK3588TokenSpaceGuid.PcdFdtForceGop|0
+  gRK3588TokenSpaceGuid.PcdFdtSupportOverrides|0
+  gRK3588TokenSpaceGuid.PcdFdtOverrideFixup|0
 
 ################################################################################
 #

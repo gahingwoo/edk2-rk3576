@@ -1054,7 +1054,6 @@ FvbConfigureFlashInstance (
   )
 {
   EFI_STATUS  Status;
-  UINTN       DataOffset;
   UINTN       VariableSize, FtwWorkingSize, FtwSpareSize;
 
   // Locate SPI protocols
@@ -1080,49 +1079,65 @@ FvbConfigureFlashInstance (
   FtwSpareSize   = PcdGet32 (PcdFlashNvStorageFtwSpareSize);
 
   FlashInstance->FvbSize   = VariableSize + FtwWorkingSize + FtwSpareSize;
-  FlashInstance->FvbOffset = PcdGet64 (PcdFlashNvStorageVariableBase64);
+  //
+  // PcdFlashNvStorageVariableBase64 is computed by the FDF tool as:
+  //   FdBaseAddress + NvsRegionOffset
+  // For platforms where FdBase == 0 (e.g. RK3588) this equals the raw
+  // SPI NOR byte offset.  For platforms where FdBase != 0 (e.g. RK3576,
+  // FdBase = 0x40600000) the PCD holds a DRAM-relative address; subtract
+  // FdBase to recover the actual flash byte offset.
+  //
+  FlashInstance->FvbOffset = PcdGet64 (PcdFlashNvStorageVariableBase64)
+                             - FixedPcdGet64 (PcdFdBaseAddress);
 
   FlashInstance->Media.MediaId   = 0;
   FlashInstance->Media.BlockSize = SIZE_4KB;// FlashInstance->SpiDevice.Info->SectorSize;
   FlashInstance->Media.LastBlock = FlashInstance->Size /
                                    FlashInstance->Media.BlockSize - 1;
 
-  // U-Boot maps NV data into memory at the same address as in flash.
-  FlashInstance->RegionBaseAddress = FlashInstance->FvbOffset;
+  //
+  // Allocate an explicit shadow buffer for the NVS region in UEFI memory.
+  //
+  // The previous approach set RegionBaseAddress = FvbOffset and relied on
+  // Rockchip's proprietary SPL pre-copying the NVS from SPI NOR into DRAM
+  // at address == SPI NOR offset.  Mainline U-Boot SPL (used on RK3576) does
+  // not do that, so the old code passed an unintended DRAM address as the
+  // read buffer, causing an SError from the hardware memory firewall.
+  //
+  FlashInstance->RegionBaseAddress = (UINTN)AllocatePool (FlashInstance->FvbSize);
+  if ((VOID *)FlashInstance->RegionBaseAddress == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
 
-  if (  FlashInstance->IsSpiFlashAvailable
-     && (mBootDeviceType != RkAtagBootDevTypeSpiNor)
-     && (mBootDeviceType != RkAtagBootDevTypeMtdBlkSpiNor))
-  {
-    //
-    // SPI flash is available but UEFI was booted from another storage,
-    // check if user still prefers the NV data to be on the flash.
-    //
-    if (FixedPcdGetBool (PcdNvStoragePreferSpiFlash)) {
+  ZeroMem ((VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize);
+
+  if (FlashInstance->IsSpiFlashAvailable) {
+    if (  (mBootDeviceType != RkAtagBootDevTypeSpiNor)
+       && (mBootDeviceType != RkAtagBootDevTypeMtdBlkSpiNor)
+       && !FixedPcdGetBool (PcdNvStoragePreferSpiFlash))
+    {
       //
-      // Ignore the memory mapped NV data from the boot device and
-      // read it directly from SPI flash.
+      // Not booted from SPI NOR and user prefers boot device for NVS.
+      // Disable SPI flash path; rely on boot device disk dump.
       //
-      DataOffset = GET_DATA_OFFSET (
-                     FlashInstance->FvbOffset,
-                     FlashInstance->StartLba,
-                     FlashInstance->Media.BlockSize
-                     );
+      FlashInstance->IsSpiFlashAvailable = FALSE;
+    } else {
+      //
+      // Read current NVS content from SPI NOR into the shadow buffer.
+      // Covers both direct-SPI-boot and prefer-SPI-flash cases uniformly.
+      //
       Status = FlashInstance->SpiFlashProtocol->Read (
                                                   FlashInstance->SpiFlashProtocol,
-                                                  DataOffset,
+                                                  FlashInstance->FvbOffset,
                                                   (VOID *)FlashInstance->RegionBaseAddress,
                                                   FlashInstance->FvbSize
                                                   );
       if (EFI_ERROR (Status)) {
-        return Status;
+        DEBUG ((DEBUG_WARN,
+                "%a: Failed to pre-load NVS from SPI flash (%r), starting fresh\n",
+                __FUNCTION__, Status));
+        ZeroMem ((VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize);
       }
-    } else {
-      //
-      // Mark SPI flash as being unavailable, we'll dump the NV data on
-      // the boot device if possible.
-      //
-      FlashInstance->IsSpiFlashAvailable = FALSE;
     }
   }
 

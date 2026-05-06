@@ -140,6 +140,30 @@ extern "C" {
 /* PHP CRU domain (PCIe/SATA combo PHY clocks) — offset 0x8000 from CRU_BASE */
 #define PHP_CRU_BASE             (CRU_BASE + 0x8000)
 #define PHP_CRU_CLKGATE_CON(n)   (PHP_CRU_BASE + 0x800 + (n) * 4)
+#define PHP_CRU_CLKSEL_CON(n)   (PHP_CRU_BASE + 0x300 + (n) * 4)
+#define PHP_CRU_SOFTRST_CON(n)   (PHP_CRU_BASE + 0xA00 + (n) * 4)
+
+/*
+ * Naneng ComboPHY MMIO
+ *   combphy0_ps  @ 0x2b050000  (PCIe0 / SATA0)
+ *   combphy1_psu @ 0x2b060000  (PCIe1 / SATA1 / USB3 for DRD1)
+ */
+#define COMBPHY0_BASE   0x2B050000UL
+#define COMBPHY1_BASE   0x2B060000UL
+
+/*
+ * Pipe-PHY GRF (per-combphy PHY mode / clock select registers)
+ *   pipe_phy0_grf: syscon@26028000   for combphy0
+ *   pipe_phy1_grf: syscon@2602a000   for combphy1
+ */
+#define PIPE_PHY0_GRF_BASE  0x26028000UL
+#define PIPE_PHY1_GRF_BASE  0x2602A000UL
+
+/*
+ * PHP GRF (u3otg port-enable, pipe mux for PCIe/SATA/USB3)
+ *   php_grf: syscon@26020000
+ */
+#define PHP_GRF_BASE  0x26020000UL
 
 /* System GRF */
 #define SYS_GRF_BASE  0x2600A000UL

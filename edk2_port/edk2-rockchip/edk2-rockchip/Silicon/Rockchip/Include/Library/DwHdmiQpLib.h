@@ -954,21 +954,23 @@
 #define RK3576_HDMI_LEVEL_INT       BIT3
 
 //
-// RK3576 PMU1CRU HDPTX reset layout (from upstream Linux
-// drivers/clk/rockchip/rst-rk3576.c, comment "/* 0x27220000 + 0x0A00 */").
-// Single PHY only.  SOFTRST_CON01 (offset 0xA04):
-//   bit  9 = SRST_HDPTX_INIT
-//   bit 10 = SRST_HDPTX_CMN
-//   bit 11 = SRST_HDPTX_LANE
-//   bit 13 = SRST_HDMITXHDP
+// RK3576 main CRU HDPTX reset layout (from upstream Linux
+// dt-bindings/reset/rockchip,rk3576-cru.h and vendor DTB verification).
+// HDPTX resets are in &cru (main CRU @ 0x27200000), NOT in PMU1CRU.
+// Reset IDs: SRST_HDPTX_INIT=450, SRST_HDPTX_CMN=451, SRST_HDPTX_LANE=452
+// Formula: CON = ID/16 = 28, bit = ID%16 = 2/3/4
+// SOFTRST_CON28 = CRU_BASE + 0xA00 + 28*4 = CRU_BASE + 0xA70
+//   bit 2 = SRST_HDPTX_INIT
+//   bit 3 = SRST_HDPTX_CMN
+//   bit 4 = SRST_HDPTX_LANE
 //
-#define RK3576_PMU1CRU_SOFTRST_CON01  0xA04
-#define RK3576_HDPTX_INIT_RST         BIT9
-#define RK3576_HDPTX_CMN_RST          BIT10
-#define RK3576_HDPTX_LANE_RST         BIT11
-#define RK3576_HDPTX_ALL_RST          (RK3576_HDPTX_INIT_RST | \
-                                       RK3576_HDPTX_CMN_RST  | \
-                                       RK3576_HDPTX_LANE_RST)
+#define RK3576_CRU_SOFTRST_CON28  0xA70
+#define RK3576_HDPTX_INIT_RST     BIT(2)
+#define RK3576_HDPTX_CMN_RST      BIT(3)
+#define RK3576_HDPTX_LANE_RST     BIT(4)
+#define RK3576_HDPTX_ALL_RST      (RK3576_HDPTX_INIT_RST | \
+                                   RK3576_HDPTX_CMN_RST  | \
+                                   RK3576_HDPTX_LANE_RST)
 #else
 #define RK3588_SYS_GRF_BASE  0xFD58C000
 #define RK3588_VO1_GRF_BASE  0xFD5A8000

@@ -15,7 +15,7 @@
   VERSION_STRING                 = 1.0
 
 [Sources]
-  devicetree/mainline/rk3576-rock-4d.dts
+  devicetree/mainline/rk3576-rock-4d-uefi.dts
 
 [Packages]
   MdePkg/MdePkg.dec

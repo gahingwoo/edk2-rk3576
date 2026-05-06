@@ -149,6 +149,13 @@ RkSdmmcDxeInitialize (
 
   RkSdmmcSetIoMux ();
 
+  if (!FixedPcdGetBool (PcdRkSdmmcCardDetectBroken) &&
+      (RkSdmmcGetCardPresenceState () == RkSdmmcCardNotPresent))
+  {
+    DEBUG ((DEBUG_INFO, "RkSdmmcDxe: SD card not present, skipping initialization\n"));
+    return EFI_SUCCESS;
+  }
+
   RkSdmmcSetClockRate (mDwMmcCapability.BaseClkFreq * 1000);
 
   Status = gBS->InstallMultipleProtocolInterfaces (
