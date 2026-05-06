@@ -188,6 +188,16 @@
   })}
 
 ################################################################################
+[PcdsDynamicDefault.common]
+  # RK3576 ACPI mode: enable ACPI table installation by RK3576AcpiPlatformDxe.
+  # The RK3588 AcpiPlatformDxe (included via RK3588Base.dsc.inc) checks
+  # gRK3588TokenSpaceGuid.PcdConfigTableMode = CONFIG_TABLE_MODE_FDT (0x02) and
+  # bails early (ACPI bit not set), so it won't conflict.
+  gRK3576TokenSpaceGuid.PcdConfigTableMode|$(CONFIG_TABLE_MODE_ACPI)
+  # PCIe ECAM compat mode: 0 = AUTO (selects GRAVITON for Linux, NXPMX6 for Windows)
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode|0
+
+################################################################################
 [BuildOptions]
   # ROCK4D / RK3576: define SOC_RK3576 globally so that the SoC-specific
   # #ifdef SOC_RK3576 blocks in DwHdmiQpLib.h, DwHdmiQpLib.c, Vop2Dxe.c and
@@ -210,6 +220,12 @@
 
   # RK3576 SoC DXE driver
   Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.inf
+
+  # RK3576 ACPI platform driver (replaces RK3588 AcpiPlatformDxe for this board)
+  # Uses RK3576-specific MCFG struct / PCIe addresses and DSDT fixups.
+  # The RK3588 AcpiPlatformDxe is still compiled (from RK3588Base.dsc.inc) but
+  # exits early because gRK3588TokenSpaceGuid.PcdConfigTableMode = FDT-only (0x02).
+  Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
 
   # FDT platform fixups (PCIe/SATA/VOP device tree nodes)
   Silicon/Rockchip/RK3576/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf

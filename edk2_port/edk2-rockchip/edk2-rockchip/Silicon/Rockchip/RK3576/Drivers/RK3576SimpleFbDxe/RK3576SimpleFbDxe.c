@@ -449,7 +449,7 @@ RK3576SimpleFbEntryPoint (
     AllocBase = 0;              /* let AllocatePages choose address */
     Status = gBS->AllocatePages (
                     AllocateAnyPages,
-                    EfiRuntimeServicesData,
+                    EfiBootServicesData,
                     EFI_SIZE_TO_PAGES (FbSize),
                     &AllocBase
                     );

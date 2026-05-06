@@ -156,6 +156,9 @@ READ_LOCK_STATUS   = TRUE
   #
   # ACPI Support
   #
+  # RK3576AcpiPlatformDxe uses RK3576-specific MCFG/PCIe addresses.
+  # The RK3588 AcpiPlatformDxe below exits early (ACPI bit off in its PCD).
+  INF Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
   INF Silicon/Rockchip/RK3588/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
 
   #

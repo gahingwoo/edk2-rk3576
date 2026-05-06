@@ -70,3 +70,6 @@
 
   # PCIe ECAM compliant segments bitmask (set at runtime by PciHostBridgeInit)
   gRK3576TokenSpaceGuid.PcdPcieEcamCompliantSegmentsMask|0|UINT32|0x00000600
+
+  # ACPI PCIe ECAM compatibility mode (0 = AUTO, see VarStoreData.h)
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode|0|UINT32|0x00000601

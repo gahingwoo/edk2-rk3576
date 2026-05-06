@@ -1,0 +1,63 @@
+#/** @file
+#
+#  ACPI platform driver for RK3576
+#
+#  Derived from Silicon/Rockchip/RK3588/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
+#  Adapted for RK3576: uses RK3576.dec, RK3576_MCFG_TABLE, and RK3576 PCIe addresses.
+#
+#  Copyright (c) 2024, Mario Bălănică <mariobalanica02@gmail.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = RK3576AcpiPlatformDxe
+  FILE_GUID                      = b2a1c3d4-e5f6-7890-abcd-ef1234567890
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = RK3576AcpiPlatformDxeInitialize
+
+[Sources]
+  RK3576AcpiPlatformDxe.c
+
+[Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  AcpiLib
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiLib
+  UefiDriverEntryPoint
+
+[Guids]
+  gEfiEndOfDxeEventGroupGuid
+  gEfiEventReadyToBootGuid
+
+[Protocols]
+  gEdkiiNonDiscoverableDeviceProtocolGuid
+  gEfiAcpiSdtProtocolGuid
+  gEfiLoadedImageProtocolGuid
+  gExitBootServicesOsNotifyProtocolGuid
+
+[Pcd]
+  gRK3576TokenSpaceGuid.PcdConfigTableMode
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode
+  gRK3576TokenSpaceGuid.PcdComboPhy0Mode
+  gRK3576TokenSpaceGuid.PcdComboPhy1Mode
+  gRK3576TokenSpaceGuid.PcdPcieEcamCompliantSegmentsMask
+  gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress
+
+[Depex]
+  gRockchipPlatformConfigAppliedProtocolGuid AND
+  gExitBootServicesOsNotifyProtocolGuid
