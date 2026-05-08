@@ -1,18 +1,6 @@
 name: Build NanoPi M5 UEFI Firmware
 
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - 'edk2_port/edk2-rockchip/edk2-rockchip/Platform/FriendlyElec/**'
-      - 'edk2_port/edk2-rockchip/edk2-rockchip/Silicon/Rockchip/RK3576/**'
-      - '.github/workflows/build-nanopi-m5.yml'
-  pull_request:
-    branches: [main, master]
-    paths:
-      - 'edk2_port/edk2-rockchip/edk2-rockchip/Platform/FriendlyElec/**'
-      - 'edk2_port/edk2-rockchip/edk2-rockchip/Silicon/Rockchip/RK3576/**'
-      - '.github/workflows/build-nanopi-m5.yml'
   workflow_dispatch:
 
 #

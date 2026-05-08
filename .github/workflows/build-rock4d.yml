@@ -1,18 +1,6 @@
 name: Build ROCK 4D UEFI Firmware
 
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - 'edk2_port/**'
-      - '!edk2_port/edk2-rockchip/edk2-rockchip/Platform/FriendlyElec/**'
-      - '.github/workflows/build-rock4d.yml'
-  pull_request:
-    branches: [main, master]
-    paths:
-      - 'edk2_port/**'
-      - '!edk2_port/edk2-rockchip/edk2-rockchip/Platform/FriendlyElec/**'
-      - '.github/workflows/build-rock4d.yml'
   workflow_dispatch:
 
 jobs:
