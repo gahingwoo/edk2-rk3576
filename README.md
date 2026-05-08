@@ -1,14 +1,16 @@
-# edk2-rk3576 — UEFI for Radxa ROCK 4D (Rockchip RK3576)
+# edk2-rk3576 — UEFI for Rockchip RK3576 Boards
 
 [![Status](https://img.shields.io/badge/status-experimental-orange)]()
 [![SoC](https://img.shields.io/badge/SoC-RK3576-blue)]()
 [![Board](https://img.shields.io/badge/board-Radxa%20ROCK%204D-green)]()
+[![Board](https://img.shields.io/badge/board-FriendlyElec%20NanoPi%20M5-blue)]()
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20BSD--2--Clause--Patent-lightgrey)]()
 
-A working **EDK2 / TianoCore UEFI** port for the **Radxa ROCK 4D**
-(Rockchip RK3576), with a matching **TF-A BL31 + U-Boot SPL** boot stack.
-Verified on real hardware (12 GB LPDDR5 SKU) booting **Fedora 44 aarch64**
-to GNOME desktop.
+A working **EDK2 / TianoCore UEFI** port for **Rockchip RK3576** single-board
+computers. Primary target is the **Radxa ROCK 4D**, with initial support for
+the **FriendlyElec NanoPi M5**. The ROCK 4D port includes a matching
+**TF-A BL31 + U-Boot SPL** boot stack, verified on real hardware
+(12 GB LPDDR5 SKU) booting **Fedora 44 aarch64** to GNOME desktop.
 
 > **Status:** chain-loads GRUB → Linux from USB; full RAM, USB 2.0, USB 3.0
 > SuperSpeed, eMMC, SD, Ethernet and SMBIOS are functional. **HDMI is not
@@ -117,6 +119,70 @@ Details and workarounds in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 The upstream third-party trees (`edk2`, `edk2-non-osi`, `edk2-platforms`,
 `arm-trusted-firmware`, `rkbin`) are **not** vendored — they are cloned at
 build time. See [docs/BUILDING.md](docs/BUILDING.md).
+
+---
+
+## Board Support
+
+### Radxa ROCK 4D — Hardware Verified
+
+| Feature | Status |
+|---|---|
+| CPU / RAM | ✅ 8-core A72+A53, 12 GB LPDDR5 |
+| eMMC / SD / SPI NOR | ✅ All functional |
+| USB 2.0 (EHCI/OHCI) | ✅ HID + mass-storage |
+| USB 3.0 xHCI @ 5 Gbps | ✅ Verified |
+| 1 GbE (GMAC0) | ✅ Works under Linux |
+| HDMI | ⚠️ GOP installed, no signal until Linux brings up VOP2 |
+| PCIe | ⚠️ DBI reachable, LTSSM never reaches L0 |
+| SMBIOS | ✅ Populated by `PlatformSmbiosDxe` |
+
+See full details above.
+
+### FriendlyElec NanoPi M5 — Initial Support
+
+> **Mainline DTS status:** `rk3576-nanopi-m5.dts` is **not yet in mainline
+> Linux** (as of May 2026). The vendor DTS lives in FriendlyElec's
+> `nanopi6-v6.1.y` kernel branch. A placeholder DTB is used in CI;
+> replace it with a real DTB compiled from the vendor tree before flashing.
+
+**Same RK3576 SoC as ROCK 4D.** Key board-level differences:
+
+| Feature | NanoPi M5 | ROCK 4D |
+|---|---|---|
+| Ethernet | **2× 1 GbE** (GMAC0 + GMAC1, both RTL8211F RGMII-ID) | 1× 1 GbE (GMAC0) |
+| PMIC | RK806 @ I2C1 0x23 | RK806 @ I2C0 0x23 |
+| Storage | 16 MB SPI NOR + optional UFS 2.0 | 16 MB SPI NOR + eMMC |
+| PCIe slot | M.2 M-Key (PCIe 2.1 ×1) | M.2 M-Key (PCIe 2.1 ×1) |
+| LEDs | 3× (SYS / LED1 / LED2) | 1× power LED |
+
+**What is implemented (`Platform/FriendlyElec/NanoPi-M5/`):**
+
+- Full `NanoPi-M5.dsc` platform descriptor, `NanoPi-M5.Modules.fdf.inc`
+- `RockchipPlatformLib.c`: IOMUX for GMAC0 (GPIO bank 3) **and GMAC1**
+  (GPIO bank 4, eth1m0 pins, function 3), 3-LED init, UFS (no eMMC mux)
+- `AcpiTables/Dsdt.asl` includes both `Gmac0.asl` and `Gmac1.asl`
+- `DeviceTree/Vendor.inf` packs the vendor DTB
+- `PcdGmac1Supported|TRUE`, `PcdGmac0Supported|TRUE` (dual Ethernet)
+- PCDs: `PcdComboPhy0ModeDefault|PCIe`, `PcdComboPhy1ModeDefault|USB3`
+- SMBIOS strings: `NanoPi M5` / `FriendlyElec` / family `NanoPi`
+- Build verified: `BL33_AP_UEFI.Fv` produced cleanly in ~65 s
+
+**Known gaps / TODOs:**
+
+- GMAC1 PHY reset GPIO (GPIO4 PB0 assumed — verify from board schematic)
+- No hardware sample available for boot testing
+- Vendor DTB must be built manually from FriendlyElec kernel
+
+**Building for NanoPi M5:**
+
+```bash
+cd edk2_port
+bash build_rock4d_uefi.sh --config configs/nanopi-m5.conf
+# Output: Build/NanoPi-M5/RELEASE_GCC/FV/BL33_AP_UEFI.Fv
+```
+
+Or using the dedicated GitHub Actions workflow (`.github/workflows/build-nanopi-m5.yml`).
 
 ---
 
