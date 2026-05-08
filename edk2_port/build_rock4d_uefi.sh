@@ -8,10 +8,11 @@
 # SPI NOR 16MB 布局:
 #   0x000000 - 0x007FFF : GPT 分区表
 #   0x008000 - 0x05FFFF : idblock (DDR init blob + SPL)
-#   0x060000 - 末尾     : FIT image (.itb)  ← SPL 硬编码从这里加载
+#   0x060000 - 0xFBFFFF : FIT image (.itb)  ← SPL 硬编码从这里加载
 #                          ├─ ATF BL31 (EL3 安全服务)  → 加载到 0x40000
 #                          ├─ EDK2 BL33_AP_UEFI.Fv     → 加载到 0x200000
 #                          └─ DTB                       → 传给 UEFI
+#   0xFC0000 - 0xFEFFFF : NV Variable Store (3×64KB)
 #
 # 打包方式:
 #   EDK2 编译产物 BL33_AP_UEFI.Fv + bl31.elf (提取 PT_LOAD 段) + DTB
@@ -415,15 +416,36 @@ IDB_KB=$(( $(stat -c%s "$IDBLOCK") / 1024 ))
 info "idblock: 写入 0x008000 ✓ (${IDB_KB}KB, $IDBLOCK)"
 
 # 3. 写入 FIT image (BL31 + EDK2 + DTB) — SPL 硬编码偏移 0x60000
-#    上限 = NV-Var 区起点 0x7C0000 (RK3576.fdf) - 0x60000 = 7.375MB
+#    上限 = NV-Var 区起点 0xFC0000 (RK3576.fdf) - 0x60000 = 15.375MB
 FIT="$PKGDIR/${DEVICE}_EFI.itb"
 [ -f "$FIT" ] || error "找不到 FIT image: $FIT"
 FIT_SIZE=$(stat -c%s "$FIT")
-FIT_MAX=$((0x7C0000 - 0x60000))
+FIT_MAX=$((0xFC0000 - 0x60000))
 [ "$FIT_SIZE" -gt "$FIT_MAX" ] && \
     error "FIT image 过大 (${FIT_SIZE} > ${FIT_MAX})，缩减 EDK2 或调整布局"
 dd if="$FIT" of="$OUT_IMG" bs=1K seek=384 conv=notrunc status=none
 info "FIT image: 写入 0x060000 ✓ ($((FIT_SIZE/1024))KB / 上限 $((FIT_MAX/1024))KB)"
+
+# 4. NV Variable Store  (3 × 64KB at SPI 0xFC0000 / 0xFD0000 / 0xFE0000)
+#    Copy 3 × 64KB = 192KB from the FD (ErasePolarity=1 → filled with 0xFF).
+#    Writing 0xFF simulates a freshly-erased SPI NOR; the variable drivers
+#    detect the blank state and initialise a valid store on first boot.
+#    Using count=48 (48 × 4KB = 192KB) covers all three 64KB regions:
+#      skip=4032 / seek=4032 → offset 0xFC0000
+#      skip+8    / seek+8    → offset 0xFD0000  (FTW Working)
+#      skip+16   / seek+16   → offset 0xFE0000  (FTW Spare)
+#    IMPORTANT: count=3 (12KB) was the previous value — it left FTW Working
+#    and FTW Spare as 0x00 (from dd if=/dev/zero background), which the FTW
+#    driver treated as "corrupted" rather than "erased", preventing variable
+#    store initialisation and producing:
+#      "FtwPei: Both working and spare block are invalid."
+#      "Firmware Volume for Variable Store is corrupted"
+FD="$WSDIR/Build/ROCK4D/RELEASE_GCC/FV/NOR_FLASH_IMAGE.fd"
+if [ -f "$FD" ]; then
+    # 0xFC0000 in 4KB blocks = 4032; 192KB / 4KB = 48 blocks
+    dd if="$FD" of="$OUT_IMG" bs=4K skip=4032 count=48 seek=4032 conv=notrunc status=none
+    info "NV Variable Store: 写入 0xFC0000..0xFEFFFF ✓ (3×64KB, erased state 0xFF)"
+fi
 
 echo ""
 echo -e "${GRN}╔══════════════════════════════════════════════════════════╗${NC}"
@@ -436,6 +458,9 @@ echo -e "  SPI NOR FIT 直通布局:"
 echo    "    0x000000  GPT 分区表"
 echo    "    0x008000  idblock (DDR init + mainline SPL)"
 echo    "    0x060000  FIT image (BL31 + EDK2 BL33 + DTB)"
+echo    "    0xFC0000  NV Variable Store  (64KB)"
+echo    "    0xFD0000  NV FTW Working     (64KB)"
+echo    "    0xFE0000  NV FTW Spare       (64KB)"
 echo ""
 echo -e "  启动链:"
 echo    "    BootROM → SPL → FIT 解析 → BL31 (EL3) → EDK2 BL33 (EL2) → TianoCore"

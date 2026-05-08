@@ -757,6 +757,20 @@ DwHdmiQpConnectorGetEdid (
   Hdmi           = DW_HDMI_QP_FROM_CONNECTOR_PROTOCOL (This);
   ConnectorState = &DisplayState->ConnectorState;
 
+#ifdef SOC_RK3576
+  //
+  // RK3576 bring-up: skip the DDC/I2C EDID read entirely.
+  // The display mode is selected by PcdDisplayModePresetDefault (hardcoded to
+  // 1080p60 in ROCK4D.dsc) so EDID data is not required.  Attempting the I2C
+  // read here adds several seconds of retries per block at this bringup stage.
+  // Mark the sink as HDMI (not DVI) so that AVI/GCP infoframes are sent and
+  // colour space signalling is correct.
+  //
+  HDMI_TRACE ("GetEdid: RK3576 EDID skip — using preset mode (no I2C read)\n");
+  ConnectorState->SinkInfo.IsHdmi = TRUE;
+  return EFI_SUCCESS;
+#endif
+
   for (BlockIndex = 0, Extensions = 0; BlockIndex <= Extensions; BlockIndex++) {
     Buffer = EDID_BLOCK (ConnectorState->Edid, BlockIndex);
 

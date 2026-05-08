@@ -44,16 +44,18 @@
   # PHY/IO mux retained from SPL; UEFI only ungates clocks + reads CD GPIO.
   DEFINE RK_SD_ENABLE            = TRUE
   DEFINE RK_EMMC_ENABLE          = FALSE  # ROCK 4D has no onboard eMMC — avoids 3-min Cmd0 timeout
-  DEFINE RK_NOR_FLASH_ENABLE     = FALSE
-  # FVB / NV-Variable stack: depends on RkAtagsLib reading SPL atags at the
-  # hardcoded address 0x1FE000. On RK3576 that physical range is firewalled
-  # by BL31 → external abort. Disable the entire FVB+VariableRuntimeDxe+FTW
-  # stack until atags porting is done. Boot uses emulated variables instead.
-  DEFINE RK_FVB_ENABLE           = FALSE
+  DEFINE RK_NOR_FLASH_ENABLE     = TRUE
+  # FVB / NV-Variable stack enabled.
+  # PcdRkAtagsBase=0 prevents the ATAGS bus-fault (BL31 TZASC on RK3576).
+  # PcdRkFvbNvStorageSpiOffset=0xFC0000 gives the correct SPI NOR offset
+  # (FdBase=0x40600000 makes the legacy formula give wrong 0x1C0000).
+  # gRockchipTokenSpaceGuid.FspiBaseAddr points NorFlashDxe at the RK3576
+  # FSPI0 MMIO (0x2A340000) so it can actually read/write the SPI flash.
+  DEFINE RK_FVB_ENABLE           = TRUE
   DEFINE RK_RTC8563_ENABLE       = FALSE
   DEFINE RK_STATUS_LED_ENABLE    = FALSE
-  # GMAC: disabled — RK3576 GMAC uses different IP, RK3588 driver not compatible
-  DEFINE RK3576_GMAC_ENABLE      = FALSE
+  # GMAC: RK3576 GmacPlatformDxe configures sdgmac_grf (RGMII-ID, RTL8211F)
+  DEFINE RK3576_GMAC_ENABLE      = TRUE
   DEFINE RK_GMAC_ENABLE          = FALSE
   DEFINE RK3588_GMAC_ENABLE      = FALSE
   # PCIe: disabled - no RK3576-native PciHostBridgeLib yet.
@@ -68,12 +70,28 @@
   DEFINE RK_DW_HDMI_QP_ENABLE    = TRUE
   # Non-OSI binaries not present for RK3576
   DEFINE RK_AMD_GOP_ENABLE       = FALSE
-  DEFINE NETWORK_ENABLE          = FALSE
+  # Secure Boot: enable UEFI image verification and key management UI.
+  # All infrastructure (AuthVariableLib, SecureBootConfigDxe, SecureBootDefaultKeysDxe,
+  # SecurityStubDxe+DxeImageVerificationLib) is gated on this flag in Rockchip.dsc.inc
+  # and FvMainModules.fdf.inc. Default keys (Microsoft UEFI CA + DBX) are enrolled by
+  # SecureBootDefaultKeysDxe from ArmPlatformPkg/SecureBootDefaultKeys.fdf.inc.
+  # Required for Windows ARM64.
+  DEFINE SECURE_BOOT_ENABLE      = TRUE
+
+  DEFINE NETWORK_ENABLE          = TRUE
+  DEFINE NETWORK_SNP_ENABLE      = TRUE
+  DEFINE NETWORK_IP4_ENABLE      = TRUE
+  DEFINE NETWORK_IP6_ENABLE      = TRUE   # Ip6Dxe in FV; runtime toggle via NetworkStackConfigDxe HII
+  DEFINE NETWORK_PXE_BOOT_ENABLE = TRUE
+  DEFINE NETWORK_HTTP_BOOT_ENABLE = TRUE  # DnsDxe+HttpDxe+HttpUtilitiesDxe+HttpBootDxe in FV
+  DEFINE NETWORK_TLS_ENABLE      = TRUE   # TlsDxe+TlsAuthConfigDxe — required for HTTPS boot
   DEFINE RK_X86_EMULATOR_ENABLE  = FALSE
   # Static SMBIOS tables (Type 0/1/2/3/4/7/9/11/16/17/19/32) — required so
   # UiApp banner shows "<NNNN> MB RAM" and OS sees system info.
   DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
-  # USB host: DWC3 controllers @ 0x23000000 + 0x23400000 (PCDs in
+  # USB host: DWC3 DRD1 controller @ 0x23400000 (USB-A, combphy1).
+  # DRD0 @ 0x23000000 (USB-C) is power-supply only — excluded to avoid
+  # unnecessary combphy0 init and potential PCIe/combphy0 conflicts. (PCDs in
   # RK3576Base.dsc.inc). RK3576 has no EHCI/OHCI -> set count to 0 below.
   DEFINE RK_USB_ENABLE             = TRUE
 
@@ -98,6 +116,14 @@
   # and the silicon revision on ROCK 4D firewalls all access -> Data Abort.
   # Use a stub that returns zeros instead of touching the controller.
   OtpLib|Silicon/Rockchip/RK3576/Library/OtpLib/OtpLib.inf
+  # RK3576-specific reset: writes BOOT_BROM_DOWNLOAD (0xEF08A53C) to
+  # PMU0_GRF_OS_REG16 (0x26024040) before PSCI SYSTEM_RESET so TF-A
+  # copies it to the NPOR-persistent PMU1_GRF_OS_REG0 and enters MaskROM.
+  ResetSystemLib|Silicon/Rockchip/RK3576/Library/ResetSystemLib/ResetSystemLib.inf
+  # RK3576-specific GPIO library with correct IOC_GRF @ 0x26040000 addresses.
+  # The inherited RK3588 GpioLib uses IOC offsets 0xFD5F0000+ which are invalid
+  # on RK3576, causing a Data Abort in GmacPlatformDxe (GmacIomux).
+  GpioLib|Silicon/Rockchip/RK3576/Library/GpioLib/GpioLib.inf
 
 ################################################################################
 [PcdsFixedAtBuild.common]
@@ -143,9 +169,16 @@
 
   # SPI NOR flash (sfc0 @ 0x2A340000)
   gRK3576TokenSpaceGuid.PcdFspiBaseAddr|0x2A340000
+  # NorFlashDxe reads gRockchipTokenSpaceGuid.FspiBaseAddr (not gRK3576…)
+  gRockchipTokenSpaceGuid.FspiBaseAddr|0x2A340000
+  # FVB: ATAGS are firewalled on RK3576; set base=0 to skip lookup safely.
+  gRockchipTokenSpaceGuid.PcdRkAtagsBase|0
+  # FVB: correct SPI NOR byte offset for NV variable store.
+  # (FdBase=0x40600000 skews the legacy formula to 0x1C0000; correct=0xFC0000)
+  gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset|0xFC0000
 
   # USB DWC3 (0x23000000, 0x23400000)
-  gRockchipTokenSpaceGuid.PcdDwc3BaseAddresses|{ UINT32(0x23000000), UINT32(0x23400000) }
+  gRockchipTokenSpaceGuid.PcdDwc3BaseAddresses|{ UINT32(0x23400000) }
   # RK3576 has no EHCI/OHCI controllers (RK3588 has 2). Override to 0
   # to skip the legacy USB2 path that would otherwise hit invalid MMIO.
   gRockchipTokenSpaceGuid.PcdNumEhciController|0
@@ -169,6 +202,36 @@
   # PHY0 → PCIe (pcie2x1l0, M.2 slot) | PHY1 → USB3 (DRD1 USB-A)
   gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault|$(COMBO_PHY_MODE_PCIE)
   gRK3576TokenSpaceGuid.PcdComboPhy1ModeDefault|$(COMBO_PHY_MODE_USB3)
+  # Both PHYs are user-switchable via the HII ComboPHY menu
+  gRK3576TokenSpaceGuid.PcdComboPhy0Switchable|TRUE
+  gRK3576TokenSpaceGuid.PcdComboPhy1Switchable|TRUE
+
+  # ConfigTable/FDT FixedAtBuild defaults (RK3576Base.dsc.inc not in include chain)
+  # CONFIG_TABLE_MODE: ACPI=0x1, FDT=0x2, ACPI_FDT=0x3
+  # Default: ACPI-only (Windows ARM64 / ACPI-capable Linux)
+  gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|0x00000001
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|0
+  # FDT_COMPAT_MODE: UNSUPPORTED=0, VENDOR=1, MAINLINE=2
+  gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|0x00000002
+  gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|FALSE
+  gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault|FALSE
+  gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault|TRUE
+
+  # GMAC0 — RTL8211F PHY in RGMII-ID mode (PHY provides both TX and RX delays)
+  # ROCK 4D wiring: gmac0@0x2A220000, PHY reset GPIO2_PB5 (active-low)
+  gRK3576TokenSpaceGuid.PcdGmac0Supported|TRUE
+  gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0    # 0 = RGMII-ID: PHY handles TX delay
+  gRK3576TokenSpaceGuid.PcdGmac0RxDelay|0    # 0 = RGMII-ID: PHY handles RX delay
+  gRK3576TokenSpaceGuid.PcdGmac1Supported|FALSE
+  gRK3576TokenSpaceGuid.PcdGmac1TxDelay|0
+  gRK3576TokenSpaceGuid.PcdGmac1RxDelay|0
+
+  # Network stack runtime defaults (enable PXE boot via GMAC or Realtek PCIe/USB NIC)
+  gRockchipTokenSpaceGuid.PcdNetworkStackEnabledDefault|TRUE
+  gRockchipTokenSpaceGuid.PcdNetworkStackIpv4EnabledDefault|TRUE
+  gRockchipTokenSpaceGuid.PcdNetworkStackIpv6EnabledDefault|FALSE  # Off by default; user enables via NetworkStackConfigDxe HII
+  gRockchipTokenSpaceGuid.PcdNetworkStackPxeBootEnabledDefault|TRUE
+  gRockchipTokenSpaceGuid.PcdNetworkStackHttpBootEnabledDefault|FALSE  # Off by default; user enables via NetworkStackConfigDxe HII
 
   # CRU base (0x27200000)
   gRockchipTokenSpaceGuid.CruBaseAddr|0x27200000
@@ -187,15 +250,35 @@
     VOP_OUTPUT_IF_HDMI0
   })}
 
+
+
 ################################################################################
-[PcdsDynamicDefault.common]
-  # RK3576 ACPI mode: enable ACPI table installation by RK3576AcpiPlatformDxe.
-  # The RK3588 AcpiPlatformDxe (included via RK3588Base.dsc.inc) checks
-  # gRK3588TokenSpaceGuid.PcdConfigTableMode = CONFIG_TABLE_MODE_FDT (0x02) and
-  # bails early (ACPI bit not set), so it won't conflict.
-  gRK3576TokenSpaceGuid.PcdConfigTableMode|$(CONFIG_TABLE_MODE_ACPI)
-  # PCIe ECAM compat mode: 0 = AUTO (selects GRAVITON for Linux, NXPMX6 for Windows)
-  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode|0
+[PcdsDynamicHii.common.DEFAULT]
+  # RK3576 HII-backed PCDs: stored in NVRAM EFI variables, settable via UEFI menu.
+  # Default values use FixedAtBuild constants from RK3576.dec [PcdsFixedAtBuild].
+  gRK3576TokenSpaceGuid.PcdConfigTableMode|L"ConfigTableMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdConfigTableModeDefault
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode|L"AcpiPcieEcamCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault
+  gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
+  gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
+  gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault
+  gRK3576TokenSpaceGuid.PcdFdtOverrideFixup|L"FdtOverrideFixup"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault
+  gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath|L"FdtOverrideBasePath"|gRK3576DxeFormSetGuid|0x0|{ 0x0 }
+  gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPath|L"FdtOverrideOverlayPath"|gRK3576DxeFormSetGuid|0x0|{ 0x0 }
+
+  # ComboPHY mode selection — HII formid 0x1002 (settable only when PcdComboPhy*Switchable=TRUE)
+  gRK3576TokenSpaceGuid.PcdComboPhy0Mode|L"ComboPhy0Mode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault
+  gRK3576TokenSpaceGuid.PcdComboPhy1Mode|L"ComboPhy1Mode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdComboPhy1ModeDefault
+
+  # Display mode selection — HII formid 0x1000
+  # PCDs are in gRK3588TokenSpaceGuid because the display driver libraries read from that namespace.
+  # The NVRAM variable GUID is gRK3576DxeFormSetGuid (this formset), NOT gRK3588DxeFormSetGuid.
+  gRK3588TokenSpaceGuid.PcdDisplayModePreset|L"DisplayModePreset"|gRK3576DxeFormSetGuid|0x0|{0x0F, 0x00, 0x00, 0x00}
+  gRK3588TokenSpaceGuid.PcdDisplayModeCustom|L"DisplayModeCustom"|gRK3576DxeFormSetGuid|0x0|{0x0}
+  gRK3588TokenSpaceGuid.PcdDisplayConnectorsPriority|L"DisplayConnectorsPriority"|gRK3576DxeFormSetGuid|0x0|{0x0}
+  gRK3588TokenSpaceGuid.PcdDisplayForceOutput|L"DisplayForceOutput"|gRK3576DxeFormSetGuid|0x0|FALSE
+  gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutput|L"DisplayDuplicateOutput"|gRK3576DxeFormSetGuid|0x0|FALSE
+  gRK3588TokenSpaceGuid.PcdDisplayRotation|L"DisplayRotation"|gRK3576DxeFormSetGuid|0x0|0
+  gRK3588TokenSpaceGuid.PcdHdmiSignalingMode|L"HdmiSignalingMode"|gRK3576DxeFormSetGuid|0x0|0
 
 ################################################################################
 [BuildOptions]
@@ -209,6 +292,9 @@
 
 ################################################################################
 [Components.common]
+  # ACPI tables (for Windows ARM64, FreeBSD, and ACPI-capable OS)
+  $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+
   # Board-specific Device Tree (Vendor = pre-compiled DTB)
   $(PLATFORM_DIRECTORY)/DeviceTree/Vendor.inf
 
@@ -242,3 +328,11 @@
   # Simple Framebuffer GOP — installs GOP over the VOP2 framebuffer that
   # U-Boot leaves in place, without re-initialising VOP2 or HDMI.
   Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf
+
+!if $(RK3576_GMAC_ENABLE) == TRUE
+  # RK3576 GMAC platform initializer (sdgmac_grf, PHY reset, MDIO PHY init)
+  Silicon/Rockchip/RK3576/Drivers/GmacPlatformDxe/GmacPlatformDxe.inf
+
+  # Synopsys DWC EQoS SNP driver (same IP as RK3588, works with our platform protocol)
+  Silicon/Synopsys/DesignWare/Drivers/DwcEqosSnpDxe/DwcEqosSnpDxe.inf
+!endif

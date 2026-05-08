@@ -39,6 +39,7 @@
 
   # Config table mode (ACPI / FDT)
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|0|UINT32|0x00010300
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|0|UINT32|0x00010301
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|0|UINT32|0x00010351
   gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|0|UINT8|0x00010352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault|0|UINT8|0x00010353
@@ -55,6 +56,14 @@
   gRK3576TokenSpaceGuid.PcdStatusLedGpio|0xFF|UINT8|0x00010500
   gRK3576TokenSpaceGuid.PcdStatusLedGpioPolarity|TRUE|BOOLEAN|0x00010501
 
+  # GMAC — gmac0 (ROCK 4D: RTL8211F RGMII-ID PHY; gmac1 unused on this board)
+  gRK3576TokenSpaceGuid.PcdGmac0Supported|FALSE|BOOLEAN|0x00010600
+  gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0x00|UINT8|0x00010601
+  gRK3576TokenSpaceGuid.PcdGmac0RxDelay|0x00|UINT8|0x00010602
+  gRK3576TokenSpaceGuid.PcdGmac1Supported|FALSE|BOOLEAN|0x00010603
+  gRK3576TokenSpaceGuid.PcdGmac1TxDelay|0x00|UINT8|0x00010604
+  gRK3576TokenSpaceGuid.PcdGmac1RxDelay|0x00|UINT8|0x00010605
+
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   # Runtime dynamic PCDs (set by RK3576Dxe at DXE phase from *Default FixedAtBuild values)
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode|0|UINT32|0x00000101
@@ -65,8 +74,18 @@
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup|0|UINT8|0x00000354
-  gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath|L""|VOID*|0x00000355
-  gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPath|L""|VOID*|0x00000356
+  gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath|{ 0x0 }|FDT_OVERRIDE_PATH_VARSTORE_DATA|0x00000355 {
+    <Packages>
+      Silicon/Rockchip/RK3576/RK3576.dec
+    <HeaderFiles>
+      Include/VarStoreData.h
+  }
+  gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPath|{ 0x0 }|FDT_OVERRIDE_PATH_VARSTORE_DATA|0x00000356 {
+    <Packages>
+      Silicon/Rockchip/RK3576/RK3576.dec
+    <HeaderFiles>
+      Include/VarStoreData.h
+  }
 
   # PCIe ECAM compliant segments bitmask (set at runtime by PciHostBridgeInit)
   gRK3576TokenSpaceGuid.PcdPcieEcamCompliantSegmentsMask|0|UINT32|0x00000600

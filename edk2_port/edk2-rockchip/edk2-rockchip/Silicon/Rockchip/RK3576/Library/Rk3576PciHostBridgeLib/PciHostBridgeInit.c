@@ -770,7 +770,26 @@ InitializePciHost (
   }
 
   if (Retry == 0) {
-    DEBUG ((DEBUG_WARN, "PCIe: Link up timeout!\n"));
+    DEBUG ((DEBUG_WARN, "PCIe%u: Gen1 link up timeout — asserting DWC reset (SOFTRST_CON%u)\n",
+            (UINT32)Segment, (Segment == PCIE_SEGMENT_PCIE0) ? 34U : 36U));
+    /*
+     * Assert-only (no deassert): leave the DWC controller in reset so it
+     * does not hold the PCIe AXI/PIPE bus in an indeterminate state while
+     * Linux boots.  Without this, the unclocked-but-running DWC can cause
+     * spurious AXI errors that prevent Linux pcie-dw-rockchip from probing.
+     *
+     * PCIe0: SRST_P_PCIE0=CON34[13], SRST_PCIE0_POWER_UP=CON34[15]
+     * PCIe1: SRST_P_PCIE1=CON36[7],  SRST_PCIE1_POWER_UP=CON36[9]
+     */
+    if (Segment == PCIE_SEGMENT_PCIE0) {
+      MmioWrite32 (CRU_SOFTRST_CON (34),
+                   (1U << (13 + 16)) | (1U << (15 + 16)) |
+                   (1U << 13)        | (1U << 15));
+    } else {
+      MmioWrite32 (CRU_SOFTRST_CON (36),
+                   (1U << (7 + 16)) | (1U << (9 + 16)) |
+                   (1U << 7)        | (1U << 9));
+    }
     return EFI_TIMEOUT;
   }
 

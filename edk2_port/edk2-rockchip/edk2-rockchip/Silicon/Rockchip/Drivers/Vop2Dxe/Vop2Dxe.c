@@ -833,7 +833,13 @@ Vop2GlobalInitial (
   }
 
   /* open the vop global pd */
+#ifndef SOC_RK3576
+  /* RK3588: PMU1 power-domain open for VOP2. Address 0xFD8D8150 is the
+   * SYS_PMU base (0xFD8D8000) + 0x150 — only valid on RK3588 address space.
+   * On RK3576, VOP2 power is controlled through a different mechanism and
+   * the SPL/U-Boot already powers on the VO0 domain before handoff. */
   MmioWrite32 (0xfd8d8150, 0xffff0000);
+#endif
   MicroSecondDelay (10);
 
   if ((DisplayState->VpsConfigModeID < 0) || (DisplayState->VpsConfigModeID >= mVpsConfigsSize)) {

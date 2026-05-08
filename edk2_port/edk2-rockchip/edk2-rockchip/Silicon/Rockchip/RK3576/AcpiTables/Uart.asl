@@ -17,8 +17,8 @@ Device(UAR2) {
   Name (_HID, "HISI0031")
   Name (_UID, 2)
   Name (_CRS, ResourceTemplate() {
-    Memory32Fixed(ReadWrite, 0xfeb50000, 0x1000)
-    Interrupt(ResourceConsumer, Level, ActiveHigh, Exclusive) { 365 }
+    Memory32Fixed(ReadWrite, 0x2ad50000, 0x1000)
+    Interrupt(ResourceConsumer, Level, ActiveHigh, Exclusive) { 110 }
   })
 
   Name (_DSD, Package () {

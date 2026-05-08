@@ -1,0 +1,37 @@
+#/** @file
+#
+#  RK3576 GPIO Library.
+#
+#  Copyright (c) 2021, Jared McNeill <jmcneill@invisible.ca>    (original RK3588)
+#  Copyright (c) 2025, ROCK 4D RK3576 Port                     (RK3576 adaptation)
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = GpioLib
+  FILE_GUID                      = D8424121-5D82-454C-9C91-A84BC2916492
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = GpioLib
+
+[Sources]
+  GpioLib.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdePkg/MdePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  Silicon/Rockchip/RK3588/RK3588.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+
+[FixedPcd]
+
+[Guids]

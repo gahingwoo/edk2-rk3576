@@ -14,7 +14,7 @@ Scope (\_SB_) {
     Name (_UID, 0)
     Name (_CLS, Package() { 0x01, 0x06, 0x01 })
     Name (_CCA, 0)
-    Name (_STA, 0xF)
+    Name (_STA, Zero)  // disabled: RK3576 has no SATA controller
 
     Method (_CRS, 0x0, Serialized) {
       Name (RBUF, ResourceTemplate() {
@@ -36,7 +36,7 @@ Scope (\_SB_) {
     Name (_UID, 1)
     Name (_CLS, Package() { 0x01, 0x06, 0x01 })
     Name (_CCA, 0)
-    Name (_STA, 0xF)
+    Name (_STA, Zero)  // disabled: RK3576 has no SATA controller
 
     Method (_CRS, 0x0, Serialized) {
       Name (RBUF, ResourceTemplate() {
@@ -58,7 +58,7 @@ Scope (\_SB_) {
     Name (_UID, 2)
     Name (_CLS, Package() { 0x01, 0x06, 0x01 })
     Name (_CCA, 0)
-    Name (_STA, 0xF)
+    Name (_STA, Zero)  // disabled: RK3576 has no SATA controller
 
     Method (_CRS, 0x0, Serialized) {
       Name (RBUF, ResourceTemplate() {

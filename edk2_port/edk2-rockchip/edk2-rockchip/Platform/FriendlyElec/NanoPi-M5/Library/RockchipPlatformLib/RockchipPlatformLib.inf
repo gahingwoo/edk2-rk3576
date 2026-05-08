@@ -1,0 +1,38 @@
+## @file
+#
+#  RockchipPlatformLib for FriendlyElec NanoPi M5 (RK3576)
+#
+#  Copyright (c) 2021, Rockchip Limited.
+#  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
+#  Copyright (c) 2025, FriendlyElec NanoPi M5 EDK2 Port
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = RockchipPlatformLib
+  FILE_GUID                      = f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f809102
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = RockchipPlatformLib
+
+[Sources]
+  RockchipPlatformLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ArmPkg/ArmPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+  GpioLib
+  RK806
+  PWMLib
+  TimerLib

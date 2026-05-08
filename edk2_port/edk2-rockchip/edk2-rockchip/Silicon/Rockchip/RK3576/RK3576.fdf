@@ -28,12 +28,12 @@
 # 0x200000 below) lands exactly at 0x40800000 — required because all
 # FV-internal absolute symbol references are linked using PcdFvBaseAddress.
 BaseAddress   = 0x40600000|gArmTokenSpaceGuid.PcdFdBaseAddress  # FD anchor in DRAM
-Size          = 0x00800000|gArmTokenSpaceGuid.PcdFdSize         # 8MB FD region
+Size          = 0x01000000|gArmTokenSpaceGuid.PcdFdSize         # 16MB FD region
 ErasePolarity = 1
 
 # This one is tricky, it must be: BlockSize * NumBlocks = Size
 BlockSize     = 0x00001000
-NumBlocks     = 0x800
+NumBlocks     = 0x1000
 
 ################################################################################
 #
@@ -50,20 +50,20 @@ NumBlocks     = 0x800
 # RegionType <FV, DATA, or FILE>
 #
 ################################################################################
-0x00200000|0x00500000
+0x00200000|0x00D00000
 gArmTokenSpaceGuid.PcdFvBaseAddress|gArmTokenSpaceGuid.PcdFvSize
 FV = BL33_AP_UEFI
 
 # NV_VARIABLE_STORE
-0x007C0000|0x00010000
+0x00FC0000|0x00010000
 gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
 
 # NV_FTW_WORKING header
-0x007D0000|0x00010000
+0x00FD0000|0x00010000
 gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase64|gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize
 
 # NV_FTW_WORKING data
-0x007E0000|0x00010000
+0x00FE0000|0x00010000
 gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase64|gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
 
 ################################################################################
@@ -79,7 +79,17 @@ gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase64|gEfiMdeModulePkgT
 
 [FV.FvMain]
 BlockSize          = 0x40
-NumBlocks          = 0         # This FV gets compressed so make it just big enough
+# NumBlocks = 0 (auto) originally made FVMAIN "just big enough".  After adding
+# Secure Boot (BaseCryptLib linked into both SecurityStubDxe and
+# VariableRuntimeDxe), FVMAIN grew to 100% full (0 bytes free), which can cause
+# "Decompress Failed" at runtime because the FFS parser needs a valid 0xFF
+# free-space region at the end of the FV to detect end-of-file-system.
+#
+# Fix: set explicit NumBlocks to 14MB (0x38000 × 0x40 = 14,680,064 bytes).
+# This gives ~1.8MB free space after the current ~12.17MB of modules.
+# The extra 1.8MB of 0xFF free space LZMA-compresses to ~4 KB, so
+# BL33_AP_UEFI.Fv (5MB container, currently 67% free) is unaffected.
+NumBlocks          = 0x38800   # 14.125MB FVMAIN — accommodates TLS+HTTP+IPv6 stack (~35KB over previous 14MB)
 FvAlignment        = 8         # FV alignment and FV attributes setting.
 ERASE_POLARITY     = 1
 MEMORY_MAPPED      = TRUE
@@ -107,12 +117,11 @@ READ_LOCK_STATUS   = TRUE
   #
   # Common components
   #
-  # ROCK4D / RK3576: skip RkFvbDxe + Variable + FTW. RkAtagsLib reads
-  # ATAGS at hardcoded 0x1FE000 which is firewalled by BL31 on RK3576
-  # → external abort (EC=0x25). Until atags base is parameterised, the
-  # entire FVB stack must be excluded from the FV. DSC [Defines] do NOT
-  # flow into FDF processing, so this DEFINE must live here.
-  DEFINE RK_FVB_ENABLE = FALSE
+  # RK3576: FVB enabled — NorFlashDxe uses PcdRkFvbNvStorageSpiOffset=0xFC0000
+  # to read/write the NV variable area at SPI NOR offset 0xFC0000 (immediately
+  # after the FIT image max boundary).  PcdRkAtagsBase=0 prevents the ATAGS
+  # bus-fault that previously blocked this.
+  DEFINE RK_FVB_ENABLE = TRUE
 !include Silicon/Rockchip/FvMainModules.fdf.inc
 
   #
@@ -149,7 +158,7 @@ READ_LOCK_STATUS   = TRUE
   # Rockchip GMAC Support
   #
 !if $(RK3576_GMAC_ENABLE) == TRUE
-  INF Silicon/Rockchip/RK3588/Drivers/GmacPlatformDxe/GmacPlatformDxe.inf
+  INF Silicon/Rockchip/RK3576/Drivers/GmacPlatformDxe/GmacPlatformDxe.inf
   INF Silicon/Synopsys/DesignWare/Drivers/DwcEqosSnpDxe/DwcEqosSnpDxe.inf
 !endif
 

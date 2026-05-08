@@ -102,6 +102,13 @@
   # tell RkAtagsLib to skip the lookup and return NULL gracefully.
   gRockchipTokenSpaceGuid.PcdRkAtagsBase|0x1FE000|UINT64|0x2120000A
 
+  # RK3576 / DRAM-loaded FD: FdBase is a DRAM address (0x40600000), so the
+  # normal FvbOffset = PcdFlashNvStorageVariableBase64 − PcdFdBaseAddress
+  # formula gives 0x1C0000 instead of the correct SPI NOR offset 0x7C0000.
+  # Set PcdRkFvbNvStorageSpiOffset to the actual SPI NOR byte offset for
+  # the NV variable store region.  0 = use the legacy formula.
+  gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset|0|UINT64|0x2120000B
+
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxBase|0x0010f000|UINT64|0x00001000
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSize|0x100|UINT32|0x00001001
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSmcId|0x82000010|UINT32|0x00010002

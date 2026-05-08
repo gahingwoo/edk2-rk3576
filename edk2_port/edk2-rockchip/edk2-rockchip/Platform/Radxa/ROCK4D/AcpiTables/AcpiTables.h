@@ -1,6 +1,6 @@
 /** @file
  *
- *  RK3588 defines for constructing ACPI tables
+ *  RK3576 defines for constructing ACPI tables
  *
  *  Copyright (c) 2024, Mario Bălănică <mariobalanica02@gmail.com>
  *  Copyright (c) 2020, Pete Batard <pete@akeo.ie>
@@ -18,11 +18,11 @@
 #include <IndustryStandard/Acpi.h>
 #include <IndustryStandard/MemoryMappedConfigurationSpaceAccessTable.h>
 #include <Library/GpioLib.h>
-#include <Library/Rk3588Pcie.h>
+#include <Library/Rk3576Pcie.h>
 
 #define EFI_ACPI_OEM_ID  {'R','K','C','P',' ',' '}
 
-#define EFI_ACPI_OEM_TABLE_ID  SIGNATURE_64 ('R','K','3','5','8','8',' ',' ')
+#define EFI_ACPI_OEM_TABLE_ID  SIGNATURE_64 ('R','K','3','5','7','6',' ',' ')
 
 #define EFI_ACPI_OEM_REVISION      0x00000000
 #define EFI_ACPI_CREATOR_ID        SIGNATURE_32 ('E','D','K','2')
@@ -119,7 +119,7 @@
 typedef struct {
   EFI_ACPI_MEMORY_MAPPED_CONFIGURATION_BASE_ADDRESS_TABLE_HEADER                           Header;
   EFI_ACPI_MEMORY_MAPPED_ENHANCED_CONFIGURATION_SPACE_BASE_ADDRESS_ALLOCATION_STRUCTURE    ConfigSpaces[2][NUM_PCIE_CONTROLLER];
-} RK3588_MCFG_TABLE;
+} RK3576_MCFG_TABLE;
 #pragma pack(pop)
 
 #endif // __ACPITABLES_H__

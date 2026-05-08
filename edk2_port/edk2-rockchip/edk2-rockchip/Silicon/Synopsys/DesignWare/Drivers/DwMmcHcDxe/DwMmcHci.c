@@ -219,16 +219,18 @@ DwMmcHcUpdateClock (
 {
   UINT32  Cmd;
   UINT32  IntStatus;
+  UINT32  CmdTimeout;
 
   Cmd = BIT_CMD_WAIT_PRVDATA_COMPLETE | BIT_CMD_UPDATE_CLOCK_ONLY |
         BIT_CMD_START;
   MmioWrite32 (DevBase + DW_MMC_CMD, Cmd);
 
-  while (1) {
+  CmdTimeout = DW_MMC_HC_GENERIC_TIMEOUT;
+  while (CmdTimeout--) {
     Cmd = MmioRead32 (DevBase + DW_MMC_CMD);
 
     if (!(Cmd & CMD_START_BIT)) {
-      break;
+      return EFI_SUCCESS;
     }
 
     IntStatus = MmioRead32 (DevBase + DW_MMC_RINTSTS);
@@ -242,7 +244,8 @@ DwMmcHcUpdateClock (
     }
   }
 
-  return EFI_SUCCESS;
+  DEBUG ((DEBUG_ERROR, "DwMmcHcUpdateClock: timed out waiting for CMD_START_BIT to clear\n"));
+  return EFI_TIMEOUT;
 }
 
 /**
@@ -345,11 +348,17 @@ DwMmcHcClockSupply (
     ));
 
   //
-  // Wait until MMC is idle
+  // Wait until MMC is idle (with timeout to avoid hang if no card present)
   //
-  do {
-    MmcStatus = MmioRead32 (DevBase + DW_MMC_STATUS);
-  } while (MmcStatus & DW_MMC_STS_DATA_BUSY);
+  {
+    UINT32 DataBusyTimeout = DW_MMC_HC_GENERIC_TIMEOUT;
+    do {
+      MmcStatus = MmioRead32 (DevBase + DW_MMC_STATUS);
+    } while ((MmcStatus & DW_MMC_STS_DATA_BUSY) && --DataBusyTimeout);
+    if (MmcStatus & DW_MMC_STS_DATA_BUSY) {
+      DEBUG ((DEBUG_WARN, "DwMmcHcClockSupply: timed out waiting for DATA_BUSY to clear\n"));
+    }
+  }
 
   do {
     Status = DwMmcHcStopClock (DevBase);
@@ -1205,11 +1214,18 @@ DwEmmcExecTrb (
   ArmDataSynchronizationBarrier ();
   ArmInstructionSynchronizationBarrier ();
   //
-  // Wait until MMC is idle
+  // Wait until MMC is idle (with timeout to avoid hang if DATA_BUSY is stuck)
   //
-  do {
-    MmcStatus = MmioRead32 (DevBase + DW_MMC_STATUS);
-  } while (MmcStatus & DW_MMC_STS_DATA_BUSY);
+  {
+    UINT32 DataBusyTimeout = DW_MMC_HC_GENERIC_TIMEOUT;
+    do {
+      MmcStatus = MmioRead32 (DevBase + DW_MMC_STATUS);
+    } while ((MmcStatus & DW_MMC_STS_DATA_BUSY) && --DataBusyTimeout);
+    if (MmcStatus & DW_MMC_STS_DATA_BUSY) {
+      DEBUG ((DEBUG_WARN, "DwEmmcExecTrb: timed out waiting for DATA_BUSY to clear\n"));
+      return EFI_TIMEOUT;
+    }
+  }
 
   IntStatus = ~0;
   MmioWrite32 (DevBase + DW_MMC_RINTSTS, IntStatus);
@@ -1364,11 +1380,18 @@ DwSdExecTrb (
   ArmDataSynchronizationBarrier ();
   ArmInstructionSynchronizationBarrier ();
   //
-  // Wait until MMC is idle
+  // Wait until MMC is idle (with timeout to avoid hang if DATA_BUSY is stuck)
   //
-  do {
-    MmcStatus = MmioRead32 (DevBase + DW_MMC_STATUS);
-  } while (MmcStatus & DW_MMC_STS_DATA_BUSY);
+  {
+    UINT32 DataBusyTimeout = DW_MMC_HC_GENERIC_TIMEOUT;
+    do {
+      MmcStatus = MmioRead32 (DevBase + DW_MMC_STATUS);
+    } while ((MmcStatus & DW_MMC_STS_DATA_BUSY) && --DataBusyTimeout);
+    if (MmcStatus & DW_MMC_STS_DATA_BUSY) {
+      DEBUG ((DEBUG_WARN, "DwSdExecTrb: timed out waiting for DATA_BUSY to clear\n"));
+      return EFI_TIMEOUT;
+    }
+  }
 
   IntStatus = ~0;
   MmioWrite32 (DevBase + DW_MMC_RINTSTS, IntStatus);

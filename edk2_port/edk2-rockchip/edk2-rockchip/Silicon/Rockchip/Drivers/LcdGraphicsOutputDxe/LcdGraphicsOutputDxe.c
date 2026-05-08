@@ -378,10 +378,20 @@ SetupDisplay (
   ConnectorState = &DisplayState->ConnectorState;
 
   //
-  // Only support CRTC port 2.
+  // RK3576: use VP0 (CRTC port 0) and plane config 0 (Cluster0 + Esmart0).
+  //   VP0 connects to HDMI0 via the IF_CTRL mux and its DCLK is already
+  //   sourced from the HDMI PHY PLL by U-Boot/SPL.
+  //   Using VP2 (config 1) is wrong for RK3576: config slot [1][2] maps
+  //   Cluster2/3 which do not exist on RK3576 (only 2 clusters present).
+  // RK3588: keep the existing VP2 / config 1 assignment.
   //
+#ifdef SOC_RK3576
+  CrtcState->CrtcID             = 0;
+  DisplayState->VpsConfigModeID = 0;
+#else
   CrtcState->CrtcID             = 2;
   DisplayState->VpsConfigModeID = 1;
+#endif
 
   //
   // Use RGB888_1X24 by default as it's the most compatible.

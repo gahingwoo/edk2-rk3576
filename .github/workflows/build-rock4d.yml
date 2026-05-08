@@ -1,0 +1,92 @@
+name: Build ROCK 4D UEFI Firmware
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'edk2_port/**'
+      - '!edk2_port/edk2-rockchip/edk2-rockchip/Platform/FriendlyElec/**'
+      - '.github/workflows/build-rock4d.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'edk2_port/**'
+      - '!edk2_port/edk2-rockchip/edk2-rockchip/Platform/FriendlyElec/**'
+      - '.github/workflows/build-rock4d.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ROCK 4D (RK3576)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install cross-compilation toolchain and EDK2 dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            build-essential uuid-dev nasm acpica-tools \
+            python3 python3-pyelftools python3-dev swig \
+            libssl-dev libgnutls28-dev \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Init EDK2 submodules (brotli / mipisyst / libfdt / openssl / mbedtls)
+        working-directory: edk2_port/edk2
+        run: |
+          git submodule update --init --depth=1 \
+            MdeModulePkg/Library/BrotliCustomDecompressLib/brotli \
+            MdePkg/Library/MipiSysTLib/mipisyst \
+            MdePkg/Library/BaseFdtLib/libfdt \
+            CryptoPkg/Library/OpensslLib/openssl \
+            CryptoPkg/Library/MbedTlsLib/mbedtls || true
+
+      - name: Build EDK2 BaseTools (native x86-64)
+        working-directory: edk2_port/edk2
+        run: |
+          make -C BaseTools CC=gcc CXX=g++ BUILD_CC=gcc BUILD_CXX=g++ -j$(nproc) 2>&1 | tail -10
+
+      - name: Patch tools_def.target for GCC warnings
+        working-directory: edk2_port
+        run: |
+          python3 patch_tools_def.py edk2-rockchip/Conf/tools_def.txt 2>/dev/null || \
+          python3 patch_tools_def.py edk2/BaseTools/Conf/tools_def.template 2>/dev/null || true
+
+      - name: Build ROCK 4D UEFI (EDK2 AARCH64 RELEASE)
+        working-directory: edk2_port/edk2-rockchip
+        env:
+          GCC5_AARCH64_PREFIX: aarch64-linux-gnu-
+          GCC_AARCH64_PREFIX: aarch64-linux-gnu-
+        run: |
+          RK_INNER="$(pwd)/edk2-rockchip"
+          [ ! -d "$RK_INNER/Platform" ] && RK_INNER="$(pwd)"
+          export EDK_TOOLS_PATH="$(cd ../edk2/BaseTools && pwd)"
+          export WORKSPACE="$(pwd)"
+          export CONF_PATH="$(pwd)/Conf"
+          export PACKAGES_PATH="$RK_INNER:$(pwd):$(cd ../edk2 && pwd):$(cd ../edk2-non-osi && pwd):$(pwd)/edk2-platforms:$(pwd)/edk2-rockchip-non-osi"
+          export PYTHONPATH="$(cd ../edk2 && pwd)/BaseTools/Source/Python"
+          export PATH="$(cd ../edk2 && pwd)/BaseTools/BinWrappers/PosixLike:$(cd ../edk2 && pwd)/BaseTools/Source/C/bin:$PATH"
+          sudo mkdir -p /Scripts && sudo ln -sfn "$(cd ../edk2 && pwd)/BaseTools/Scripts/GccBase.lds" /Scripts/GccBase.lds || true
+          set +eu
+          source ../edk2/edksetup.sh BaseTools 2>/dev/null || true
+          set -eu
+          build -s -n "$(nproc)" -a AARCH64 -t GCC \
+                -p "Platform/Radxa/ROCK4D/ROCK4D.dsc" \
+                -b RELEASE -D FIRMWARE_VER="rk3576-rock4d-${{ github.sha }}"
+
+      - name: Collect firmware artifact
+        run: |
+          mkdir -p artifacts
+          cp edk2_port/edk2-rockchip/Build/ROCK4D/RELEASE_GCC/FV/BL33_AP_UEFI.Fv \
+             artifacts/rock4d-BL33_AP_UEFI.Fv
+
+      - name: Upload ROCK 4D firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: rock4d-uefi-${{ github.sha }}
+          path: artifacts/
+          retention-days: 30

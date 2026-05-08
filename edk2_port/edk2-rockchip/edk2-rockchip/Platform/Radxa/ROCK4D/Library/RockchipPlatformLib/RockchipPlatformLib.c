@@ -86,13 +86,15 @@ static struct regulator_init_data rk806_init_data[] = {
 /*
  * SdmmcIoMux — SD card iomux (sdmmc: mmc@2a310000)
  *
- * RK3576 SD card pins differ from RK3588. The BUS_IOC base for RK3576
- * is at sys_grf area. Exact iomux register offsets must be confirmed
- * from RK3576 TRM chapter "IO MUX".
+ * From rk3576-pinctrl.dtsi (sdmmc0 groups, all function 1):
+ *   sdmmc0_bus4:  GPIO2 PA0-PA3  (D0-D3)
+ *   sdmmc0_cmd:   GPIO2 PA4      (CMD)
+ *   sdmmc0_clk:   GPIO2 PA5      (CLK)
+ *   sdmmc0_pwren: GPIO0 PB6      (power enable)
+ *   sdmmc0_det:   GPIO0 PA7      (hardware DETN — function 1)
  *
- * TODO: Replace placeholder with real RK3576 BUS_IOC register writes
- *       once TRM section for GPIO4 iomux is available.
- *       Reference: rk3576.dtsi sdmmc pinctrl node.
+ * Card-presence polling (software) uses GPIO0 PA5 (configured separately
+ * in RkSdmmcPlatformLib as plain input; not set via GpioPinSetFunction here).
  */
 VOID
 EFIAPI
@@ -109,8 +111,6 @@ SdmmcIoMux (
    * SDMMC clocks:
    *   CCLK_SRC_SDMMC0  → CLKGATE_CON(43), bit 1  (card clock)
    *   HCLK_SDMMC0      → CLKGATE_CON(43), bit 2  (AHB bus clock)
-   *
-   * Pinmux: SPL already configures sdmmc0 pins, retained into UEFI.
    */
 
   /* Ungate SDGMAC root clock */
@@ -123,12 +123,32 @@ SdmmcIoMux (
   MmioWrite32 (CRU_CLKGATE_CON(43),
     (1U << (2 + 16)) | (0U << 2));   /* HCLK_SDMMC0: ungate */
 
-  DEBUG ((DEBUG_INFO, "SdmmcIoMux: SDMMC0 clocks ungated, pinmux from SPL\n"));
+  /* sdmmc0_bus4: GPIO2 PA0-PA3 function 1 (data D0-D3) */
+  GpioPinSetFunction (2, GPIO_PIN_PA0, 1);
+  GpioPinSetFunction (2, GPIO_PIN_PA1, 1);
+  GpioPinSetFunction (2, GPIO_PIN_PA2, 1);
+  GpioPinSetFunction (2, GPIO_PIN_PA3, 1);
+  /* sdmmc0_cmd: GPIO2 PA4 function 1 */
+  GpioPinSetFunction (2, GPIO_PIN_PA4, 1);
+  /* sdmmc0_clk: GPIO2 PA5 function 1 */
+  GpioPinSetFunction (2, GPIO_PIN_PA5, 1);
+  /* sdmmc0_pwren: GPIO0 PB6 function 1 (hardware power enable) */
+  GpioPinSetFunction (0, GPIO_PIN_PB6, 1);
+  /* sdmmc0_det: GPIO0 PA7 function 1 (hardware DETN input) */
+  GpioPinSetFunction (0, GPIO_PIN_PA7, 1);
+
+  DEBUG ((DEBUG_INFO, "SdmmcIoMux: SDMMC0 clocks ungated + iomux set\n"));
 }
 
 /*
  * SdhciEmmcIoMux — eMMC iomux (sdhci: mmc@2a330000)
- * Same note as SdmmcIoMux — placeholder until TRM addresses confirmed.
+ *
+ * From rk3576-pinctrl.dtsi (emmc groups, all function 1):
+ *   emmc_bus8: GPIO1 PA0-PA7  (D0-D7)
+ *   emmc_cmd:  GPIO1 PB0      (CMD)
+ *   emmc_clk:  GPIO1 PB1      (CLK)
+ *   emmc_strb: GPIO1 PB2      (STRB)
+ *   emmc_rstnout: GPIO1 PB3   (RSTN)
  */
 VOID
 EFIAPI
@@ -149,8 +169,6 @@ SdhciEmmcIoMux (
    *   ACLK_EMMC      → CLKGATE_CON(33), bit 10  (AXI clock)
    *   BCLK_EMMC      → CLKGATE_CON(33), bit 11  (block clock)
    *   TCLK_EMMC      → CLKGATE_CON(33), bit 12  (timer clock)
-   *
-   * Pinmux: SPL already configures emmc pins, retained into UEFI.
    */
 
   /* Ungate NVM root clocks (idempotent if already done by SFC) */
@@ -171,7 +189,25 @@ SdhciEmmcIoMux (
   MmioWrite32 (CRU_CLKGATE_CON(33),
     (1U << (12 + 16)) | (0U << 12)); /* TCLK_EMMC: ungate */
 
-  DEBUG ((DEBUG_INFO, "SdhciEmmcIoMux: eMMC clocks ungated, pinmux from SPL\n"));
+  /* emmc_bus8: GPIO1 PA0-PA7 function 1 (data D0-D7) */
+  GpioPinSetFunction (1, GPIO_PIN_PA0, 1);
+  GpioPinSetFunction (1, GPIO_PIN_PA1, 1);
+  GpioPinSetFunction (1, GPIO_PIN_PA2, 1);
+  GpioPinSetFunction (1, GPIO_PIN_PA3, 1);
+  GpioPinSetFunction (1, GPIO_PIN_PA4, 1);
+  GpioPinSetFunction (1, GPIO_PIN_PA5, 1);
+  GpioPinSetFunction (1, GPIO_PIN_PA6, 1);
+  GpioPinSetFunction (1, GPIO_PIN_PA7, 1);
+  /* emmc_cmd: GPIO1 PB0 function 1 */
+  GpioPinSetFunction (1, GPIO_PIN_PB0, 1);
+  /* emmc_clk: GPIO1 PB1 function 1 */
+  GpioPinSetFunction (1, GPIO_PIN_PB1, 1);
+  /* emmc_strb: GPIO1 PB2 function 1 */
+  GpioPinSetFunction (1, GPIO_PIN_PB2, 1);
+  /* emmc_rstnout: GPIO1 PB3 function 1 */
+  GpioPinSetFunction (1, GPIO_PIN_PB3, 1);
+
+  DEBUG ((DEBUG_INFO, "SdhciEmmcIoMux: eMMC clocks ungated + iomux set\n"));
 }
 
 /*
@@ -274,9 +310,17 @@ NorFspiEnableClock (
 }
 
 /*
- * GmacIomux — GMAC iomux (gmac0: RTL8211F)
- * From rk3576-rock-4d.dts: eth0m0_miim, eth0m0_tx_bus2, etc.
- * RK3576_GMAC_ENABLE = FALSE in ROCK4D.dsc so this is not called.
+ * GmacIomux — GMAC iomux for ROCK 4D
+ *
+ * gmac0 (ROCK 4D): RTL8211F in RGMII-ID mode, eth0 M0 pins, all function 3.
+ * Pin mapping from rk3576-pinctrl.dtsi eth0m0_* groups:
+ *   eth0m0_miim:       GPIO3_PA5 (MDIO), GPIO3_PA6 (MDC)
+ *   eth0m0_rx_bus2:    GPIO3_PA7 (RXCTL), GPIO3_PB2 (RXD0), GPIO3_PB1 (RXD1)
+ *   eth0m0_tx_bus2:    GPIO3_PB3 (TXCTL), GPIO3_PB5 (TXD0), GPIO3_PB4 (TXD1)
+ *   eth0m0_rgmii_clk:  GPIO3_PD1 (RXCLK), GPIO3_PB6 (TXCLK)
+ *   eth0m0_rgmii_bus:  GPIO3_PD3 (RXD2), GPIO3_PD2 (RXD3), GPIO3_PC3 (TXD2), GPIO3_PC2 (TXD3)
+ *   ethm0_clk0_25m_out: GPIO3_PA4 (25 MHz ref out)
+ * gmac1: not connected on ROCK 4D — no iomux needed.
  */
 VOID
 EFIAPI
@@ -284,19 +328,69 @@ GmacIomux (
   IN UINT32  Id
   )
 {
-  DEBUG ((DEBUG_INFO, "GmacIomux: GMAC disabled in UEFI (RK3576_GMAC_ENABLE=FALSE)\n"));
+  if (Id != 0) {
+    return;  /* gmac1 not used on ROCK 4D */
+  }
+
+  /* eth0m0_miim */
+  GpioPinSetFunction (3, GPIO_PIN_PA5, 3);  /* eth0_mdio_m0 */
+  GpioPinSetFunction (3, GPIO_PIN_PA6, 3);  /* eth0_mdc_m0  */
+
+  /* eth0m0_rx_bus2 */
+  GpioPinSetFunction (3, GPIO_PIN_PA7, 3);  /* eth0_rxctl_m0 */
+  GpioPinSetFunction (3, GPIO_PIN_PB2, 3);  /* eth0_rxd0_m0  */
+  GpioPinSetFunction (3, GPIO_PIN_PB1, 3);  /* eth0_rxd1_m0  */
+
+  /* eth0m0_tx_bus2 */
+  GpioPinSetFunction (3, GPIO_PIN_PB3, 3);  /* eth0_txctl_m0 */
+  GpioPinSetFunction (3, GPIO_PIN_PB5, 3);  /* eth0_txd0_m0  */
+  GpioPinSetFunction (3, GPIO_PIN_PB4, 3);  /* eth0_txd1_m0  */
+
+  /* eth0m0_rgmii_clk */
+  GpioPinSetFunction (3, GPIO_PIN_PD1, 3);  /* eth0_rxclk_m0 */
+  GpioPinSetFunction (3, GPIO_PIN_PB6, 3);  /* eth0_txclk_m0 */
+
+  /* eth0m0_rgmii_bus */
+  GpioPinSetFunction (3, GPIO_PIN_PD3, 3);  /* eth0_rxd2_m0 */
+  GpioPinSetFunction (3, GPIO_PIN_PD2, 3);  /* eth0_rxd3_m0 */
+  GpioPinSetFunction (3, GPIO_PIN_PC3, 3);  /* eth0_txd2_m0 */
+  GpioPinSetFunction (3, GPIO_PIN_PC2, 3);  /* eth0_txd3_m0 */
+
+  /* ethm0_clk0_25m_out — 25 MHz reference clock output to PHY */
+  GpioPinSetFunction (3, GPIO_PIN_PA4, 3);  /* ethm0_clk0_25m_out */
+}
+
+/*
+ * GmacIoPhyReset — Assert / deassert the ETH PHY reset GPIO.
+ *
+ * gmac0 PHY: GPIO2_PB5, GPIO_ACTIVE_LOW
+ *   (from rk3576-rock-4d.dts: reset-gpios = <&gpio2 RK_PB5 GPIO_ACTIVE_LOW>)
+ *   Enable=TRUE  → assert reset   → drive pin LOW  (active-low)
+ *   Enable=FALSE → deassert reset → drive pin HIGH
+ */
+VOID
+EFIAPI
+GmacIoPhyReset (
+  IN UINT32   Id,
+  IN BOOLEAN  Enable
+  )
+{
+  if (Id != 0) {
+    return;
+  }
+
+  /* On first call (Enable=TRUE), ensure pin is configured as output */
+  GpioPinSetDirection (2, GPIO_PIN_PB5, GPIO_PIN_OUTPUT);
+  GpioPinWrite (2, GPIO_PIN_PB5, !Enable);  /* active-low: assert = write 0 */
 }
 
 /*
  * I2cIomux — I2C pin configuration
- * From rk3576.dtsi and rk3576-rock-4d.dts:
+ * From rk3576.dtsi and rk3576-rock-4d.dts (and rk3576-pinctrl.dtsi m0 groups):
  *   i2c1 @ 0x2AC40000: RK806 PMIC (address 0x23, interrupt GPIO0 pin 6)
+ *     i2c1m0_xfer: GPIO0 PB2 (fn 11) = SCL, GPIO0 PB3 (fn 11) = SDA
  *   i2c2 @ 0x2AC50000: HYM8563 RTC (address 0x51, interrupt GPIO0 PA0)
- *
- * Actual pin function numbers from RK3576 pinctrl DTS:
- *   i2c1m0 default mux (from pinctrl-rk3576.c in kernel)
- *
- * PLACEHOLDER: Use GpioPinSetFunction with correct mux values from TRM.
+ *     i2c2m0_xfer: GPIO0 PB7 (fn  9) = SCL, GPIO0 PC0 (fn  9) = SDA
  */
 VOID
 EFIAPI
@@ -306,14 +400,16 @@ I2cIomux (
 {
   switch (id) {
     case 1:
-      /* i2c1: RK806 PMIC — mux values TBD from RK3576 pinctrl */
-      /* GpioPinSetFunction (?, GPIO_PIN_P??, ?); i2c1_scl */
-      /* GpioPinSetFunction (?, GPIO_PIN_P??, ?); i2c1_sda */
-      DEBUG ((DEBUG_INFO, "I2cIomux: I2C1 (PMIC) — SPL iomux retained\n"));
+      /* i2c1m0: RK806 PMIC — GPIO0 PB2/PB3, function 11 */
+      GpioPinSetFunction (0, GPIO_PIN_PB2, 11);  /* i2c1_scl_m0 */
+      GpioPinSetFunction (0, GPIO_PIN_PB3, 11);  /* i2c1_sda_m0 */
+      DEBUG ((DEBUG_INFO, "I2cIomux: I2C1 (PMIC) GPIO0 PB2/PB3 fn11\n"));
       break;
     case 2:
-      /* i2c2: HYM8563 RTC — mux values TBD from RK3576 pinctrl */
-      DEBUG ((DEBUG_INFO, "I2cIomux: I2C2 (RTC) — SPL iomux retained\n"));
+      /* i2c2m0: HYM8563 RTC — GPIO0 PB7/PC0, function 9 */
+      GpioPinSetFunction (0, GPIO_PIN_PB7, 9);   /* i2c2_scl_m0 */
+      GpioPinSetFunction (0, GPIO_PIN_PC0, 9);   /* i2c2_sda_m0 */
+      DEBUG ((DEBUG_INFO, "I2cIomux: I2C2 (RTC) GPIO0 PB7/PC0 fn9\n"));
       break;
     default:
       break;

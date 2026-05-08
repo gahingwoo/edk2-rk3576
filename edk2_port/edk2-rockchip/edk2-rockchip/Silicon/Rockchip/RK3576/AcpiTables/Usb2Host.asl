@@ -64,6 +64,7 @@ Scope (\_SB_) {
     }
     Name (_UID, One)
     Name (_CCA, Zero)
+    Name (_STA, Zero)  // disabled: RK3576 has no standalone EHCI controller
 
     Method (_CRS, 0x0, Serialized) {
       Name (RBUF, ResourceTemplate() {
@@ -105,6 +106,7 @@ Scope (\_SB_) {
     Name (_CLS, Package() { 0x0c, 0x03, 0x10 })
     Name (_UID, Zero)
     Name (_CCA, Zero)
+    Name (_STA, Zero)  // disabled: RK3576 has no standalone OHCI controller
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
@@ -153,6 +155,7 @@ Scope (\_SB_) {
     Name (_CLS, Package() { 0x0c, 0x03, 0x10 })
     Name (_UID, One)
     Name (_CCA, Zero)
+    Name (_STA, Zero)  // disabled: RK3576 has no standalone OHCI controller
 
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),

@@ -1,0 +1,31 @@
+#/** @file
+#
+#  NanoPi M5 Vendor Device Tree (pre-compiled DTB from FriendlyElec BSP)
+#
+#  MAINLINE STATUS: rk3576-nanopi-m5.dts is NOT yet in mainline Linux.
+#
+#  To build the vendor DTB:
+#    1. Clone FriendlyElec kernel:
+#       git clone https://github.com/friendlyarm/kernel-rockchip
+#       git checkout nanopi6-v6.1.y
+#    2. Build with nanopi5_linux_defconfig:
+#       make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- nanopi5_linux_defconfig
+#       make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs
+#    3. Copy output:
+#       cp arch/arm64/boot/dts/rockchip/rk3576-nanopi-m5.dtb \
+#          Platform/FriendlyElec/NanoPi-M5/devicetree/vendor/rk3576-nanopi-m5.dtb
+#
+#  Copyright (c) 2025, FriendlyElec NanoPi M5 EDK2 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = DeviceTree-Vendor
+  FILE_GUID                      = e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8091
+  MODULE_TYPE                    = USER_DEFINED
+  VERSION_STRING                 = 1.0
+
+[Binaries]
+  BIN|devicetree/vendor/rk3576-nanopi-m5.dtb

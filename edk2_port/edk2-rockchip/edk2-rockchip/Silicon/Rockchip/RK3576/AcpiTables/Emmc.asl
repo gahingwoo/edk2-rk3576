@@ -15,15 +15,15 @@
 
     Method (_CRS, 0x0, Serialized) {
       Name (RBUF, ResourceTemplate() {
-        Memory32Fixed (ReadWrite, 0xfe2e0000, 0x10000)
-        Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 237 }
+        Memory32Fixed (ReadWrite, 0x2a330000, 0x10000)
+        Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 285 }
       })
       Return (RBUF)
     }
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package (2) { "compatible", "rockchip,rk3588-dwcmshc" },
+        Package () { "compatible", "rockchip,rk3576-dwcmshc", "rockchip,rk3588-dwcmshc" },
         Package () { "max-frequency", 200000000 },
         Package () { "bus-width", 8 },
         Package () { "no-sd", 0x1 },
@@ -34,7 +34,7 @@
       }
     })
 
-    OperationRegion(EMMC, SystemMemory, 0xFD7C0434, 0x4)
+    OperationRegion(EMMC, SystemMemory, 0x27200464, 0x4)  // RK3576 CRU_CLKSEL_CON(89): CCLK_SRC_EMMC
       Field(EMMC, DWordAcc, NoLock, WriteAsZeros) {
       PLLE, 32,
     }

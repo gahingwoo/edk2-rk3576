@@ -33,12 +33,12 @@ Scope (\_SB_) {
 
     Method (_CRS, 0x0, Serialized) {
       Name (RBUF, ResourceTemplate () {
-        Memory32Fixed (ReadWrite, 0xfe2c0000, 0x4000)
-        Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 235 }
+        Memory32Fixed (ReadWrite, 0x2a310000, 0x4000)
+        Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 283 }
 
         // SDMMC_DET
-        GpioIO (Shared, PullUp, 0, 0, IoRestrictionNone, "\\_SB.GPI0") { GPIO_PIN_PA4 }
-        GpioInt (Edge, ActiveBoth, Shared, PullUp, 0, "\\_SB.GPI0") { GPIO_PIN_PA4 }
+        GpioIO (Shared, PullUp, 0, 0, IoRestrictionNone, "\\_SB.GPI0") { GPIO_PIN_PA7 }
+        GpioInt (Edge, ActiveBoth, Shared, PullUp, 0, "\\_SB.GPI0") { GPIO_PIN_PA7 }
       })
       Return (RBUF)
     }
@@ -46,7 +46,7 @@ Scope (\_SB_) {
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "compatible", Package () { "rockchip,rk3588-dw-mshc", "rockchip,rk3288-dw-mshc" } },
+        Package () { "compatible", Package () { "rockchip,rk3576-dw-mshc", "rockchip,rk3288-dw-mshc" } },
         Package () { "fifo-depth", 0x100 },
         Package () { "max-frequency", 200000000 },
         Package () { "bus-width", 4 },

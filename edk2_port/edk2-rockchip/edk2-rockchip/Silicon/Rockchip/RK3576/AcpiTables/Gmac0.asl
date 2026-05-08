@@ -21,8 +21,8 @@ Device (MAC0) {
 
   Method (_CRS, 0x0, Serialized) {
     Name (RBUF, ResourceTemplate() {
-      Memory32Fixed (ReadWrite, 0xfe1b0000, 0x10000)
-      Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 259, 258 }
+      Memory32Fixed (ReadWrite, 0x2a220000, 0x10000)
+      Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 325, 330 }
     })
     Return (RBUF)
   }
@@ -48,10 +48,12 @@ Device (MAC0) {
   })
 
   Method (_DSM, 4, Serialized) {
-    // PHP_GRF_CLK_CON1
-    OperationRegion (PGRF, SystemMemory, 0xfd5b0070, 0x4)
-    Field (PGRF, DWordAcc, NoLock, Preserve) {
-      CON1, 32
+    // SDGMAC_GRF CON0 (GMAC0 clock-select, bits[6:5])
+    // Address: 0x26038000 base + 0x20 (CON0 offset)
+    // HIWORD-UPDATE format: upper 16 = mask, lower 16 = value
+    OperationRegion (SGRF, SystemMemory, 0x26038020, 0x4)
+    Field (SGRF, DWordAcc, NoLock, Preserve) {
+      CON0, 32
     }
 
     // Check the UUID
@@ -71,19 +73,20 @@ Device (MAC0) {
 
           //
           // Function Index 1: Set MII speed
+          // bits[6:5]: 00=125MHz(GbE), 11=25MHz(100M), 10=2.5MHz(10M)
           //
           Case (1) {
             Local0 = DerefOf (Arg3[0])
 
             Switch (ToInteger (Local0)) {
               Case (1000) {
-                CON1 = 0x000c0000
+                CON0 = 0x00600000  // mask=0x60, value=0x00 (125MHz)
               }
               Case (100) {
-                CON1 = 0x000c000c
+                CON0 = 0x00600060  // mask=0x60, value=0x60 (25MHz)
               }
               Case (10) {
-                CON1 = 0x000c0008
+                CON0 = 0x00600040  // mask=0x60, value=0x40 (2.5MHz)
               }
             }
             Return (Buffer () { 0x00 })

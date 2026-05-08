@@ -1082,13 +1082,20 @@ FvbConfigureFlashInstance (
   //
   // PcdFlashNvStorageVariableBase64 is computed by the FDF tool as:
   //   FdBaseAddress + NvsRegionOffset
-  // For platforms where FdBase == 0 (e.g. RK3588) this equals the raw
-  // SPI NOR byte offset.  For platforms where FdBase != 0 (e.g. RK3576,
-  // FdBase = 0x40600000) the PCD holds a DRAM-relative address; subtract
-  // FdBase to recover the actual flash byte offset.
+  // PcdRkFvbNvStorageSpiOffset: when non-zero, use it directly as the SPI
+  // NOR byte offset for the NV variable store.  This is needed on platforms
+  // where FdBase is a DRAM address (e.g. RK3576 FdBase = 0x40600000), so
+  // the legacy formula PcdFlashNvStorageVariableBase64 - PcdFdBaseAddress
+  // gives the wrong offset (0x1C0000 instead of 0x7C0000 on RK3576).
+  // On legacy platforms (RK3588, FdBase = 0) the PCD defaults to 0 and the
+  // original formula is used unchanged.
   //
-  FlashInstance->FvbOffset = PcdGet64 (PcdFlashNvStorageVariableBase64)
-                             - FixedPcdGet64 (PcdFdBaseAddress);
+  if (FixedPcdGet64 (PcdRkFvbNvStorageSpiOffset) != 0) {
+    FlashInstance->FvbOffset = FixedPcdGet64 (PcdRkFvbNvStorageSpiOffset);
+  } else {
+    FlashInstance->FvbOffset = PcdGet64 (PcdFlashNvStorageVariableBase64)
+                               - FixedPcdGet64 (PcdFdBaseAddress);
+  }
 
   FlashInstance->Media.MediaId   = 0;
   FlashInstance->Media.BlockSize = SIZE_4KB;// FlashInstance->SpiDevice.Info->SectorSize;
@@ -1096,15 +1103,54 @@ FvbConfigureFlashInstance (
                                    FlashInstance->Media.BlockSize - 1;
 
   //
-  // Allocate an explicit shadow buffer for the NVS region in UEFI memory.
+  // Allocate the NVS shadow buffer at PcdFlashNvStorageVariableBase64 so
+  // VariableRuntimeDxe can find us via GetPhysicalAddress().
   //
-  // The previous approach set RegionBaseAddress = FvbOffset and relied on
-  // Rockchip's proprietary SPL pre-copying the NVS from SPI NOR into DRAM
-  // at address == SPI NOR offset.  Mainline U-Boot SPL (used on RK3576) does
-  // not do that, so the old code passed an unintended DRAM address as the
-  // read buffer, causing an SError from the hardware memory firewall.
+  // Background: VariableRuntimeDxe iterates all FVB2 protocols, calls
+  // GetPhysicalAddress() on each, and locates the one whose address matches
+  // PcdFlashNvStorageVariableBase64. With FdBase = 0x40600000 on RK3576,
+  // PcdFlashNvStorageVariableBase64 = 0x40600000 + NV_FD_offset (e.g. 0x415C0000).
   //
-  FlashInstance->RegionBaseAddress = (UINTN)AllocatePool (FlashInstance->FvbSize);
+  // The previous approach used AllocatePool() which returns an arbitrary heap
+  // address that never matches the PCD, causing "Firmware Volume for Variable
+  // Store is corrupted" from VariableRuntimeDxe.
+  //
+  // The original Rockchip design (FdBase = 0) relied on the proprietary SPL
+  // pre-copying NVS to DRAM at address == SPI NOR offset. That assumption
+  // doesn't hold on mainline (RK3576), so we must explicitly allocate at the
+  // PCD address and read SPI NOR content there.
+  //
+  {
+    EFI_PHYSICAL_ADDRESS  NvBase;
+
+    NvBase = FixedPcdGet64 (PcdFlashNvStorageVariableBase64);
+    Status = gBS->AllocatePages (
+                    AllocateAddress,
+                    EfiRuntimeServicesData,
+                    EFI_SIZE_TO_PAGES (FlashInstance->FvbSize),
+                    &NvBase
+                    );
+    if (EFI_ERROR (Status)) {
+      //
+      // AllocateAddress failed (address already reserved / not in free DRAM).
+      // Fall back to AllocatePool — VariableRuntimeDxe won't find the FVB by
+      // address, so variables will not persist, but the system won't crash.
+      //
+      DEBUG ((
+        DEBUG_WARN,
+        "%a: AllocatePages(AllocateAddress, %lx, %x) failed (%r),"
+        " falling back to pool — runtime variables will NOT persist\n",
+        __FUNCTION__,
+        NvBase,
+        FlashInstance->FvbSize,
+        Status
+        ));
+      FlashInstance->RegionBaseAddress = (UINTN)AllocatePool (FlashInstance->FvbSize);
+    } else {
+      FlashInstance->RegionBaseAddress = (UINTN)NvBase;
+    }
+  }
+
   if ((VOID *)FlashInstance->RegionBaseAddress == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }

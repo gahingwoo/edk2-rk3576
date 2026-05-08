@@ -8,8 +8,10 @@
  *      CLKSEL/CLKGATE registers directly through the CRU.
  *    - The "force_jtag" workaround (RK3588 SYS_GRF_SOC_CON6) does
  *      not apply: ROCK 4D's SD slot is not muxed with JTAG.
- *    - Card-detect uses GPIO0 PA5 per rk3576-rock-4d.dts
- *      (cd-gpios = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>).
+ *    - Card-detect uses the DW MMC CDETECT hardware register (offset 0x050,
+ *      bit0 = cdetect_n) via GPIO0 PA7 configured as function 1 (sdmmc0_detn)
+ *      by SdmmcIoMux(). The vendor and mainline Linux DTS for ROCK 4D have no
+ *      cd-gpios at all — they also rely on the hardware CDETECT path.
  *
  *  Copyright (c) 2023, Mario Bălănică <mariobalanica02@gmail.com>
  *  Copyright (c) 2025, ROCK 4D RK3576 Port
@@ -43,6 +45,11 @@
 #define SDMMC0_SEL_GPLL_350M      0
 #define SDMMC0_SEL_CPLL_400M      1
 #define SDMMC0_SEL_XIN_24M        2
+
+/* SDMMC0 (mmc@2a310000) base address and DW MMC CDETECT register offset.
+ * CDETECT bit 0 = cdetect_n: 0 → card present, 1 → no card. */
+#define SDMMC0_BASE               0x2A310000UL
+#define DW_MMC_CDETECT_OFF        0x050U
 
 EFI_STATUS
 EFIAPI
@@ -102,11 +109,10 @@ RkSdmmcSetIoMux (
   )
 {
   /*
-   * ROCK 4D / RK3576: SD slot is on dedicated SDMMC pins, no JTAG
-   * multiplexing workaround required.  Configure the CD pin as input
-   * before calling the platform-specific iomux setup.
+   * SdmmcIoMux() already configures GPIO0 PA7 as function 1 (sdmmc0_detn),
+   * connecting the hardware card-detect signal to DW_MMC_CDETECT.
+   * No separate GPIO setup is needed.
    */
-  GpioPinSetDirection (0, GPIO_PIN_PA5, GPIO_PIN_INPUT);
   SdmmcIoMux ();
 }
 
@@ -116,10 +122,14 @@ RkSdmmcGetCardPresenceState (
   VOID
   )
 {
+  UINT32  Cdetect;
+
   /*
-   * cd-gpios = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>
-   *   level low  -> card present.
+   * Read hardware CDETECT register via DW MMC controller.
+   * GPIO0 PA7 (sdmmc0_detn, function 1, set by SdmmcIoMux) feeds
+   * directly into this register.
+   * bit 0 = cdetect_n: 0 -> card present, 1 -> no card.
    */
-  return GpioPinReadActual (0, GPIO_PIN_PA5) ? RkSdmmcCardNotPresent
-                                             : RkSdmmcCardPresent;
+  Cdetect = MmioRead32 (SDMMC0_BASE + DW_MMC_CDETECT_OFF);
+  return (Cdetect & BIT0) ? RkSdmmcCardNotPresent : RkSdmmcCardPresent;
 }

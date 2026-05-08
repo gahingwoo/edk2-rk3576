@@ -1,0 +1,45 @@
+## @file
+#  ResetSystem library for RK3576 — PSCI with MaskROM boot mode support.
+#
+#  Boot mode register: PMU0_GRF_OS_REG16 = 0x26024040
+#    (PMU0_GRF_BASE=0x26024000 + OS_REG(16)=0x40)
+#  Source: U-Boot mainline rk3576/Kconfig ROCKCHIP_BOOT_MODE_REG = 0x26024040
+#          TF-A plat/rockchip/rk3576/drivers/pmu/pmu.h PMU0GRF_OS_REG(16)
+#
+#  Copyright (c) 2008, Apple Inc. All rights reserved.
+#  Copyright (c) 2014, Linaro Ltd. All rights reserved.
+#  Copyright (c) 2024, Google Llc. All rights reserved.
+#  Copyright (c) 2024, Mario Bălănică <mariobalanica02@gmail.com>
+#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 1.29
+  BASE_NAME                      = ResetSystemLib
+  FILE_GUID                      = 5C2E4A3F-1B8D-4F72-9A6E-0D3E7C8B5129
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = ResetSystemLib
+  CONSTRUCTOR                    = ResetSystemLibConstructor
+
+[Sources]
+  ResetSystemLib.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  ArmMonitorLib
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  IoLib
+  ResetUtilityLib
+
+[Guids]
+  gRockchipResetTypeMaskromGuid

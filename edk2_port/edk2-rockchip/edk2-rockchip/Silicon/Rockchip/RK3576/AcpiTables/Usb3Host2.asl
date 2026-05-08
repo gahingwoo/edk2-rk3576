@@ -15,6 +15,7 @@ Device (XHC2) {
     Name (_HID, "PNP0D10")
     Name (_UID, 2)
     Name (_CCA, Zero)
+    Name (_STA, Zero)  // disabled: RK3576 has only 2 USB DRD controllers
 
     Method (_CRS, 0x0, Serialized) {
         Name (RBUF, ResourceTemplate() {

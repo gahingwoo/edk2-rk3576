@@ -128,14 +128,14 @@ build time. See [docs/BUILDING.md](docs/BUILDING.md).
 
 | Feature | Status |
 |---|---|
-| CPU / RAM | ✅ 8-core A72+A53, 12 GB LPDDR5 |
-| eMMC / SD / SPI NOR | ✅ All functional |
-| USB 2.0 (EHCI/OHCI) | ✅ HID + mass-storage |
-| USB 3.0 xHCI @ 5 Gbps | ✅ Verified |
-| 1 GbE (GMAC0) | ✅ Works under Linux |
-| HDMI | ⚠️ GOP installed, no signal until Linux brings up VOP2 |
-| PCIe | ⚠️ DBI reachable, LTSSM never reaches L0 |
-| SMBIOS | ✅ Populated by `PlatformSmbiosDxe` |
+| CPU / RAM | Working — 8-core A72+A53, 12 GB LPDDR5 |
+| eMMC / SD / SPI NOR | Working — all three storage paths functional |
+| USB 2.0 (EHCI/OHCI) | Working — HID and mass-storage |
+| USB 3.0 xHCI @ 5 Gbps | Working — verified |
+| 1 GbE (GMAC0) | Working under Linux; UEFI SNP driver pending |
+| HDMI | Partial — GOP installed, no signal until Linux brings up VOP2 |
+| PCIe | Partial — DBI reachable, LTSSM never reaches L0 |
+| SMBIOS | Working — populated by `PlatformSmbiosDxe` |
 
 See full details above.
 

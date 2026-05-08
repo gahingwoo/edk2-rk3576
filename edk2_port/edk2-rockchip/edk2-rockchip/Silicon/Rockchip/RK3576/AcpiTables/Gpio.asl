@@ -25,8 +25,8 @@ Device (GPI0)
   {
     Name (RBUF, ResourceTemplate()
     {
-      Memory32Fixed(ReadWrite, 0xFD8A0000, 0x100)
-      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {309}
+      Memory32Fixed(ReadWrite, 0x27320000, 0x100)
+      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {185}
     })
     Return(RBUF)
   }
@@ -52,8 +52,8 @@ Device (GPI1)
   {
     Name (RBUF, ResourceTemplate()
     {
-      Memory32Fixed(ReadWrite, 0xFEC20000, 0x100)
-      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {310}
+      Memory32Fixed(ReadWrite, 0x2AE10000, 0x100)
+      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {189}
     })
     Return(RBUF)
   }
@@ -78,8 +78,8 @@ Device (GPI2)
   {
     Name (RBUF, ResourceTemplate()
     {
-      Memory32Fixed(ReadWrite, 0xFEC30000, 0x100)
-      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {311}
+      Memory32Fixed(ReadWrite, 0x2AE20000, 0x100)
+      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {193}
     })
     Return(RBUF)
   }
@@ -104,8 +104,8 @@ Device (GPI3)
   {
     Name (RBUF, ResourceTemplate()
     {
-      Memory32Fixed(ReadWrite, 0xFEC40000, 0x100)
-      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {312}
+      Memory32Fixed(ReadWrite, 0x2AE30000, 0x100)
+      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {197}
     })
     Return(RBUF)
   }
@@ -130,8 +130,8 @@ Device (GPI4)
   {
     Name (RBUF, ResourceTemplate()
     {
-      Memory32Fixed(ReadWrite, 0xFEC50000, 0x100)
-      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {313}
+      Memory32Fixed(ReadWrite, 0x2AE40000, 0x100)
+      Interrupt(ResourceConsumer, Level, ActiveHigh, Shared) {201}
     })
     Return(RBUF)
   }
@@ -148,14 +148,14 @@ Device (PINC)
   Name (_DSD, Package () {
     ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
     Package () {
-        Package () { "compatible", "rockchip,rk3588-pinctrl" },
+        Package () { "compatible", "rockchip,rk3576-pinctrl" },
     }
   })
   Method (_CRS, 0x0, NotSerialized)
   {
     Name (RBUF, ResourceTemplate()
     {
-      Memory32Fixed(ReadWrite, 0xFD5F0000, 0x10000)
+      Memory32Fixed(ReadWrite, 0x26040000, 0xC000)
     })
     Return(RBUF)
   }

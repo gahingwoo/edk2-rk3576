@@ -15,8 +15,8 @@ Device (XHC0) {
 
     Method (_CRS, 0x0, Serialized) {
         Name (RBUF, ResourceTemplate() {
-            Memory32Fixed (ReadWrite, 0xfc000000, 0x400000)
-            Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 252 }
+            Memory32Fixed (ReadWrite, 0x23000000, 0x400000)
+            Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 293 }
         })
         Return (RBUF)
     }   

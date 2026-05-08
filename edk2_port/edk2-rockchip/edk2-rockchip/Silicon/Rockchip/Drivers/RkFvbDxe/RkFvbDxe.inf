@@ -75,6 +75,7 @@
   gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress
   gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress
   gArmTokenSpaceGuid.PcdFdBaseAddress
+  gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64

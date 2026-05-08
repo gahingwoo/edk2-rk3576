@@ -100,7 +100,7 @@
 
   # DRAM base & size — capped at 2GB at build-time. Constraints:
   #   * mSystemMemoryEnd (= Base + Size - 1 = 0x7FFFFFFF) must be >= FdTop
-  #     (= 0x40DFFFFF) so SecMain's IS_XIP()/range assert treats the FD as
+  #     (= 0x415FFFFF) so SecMain's IS_XIP()/range assert treats the FD as
   #     in-DRAM (matching RK3588 boot model).
   #   * The early SEC stack is placed at SystemMemoryBase + Size (= 0x80000000)
   #     before the MMU is up; it must land in real DRAM, well below the
@@ -118,9 +118,9 @@
   # FdBase is offset back by 0x200000 to preserve the FDF FV-at-FdBase+0x200000
   # layout (FV occupies bytes [0x200000, 0x700000) of the FD region).
   gArmTokenSpaceGuid.PcdFdBaseAddress|0x40600000
-  gArmTokenSpaceGuid.PcdFdSize|0x00800000              # 8MB FD region in DRAM
+  gArmTokenSpaceGuid.PcdFdSize|0x01000000              # 16MB FD region in DRAM
   gArmTokenSpaceGuid.PcdFvBaseAddress|0x40800000       # = TF-A BL33_BASE
-  gArmTokenSpaceGuid.PcdFvSize|0x00500000
+  gArmTokenSpaceGuid.PcdFvSize|0x00D00000
 
   # CPU cluster count: 4×A72 (big) + 4×A53 (little)
   gArmPlatformTokenSpaceGuid.PcdCoreCount|8
@@ -148,31 +148,37 @@
 
   # Config table: default to FDT (Device Tree) mode for Linux compatibility
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_FDT)
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|$(ACPI_PCIE_ECAM_COMPAT_MODE_AUTO)
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|$(FDT_COMPAT_MODE_VENDOR)
   gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|0
   gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault|1
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault|1
-
-  # RK3588 *Default PCDs: FixedAtBuild constants used as HII form factory defaults.
-  gRK3588TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_FDT)
-  gRK3588TokenSpaceGuid.PcdFdtCompatModeDefault|$(FDT_COMPAT_MODE_VENDOR)
-  gRK3588TokenSpaceGuid.PcdFdtForceGopDefault|0
-  gRK3588TokenSpaceGuid.PcdFdtSupportOverridesDefault|0
-  gRK3588TokenSpaceGuid.PcdFdtOverrideFixupDefault|0
 
   # ComboPHY defaults (board DSC overrides these)
   gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault|$(COMBO_PHY_MODE_PCIE)
   gRK3576TokenSpaceGuid.PcdComboPhy1ModeDefault|$(COMBO_PHY_MODE_USB3)
 
 [PcdsDynamicDefault.common]
-  # RK3588 runtime PCDs read by FdtPlatformDxe via LibPcdGet32 (Dynamic access).
-  # FdtPlatformDxe returns EFI_UNSUPPORTED when (PcdConfigTableMode & FDT) == 0.
-  # These must be seeded in the Dynamic PCD database; FixedAtBuild has no effect.
-  gRK3588TokenSpaceGuid.PcdConfigTableMode|$(CONFIG_TABLE_MODE_FDT)
-  gRK3588TokenSpaceGuid.PcdFdtCompatMode|$(FDT_COMPAT_MODE_VENDOR)
-  gRK3588TokenSpaceGuid.PcdFdtForceGop|0
-  gRK3588TokenSpaceGuid.PcdFdtSupportOverrides|0
-  gRK3588TokenSpaceGuid.PcdFdtOverrideFixup|0
+  # No RK3588 FdtPlatformDxe/AcpiPlatformDxe in build — RK3576-specific drivers
+  # read gRK3576TokenSpaceGuid PCDs via PcdsDynamicHii (see [PcdsDynamicHii] below).
+  # Keep this section to avoid an empty-section parse error.
+
+[PcdsDynamicHii.common.DEFAULT]
+  #
+  # ACPI / Device Tree mode — stored in NVRAM via the RK3576DxeFormSetGuid varstore.
+  # SetupConfigTableVariables() in RK3576Dxe reads these back and writes the
+  # DynamicPcd entries below (which AcpiPlatformDxe and FdtPlatformDxe then read).
+  # The initial value is the *Default FixedAtBuild PCD so first-boot behaviour
+  # is determined by the board DSC (defaults to FDT / Device Tree mode).
+  #
+  gRK3576TokenSpaceGuid.PcdConfigTableMode|L"ConfigTableMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdConfigTableModeDefault
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode|L"AcpiPcieEcamCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault
+  gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
+  gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
+  gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault
+  gRK3576TokenSpaceGuid.PcdFdtOverrideFixup|L"FdtOverrideFixup"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault
+  gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath|L"FdtOverrideBasePath"|gRK3576DxeFormSetGuid|0x0|{ 0x0 }
+  gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPath|L"FdtOverrideOverlayPath"|gRK3576DxeFormSetGuid|0x0|{ 0x0 }
 
 ################################################################################
 #
@@ -190,6 +196,6 @@
 
   # RK3588 drivers reused by RK3576
   # Silicon/Rockchip/RK3588/Drivers/UsbDpPhyDxe/UsbDpPhyDxe.inf  # DISABLED: RK3588-specific
-  Silicon/Rockchip/RK3588/Drivers/GmacPlatformDxe/GmacPlatformDxe.inf
-  Silicon/Rockchip/RK3588/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
-  Silicon/Rockchip/RK3588/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf
+  Silicon/Rockchip/RK3576/Drivers/GmacPlatformDxe/GmacPlatformDxe.inf
+  Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
+  Silicon/Rockchip/RK3576/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf

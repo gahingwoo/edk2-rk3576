@@ -18,6 +18,11 @@
 
 [Sources]
   RK3576Dxe.c
+  Display.c
+  ComboPhy.c
+  ConfigTable.c
+  RK3576DxeHii.vfr
+  RK3576DxeHii.uni
 
 [Packages]
   ArmPkg/ArmPkg.dec
@@ -33,10 +38,13 @@
   DebugLib
   IoLib
   BaseMemoryLib
+  MemoryAllocationLib
   UefiBootServicesTableLib
   UefiRuntimeServicesTableLib
   UefiLib
   UefiDriverEntryPoint
+  HiiLib
+  DevicePathLib
   DxeServicesTableLib
   RK806
   CruLib
@@ -46,8 +54,10 @@
   TimerLib
 
 [Protocols]
-  gEfiVariableWriteArchProtocolGuid         ## CONSUMES
-  gRockchipPlatformConfigAppliedProtocolGuid ## PRODUCES
+  gEfiVariableWriteArchProtocolGuid              ## CONSUMES
+  gEfiDevicePathProtocolGuid                     ## CONSUMES
+  gEfiSimpleTextInputExProtocolGuid              ## SOMETIMES_CONSUMES
+  gRockchipPlatformConfigAppliedProtocolGuid     ## PRODUCES
 
 [FixedPcd]
   gRockchipTokenSpaceGuid.CruBaseAddr
@@ -58,22 +68,47 @@
   gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault
   gRK3576TokenSpaceGuid.PcdComboPhy1ModeDefault
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault
+  gRK3576TokenSpaceGuid.PcdFdtOverrideBasePathDefault
+  gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPathDefault
   gRK3576TokenSpaceGuid.PcdStatusLedGpio
   gRK3576TokenSpaceGuid.PcdStatusLedGpioPolarity
   # Display connector list is set in ROCK4D.dsc using the RK3588 tokenspace
   # (same TokenSpace the DwHdmiQpLib / Vop2Dxe library set reads from).
   gRK3588TokenSpaceGuid.PcdDisplayConnectors
-  gRK3576TokenSpaceGuid.PcdDisplayForceOutputDefault
-  gRK3576TokenSpaceGuid.PcdDisplayDuplicateOutputDefault
+  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault
+  gRK3588TokenSpaceGuid.PcdDisplayModeCustomDefault
+  gRK3588TokenSpaceGuid.PcdDisplayForceOutputDefault
+  gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutputDefault
+  gRK3588TokenSpaceGuid.PcdDisplayRotationDefault
+  gRK3588TokenSpaceGuid.PcdHdmiSignalingModeDefault
 
 [Pcd]
-  # DynamicHii PCDs — variable write service must be available (see [Depex]).
+  # Dynamic display PCDs — variable write service must be available (see [Depex]).
   gRK3588TokenSpaceGuid.PcdDisplayConnectorsMask
+  gRK3588TokenSpaceGuid.PcdDisplayModePreset
+  gRK3588TokenSpaceGuid.PcdDisplayModeCustom
+  gRK3588TokenSpaceGuid.PcdDisplayConnectorsPriority
+  gRK3588TokenSpaceGuid.PcdDisplayForceOutput
+  gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutput
+  gRK3588TokenSpaceGuid.PcdDisplayRotation
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode
+  # ComboPHY dynamic PCDs
+  gRK3576TokenSpaceGuid.PcdComboPhy0Mode
+  gRK3576TokenSpaceGuid.PcdComboPhy1Mode
+  # ConfigTable / FDT mode PCDs (DynamicHii, backed by NVRAM variables)
+  gRK3576TokenSpaceGuid.PcdConfigTableMode
+  gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode
+  gRK3576TokenSpaceGuid.PcdFdtCompatMode
+  gRK3576TokenSpaceGuid.PcdFdtForceGop
+  gRK3576TokenSpaceGuid.PcdFdtSupportOverrides
+  gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
+  gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath
+  gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPath
 
 [Guids]
   gRK3576DxeFormSetGuid
