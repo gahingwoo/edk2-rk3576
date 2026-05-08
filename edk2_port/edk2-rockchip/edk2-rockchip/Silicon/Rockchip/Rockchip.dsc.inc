@@ -404,6 +404,13 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   gEfiMdePkgTokenSpaceGuid.PcdUefiLibMaxPrintBufferSize|320
   gEfiMdePkgTokenSpaceGuid.PcdDefaultTerminalType|4
 
+  # No hardware TRNG on any current Rockchip SoC (RK3576/RK3588).
+  # BaseRngLibTimerLib is used as the RngLib backend.  Disabling
+  # PcdEnforceSecureRngAlgorithms lets DxeNetLib.PseudoRandom() fall
+  # through to GetRNG(NULL) which uses the timer-based PRNG instead of
+  # asserting when no cryptographic RNG algorithm is available.
+  gEfiMdePkgTokenSpaceGuid.PcdEnforceSecureRngAlgorithms|FALSE
+
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|$(DEBUG_PROPERTY_MASK)
 
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|$(DEBUG_PRINT_ERROR_LEVEL)

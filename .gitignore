@@ -36,8 +36,13 @@ edk2_port/edk2-rockchip/edk2-rockchip-non-osi/
 edk2_port/edk2-rockchip/edk2-non-osi-link
 edk2_port/edk2-rockchip/arm-trusted-firmware/
 
-# huge upstream device-tree mirror (98 MB of Rockchip DTBs)
-edk2_port/edk2-rockchip/devicetree/
+# Device-tree vendor blobs and upstream mirror (cloned/built at build time;
+# gigabytes of Rockchip DTBs not worth tracking)
+edk2_port/edk2-rockchip/devicetree/vendor/
+edk2_port/edk2-rockchip/devicetree/mainline/upstream/
+# RK3588 community platform DTS overlays (not our target SoC)
+edk2_port/edk2-rockchip/devicetree/mainline/rk3588*
+# (rk3576-rock-4d.dts symlink and rk3576-rock-4d-uefi.dts ARE tracked)
 
 # ==============================================================================
 # Build output / logs

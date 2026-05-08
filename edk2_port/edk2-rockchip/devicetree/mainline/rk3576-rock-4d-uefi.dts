@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Radxa ROCK 4D — UEFI mainline FDT overlay
+ *
+ * Extends the mainline upstream rk3576-rock-4d.dts with nodes that have
+ * not yet reached the upstream kernel but are required for a fully-featured
+ * UEFI-booted Linux system:
+ *   - ComboPHY0 (USB3 lane for the USB-C/DRD0 port)
+ *   - USB-DP PHY (SuperSpeed for DRD0)
+ *   - USB2 OTG PHY ports (DRD0 and DRD1 host-mode supplies)
+ *   - DRD0 DWC3 controller configured as host
+ *   - UFS host controller
+ *   - I2C6 (board EEPROM)
+ *
+ * PCIe and audio (sai6/hdmi_sound) are not yet in the upstream DTSI and
+ * are therefore omitted here; they will be added when the upstream DTSI
+ * gains the corresponding node labels.
+ *
+ * Copyright (c) 2025, ROCK 4D RK3576 UEFI Port
+ */
+
+#include "rk3576-rock-4d.dts"
+
+/*
+ * ComboPHY0 drives the USB3 SuperSpeed lane of the USB-C (DRD0) port.
+ * The mainline DTS only enables combphy1_psu (for usb_drd1_dwc3 USB3).
+ */
+&combphy0_ps {
+	status = "okay";
+};
+
+/*
+ * USB-DP PHY — provides a USB3 SuperSpeed lane to the USB-C port (DRD0).
+ * Requires combphy0_ps to be active.
+ */
+&usbdp_phy {
+	status = "okay";
+};
+
+/*
+ * USB2 PHY OTG sub-nodes.
+ *
+ * The mainline DTS enables &u2phy0 and &u2phy1 at the PHY level but does
+ * not enable the individual OTG port sub-nodes.  Both ports are used as
+ * HOST on this board; the 5 V supply is always-on via GPIO0 PD3.
+ */
+&u2phy0_otg {
+	phy-supply = <&vcc_5v0_host>;
+	status = "okay";
+};
+
+&u2phy1_otg {
+	phy-supply = <&vcc_5v0_host>;
+	status = "okay";
+};
+
+/*
+ * DRD0 — USB-C port.
+ * The mainline DTS only configures usb_drd1_dwc3; usb_drd0_dwc3 (USB-C)
+ * is not yet upstream.  Force host mode so both ports are available.
+ */
+&usb_drd0_dwc3 {
+	dr_mode = "host";
+	status = "okay";
+};
+
+/*
+ * UFS host controller.
+ * The UFS silicon is present on RK3576; boot from UFS is not the default
+ * but the Linux driver requires a DT node with status = "okay".
+ */
+&ufshc {
+	status = "okay";
+};
+
+/*
+ * I2C6 — connects to a BL24C16F EEPROM at 0x50 holding board identity
+ * (serial number, hardware revision, etc.).
+ * i2c6m3 muxing: SDA/SCL on GPIOH3/H4 (i2c6m3_xfer pinctrl group).
+ */
+&i2c6 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c6m3_xfer>;
+	status = "okay";
+
+	eeprom@50 {
+		compatible = "belling,bl24c16f", "atmel,24c16";
+		reg = <0x50>;
+		pagesize = <16>;
+		read-only;
+		vcc-supply = <&vcc_3v3_s3>;
+	};
+};
