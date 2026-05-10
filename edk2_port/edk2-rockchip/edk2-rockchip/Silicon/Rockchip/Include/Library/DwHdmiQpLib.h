@@ -931,8 +931,16 @@
 
 #define RK3576_VO0_GRF_SOC_CON8   0x0020
 #define RK3576_COLOR_DEPTH_MASK   (0xF << 8)
-#define RK3576_8BPC               0x0
-#define RK3576_10BPC              (0x6 << 8)
+/*
+ * Color depth field values in VO0_GRF_SOC_CON8 bits[11:8].
+ * Verified against mainline Linux drivers/gpu/drm/rockchip/dw_hdmi_qp-rockchip.c
+ * (master, v6.15): RK3576_8BPC=0, RK3576_10BPC=6, used pre-shifted with HIWORD_UPDATE.
+ * NOTE: An earlier "fix" set 8BPC=(0x6<<8) which actually selects 10bpc — that
+ * mismatch with the VOP (which outputs 8bpc) is exactly why the monitor stayed
+ * dark even though the TMDS encoder reported active.
+ */
+#define RK3576_8BPC               (0x0 << 8)  /* depth code 0 = 8bpc */
+#define RK3576_10BPC              (0x6 << 8)  /* depth code 6 = 10bpc */
 #define RK3576_COLOR_FORMAT_MASK  (0xF << 4)
 #define RK3576_RGB                (0x9 << 4)
 #define RK3576_YUV422             (0x1 << 4)
@@ -964,6 +972,19 @@
 //   bit 3 = SRST_HDPTX_CMN
 //   bit 4 = SRST_HDPTX_LANE
 //
+//
+// RK3576 main BUS CRU base address (AHB/APB, NOT PMU1CRU).
+// The main CRU is at 0x27200000; HDPTX resets live here, not at
+// the RK3588 CRU address (0xFD7C0000). DwHdmiQpLib.inf currently only
+// includes RK3588.dec, so CRU_BASE resolves to 0xFD7C0000 via Soc.h.
+// Use this explicit constant everywhere MainCruWrite() is called for RK3576.
+//
+#define RK3576_MAIN_CRU_BASE      0x27200000UL
+
+// SRST_P_HDPTX_APB = 428 → CON26 bit12 (0xA00 + 26*4 = 0xA68)
+#define RK3576_CRU_SOFTRST_CON26  0xA68
+#define RK3576_HDPTX_APB_RST      BIT(12)
+
 #define RK3576_CRU_SOFTRST_CON28  0xA70
 #define RK3576_HDPTX_INIT_RST     BIT(2)
 #define RK3576_HDPTX_CMN_RST      BIT(3)
@@ -995,6 +1016,7 @@ struct DwHdmiQpDevice {
   UINTN                          Base;
   UINT32                         OutputInterface;
   BOOLEAN                        ForceHpd;
+  BOOLEAN                        HpdTimeoutFlag;  /* set when HPD wait loop in PreInit times out */
   UINT8                          SignalingMode;
   struct DwHdmiQpI2c             I2c;
 

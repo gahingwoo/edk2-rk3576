@@ -95,6 +95,7 @@ STATIC CONST INT32  mSinTable[] = {
   0x7fffffff
 };
 
+#ifndef SOC_RK3576
 STATIC VOP2_VP_PLANE_MASK  mVpPlaneMaskRK3588[VOP2_VP_MAX][VOP2_VP_MAX] = {
   { /* one display policy */
     {/* main display */
@@ -188,6 +189,7 @@ STATIC VOP2_VP_PLANE_MASK  mVpPlaneMaskRK3588[VOP2_VP_MAX][VOP2_VP_MAX] = {
     },
   },
 };
+#endif /* !SOC_RK3576 */
 
 #ifndef SOC_RK3576
 STATIC VOP2_VP_DATA  mVpDataRK3588[4] = {
@@ -407,6 +409,47 @@ STATIC VOP2_DATA  mVop2RK3588 = {
 // to bring the driver up structurally for ROCK 4D. Real bring-up of
 // the RK3576 VOP2 register programming is still required.
 //
+
+/*
+ * RK3576 plane mask. Only the 4 layers with PhysIDs present in
+ * mWinDataRK3588[0..5] are used: Cluster0(0), Cluster1(1),
+ * Esmart0(2), Esmart1(3). Esmart2/3 (PhysID 8/9) live at
+ * mWinDataRK3588[6/7] and are beyond the NrLayers=6 search window,
+ * so they are excluded here to prevent a NULL dereference in
+ * Vop2GlobalInitial when Vop2FindWinByPhysID returns NULL.
+ */
+STATIC VOP2_VP_PLANE_MASK  mVpPlaneMaskRK3576[VOP2_VP_MAX][VOP2_VP_MAX] = {
+  { /* one display policy */
+    { /* main display */
+      .PrimaryPlaneId   = ROCKCHIP_VOP2_ESMART0,
+      .AttachedLayersNr = 4,
+      .AttachedLayers   = {
+        ROCKCHIP_VOP2_CLUSTER0, ROCKCHIP_VOP2_CLUSTER1,
+        ROCKCHIP_VOP2_ESMART0,  ROCKCHIP_VOP2_ESMART1,
+      },
+    },
+    { /* second display */ },
+    { /* third  display */ },
+    { /* fourth display */ },
+  },
+  { /* two display policy */
+    { /* main display */
+      .PrimaryPlaneId   = ROCKCHIP_VOP2_ESMART0,
+      .AttachedLayersNr = 2,
+      .AttachedLayers   = { ROCKCHIP_VOP2_CLUSTER0, ROCKCHIP_VOP2_ESMART0 },
+    },
+    { /* second display */
+      .PrimaryPlaneId   = ROCKCHIP_VOP2_ESMART1,
+      .AttachedLayersNr = 2,
+      .AttachedLayers   = { ROCKCHIP_VOP2_CLUSTER1, ROCKCHIP_VOP2_ESMART1 },
+    },
+    { /* third  display */ },
+    { /* fourth display */ },
+  },
+  { /* three display policy (stub) */ },
+  { /* four  display policy (stub) */ },
+};
+
 STATIC VOP2_VP_DATA  mVpDataRK3576[3] = {
   {
     .Feature       = VOP_FEATURE_OUTPUT_10BIT,
@@ -434,7 +477,9 @@ STATIC VOP2_DATA  mVop2RK3576 = {
   .VpData    = mVpDataRK3576,
   .WinData   = mWinDataRK3588,
   .DscData   = mDscDataRK3588,
-  .PlaneMask = mVpPlaneMaskRK3588[0],
+  /* Use the RK3576-specific plane mask that only references layers
+   * findable within the first NrLayers=6 entries of mWinDataRK3588. */
+  .PlaneMask = mVpPlaneMaskRK3576[0],
   .NrLayers  = 6,
   .NrMixers  = 5,
   .NrGammas  = 3,
@@ -612,7 +657,10 @@ Vop2GetPrimaryPlane (
   UINT8   *Vop2VpPrimaryPlaneOrder;
   UINT8   DefaultPrimaryPlane;
 
-  if (Vop2->Version == VOP_VERSION_RK3588) {
+  if ((Vop2->Version == VOP_VERSION_RK3588) || (Vop2->Version == VOP_VERSION_RK3576)) {
+    /* RK3576 uses ESMART0/1 as primary overlay planes (same layout as RK3588).
+     * SMART0/1 are RK3568-specific window IDs absent from the RK3576 win table,
+     * so using the RK3568 order here causes Vop2FindWinByPhysID to return NULL. */
     Vop2VpPrimaryPlaneOrder = RK3588Vop2VpPrimaryPlaneOrder;
     DefaultPrimaryPlane     = ROCKCHIP_VOP2_ESMART0;
   } else {
@@ -855,19 +903,24 @@ Vop2GlobalInitial (
     PlaneMask  = Vop2->Data->PlaneMask;
     PlaneMask += (ActiveVpNum - 1) * VOP2_VP_MAX;
 
-    /* find the first unplug devices and set it as main display */
+    /* find the first enabled non-hotplug device and use it as main display.
+     * Disabled VPs have OutputType=0 which IsHotPlugDevices() returns FALSE for,
+     * so skip them explicitly to avoid selecting a disabled VP as main. */
     for (i = 0; i < Vop2->Data->NrVps; i++) {
-      if (!IsHotPlugDevices (Crtc->Vps[i].OutputType)) {
+      if (Crtc->Vps[i].Enable && !IsHotPlugDevices (Crtc->Vps[i].OutputType)) {
         Vop2->VpPlaneMask[i] = PlaneMask[0];
         MainVpIndex          = i;
         break;
       }
     }
 
-    /* if no find unplug devices, use vp0 as main display */
+    /* if no non-hotplug VP found (e.g. HDMI-only), fall back to VP0 as main.
+     * Setting MainVpIndex=0 prevents the "other display" loop below from
+     * overwriting VpPlaneMask[0] with an empty secondary slot. */
     if (MainVpIndex < 0) {
       ActiveVpNum          = 0;
       Vop2->VpPlaneMask[0] = PlaneMask[0];
+      MainVpIndex          = 0;
     }
 
     /* plane_mask[0] store main display, so we from plane_mask[1] */
@@ -910,7 +963,12 @@ Vop2GlobalInitial (
 
   /* open the vop plane pd(esmart) */
   /* status checkout --- todo */
+#ifndef SOC_RK3576
+  /* 0xFDD90034 is an RK3588 CRU/PMU VOP power-domain register.
+   * On RK3576 this address is unmapped; VOP2 power domains are already
+   * on before UEFI handoff (managed by SPL/ATF). */
   MmioWrite32 (0xfdd90034, 0x00000000);
+#endif
   MicroSecondDelay (10);
 
   /* vop2 regs backup */
@@ -951,6 +1009,12 @@ Vop2GlobalInitial (
     for (j = 0; j < LayerNr; j++) {
       LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
       WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
+      if (WinData == NULL) {
+        /* Layer not found in this SoC's window table; skip to avoid NULL deref */
+        Shift += 4;
+        continue;
+      }
+
       Vop2MaskWrite (
         Vop2->BaseAddress,
         RK3568_OVL_LAYER_SEL,
@@ -973,6 +1037,10 @@ Vop2GlobalInitial (
 
       LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
       WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
+      if (WinData == NULL) {
+        continue;
+      }
+
       Shift      = WinData->WinSelPortOffset * 2;
       Vop2MaskWrite (
         Vop2->BaseAddress,
@@ -1513,8 +1581,15 @@ Vop2IfConfig (
        * (mainline rk3576_set_intf_mux unconditionally ORs this bit). */
       IfCtrl |= (1U << RK3576_DSP_IF_CFG_DONE_IMD_BIT);
       IfCtrl |= ((CrtcState->CrtcID & RK3576_DSP_IF_MUX_MASK) << RK3576_DSP_IF_MUX_SHIFT);
-      /* Val holds {VSYNC@bit1, HSYNC@bit0}; PIN_POL is the same 2-bit field. */
-      IfCtrl |= ((Val & RK3576_DSP_IF_PIN_POL_MASK) << RK3576_DSP_IF_PIN_POL_SHIFT);
+      /*
+       * IF_DCLK_DIV bits[5:4]: encode the DCLK÷N divider as (N-1).
+       * IfDclkDiv here is the LogCalculate()-encoded value (= log2 of N), so
+       * N = 1U << IfDclkDiv.  For 1080p60 and 2560x1440 N=4 → encoding=3 → 0x30.
+       * Linux rk3576_set_intf_mux confirms 0x80000033 for both resolutions.
+       * NOTE: sync polarity (Val) does NOT go in this register for RK3576 —
+       *       bits[5:4] are DCLK_DIV, not PIN_POL.
+       */
+      IfCtrl |= (((1U << IfDclkDiv) - 1U) & RK3576_DSP_IF_DCLK_DIV_MASK) << RK3576_DSP_IF_DCLK_DIV_SHIFT;
       /*
        * PCLK_DIV semantics differ from RK3588: mainline only sets this bit when
        * port_pix_rate == 1 (single-pixel-per-cycle ports). VP0 on RK3576 has
@@ -2039,26 +2114,35 @@ Vop2PostConfig (
   UINT16                  VDisplay        = Mode->CrtcVDisplay;
   UINT16                  VTotal          = Mode->CrtcVTotal;
   UINT16                  VActStart       = Mode->CrtcVTotal - Mode->CrtcVSyncStart;
-  UINT16                  HSize           = HDisplay * (ConnectorState->OverScan.LeftMargin +
-                                                        ConnectorState->OverScan.RightMargin) /200;
-  UINT16  VSize = VDisplay * (ConnectorState->OverScan.TopMargin +
-                              ConnectorState->OverScan.BottomMargin) /200;
   UINT16  HActEnd, VActEnd;
   UINT32  Val;
-
   UINT32  BgOvlDly, BgDly, PreScanDly;
   UINT16  HSyncLen = Mode->CrtcHSyncEnd - Mode->CrtcHSyncStart;
+  UINT32  LeftMargin, RightMargin, TopMargin, BottomMargin;
+  UINT16  HSize, VSize;
+
+  /*
+   * Overscan margin of 100 = full display (no crop); 0 = degenerate (all cropped).
+   * Default to 100 when unset to produce a pass-through post-scaler config.
+   */
+  LeftMargin   = ConnectorState->OverScan.LeftMargin   ? ConnectorState->OverScan.LeftMargin   : 100;
+  RightMargin  = ConnectorState->OverScan.RightMargin  ? ConnectorState->OverScan.RightMargin  : 100;
+  TopMargin    = ConnectorState->OverScan.TopMargin    ? ConnectorState->OverScan.TopMargin    : 100;
+  BottomMargin = ConnectorState->OverScan.BottomMargin ? ConnectorState->OverScan.BottomMargin : 100;
+
+  HSize = (UINT16)(HDisplay * (LeftMargin + RightMargin) / 200);
+  VSize = (UINT16)(VDisplay * (TopMargin  + BottomMargin) / 200);
 
   HSize = ROUNDDOWN (HSize, 2);
   VSize = ROUNDDOWN (VSize, 2);
 
-  HActStart += HDisplay * (100 - ConnectorState->OverScan.LeftMargin) / 200;
+  HActStart += (UINT16)(HDisplay * (100 - LeftMargin) / 200);
   HActEnd    = HActStart + HSize;
   Val        = HActStart << 16;
   Val       |= HActEnd;
   Vop2Writel (Vop2->BaseAddress, RK3568_VP0_POST_DSP_HACT_INFO + VPOffset, Val);
 
-  VActStart += VDisplay * (100 - ConnectorState->OverScan.TopMargin) / 200;
+  VActStart += (UINT16)(VDisplay * (100 - TopMargin) / 200);
   VActEnd    = VActStart + VSize;
   Val        = VActStart << 16;
   Val       |= VActEnd;
@@ -2104,7 +2188,10 @@ Vop2PostConfig (
     );
   Vop2Writel (Vop2->BaseAddress, RK3568_VP0_PRE_SCAN_HTIMING + VPOffset, PreScanDly);
 
+#ifndef SOC_RK3576
+  /* 0xFDD906E8 is an RK3588 CRU pixel-clock register; unmapped on RK3576. */
   MmioWrite32 (0xfdd906e8, 0x34000000);
+#endif
 }
 
 STATIC
@@ -2182,18 +2269,14 @@ Vop2SetClk (
 {
 #ifdef SOC_RK3576
   /*
-   * RK3576: DCLK_VOP2_SRC, PLL_V0PLL and CRU_MODE_CON00@0x280 are all
-   * RK3588-specific. RK3576 has its own CRU register layout and CruLib
-   * does not yet expose the equivalent IDs/registers. Trust the SPL
-   * setup of the VP DCLK parent (clk_vp0 = clk_hdmi0_pixclk per the
-   * board DT). Documented as a known risk for non-default modes.
+   * RK3576: Do NOT change CLKSEL_CON55 here. Switching VP0 DCLK to
+   * hdmi0_pixclk (HDPTX PHY) before the PHY PLL is locked produces
+   * DCLK = 0 Hz, preventing VOP2 vblanks and blocking REG_CFG_DONE
+   * shadow commits.  The CLKSEL mux is written in DwHdmiQpSetup() after
+   * HdptxRopllCmnConfig() confirms the PHY PLL is locked.
    */
-  VOP2_TRACE ("SetClk[stub]: VP=%u requested=%lu Hz (CRU programming TBD; using SPL parent)\n",
+  VOP2_TRACE ("SetClk: VP%u req=%lu Hz (CLKSEL not changed here; mux done post-PHY-lock)\n",
               CrtcId, Rate);
-  VOP2_TRACE ("SetClk[stub]: CRU dump (PMU1CRU=0x27220000, BUSCRU=0x27200000)\n");
-  VOP2_DUMP_REG ("PMU1CRU_SOFTRST_CON01", 0x27220000 + 0xA04);
-  VOP2_DUMP_REG ("BUSCRU_CLKSEL_CON55  ", 0x27200000 + 0x03DC); /* DCLK_VOP0 SEL on RK3576 */
-  VOP2_DUMP_REG ("BUSCRU_CLKGATE_CON09 ", 0x27200000 + 0x0824);
   return EFI_SUCCESS;
 #else
   /* only support VP2 for now */
@@ -2735,6 +2818,16 @@ Vop2Init (
 
   Vop2ModeFixup (DisplayState);
 
+#ifdef SOC_RK3576
+  DEBUG ((DEBUG_ERROR,
+    "[RK3576-VOP2] Vop2Init ENTRY: VP%u"
+    " CrtcH=%u/%u/%u/%u CrtcV=%u/%u/%u/%u Clock=%u KHz\n",
+    CrtcState->CrtcID,
+    Mode->CrtcHDisplay, Mode->CrtcHSyncStart, Mode->CrtcHSyncEnd, Mode->CrtcHTotal,
+    Mode->CrtcVDisplay, Mode->CrtcVSyncStart, Mode->CrtcVSyncEnd, Mode->CrtcVTotal,
+    Mode->CrtcClock));
+#endif
+
   HSyncLen  = Mode->CrtcHSyncEnd - Mode->CrtcHSyncStart;
   HDisplay  = Mode->CrtcHDisplay;
   HTotal    = Mode->CrtcHTotal;
@@ -3029,6 +3122,32 @@ Vop2Init (
     ActEnd,
     FALSE
     );
+
+#ifdef SOC_RK3576
+  {
+    UINT32  ExpHtotal = ((UINT32)HTotal    << 16) | (UINT32)HSyncLen;
+    UINT32  ExpHact   = ((UINT32)HActStart << 16) | (UINT32)HActEnd;
+    UINT32  ExpVtotal = ((UINT32)VTotal    << 16) | (UINT32)VSyncLen;
+    UINT32  ExpVact   = ((UINT32)VActStart << 16) | (UINT32)VActEnd;
+
+    DEBUG ((DEBUG_ERROR,
+      "[RK3576-VOP2] VP%u shadow writes:"
+      " HTotal=0x%08x HActSE=0x%08x VTotal=0x%08x VActSE=0x%08x\n",
+      CrtcState->CrtcID, ExpHtotal, ExpHact, ExpVtotal, ExpVact));
+
+    /* VP0 regs confirmed at VOP2_BASE+0xC00 (old/RK3568 layout). */
+    {
+      UINTN  A = Vop2->BaseAddress + 0xC00 + (UINTN)VPOffset;
+      DEBUG ((DEBUG_ERROR, "[RK3576-VOP2] VP0 post-write snapshot (0xC00 region):\n"));
+      VOP2_DUMP_REG ("  VP0_DSP_CTRL      ", A);
+      VOP2_DUMP_REG ("  VP0_CLK_CTRL      ", A + 0x0C);
+      VOP2_DUMP_REG ("  HTOTAL_HS_END     ", A + 0x48);
+      VOP2_DUMP_REG ("  HACT_ST_END       ", A + 0x4C);
+      VOP2_DUMP_REG ("  VTOTAL_VS_END     ", A + 0x50);
+      VOP2_DUMP_REG ("  VACT_ST_END       ", A + 0x54);
+    }
+  }
+#endif
 
   return EFI_SUCCESS;
 }
@@ -3568,6 +3687,22 @@ Vop2Enable (
   UINT32      VPOffset   = CrtcState->CrtcID * 0x100;
   UINT32      CfgDone    = CFG_DONE_EN | BIT (CrtcState->CrtcID) | (BIT (CrtcState->CrtcID) << 16);
 
+#ifdef SOC_RK3576
+  /*
+   * VP0 timing regs confirmed at VOP2_BASE+0xC00 (old/RK3568 layout).
+   * Dump pre-commit state for verification.
+   */
+  {
+    UINTN  VpBase = Vop2->BaseAddress + RK3568_VP0_DSP_CTRL + VPOffset;
+    DEBUG ((DEBUG_ERROR,
+      "[RK3576-VOP2] Vop2Enable VP%u: CfgDone=0x%08x VP0_DSP_CTRL=0x%08x (pre)\n",
+      CrtcState->CrtcID, CfgDone, MmioRead32 (VpBase)));
+    VOP2_DUMP_REG ("  HTOTAL_HS_END pre ", Vop2->BaseAddress + RK3568_VP0_DSP_HTOTAL_HS_END + VPOffset);
+    VOP2_DUMP_REG ("  REG_CFG_DONE pre  ", Vop2->BaseAddress + RK3568_REG_CFG_DONE);
+  }
+#endif
+
+  /* Clear STANDBY at RK3568-layout address (VP0 at VOP2_BASE + 0xC00) */
   Vop2MaskWrite (
     Vop2->BaseAddress,
     RK3568_VP0_DSP_CTRL + VPOffset,
@@ -3576,11 +3711,37 @@ Vop2Enable (
     0,
     FALSE
     );
+
+  /* STANDBY clear at the correct VP0_DSP_CTRL (VOP2_BASE + 0xC00) handled via
+   * Vop2MaskWrite above. No additional writes to 0xC000 region. */
+
   Vop2Writel (Vop2->BaseAddress, RK3568_REG_CFG_DONE, CfgDone);
 
   if (CrtcState->dsc_enable) {
     Vop2DscCfgDone (This, DisplayState);
   }
+
+#ifdef SOC_RK3576
+  /*
+   * Wait 20ms for shadow commit (CFG_DONE_IMD), then readback committed timing.
+   * VP0 timing regs are at VOP2_BASE+0xC00 (confirmed by previous log).
+   */
+  MicroSecondDelay (20 * 1000);
+  {
+    UINTN  VpBase = Vop2->BaseAddress + RK3568_VP0_DSP_CTRL + VPOffset;
+    DEBUG ((DEBUG_ERROR,
+      "[RK3576-VOP2] Vop2Enable VP%u: post-commit:\n",
+      CrtcState->CrtcID));
+    DEBUG ((DEBUG_ERROR,
+      "[RK3576-VOP2]   VP0_DSP_CTRL post @0x%08x = 0x%08x  (bit31=STANDBY)\n",
+      (UINT32)(UINTN)VpBase, MmioRead32 (VpBase)));
+    VOP2_DUMP_REG ("  HTOTAL_HS_END post", Vop2->BaseAddress + RK3568_VP0_DSP_HTOTAL_HS_END + VPOffset);
+    VOP2_DUMP_REG ("  HACT_ST_END post  ", Vop2->BaseAddress + RK3568_VP0_DSP_HACT_ST_END + VPOffset);
+    VOP2_DUMP_REG ("  VTOTAL_VS_END post", Vop2->BaseAddress + RK3568_VP0_DSP_VTOTAL_VS_END + VPOffset);
+    VOP2_DUMP_REG ("  VACT_ST_END post  ", Vop2->BaseAddress + RK3568_VP0_DSP_VACT_ST_END + VPOffset);
+    VOP2_DUMP_REG ("  REG_CFG_DONE post ", Vop2->BaseAddress + RK3568_REG_CFG_DONE);
+  }
+#endif
 
  #ifdef DEBUG_DUMP_REG
   Vop2DumpRegisters (DisplayState, Vop2FindWinByPhysID (Vop2, Vop2->VpPlaneMask[CrtcState->CrtcID].PrimaryPlaneId));

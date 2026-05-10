@@ -112,6 +112,7 @@
 
 [Guids]
   gRK3576DxeFormSetGuid
+  gEfiEventReadyToBootGuid                       ## CONSUMES (ReadyToBoot dump callback)
 
 [Depex]
   # DynamicHii PCD accesses require the variable write arch protocol to be

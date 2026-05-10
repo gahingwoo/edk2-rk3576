@@ -298,9 +298,10 @@
   # Display support flags and default values
   #
   gRK3588TokenSpaceGuid.PcdDisplayConnectors|{ 0x0 }
-  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{CODE({
-    DISPLAY_MODE_NATIVE
-  })}
+  # DISPLAY_MODE_NATIVE = 0x80000000 (little-endian). Use byte-array (not CODE)
+  # so per-platform CODE overrides in downstream DSC files take effect as the
+  # sole CODE expression (EDK2 only processes the first CODE expression per PCD).
+  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   gRK3588TokenSpaceGuid.PcdDisplayModeCustomDefault|{CODE({
     .OscFreq     = 25175,
     .HActive     = 640,

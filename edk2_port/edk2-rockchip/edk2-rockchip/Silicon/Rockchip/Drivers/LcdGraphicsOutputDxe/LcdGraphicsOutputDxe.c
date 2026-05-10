@@ -970,16 +970,23 @@ LcdGraphicsSetMode (
       ConnectorState->BusFormat
       ));
 
+    DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] DisplaySetCrtcInfo enter\n", (UINT32)Index));
     Status = DisplaySetCrtcInfo (DrmMode, CRTC_INTERLACE_HALVE_V);
     if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] DisplaySetCrtcInfo FAILED %r\n", (UINT32)Index, Status));
       goto EXIT;
     }
+    DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] DisplaySetCrtcInfo OK\n", (UINT32)Index));
 
     if (Crtc->Init != NULL) {
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Init enter\n", (UINT32)Index));
       Status = Crtc->Init (Crtc, DisplayState);
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Init exit %r\n", (UINT32)Index, Status));
       if (EFI_ERROR (Status)) {
         goto EXIT;
       }
+    } else {
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Init is NULL\n", (UINT32)Index));
     }
 
     /* adapt to uefi display architecture */
@@ -999,15 +1006,27 @@ LcdGraphicsSetMode (
     CrtcState->DMAAddress = (UINT32)VramBaseAddress;
 
     if (Crtc->SetPlane != NULL) {
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->SetPlane enter\n", (UINT32)Index));
       Crtc->SetPlane (Crtc, DisplayState);
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->SetPlane exit\n", (UINT32)Index));
+    } else {
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->SetPlane is NULL\n", (UINT32)Index));
     }
 
     if (Crtc->Enable != NULL) {
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Enable enter\n", (UINT32)Index));
       Crtc->Enable (Crtc, DisplayState);
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Enable exit\n", (UINT32)Index));
+    } else {
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Enable is NULL\n", (UINT32)Index));
     }
 
     if (Connector->Enable != NULL) {
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Connector->Enable enter\n", (UINT32)Index));
       Connector->Enable (Connector, DisplayState);
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Connector->Enable exit\n", (UINT32)Index));
+    } else {
+      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Connector->Enable is NULL\n", (UINT32)Index));
     }
   }
 

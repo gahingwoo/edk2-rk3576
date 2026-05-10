@@ -95,6 +95,7 @@ InitializeDisplayVariables (
                     );
     ASSERT_EFI_ERROR (Status);
 
+    Size   = sizeof (ModePreset);
     Status = !Reset ? gRT->GetVariable (
                              L"DisplayModePreset",
                              &gRK3576DxeFormSetGuid,
@@ -102,7 +103,20 @@ InitializeDisplayVariables (
                              &Size,
                              &ModePreset
                              ) : EFI_NOT_FOUND;
-    if (EFI_ERROR (Status)) {
+    if (EFI_ERROR (Status) ||
+        (ModePreset.Preset == DISPLAY_MODE_NATIVE &&
+         ((DISPLAY_MODE_PRESET_VARSTORE_DATA *)PcdData)->Preset != DISPLAY_MODE_NATIVE))
+    {
+      //
+      // Seed the PCD with the firmware's FixedAtBuild default when:
+      //  (a) No NVRAM variable exists yet (first boot or after NVRAM clear), OR
+      //  (b) NVRAM has NATIVE but the firmware default has been changed to a
+      //      specific mode (e.g. 1080p60). This migrates boards where the old
+      //      default was NATIVE to the new board-specific default without
+      //      requiring manual NVRAM clearing. Users who explicitly chose a
+      //      non-NATIVE preset keep their selection.
+      //
+      Size   = sizeof (ModePreset);
       Status = PcdSetPtrS (PcdDisplayModePreset, &Size, PcdData);
       ASSERT_EFI_ERROR (Status);
     }

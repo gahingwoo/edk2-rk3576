@@ -532,14 +532,35 @@ HdmiTxIomux (
        */
       MmioWrite32 (CRU_CLKGATE_CON(64),
         0x03800000 | 0x0000);
-        
+
+      /*
+       * Deassert HDMI TX resets required for HPD detection.
+       *
+       * The Linux kernel calls devm_reset_control_bulk_get_exclusive_released()
+       * for names "ref" and "hdp" (from rk3576.dtsi HDMI node):
+       *   SRST_HDMITX0_REF = 358  -> SOFTRST_CON22 bit6  (offset 0xA58)
+       *   SRST_HDMITXHDP   = 453  -> SOFTRST_CON28 bit5  (offset 0xA70)
+       *
+       * SRST_HDMITXHDP is the HPD-circuit-specific reset.  While it remains
+       * asserted the IOC_GRF HPD status register (0x2604A440) is frozen at 0
+       * regardless of what is connected to the HDMI port.  This is why
+       * HPD_STATUS bit3 never changes even with a display connected.
+       *
+       * SOFTRST_CON22/28 use the standard CRU HIWORD-write convention:
+       *   bits[31:16] = write-enable mask, bits[15:0] = new values (0 = deassert).
+       * Only the masked bits are modified; HDPTX PHY resets in CON28 bits 2-4
+       * are unaffected.
+       */
+      MmioWrite32 (CRU_SOFTRST_CON(22), (0x0040U << 16) | 0U);  /* deassert SRST_HDMITX0_REF (bit6) */
+      MmioWrite32 (CRU_SOFTRST_CON(28), (0x0020U << 16) | 0U);  /* deassert SRST_HDMITXHDP   (bit5) */
+
       /* Note: HDPTX PHY reference clock (CLK_PHY_REF_SRC, ID 526) and
        * APB clock (PCLK_HDPTX_APB, ID 545) are in the main CRU (not PMU CRU).
        * Both are typically ungated by U-Boot SPL during system init.
        * If HDPTX PLL lock times out, check CRU CLKGATE registers for these.
        */
 
-      DEBUG ((DEBUG_INFO, "HdmiTxIomux: VOP and HDMI clocks ungated\n"));
+      DEBUG ((DEBUG_INFO, "HdmiTxIomux: VOP and HDMI clocks ungated, HDMI TX resets deasserted\n"));
       break;
     default:
       break;

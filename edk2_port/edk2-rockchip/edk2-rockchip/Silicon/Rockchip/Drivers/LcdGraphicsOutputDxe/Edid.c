@@ -375,9 +375,22 @@ EdidDetailedTimingToDisplayMode (
     ((DetailedTiming->HSyncOffsetHiHSyncWidthHiVSyncOffsetHiSyncWidthHi & 0x30) << 4) |
     DetailedTiming->HSyncWidthLo;
 
-  DisplayMode->HBackPorch =
-    (((DetailedTiming->HActiveHiBlankingHi & 0x0F) << 8) | DetailedTiming->HBlankingLo) -
-    (DisplayMode->HFrontPorch + DisplayMode->HSync);
+  {
+    UINT32  HBlanking = (((DetailedTiming->HActiveHiBlankingHi & 0x0F) << 8) | DetailedTiming->HBlankingLo);
+    if ((DisplayMode->HFrontPorch + DisplayMode->HSync) >= HBlanking) {
+      DEBUG ((
+        DEBUG_WARN,
+        "%a: DTD HSync(%u)+HFP(%u) >= HBlanking(%u) — bad DTD, rejecting\n",
+        __func__,
+        DisplayMode->HSync,
+        DisplayMode->HFrontPorch,
+        HBlanking
+        ));
+      return EFI_INVALID_PARAMETER;
+    }
+
+    DisplayMode->HBackPorch = HBlanking - (DisplayMode->HFrontPorch + DisplayMode->HSync);
+  }
 
   DisplayMode->HSyncActive =
     (DetailedTiming->Features & EdidDetailedTimingFeatureHorizontalSyncPositive) != 0;
@@ -393,9 +406,22 @@ EdidDetailedTimingToDisplayMode (
     ((DetailedTiming->HSyncOffsetHiHSyncWidthHiVSyncOffsetHiSyncWidthHi & 0x03) << 4) |
     (DetailedTiming->VSyncOffsetLoSyncWidthLo & 0x0F);
 
-  DisplayMode->VBackPorch =
-    (((DetailedTiming->VActiveHiBlankingHi & 0x0F) << 8) | DetailedTiming->VBlankingLo) -
-    (DisplayMode->VFrontPorch + DisplayMode->VSync);
+  {
+    UINT32  VBlanking = (((DetailedTiming->VActiveHiBlankingHi & 0x0F) << 8) | DetailedTiming->VBlankingLo);
+    if ((DisplayMode->VFrontPorch + DisplayMode->VSync) >= VBlanking) {
+      DEBUG ((
+        DEBUG_WARN,
+        "%a: DTD VSync(%u)+VFP(%u) >= VBlanking(%u) — bad DTD, rejecting\n",
+        __func__,
+        DisplayMode->VSync,
+        DisplayMode->VFrontPorch,
+        VBlanking
+        ));
+      return EFI_INVALID_PARAMETER;
+    }
+
+    DisplayMode->VBackPorch = VBlanking - (DisplayMode->VFrontPorch + DisplayMode->VSync);
+  }
 
   DisplayMode->VSyncActive =
     (DetailedTiming->Features & EdidDetailedTimingFeatureVerticalSyncPositive) != 0;
@@ -458,6 +484,30 @@ EdidGetPreferredModeDetailed (
     Edid = EDID_BLOCK (ConnectorState->Edid, BlockIndex);
 
     if (BlockIndex == 0) {
+      //
+      // Validate EDID block 0 checksum before trusting any DTD data.
+      // All 128 bytes must sum to 0 mod 256. A bad checksum means the
+      // DDC read was corrupted (e.g. due to absent HPD / missing 5V),
+      // so we skip DTD parsing and fall back to the hardcoded mode.
+      //
+      {
+        UINT8  Sum = 0;
+        UINT8  I;
+        for (I = 0; I < EDID_BLOCK_SIZE; I++) {
+          Sum += Edid[I];
+        }
+
+        if (Sum != 0) {
+          DEBUG ((
+            DEBUG_WARN,
+            "%a: Block 0 checksum INVALID (sum=0x%02X) — DDC data unreliable, skipping DTD parse\n",
+            __func__,
+            Sum
+            ));
+          continue;
+        }
+      }
+
       DetailedTimings      = ((EDID_BASE *)Edid)->DetailedTimings;
       DetailedTimingsCount = EDID_NUMBER_OF_DETAILED_TIMINGS;
     } else {

@@ -706,8 +706,15 @@
 #define RK3576_DSP_IF_CLK_OUT_EN_BIT  1
 #define RK3576_DSP_IF_MUX_SHIFT       2
 #define RK3576_DSP_IF_MUX_MASK        0x3
-#define RK3576_DSP_IF_PIN_POL_SHIFT   4
-#define RK3576_DSP_IF_PIN_POL_MASK    0x3
+/*
+ * bits[5:4] = IF_DCLK_DIV: hardware encoding = (physical_divider - 1).
+ * physical_divider = 1U << IfDclkDiv (where IfDclkDiv is after LogCalculate).
+ * e.g. IfDclkDiv=2 → physical=4 → encoding=3 → 0x30.  Linux value 0x80000033
+ * confirms both HDMI 1080p60 and 2560x1440 use encoding=3 (÷4).
+ * Previously misnamed PIN_POL — sync polarity for HDMI is not in IF_CTRL.
+ */
+#define RK3576_DSP_IF_DCLK_DIV_SHIFT  4
+#define RK3576_DSP_IF_DCLK_DIV_MASK   0x3
 #define RK3576_DSP_IF_PCLK_DIV_BIT    20
 #define RK3576_DSP_IF_DCLK_SEL_OUT_BIT 21
 /* BIT(31): write-1 latches the IF_CTRL update immediately (mainline always sets this). */

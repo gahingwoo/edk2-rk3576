@@ -225,4 +225,6 @@
 
   # Simple Framebuffer GOP — installs GOP over the VOP2 framebuffer that
   # U-Boot leaves in place, without re-initialising VOP2 or HDMI.
-  Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf
+  # XXX BRING-UP: disabled so the real LCD/VOP2/HDMI stack installs the only GOP.
+  # Re-enable once HDMI output is confirmed working.
+  #Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf

@@ -495,7 +495,13 @@ HdmiTxIomux (
       MmioWrite32 (CRU_CLKGATE_CON(63), 0x000B0000 | 0x0000);
       /* HDMI TX Clocks: CLKGATE_CON(64) */
       MmioWrite32 (CRU_CLKGATE_CON(64), 0x03800000 | 0x0000);
-      DEBUG ((DEBUG_INFO, "NanoPi M5: HdmiTxIomux VOP+HDMI clocks ungated\n"));
+      /* Deassert HDMI TX resets (same fix as ROCK 4D):
+       *   SRST_HDMITX0_REF = 358 -> SOFTRST_CON22 bit6
+       *   SRST_HDMITXHDP   = 453 -> SOFTRST_CON28 bit5 (HPD circuit reset)
+       */
+      MmioWrite32 (CRU_SOFTRST_CON(22), (0x0040U << 16) | 0U);
+      MmioWrite32 (CRU_SOFTRST_CON(28), (0x0020U << 16) | 0U);
+      DEBUG ((DEBUG_INFO, "NanoPi M5: HdmiTxIomux VOP+HDMI clocks ungated, HDMI TX resets deasserted\n"));
       break;
     default:
       break;

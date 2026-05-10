@@ -33,6 +33,7 @@
 #define HDPTX_I_PLL_EN         BIT(7)
 #define HDPTX_I_BIAS_EN        BIT(6)
 #define HDPTX_I_BGR_EN         BIT(5)
+#define HDPTX_MODE_SEL         BIT(0)  /* 0=HDMI, 1=DP; kernel writes 0 in rk_hdptx_phy_power_on() */
 #define GRF_HDPTX_STATUS       0x80
 #define HDPTX_O_PLL_LOCK_DONE  BIT(3)
 #define HDPTX_O_PHY_CLK_RDY    BIT(2)
@@ -672,6 +673,16 @@ STATIC CONST struct RoPllConfig  ROPLL_TMDS_CONFIG[] = {
     1, 1, 0, 0x20, 0x0c, 1, 0x0e, 0, 0, },
   { 2970000, 124,  124,  1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 62,  1, 16,   5, 0,
     1, 1, 0, 0x20, 0x0c, 1, 0x0e, 0, 0, },
+  /*
+   * 2560x1440@60Hz (QHD): BitRate = 2417000 kbps.
+   * Fout = 2417000/2 = 1208500 kHz. Pms_Sdiv=1 → actual Sdiv=2 → Fvco=2417000 kHz.
+   * Mdiv=101: Fvco_nom = 24000×101 = 2424000 kHz, Δ = +7000 kHz.
+   * SDM correction: Sdm_Num=7, Sdm_Deno=24, Sdm_Num_Sign=1 (subtract) →
+   *   Fvco_eff = 2424000 - 24000×(7/24) = 2424000 - 7000 = 2417000 kHz (exact).
+   * Same Ssc/Ana/Ref parameters as the 2970000 entry above.
+   */
+  { 2417000, 101,  101,  1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 24,  1, 7,    5, 0,
+    1, 1, 0, 0x20, 0x0c, 1, 0x0e, 0, 0, },
   { 1620000, 135,  135,  1, 1, 3,   1, 1, 0, 1, 1, 1, 1, 4,   0, 3,    5, 5,   0x10,
     1, 0, 0x20, 0x0c, 1, 0x0e, 0, 0, },
   { 1856250, 155,  155,  1, 1, 3,   1, 1, 1, 1, 1, 1, 1, 62,  1, 16,   5, 0,
@@ -818,8 +829,10 @@ CruWrite (
   MmioWrite32 (PMU1CRU_BASE + Reg, TempVal);
 }
 
-/* MainCruWrite: HIWORD write to the main CRU (CRU_BASE = 0x27200000).
- * Used for RK3576 HDPTX PHY resets which are in the main CRU, not PMU1CRU. */
+/* MainCruWrite: HIWORD write to the main CRU (RK3576_MAIN_CRU_BASE = 0x27200000).
+ * Used for RK3576 HDPTX PHY resets which are in the main CRU, not PMU1CRU.
+ * NOTE: CRU_BASE from Soc.h resolves to 0xFD7C0000 (RK3588) when this module
+ * is compiled, because DwHdmiQpLib.inf only references RK3588.dec. */
 STATIC
 VOID
 MainCruWrite (
@@ -831,7 +844,7 @@ MainCruWrite (
   UINT32  TempVal = 0;
 
   TempVal = (Mask << 16) | (Val & Mask);
-  MmioWrite32 (CRU_BASE + Reg, TempVal);
+  MmioWrite32 (RK3576_MAIN_CRU_BASE + Reg, TempVal);
 }
 
 STATIC
@@ -842,6 +855,18 @@ HdptxPrePowerUp (
 {
   UINT32  Val = 0;
 
+  /* APB reset cycle: resets PHY APB register bank to hardware defaults.
+   * This clears stale values (e.g. LANE_REG0301 EI override) left by previous
+   * power cycles or boot firmware.  Mirrors kernel rk_hdptx_pre_power_up().
+   * SRST_P_HDPTX_APB = 428 → SOFTRST_CON26 (0xA68) bit12. */
+#ifdef SOC_RK3576
+  PHY_TRACE ("PrePowerUp: APB reset assert  (CRU+0xA68 bit12)\n");
+  MainCruWrite (RK3576_CRU_SOFTRST_CON26, RK3576_HDPTX_APB_RST, RK3576_HDPTX_APB_RST);
+  NanoSecondDelay (20000);  /* 20 us — matches kernel usleep_range(20,25) */
+  PHY_TRACE ("PrePowerUp: APB reset deassert (CRU+0xA68 bit12)\n");
+  MainCruWrite (RK3576_CRU_SOFTRST_CON26, RK3576_HDPTX_APB_RST, 0);
+#endif
+
   /* assert lane/cmn/init reset */
 #ifdef SOC_RK3576
   /* RK3576: single PHY, main CRU SOFTRST_CON28 (0xA70) bits 4/3/2.
@@ -851,7 +876,7 @@ HdptxPrePowerUp (
              RK3576_HDPTX_ALL_RST);
   MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_ALL_RST, RK3576_HDPTX_ALL_RST);
   PHY_TRACE ("PrePowerUp: CRU_SOFTRST_CON28=0x%08x\n",
-             MmioRead32 (CRU_BASE + RK3576_CRU_SOFTRST_CON28));
+             MmioRead32 (RK3576_MAIN_CRU_BASE + RK3576_CRU_SOFTRST_CON28));
 #else
   if (!Hdptx->Id) {
     CruWrite (PMU1CRU_SOFTRST_CON03, 0x3800, 0x3800);
@@ -1137,6 +1162,14 @@ HdptxRopllCmnConfig (
   }
 
   DEBUG ((DEBUG_INIT, "%a HdptxRopllCmnConfig start\n", __func__));
+#ifdef SOC_RK3576
+  /* Explicitly set HDMI mode (not DP) in HDPTX GRF before PHY init.
+   * Kernel rk_hdptx_phy_power_on() writes HDPTX_MODE_SEL=0 for HDMI mode
+   * before calling pll_cmn_config. Without this, if a prior boot left
+   * MODE_SEL=1 (DP mode), the PHY outputs DP framing instead of TMDS. */
+  PHY_TRACE ("RopllCmnConfig: GRF_HDPTX_CON0 <- HDPTX_MODE_SEL=0 (HDMI mode)\n");
+  GrfWrite (Hdptx, GRF_HDPTX_CON0, HDPTX_MODE_SEL, 0);
+#endif
   HdptxPrePowerUp (Hdptx);
   DEBUG ((DEBUG_INIT, "%a HdptxRopllCmnConfig %d\n", __func__, Cfg->Bit_Rate));
   GrfWrite (Hdptx, GRF_HDPTX_CON0, LC_REF_CLK_SEL, 0);
@@ -1286,7 +1319,7 @@ HdptxRopllCmnConfig (
     Hdptx,
     CMN_REG0086,
     PLL_PCG_CLK_SEL_MASK,
-    PLL_PCG_CLK_SEL (8)
+    PLL_PCG_CLK_SEL (1)    /* Linux uses CLK_SEL=1 → UPDATE(1,3,1)=2 → bit1 set → CMN_R0086=0x13 */
     );
 
   PhyUpdateBits (Hdptx, CMN_REG0086, PLL_PCG_CLK_EN, PLL_PCG_CLK_EN);
@@ -1409,7 +1442,7 @@ HdptxRopllTmdsModeConfig (
   PhyWrite (Hdptx, LANE_REG0312, 0x00);
   PhyWrite (Hdptx, LANE_REG0316, 0x02);
   PhyWrite (Hdptx, LANE_REG031B, 0x01);
-  PhyWrite (Hdptx, LANE_REG031E, 0x00);
+  PhyWrite (Hdptx, LANE_REG031E, 0x02);  /* LN_LANE_MODE=1: enable lane serializer (matches kernel rk_hdptx_tmds_lane_init_seq) */
   PhyWrite (Hdptx, LANE_REG031F, 0x15);
   PhyWrite (Hdptx, LANE_REG0320, 0xa0);
   PhyWrite (Hdptx, LANE_REG0403, 0x0c);
@@ -1424,7 +1457,7 @@ HdptxRopllTmdsModeConfig (
   PhyWrite (Hdptx, LANE_REG0412, 0x00);
   PhyWrite (Hdptx, LANE_REG0416, 0x02);
   PhyWrite (Hdptx, LANE_REG041B, 0x01);
-  PhyWrite (Hdptx, LANE_REG041E, 0x00);
+  PhyWrite (Hdptx, LANE_REG041E, 0x02);  /* LN_LANE_MODE=1 */
   PhyWrite (Hdptx, LANE_REG041F, 0x15);
   PhyWrite (Hdptx, LANE_REG0420, 0xa0);
   PhyWrite (Hdptx, LANE_REG0503, 0x0c);
@@ -1439,7 +1472,7 @@ HdptxRopllTmdsModeConfig (
   PhyWrite (Hdptx, LANE_REG0512, 0x00);
   PhyWrite (Hdptx, LANE_REG0516, 0x02);
   PhyWrite (Hdptx, LANE_REG051B, 0x01);
-  PhyWrite (Hdptx, LANE_REG051E, 0x00);
+  PhyWrite (Hdptx, LANE_REG051E, 0x02);  /* LN_LANE_MODE=1 */
   PhyWrite (Hdptx, LANE_REG051F, 0x15);
   PhyWrite (Hdptx, LANE_REG0520, 0xa0);
   PhyWrite (Hdptx, LANE_REG0603, 0x0c);
@@ -1454,7 +1487,7 @@ HdptxRopllTmdsModeConfig (
   PhyWrite (Hdptx, LANE_REG0612, 0x00);
   PhyWrite (Hdptx, LANE_REG0616, 0x02);
   PhyWrite (Hdptx, LANE_REG061B, 0x01);
-  PhyWrite (Hdptx, LANE_REG061E, 0x08);
+  PhyWrite (Hdptx, LANE_REG061E, 0x0a);  /* LN_LANE_MODE=1 + bit3 for clock lane (matches kernel 0x0a) */
   PhyWrite (Hdptx, LANE_REG061F, 0x15);
   PhyWrite (Hdptx, LANE_REG0620, 0xa0);
 

@@ -627,10 +627,34 @@ HdmiTxIomux (
   switch (Id) {
     case 0:
       /*
+       * HDMI 5V power enable: GPIO2_PB0 = HDMI_TX_ON_H (active-HIGH).
+       *
+       * ROCK 4D V1.12 schematic page 20: VCC5V_HDMI_TX is gated by a MOSFET
+       * load switch (Q8/Q9/Q10/Q11, WNM6002-3/TR).  The gate is driven by the
+       * net HDMI_TX_ON_H which originates from GPIO2_PB0 (ball B19, page 14).
+       *
+       * Without asserting GPIO2_PB0 HIGH:
+       *   - HDMI Pin 18 stays at 0 V  ->  monitor never detects cable
+       *   - Monitor never drives HPD HIGH  ->  HPD_STATUS stays 0x00000000
+       *   - Display remains dark despite correct PLL/VOP2/PHY initialisation
+       *
+       * Drive the data register HIGH first, then switch to OUTPUT so the
+       * pad never glitches LOW during the direction change.
+       *
+       * (GPIO4_PC0 is NOT the HDMI 5V enable on this board; it is the CEC
+       * function pin and is left untouched.)
+       */
+      DEBUG ((DEBUG_INFO, "HdmiTxIomux: GPIO2_PB0 -> HIGH (HDMI_TX_ON_H: enable HDMI 5V via MOSFET switch)\n"));
+      GpioPinWrite     (2, GPIO_PIN_PB0, TRUE);
+      GpioPinSetDirection (2, GPIO_PIN_PB0, GPIO_PIN_OUTPUT);
+      /* 50 ms for HDMI 5V rail to charge and stabilise before HPD wait */
+      MicroSecondDelay (50 * 1000);
+
+      /*
        * Ungate VOP2 & HDMI clocks (from clk-rk3576.c)
        * CRU_BASE = 0x27200000
        */
-      
+
       /* CLKGATE_CON(61): VOP Root Clocks
        * BIT[8]:  HCLK_VOP
        * BIT[9]:  ACLK_VOP
@@ -667,14 +691,67 @@ HdmiTxIomux (
        */
       MmioWrite32 (CRU_CLKGATE_CON(64),
         0x03800000 | 0x0000);
-        
-      /* Note: HDPTX PHY reference clock (CLK_PHY_REF_SRC, ID 526) and
-       * APB clock (PCLK_HDPTX_APB, ID 545) are in the main CRU (not PMU CRU).
-       * Both are typically ungated by U-Boot SPL during system init.
-       * If HDPTX PLL lock times out, check CRU CLKGATE registers for these.
-       */
 
-      DEBUG ((DEBUG_INFO, "HdmiTxIomux: VOP and HDMI clocks ungated\n"));
+      /*
+       * PCLK_HDPTX_APB: PMU1CRU PMU_CLKGATE_CON(0), bit 1
+       *   (source: Linux clk-rk3576.c: RK3576_PMU_CLKGATE_CON(0), bit 1)
+       *   PMU1CRU_BASE = 0x27220000; PMU_CLKGATE_CON(0) = PMU1CRU_BASE + 0x800
+       *   HIWORD format: top 16 = write-enable mask, low 16 = value
+       *   Writing BIT(1)<<16 sets mask=bit1, value=0 → ungated
+       *
+       * PCLK_PMUPHY_ROOT: PMU1CRU PMU_CLKGATE_CON(5), bit 0  (CLK_IS_CRITICAL)
+       *   Normally always on, but ungate explicitly to be safe.
+       *   PMU_CLKGATE_CON(5) = PMU1CRU_BASE + 0x800 + 5*4 = PMU1CRU_BASE + 0x814
+       *
+       * These clocks are required for the HDPTX PHY APB register interface.
+       * Without PCLK_HDPTX_APB active, all writes to 0x2B000000 (PHY) are dropped.
+       */
+      MmioWrite32 (PMU1CRU_BASE + 0x800,        /* PMU_CLKGATE_CON(0) */
+        (BIT (1) << 16) | 0U);                  /* bit 1 = 0 → PCLK_HDPTX_APB ungated */
+      MmioWrite32 (PMU1CRU_BASE + 0x800 + 5*4,  /* PMU_CLKGATE_CON(5) */
+        (BIT (0) << 16) | 0U);                  /* bit 0 = 0 → PCLK_PMUPHY_ROOT ungated */
+
+      /*
+       * Enable HDPTX PHY analog bias + bandgap reference (BIAS_EN=bit6,
+       * BGR_EN=bit5) in GRF_HDPTX_CON0 @ HDPTXPHY_GRF = 0x26032000.
+       *
+       * On cold boot the PHY I/O pads have no analog bias current, so the
+       * DDC SDA/SCL open-drain lines cannot be driven, and every EDID byte
+       * times out with "DwHdmiI2cRead: Timed out".
+       *
+       * HdptxPrePowerUp() (called in Setup step [3]) will temporarily disable
+       * these as part of its reset sequence, then HdptxPostEnablePll() will
+       * re-enable them with the PLL running.  That is the expected behaviour
+       * for the TX link; we just need them on early for DDC.
+       *
+       * HDPTXPHY GRF uses HIWORD-mask format: (mask<<16) | value.
+       */
+      MmioWrite32 (0x26032000U,
+        ((BIT (6) | BIT (5)) << 16) | (BIT (6) | BIT (5)));  /* BIAS_EN + BGR_EN = 1 */
+      MicroSecondDelay (100);   /* brief settle for analog bias */
+
+      /*
+       * Deassert HDMI TX software resets.  On cold boot (and potentially on
+       * warm reboot) these reset bits remain asserted, which:
+       *   - Freezes the HDMI TX reference clock circuit (SRST_HDMITX0_REF),
+       *     preventing TMDS clock/data output even though the HDPTX PHY PLL
+       *     locks correctly.
+       *   - Freezes the HDMI HPD detection circuit (SRST_HDMITXHDP), so
+       *     IOC_HDMI_HPD_STATUS always reads 0x00000000.
+       *
+       * CRU SOFTRST uses HIWORD-mask format: top 16 bits = write-enable mask,
+       * low 16 bits = value.  Writing 0 (deassert) to the bit position:
+       *
+       *   SRST_HDMITX0_REF = reset ID 358 → SOFTRST_CON22 bit 6
+       *     address = CRU_BASE + 0xA00 + 22*4 = 0x27200000 + 0xA58
+       *   SRST_HDMITXHDP   = reset ID 453 → SOFTRST_CON28 bit 5
+       *     address = CRU_BASE + 0xA00 + 28*4 = 0x27200000 + 0xA70
+       */
+      MmioWrite32 (CRU_SOFTRST_CON (22), (0x0040U << 16) | 0U);  /* SRST_HDMITX0_REF deassert */
+      MmioWrite32 (CRU_SOFTRST_CON (28), (0x0020U << 16) | 0U);  /* SRST_HDMITXHDP   deassert */
+      DEBUG ((DEBUG_INFO, "HdmiTxIomux: HDMI TX resets deasserted (SRST_HDMITX0_REF & SRST_HDMITXHDP)\n"));
+
+      DEBUG ((DEBUG_INFO, "HdmiTxIomux: VOP, HDMI and HDPTX APB clocks ungated, HDPTX BIAS+BGR enabled\n"));
       break;
     default:
       break;

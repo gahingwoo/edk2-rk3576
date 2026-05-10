@@ -68,6 +68,11 @@
   # Mainline Linux dw-hdmi-qp.c binds against "rockchip,rk3576-dw-hdmi-qp".
   # Enable so DwHdmiQpLib (DXE driver) and the bundled HdptxHdmi PHY get linked.
   DEFINE RK_DW_HDMI_QP_ENABLE    = TRUE
+  # Enable the full display stack: Vop2Dxe + DwHdmiQpLib + LcdGraphicsOutputDxe.
+  # Without this, FvMainModules.fdf.inc !if-gates those drivers out of the FV and
+  # the physical HDMI link never comes up (GOP is installed by RK3576SimpleFbDxe
+  # but VOP2 hw / HDPTX PHY are never initialized).
+  DEFINE RK_DISPLAY_ENABLE       = TRUE
   # Non-OSI binaries not present for RK3576
   DEFINE RK_AMD_GOP_ENABLE       = FALSE
   # Secure Boot: enable UEFI image verification and key management UI.
@@ -250,6 +255,22 @@
     VOP_OUTPUT_IF_HDMI0
   })}
 
+  # Default display mode: 1920x1080@60Hz (1080p) instead of NATIVE.
+  #
+  # Q27B3S2 EDID preferred mode is 2560x1440 (BitRate=2417000 kbps). That rate
+  # is NOT in the ROPLL_TMDS_CONFIG table, so PhyRockchipSamsungHdptxHdmi.c uses
+  # HdptxPhyClkPllCalc() which computes Mdiv=101 → Fvco=24000×101=2424000 kHz
+  # (target 2417000 kHz, Δ≈+7000 ppm). The Q27B3S2 monitor appears to reject
+  # this off-frequency TMDS signal (HPD stays LOW) even though EDID reads fine.
+  #
+  # 1080p uses BitRate=1485000 kbps which IS in the table (hardcoded, exact PLL).
+  # This serves as a diagnostic baseline: if 1080p shows a picture, the root cause
+  # is confirmed as the dynamic PLL error for QHD, and the fix is either to add
+  # a 2417000 entry to ROPLL_TMDS_CONFIG or add SDM fractional correction.
+  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{CODE({
+    DISPLAY_MODE_1920_1080_60
+  })}
+
 
 
 ################################################################################
@@ -275,7 +296,7 @@
   gRK3588TokenSpaceGuid.PcdDisplayModePreset|L"DisplayModePreset"|gRK3576DxeFormSetGuid|0x0|{0x0F, 0x00, 0x00, 0x00}
   gRK3588TokenSpaceGuid.PcdDisplayModeCustom|L"DisplayModeCustom"|gRK3576DxeFormSetGuid|0x0|{0x0}
   gRK3588TokenSpaceGuid.PcdDisplayConnectorsPriority|L"DisplayConnectorsPriority"|gRK3576DxeFormSetGuid|0x0|{0x0}
-  gRK3588TokenSpaceGuid.PcdDisplayForceOutput|L"DisplayForceOutput"|gRK3576DxeFormSetGuid|0x0|FALSE
+  gRK3588TokenSpaceGuid.PcdDisplayForceOutput|L"DisplayForceOutput"|gRK3576DxeFormSetGuid|0x0|TRUE
   gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutput|L"DisplayDuplicateOutput"|gRK3576DxeFormSetGuid|0x0|FALSE
   gRK3588TokenSpaceGuid.PcdDisplayRotation|L"DisplayRotation"|gRK3576DxeFormSetGuid|0x0|0
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode|L"HdmiSignalingMode"|gRK3576DxeFormSetGuid|0x0|0
@@ -327,7 +348,9 @@
 
   # Simple Framebuffer GOP — installs GOP over the VOP2 framebuffer that
   # U-Boot leaves in place, without re-initialising VOP2 or HDMI.
-  Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf
+  # XXX BRING-UP: disabled so the real LCD/VOP2/HDMI stack installs the only GOP.
+  # Re-enable once HDMI output is confirmed working.
+  #Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf
 
 !if $(RK3576_GMAC_ENABLE) == TRUE
   # RK3576 GMAC platform initializer (sdgmac_grf, PHY reset, MDIO PHY init)

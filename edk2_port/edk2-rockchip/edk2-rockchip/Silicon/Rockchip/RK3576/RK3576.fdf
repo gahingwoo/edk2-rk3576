@@ -89,7 +89,7 @@ BlockSize          = 0x40
 # This gives ~1.8MB free space after the current ~12.17MB of modules.
 # The extra 1.8MB of 0xFF free space LZMA-compresses to ~4 KB, so
 # BL33_AP_UEFI.Fv (5MB container, currently 67% free) is unaffected.
-NumBlocks          = 0x38800   # 14.125MB FVMAIN — accommodates TLS+HTTP+IPv6 stack (~35KB over previous 14MB)
+NumBlocks          = 0x3C000   # 15MB FVMAIN — increased from 14.125MB to accommodate display stack (Vop2Dxe + DwHdmiQpLib + LcdGraphicsOutputDxe ~180KB)
 FvAlignment        = 8         # FV alignment and FV attributes setting.
 ERASE_POLARITY     = 1
 MEMORY_MAPPED      = TRUE
@@ -131,8 +131,9 @@ READ_LOCK_STATUS   = TRUE
 
   #
   # Simple Framebuffer GOP (reads U-Boot VOP2 state, installs GOP early)
+  # XXX BRING-UP: disabled — re-enable once HDMI output is confirmed.
   #
-  INF Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf
+  #INF Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf
 
   #
   # PCI Support
