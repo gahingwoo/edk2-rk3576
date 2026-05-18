@@ -685,14 +685,12 @@
  * scheme in favour of self-contained per-port IF_CTRL registers. The VOP has
  * no separate vop_grf syscon at all, and HDMITX0 enable / sync polarity /
  * dividers are all encoded in this single 32-bit register.
- *
- * Bitfield layout (mainline drivers/gpu/drm/rockchip/rockchip_drm_vop2.h):
- *   BIT(0)       RK3576_DSP_IF_EN          interface enable
- *   BIT(1)       RK3576_DSP_IF_CLK_OUT_EN  pixel clock output enable
- *   GENMASK(3,2) RK3576_DSP_IF_MUX         video port selector (0..2)
- *   GENMASK(5,4) RK3576_DSP_IF_PIN_POL     {VSYNC,HSYNC} polarity
- *   BIT(20)      RK3576_DSP_IF_PCLK_DIV    pixel clock /2 (when port_pix_rate == 1)
- *   BIT(21)      RK3576_DSP_IF_DCLK_SEL_OUT  DCLK source select (1 for YUV420)
+ * bits[6:4] = IF_PIN_POL (RK3576_IF_PIN_POL, mask=0x7):
+ *   bit4 (HSYNC_POSITIVE=0) = 1: output positive H-sync
+ *   bit5 (VSYNC_POSITIVE=1) = 1: output positive V-sync
+ *   Set the bit when mode sync polarity is POSITIVE (+H or +V).
+ *   U-Boot: val=(NHSYNC)?0:BIT(0); val|=(NVSYNC)?0:BIT(1);
+ *   For +H+V: val=3 → bits[5:4]=0x30 → IF_CTRL=0x80000033.
  */
 #define RK3576_MIPI0_IF_CTRL          0x180
 #define RK3576_HDMI0_IF_CTRL          0x184
@@ -707,11 +705,11 @@
 #define RK3576_DSP_IF_MUX_SHIFT       2
 #define RK3576_DSP_IF_MUX_MASK        0x3
 /*
- * bits[5:4] = IF_DCLK_DIV: hardware encoding = (physical_divider - 1).
- * physical_divider = 1U << IfDclkDiv (where IfDclkDiv is after LogCalculate).
- * e.g. IfDclkDiv=2 → physical=4 → encoding=3 → 0x30.  Linux value 0x80000033
- * confirms both HDMI 1080p60 and 2560x1440 use encoding=3 (÷4).
- * Previously misnamed PIN_POL — sync polarity for HDMI is not in IF_CTRL.
+ * bits[6:4] = PIN_POL (RK3576_IF_PIN_POL_MASK=0x7, SHIFT=4).
+ * bit4=HSYNC_POSITIVE, bit5=VSYNC_POSITIVE.
+ * Named DCLK_DIV_SHIFT/MASK here because they share the same field position
+ * in the register layout; the actual field is PIN_POL per U-Boot source.
+ * Val=3 (both bits set) for +H+V sync mode.
  */
 #define RK3576_DSP_IF_DCLK_DIV_SHIFT  4
 #define RK3576_DSP_IF_DCLK_DIV_MASK   0x3

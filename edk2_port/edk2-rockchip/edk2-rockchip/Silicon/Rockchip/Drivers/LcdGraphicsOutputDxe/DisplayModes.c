@@ -280,7 +280,7 @@ STATIC CONST DISPLAY_MODE  mDisplayModes[] = {
     .VBackPorch  = 11,
     .VSyncActive = 1,
   },
-  [DISPLAY_MODE_2560_1440_60] = /* CVT-RB */ {
+  [DISPLAY_MODE_2560_1440_60] = /* CVT-RB 2560x1440@60 (+H/+V) */ {
     .Vic         = 0,
     .OscFreq     = 241500,
     .HActive     = 2560,
@@ -292,7 +292,7 @@ STATIC CONST DISPLAY_MODE  mDisplayModes[] = {
     .VFrontPorch = 3,
     .VSync       = 5,
     .VBackPorch  = 33,
-    .VSyncActive = 0,
+    .VSyncActive = 1,
   },
   [DISPLAY_MODE_2560_1600_60] = /* CVT-RB */ {
     .Vic         = 0,

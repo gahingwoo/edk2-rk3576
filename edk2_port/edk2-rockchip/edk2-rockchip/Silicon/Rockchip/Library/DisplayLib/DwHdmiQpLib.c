@@ -149,8 +149,8 @@ DwHdmiQpSetIomux (
   // RK3576 has a single HDMI controller. Mirror the upstream Linux
   // dw_hdmi_qp_rk3576_io_init() + dw_hdmi_qp_rk3576_setup_hpd() sequence:
   //   VO0_GRF_SOC_CON14: SCLIN | SDAIN | HDMI_GRANT_SEL | I2S_SEL
-  //   IOC_MISC_CON0:     HPD_INT_CLR=1, HPD_INT_MSK=0  (clear + unmask)
-  //   IOC_MISC_CON1:     0xffff0102 (HPD filter / polarity, bits 1|8)
+  //   IOC_MISC_CON0:     HPD_INT_CLR=1, HPD_INT_MSK=0  (one write, CLR stays=1)
+  //   IOC_MISC_CON1:     0xffff0102 (SET_DLY_EN=1, LNUM_MS=2ms debounce)
   //
   HDMI_TRACE ("SetIomux: ENTRY id=%u base=0x%lx\n", Hdmi->Id, (UINT64)Hdmi->Base);
 
@@ -189,16 +189,20 @@ DwHdmiQpSetIomux (
   HDMI_DUMP_REG ("GPIO4_SWPORT_DDR_H  ", 0x2AE4000CUL);
 
   // rk3576-pinctrl.dtsi function map for GPIO4_PCx with fn9:
-  //   PC0 fn9 = hdmi_tx_cec_m0  (CEC, OPTIONAL — mainline DTS does NOT claim it)
+  //   PC0 fn9 = hdmi_tx_cec_m0  (CEC — required by mainline hdmi_txm0_pins group)
   //   PC1 fn9 = hdmi_tx_hpdin_m0 (HPD input — required for HPD detect path)
   //   PC2 fn9 = hdmi_tx_scl      (DDC SCL — required for EDID/SCDC)
   //   PC3 fn9 = hdmi_tx_sda      (DDC SDA — required for EDID/SCDC)
-  // Leave PC0 at GPIO function (mask=0xFFF0 leaves bits[3:0] untouched).
-  // CEC is not used by UEFI and the Linux mainline rock-4d DTS doesn't claim
-  // it either; switching PC0 caused USB stack regressions in testing.
-  HDMI_TRACE ("SetIomux: set GPIO4 PC1-PC3 -> function 9 (HPD/SCL/SDA), PC0 stays GPIO (CEC unused)\n");
+  //
+  // Mainline Linux (rk3576.dtsi) configures pinctrl-0 = <&hdmi_txm0_pins &hdmi_tx_scl &hdmi_tx_sda>
+  // which sets PC0-PC3 ALL to fn9.  In particular, hdmi_txm0_pins covers BOTH PC0 (CEC)
+  // and PC1 (HPD) together.  The RK3576 IOC HPD routing appears to require the entire
+  // HDMI IO group (PC0-PC3) to be in fn9 for IOC_HDMI_HPD_STATUS bit3 (LEVEL_INT) to
+  // reflect the actual pin state.  Leaving PC0 at fn0 (GPIO) keeps LEVEL_INT stuck at 0.
+  // Set all four pins to fn9: mask=0xFFFF, value=0x9999.
+  HDMI_TRACE ("SetIomux: set GPIO4 PC0-PC3 -> function 9 (CEC/HPD/SCL/SDA, matches mainline hdmi_txm0_pins)\n");
   HDMI_DUMP_REG ("GPIO4_PC_IOMUX_before", RK3588_SYS_GRF_BASE + 0xA390);
-  MmioWrite32 (RK3588_SYS_GRF_BASE + 0xA390, 0xFFF09990U);
+  MmioWrite32 (RK3588_SYS_GRF_BASE + 0xA390, 0xFFFF9999U);
   HDMI_DUMP_REG ("GPIO4_PC_IOMUX_after ", RK3588_SYS_GRF_BASE + 0xA390);
 
   //
@@ -240,22 +244,44 @@ DwHdmiQpSetIomux (
   HDMI_TRACE ("SetIomux: write VO0_GRF_SOC_CON14 <- 0x%08x\n", Val);
   MmioWrite32 (RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON14, Val);
 
-  // Clear any pending HPD interrupt and unmask, in a single write
-  // (RK3588_SYS_GRF_BASE has been remapped to RK3576 IOC_GRF @ 0x26040000).
-  Val = HIWORD_UPDATE (RK3576_HDMI_HPD_INT_CLR, RK3576_HDMI_HPD_INT_CLR) |
-        HIWORD_UPDATE (0,                       RK3576_HDMI_HPD_INT_MSK);
-  HDMI_TRACE ("SetIomux: write IOC_MISC_CON0    <- 0x%08x (clear+unmask HPD)\n", Val);
+  // Configure HPD detection: CLR=1, MSK=0 — matches Linux mainline
+  // dw_hdmi_qp_rk3576_setup_hpd() exactly:
+  //   HIWORD_UPDATE(CLR, CLR | MSK)  →  mask=0x06, value=0x02  →  0x00060002
+  //
+  // RK3576 empirical behaviour (confirmed via Linux devmem):
+  //   CLR (bit1) is NOT write-1-to-clear (W1C).  Writing 1 latches it HIGH
+  //   and it remains HIGH until explicitly cleared.  CLR=1 is required for
+  //   the HPD detection circuit to actively sample the pad level and update
+  //   LEVEL_INT in IOC_HDMI_HPD_STATUS.  CLR=0 freezes the detector at the
+  //   last sampled value (which is 0 at cold-boot time, before the monitor
+  //   has had a chance to assert HPD).
+  //
+  // Linux writes CLR=1 once and leaves it; IOC_MISC_CON0 reads back as 0x03
+  // (bit1=CLR=1, bit0=power-on default) and HPD works.  A second write to
+  // clear CLR (our former "Step B") leaves IOC_MISC_CON0=0x01, disabling the
+  // detector and causing LEVEL_INT to stay 0 permanently.
+  Val = HIWORD_UPDATE (RK3576_HDMI_HPD_INT_CLR,
+                       RK3576_HDMI_HPD_INT_CLR | RK3576_HDMI_HPD_INT_MSK);
+  HDMI_TRACE ("SetIomux: write IOC_MISC_CON0 <- 0x%08x (CLR=1, MSK=0, Linux mainline)\n", Val);
   MmioWrite32 (RK3588_SYS_GRF_BASE + RK3576_IOC_MISC_CON0, Val);
+  HDMI_DUMP_REG ("IOC_MISC_CON0 after write", RK3588_SYS_GRF_BASE + RK3576_IOC_MISC_CON0);
 
-  // HPD filter + routing: matches Linux kernel dw_hdmi_qp_rk3576_setup_hpd()
-  // which writes regmap_write(hdmi->regmap, 0xa404, 0xffff0102).
-  // bit1=1: HPD glitch filter enable.
-  // bit8=1: required by kernel — likely enables HPD input path sampling.
-  //         Previous code wrote 0xffff0002 (bit8=0) based on an incorrect
-  //         assumption that bit8 inverts HPD polarity. The kernel always
-  //         writes bit8=1, so restore it here.
-  HDMI_TRACE ("SetIomux: write IOC_MISC_CON1    <- 0xffff0102 (HPD filter+enable, matches kernel)\n");
-  MmioWrite32 (RK3588_SYS_GRF_BASE + 0xA404, 0xffff0102);
+  // HPD filter: mainline Linux dw_hdmi_qp_rk3576_setup_hpd() writes:
+  //   HIWORD_UPDATE(SET_DLY_EN, SET_DLY_EN_MASK) | HIWORD_UPDATE(2, SET_LNUM_MS_MASK)
+  //   = 0x01ff0102  (mask=0x01ff, value=0x0102: LNUM_MS=2, SET_DLY_EN=1)
+  //
+  // IOC_MISC_CON1 layout (RK3576):
+  //   bits 7:0  = LNUM_MS (debounce count in ms; default=1, we set=2)
+  //   bit8      = SET_DLY_EN (enable debounce filter; 0=raw, 1=filtered)
+  //   bit0 in default state = LNUM_MS[0]=1 (LNUM_MS was 1 before our init)
+  //
+  // We write 0xffff0102 (wider mask = 0xffff, same value = 0x0102).
+  // Effect: LNUM_MS=2 (2ms debounce), SET_DLY_EN=1, all other bits=0.
+  HDMI_TRACE ("SetIomux: write IOC_MISC_CON1 <- 0xffff0102 (LNUM_MS=2ms, SET_DLY_EN=1)\n");
+  MmioWrite32 (RK3588_SYS_GRF_BASE + 0xA404, 0xffff0102U);
+  // Brief settle after debounce reconfiguration
+  MicroSecondDelay (5 * 1000);  /* 5 ms — allow HPD debounce to arm after CLR=1 write */
+  HDMI_DUMP_REG ("IOC_HDMI_HPD_STATUS (5ms post-write)", RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
 
   HDMI_TRACE ("SetIomux: post-state\n");
   HDMI_DUMP_REG ("VO0_GRF_SOC_CON14   ", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON14);
@@ -339,15 +365,28 @@ DwHdmiReadHpd (
     UINT32  MiscCon1   = MmioRead32 (RK3588_SYS_GRF_BASE + 0xA404U);
     UINT32  PinLevel   = (Gpio4Ext >> 17) & 1;
     BOOLEAN HwHpd      = (Val & RK3576_HDMI_LEVEL_INT) != 0;
-    HDMI_TRACE (
-      "ReadHpd: HPD_STATUS=0x%08x bit3=%u bit0=%u GPIO4_PC1=%u MiscCon1=0x%08x hw=%a\n",
-      Val,
-      (Val >> 3) & 1,
-      (Val >> 0) & 1,
-      PinLevel,
-      MiscCon1,
-      HwHpd ? "HIGH" : "LOW"
-      );
+
+    /* Throttle log spam: only emit on first call, state changes, or every 64th call */
+    {
+      STATIC UINT32  sHpdCallCount = 0;
+      STATIC BOOLEAN sPrevHwHpd    = 0xFF; /* impossible value → forces first-call log */
+
+      if (sHpdCallCount == 0 || (sHpdCallCount & 63) == 0 || (UINT8)HwHpd != (UINT8)sPrevHwHpd) {
+        HDMI_TRACE (
+          "ReadHpd: HPD_STATUS=0x%08x bit3=%u bit0=%u GPIO4_PC1=%u MiscCon1=0x%08x hw=%a (call#%u)\n",
+          Val,
+          (Val >> 3) & 1,
+          (Val >> 0) & 1,
+          PinLevel,
+          MiscCon1,
+          HwHpd ? "HIGH" : "LOW",
+          sHpdCallCount
+          );
+      }
+      sPrevHwHpd = (UINT8)HwHpd;
+      sHpdCallCount++;
+    }
+
     if (HwHpd) {
       return TRUE;
     }
@@ -863,55 +902,69 @@ DwHdmiQpConnectorPreInit (
 
 #ifdef SOC_RK3576
   //
-  // Wait up to 5000 ms for the monitor to assert HPD after detecting HDMI
-  // signal presence.  Monitors need tens to hundreds of milliseconds after
-  // the TMDS lines become active before they drive HPD HIGH.
-  // Print status every 200 ms, showing both IOC register and raw GPIO4_PC1
-  // pad level so we can distinguish "IOC not routing HPD" from "no HPD".
+  // HPD wait: Poll IOC_HDMI_HPD_STATUS (BIT3 = LEVEL_INT) for up to
+  // HPD_WAIT_TIMEOUT_MS milliseconds.  UEFI starts much earlier than the
+  // Linux HDMI driver: the TV may still be initialising its HDMI port logic
+  // and has not yet asserted HPD.  Mainline Linux works because the HDMI
+  // driver probes ~30 s after power-on, by which time the TV is ready.
   //
+  // Strategy:
+  //   • If HPD goes HIGH within the timeout: clear HpdTimeoutFlag and use
+  //     the real HPD state for all subsequent ReadHpd() calls.  The EDID
+  //     read (in ConnectorGetEdid) will succeed through the normal path.
+  //   • If HPD stays LOW (timeout): set HpdTimeoutFlag so ReadHpd() always
+  //     returns TRUE.  EDID will be attempted anyway via passive DDC (which
+  //     works even when HPD is LOW because many TVs connect DDC to all ports
+  //     regardless of which input is selected).  If EDID fails, the driver
+  //     falls back to 1080p60.
   {
-    UINT32   HpdWaitMs  = 0;
-    UINT32   HpdStatus;
-    BOOLEAN  HpdHigh    = FALSE;
+    CONST UINTN  HPD_WAIT_TIMEOUT_MS = 5000;  /* 5 seconds */
+    CONST UINTN  HPD_POLL_MS         = 100;   /* poll every 100 ms */
+    UINTN        Elapsed             = 0;
+    BOOLEAN      HpdHigh             = FALSE;
+    UINT32       HpdStatus;
 
-    HDMI_TRACE ("ConnectorPreInit: waiting for HPD (max 5000 ms)...\n");
-    Hdmi->HpdTimeoutFlag = FALSE;
+    DEBUG ((DEBUG_INFO,
+      "[RK3576-HDMI] Waiting up to %u s for HPD (TV may need time to initialise) ...\n",
+      HPD_WAIT_TIMEOUT_MS / 1000));
 
-    while (HpdWaitMs < 5000) {
-      UINT32  Gpio4Ext;
-      UINT32  PadLevel;
-
+    while (Elapsed < HPD_WAIT_TIMEOUT_MS) {
       HpdStatus = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
-      Gpio4Ext  = MmioRead32 (0x2AE40070U);
-      PadLevel  = (Gpio4Ext >> 17) & 1U;
-
       if ((HpdStatus & RK3576_HDMI_LEVEL_INT) != 0) {
-        DEBUG ((DEBUG_INFO,
-          "[RK3576-HDMI] HPD HIGH after %u ms (HPD_STATUS=0x%08x GPIO4_PC1_pad=%u)\n",
-          HpdWaitMs, HpdStatus, PadLevel));
         HpdHigh = TRUE;
+        DEBUG ((DEBUG_INFO,
+          "[RK3576-HDMI] HPD HIGH after %u ms (HPD_STATUS=0x%08x)\n",
+          Elapsed, HpdStatus));
         break;
       }
-      /* Log every 200 ms: show both the IOC software status and the raw pad
-       * level.  If PadLevel=1 but HPD_STATUS bit3=0, the IOC is not routing
-       * the HPD signal correctly.  If PadLevel=0, the monitor is not
-       * asserting HPD (board hardware issue or timing issue). */
-      if ((HpdWaitMs % 200) == 0) {
+      /* Log full diagnostic every 1 second */
+      if ((Elapsed % 1000) == 0) {
+        UINT32  Gpio4Ext  = MmioRead32 (0x2AE40070U);
+        UINT32  Gpio2Ext  = MmioRead32 (0x2AE20070U);
+        UINT32  MiscCon0  = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_MISC_CON0);
+        UINT32  MiscCon1  = MmioRead32 (RK3588_SYS_GRF_BASE + 0xA404U);
+        UINT32  Gpio2Iomux = MmioRead32 (0x26044048U);  /* GPIO2_PB0 IOMUX */
+        UINT32  Gpio4Iomux = MmioRead32 (RK3588_SYS_GRF_BASE + 0xA390U);  /* GPIO4_PC IOMUX */
         DEBUG ((DEBUG_INFO,
-          "[RK3576-HDMI] HPD wait %u ms HPD_STATUS=0x%08x bit3=%u GPIO4_PC1_pad=%u\n",
-          HpdWaitMs, HpdStatus, (HpdStatus >> 3) & 1U, PadLevel));
+          "[RK3576-HDMI] HPD still LOW at %u ms:\n"
+          "  HPD_STATUS=0x%08x  GPIO4_PC1=%u  GPIO2_PB0_pad=%u\n"
+          "  IOC_MISC_CON0=0x%08x(CLR=%u,MSK=%u)  IOC_MISC_CON1=0x%08x\n"
+          "  GPIO2_PB0_IOMUX=0x%08x[3:0]=0x%x(0=GPIO)  GPIO4_PC_IOMUX=0x%08x(want9999)\n",
+          Elapsed,
+          HpdStatus, (Gpio4Ext >> 17) & 1U, (Gpio2Ext >> 8) & 1U,
+          MiscCon0, (MiscCon0 >> 1) & 1U, (MiscCon0 >> 2) & 1U, MiscCon1,
+          Gpio2Iomux, Gpio2Iomux & 0xFU, Gpio4Iomux));
       }
-      MicroSecondDelay (10 * 1000);  /* 10 ms */
-      HpdWaitMs += 10;
+      MicroSecondDelay (HPD_POLL_MS * 1000);
+      Elapsed += HPD_POLL_MS;
     }
 
     if (!HpdHigh) {
       UINT32  Gpio4Ext = MmioRead32 (0x2AE40070U);
-      HpdStatus = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
-      DEBUG ((DEBUG_WARN,
-        "[RK3576-HDMI] HPD timeout after 5000 ms (HPD_STATUS=0x%08x bit3=%u GPIO4_PC1_pad=%u) "
-        "— proceeding (no-HPD sink?)\n",
-        HpdStatus, (HpdStatus >> 3) & 1U, (Gpio4Ext >> 17) & 1U));
+      DEBUG ((DEBUG_INFO,
+        "[RK3576-HDMI] HPD timeout after %u ms — GPIO4_PC1=%u — enabling bypass (HpdTimeoutFlag=TRUE)\n"
+        "[RK3576-HDMI] Hint: ensure the TV is powered on and its HDMI input is selected.\n",
+        Elapsed, (Gpio4Ext >> 17) & 1U));
       Hdmi->HpdTimeoutFlag = TRUE;
     }
   }
@@ -1089,15 +1142,19 @@ Rk3588SetColorFormat (
 
 #ifdef SOC_RK3576
   //
-  // RK3576 VO0_GRF_SOC_CON8: write BOTH color DEPTH (bits[11:8]) and
-  // COLOR_FORMAT (bits[7:4]). Matches mainline dw_hdmi_qp_rk3576_enc_init():
-  //   FIELD_PREP_WM16(RK3576_COLOR_DEPTH_MASK, RK3576_8BPC) |
-  //   FIELD_PREP_WM16(RK3576_COLOR_FORMAT_MASK, RK3576_RGB)
-  // Expected write for 8bpc+RGB: 0x0FF00090, readback: 0x00000090.
+  // RK3576 VO0_GRF_SOC_CON8: Linux ground-truth dump (working 8bpc HDMI) shows
+  // 0x00000600 — bits[11:8]=6 (depth), bits[7:4]=0 (RGB format).
   //
-  Val = HIWORD_UPDATE ((Depth == 8) ? RK3576_8BPC : RK3576_10BPC,
-                       RK3576_COLOR_DEPTH_MASK)
-      | HIWORD_UPDATE (RK3576_RGB, RK3576_COLOR_FORMAT_MASK);
+  // U-Boot defines RK3576_8BPC=(0x0<<8)=0, but using 0 leaves the register at
+  // reset value 0x0000 and the DW HDMI QP VIF block does not activate video
+  // (VID_IF_STATUS lower bits stay zero even with correct VOP2 timing visible
+  // in VID_MON registers).  The Linux kernel uses bits[11:8]=6 for 8bpc output
+  // regardless of U-Boot's constant naming convention.
+  //
+  // Write mask=0x0FF0 to update both depth[11:8] and format[7:4] fields;
+  // value=0x0600 → depth=6, format=0(RGB) → matches Linux ground truth.
+  //
+  Val = HIWORD_UPDATE (0x0600U, 0x0FF0U);
   MmioWrite32 (RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON8, Val);
   return;
 #endif
@@ -1149,7 +1206,8 @@ HdmiConfigAviInfoframe (
   InfBuf[1] = 2;    /* Version */
   InfBuf[2] = 13;   /* Length */
 
-  InfBuf[4] = 0x2;        /* Scan Information = Underscan */
+  InfBuf[4] = 0x0;        /* Scan Information = no info (matches vendor) */
+  InfBuf[5] = 0x20;       /* Picture Aspect Ratio = 16:9 (matches vendor) */
   InfBuf[7] = Vic & 0xff; /* VIC */
 
   if (SinkInfo->SelectableRgbRange) {
@@ -1159,24 +1217,35 @@ HdmiConfigAviInfoframe (
   HdmiInfoframeSetChecksum (InfBuf, sizeof (InfBuf));
 
   /*
-   * The Designware IP uses a different byte format from standard
-   * AVI info frames, though generally the bits are in the correct
-   * bytes.
+   * DWC HDMI QP packet RAM layout (mainline kernel dw_hdmi_qp_write_pkt):
+   *   CONTENTS0[7:0]   = InfBuf[0] (packet type, e.g. 0x82 for AVI)
+   *   CONTENTS0[15:8]  = InfBuf[1] (version)
+   *   CONTENTS0[23:16] = InfBuf[2] (length)
+   *   CONTENTS0[31:24] = 0 (unused)
+   *
+   *   CONTENTS1..4 pack InfBuf[3..16] in groups of 4, with the checksum
+   *   at CONTENTS1[7:0] and VIC (InfBuf[7]) at CONTENTS2[7:0].
+   *
+   * Note: bits[7:0] of CONTENTS0 are NOT "managed by HW" — the hardware
+   * does NOT auto-fill the type byte.  Omitting InfBuf[0] leaves type=0x00
+   * in the transmitted InfoFrame, causing strict sinks to reject it.
+   * Linux writes buf[0] explicitly; we must do the same.
+   *
+   * Reference: drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c
+   *   regmap_write(hdmi->regm, reg, buf[0] | (buf[1]<<8) | (buf[2]<<16));
    */
-  val = (InfBuf[1] << 8) | (InfBuf[2] << 16);
+  val = ((UINT32)InfBuf[0]) | ((UINT32)InfBuf[1] << 8) | ((UINT32)InfBuf[2] << 16);
   DwHdmiQpRegWrite (Hdmi, val, PKT_AVI_CONTENTS0);
 
   for (i = 0; i < 4; i++) {
+    val = 0;
     for (j = 0; j < 4; j++) {
+      /* Source range is InfBuf[3..16] = checksum + 13 payload bytes. */
       if (i * 4 + j >= 14) {
         break;
       }
 
-      if (!j) {
-        val = InfBuf[i * 4 + j + 3];
-      }
-
-      val |= InfBuf[i * 4 + j + 3] << (8 * j);
+      val |= (UINT32)InfBuf[i * 4 + j + 3] << (8 * j);
     }
 
     DwHdmiQpRegWrite (Hdmi, val, PKT_AVI_CONTENTS1 + i * 4);
@@ -1319,6 +1388,66 @@ DwHdmiQpSetup (
     SinkInfo->IsHdmi,
     SinkInfo->HdmiInfo.ScdcSupported
     );
+  DEBUG ((DEBUG_INFO,
+    "[RK3576-HDMI] Setup ENTRY: Clock=%u kHz BitRate=%u kbps %ux%u "
+    "(1080p60=148500/1485000, QHD=241700/2417000)\n",
+    ConnectorState->DisplayMode.Clock, BitRate,
+    ConnectorState->DisplayMode.HDisplay,
+    ConnectorState->DisplayMode.VDisplay));
+
+  /* ── STEP 0: Vendor-match: INT_MASK disable + TIMER_BASE_CONFIG0 ─────── */
+  /*
+   * Vendor EDK2 binary (VA=0x4234..0x4258) writes these three registers at
+   * the very start of HDMI TX initialisation — before any PHY or clock work.
+   *
+   *   MAINUNIT_0_INT_MASK_N = 0  (0x27DA3014) — mask all mainunit interrupts
+   *   MAINUNIT_1_INT_MASK_N = 0  (0x27DA3024) — mask all mainunit interrupts
+   *   TIMER_BASE_CONFIG0    (0x27DA0080) — HDMITX reference clock rate in Hz
+   *
+   * The register holds the HDMITX reference clock frequency in Hz.  This
+   * value is used for all internal DWC HDMI QP timing, including CEC.
+   * Using the wrong value breaks CEC and may affect other timing logic.
+   *
+   *   RK3588 ref clock = 428,571,429 Hz → 0x1982C300 (vendor default)
+   *   RK3576 ref clock = 396,000,000 Hz → 0x179A7B00
+   *     (kernel 6.19 commit f7a1de0d8622 "drm/bridge: dw-hdmi-qp: Fixup
+   *      timer base setup" fixes this for RK3576)
+   *
+   * Without TIMER_BASE_CONFIG0 the DWC HDMI QP internal timing logic may
+   * not be calibrated correctly, which can prevent the controller from
+   * outputting a valid TMDS link even when VOP2 and the PHY are ready.
+   */
+  DwHdmiQpRegWrite (Hdmi, 0, MAINUNIT_0_INT_MASK_N);
+  DwHdmiQpRegWrite (Hdmi, 0, MAINUNIT_1_INT_MASK_N);
+  MmioWrite32 (Hdmi->Base + TIMER_BASE_CONFIG0, 0x179A7B00U);  /* 396 MHz, RK3576 */
+  HDMI_TRACE ("Setup: [0] MAINUNIT_0/1_INT_MASK_N=0, TIMER_BASE_CONFIG0=0x179A7B00 (396MHz RK3576)\n");
+  HDMI_DUMP_REG ("  TIMER_BASE_CONFIG0", Hdmi->Base + TIMER_BASE_CONFIG0);
+
+  /*
+   * Re-initialize I2C master timing to match the 396 MHz TIMER_BASE_CONFIG0.
+   *
+   * DwHdmiQpInitHw() set TIMER_BASE = 24 MHz with I2CM_SM/FM_SCL_CONFIG0 =
+   * 0x00600071 (96/113 cycles → ~115 kHz at 24 MHz).  After we change
+   * TIMER_BASE to 396 MHz those same cycle counts give:
+   *   96 cycles @ 396 MHz = 242 ns  (DDC minimum SCL-high = 4 µs !!!)
+   *   → I2C runs at ~1.9 MHz → DDC slave never responds → SCDC timeout.
+   *
+   * Fix: reset I2CM and reprogram SCL timing for 396 MHz.
+   * Linux uses 0x085c085c at ~428 MHz ref → 5.0 µs/half-period → 100 kHz.
+   * At 396 MHz: 0x085c = 2140 cycles = 5.4 µs → 92 kHz DDC — valid.
+   *
+   * Matches Linux kernel dw_hdmi_qp_init_hw() sequence.
+   */
+  DwHdmiQpRegWrite (Hdmi, 0x01, I2CM_CONTROL0);        /* SW reset I2CM  */
+  DwHdmiQpRegWrite (Hdmi, 0x085c085c, I2CM_SM_SCL_CONFIG0);  /* 396 MHz → 92 kHz DDC */
+  DwHdmiQpRegWrite (Hdmi, 0x085c085c, I2CM_FM_SCL_CONFIG0);  /* same for FM  */
+  DwHdmiQpRegMod   (Hdmi, 0, I2CM_FM_EN, I2CM_INTERFACE_CONTROL0);
+  DwHdmiQpRegWrite (
+    Hdmi,
+    I2CM_OP_DONE_CLEAR | I2CM_NACK_RCVD_CLEAR,
+    MAINUNIT_1_INT_CLEAR
+    );
+  HDMI_TRACE ("Setup: [0b] I2C re-init for 396MHz: SM/FM_SCL_CONFIG0=0x085c085c (92kHz DDC)\n");
 
   /* ── STEP 1: Pre-state ────────────────────────────────────────────────── */
   HDMI_TRACE ("Setup: [1] PRE-STATE dump\n");
@@ -1341,25 +1470,35 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  CRU_GATE_CON64    ", 0x27200000UL + 0x800 + 64 * 4);
   HDMI_DUMP_REG ("  CRU_SOFTRST_CON28 ", 0x27200000UL + 0xA70);
 
-  /* ── STEP 2: Enable HDMI TX QP clocks + AVP video datapath ─────────── */
-  HDMI_TRACE ("Setup: [2] Enable QP clocks (CMU_CONFIG0) + AVP video datapath (GLOBAL_SWDISABLE)\n");
+  /* ── STEP 2: Enable HDMI TX QP clocks ───────────────────────────────── */
+  HDMI_TRACE ("Setup: [2] Enable QP clocks (CMU_CONFIG0) — keep SWDISABLE set until after PHY\n");
   /*
    * Clear VIDQPCLK_OFF (bit3) and LINKQPCLK_OFF (bit5) in CMU_CONFIG0 to
    * un-gate the video/link QP clocks inside the HDMI TX controller.
    * Without this the serializer has no clock even if the PHY PLL is running.
+   *
+   * AVP_DATAPATH_VIDEO_SWDISABLE is intentionally left SET here and cleared
+   * only after the PHY lanes are ready (step [10]).  This matches Linux
+   * behaviour where VOP2 is in standby (no video) during HDMI TX init;
+   * enabling the video path before the PHY is ready can latch garbage video
+   * data from the wrong clock domain and leave the HDMI TX in a bad state.
    */
   DwHdmiQpRegMod (Hdmi, 0, VIDQPCLK_OFF | LINKQPCLK_OFF, CMU_CONFIG0);
-  /*
-   * Enable AVP video datapath by clearing AVP_DATAPATH_VIDEO_SWDISABLE
-   * (bit6) in GLOBAL_SWDISABLE.  With this bit set the HDMI TX will not
-   * output any TMDS signal even if video frames are arriving from VOP2.
-   */
-  DwHdmiQpRegMod (Hdmi, 0, AVP_DATAPATH_VIDEO_SWDISABLE, GLOBAL_SWDISABLE);
   HDMI_DUMP_REG ("  CMU_CONFIG0 post  ", Hdmi->Base + CMU_CONFIG0);
   HDMI_DUMP_REG ("  CMU_STATUS  post  ", Hdmi->Base + CMU_STATUS);
   HDMI_DUMP_REG ("  SWDISABLE   post  ", Hdmi->Base + GLOBAL_SWDISABLE);
 
   /* ── STEP 3: PHY PLL configure for TMDS ─────────────────────────────── */
+#ifdef SOC_RK3576
+  /*
+   * NOTE: The SRST_LINKSYM_HDMITXPHY0 pulse was removed.
+   * Mainline Linux dw_hdmi_qp_rk3576_phy_init() (via phy_power_on) does NOT
+   * perform this reset pulse.  The log confirmed CRU_SOFTRST_CON25 was already
+   * 0x00000000 (deasserted) before our pulse, so the assert+deassert had no
+   * positive effect and may have caused a transient glitch.  Removed.
+   */
+#endif /* SOC_RK3576 */
+
   HDMI_TRACE ("Setup: [3] PHY PLL configure BitRate=%u kbps (1485000 = 1080p60)\n", BitRate);
   HDMI_DUMP_REG ("  HDPTX_STATUS pre  ", 0x26032000UL + 0x80);
   Status = HdptxRopllCmnConfig (Hdptx, BitRate);
@@ -1394,23 +1533,60 @@ DwHdmiQpSetup (
    *   mask = 0x0800 (bit11 only), value = 0x0800 (bit11 = 1)
    */
   HDMI_TRACE ("Setup: [4] CLKSEL_CON147 bit11 <- 1 (VP0 DCLK -> clk_hdmiphy_pixel0)\n");
-  /* Snapshot VP0 standby state BEFORE we switch the DCLK mux.  The vendor
-   * binary always shows VP0 in standby (bit31=1) at this point because its
-   * Setup() runs before the framework's Crtc->Enable().  Our framework calls
-   * Vop2Enable() first, so we expect bit31=0 here — which is exactly what
-   * makes the mux switch happen mid-frame and freezes HDMITX. */
+  /*
+   * VP0 must be in STANDBY when switching CLKSEL_CON147.
+   *
+   * In Linux, clk_set_parent(DCLK_VP0, hdptxphy_pll) is called from
+   * vop2_crtc_atomic_enable() while VP0 is still in standby — before the
+   * STANDBY bit is cleared.  Switching a live DCLK mux corrupts VOP2 output
+   * and the HDMITX never sees a valid video stream.
+   *
+   * Our framework calls Vop2Enable() (which clears STANDBY) before calling
+   * ConnectorEnable() (which runs this step), so VP0 is already active here.
+   * Fix: briefly put VP0 back into standby, switch the mux, then re-enable.
+   *
+   * VP0_DSP_CTRL @ 0x27D00C00 (VOP2_BASE + 0xC00):  bit31 = STANDBY
+   * REG_CFG_DONE  @ 0x27D00000 (VOP2_BASE + 0x000):  commit VP0 shadows with
+   *   CFG_DONE_EN(bit15) | VP0_CFG_DONE(bit0) | VP0_CFG_DONE_MASK(bit16)
+   *   = 0x00018001
+   */
   {
-    UINT32  DspCtrlPreMux = MmioRead32 (0x27D00000UL + 0xC00U);
-    HDMI_TRACE ("Setup: [4]  VP0_DSP_CTRL pre-mux = 0x%08x  STANDBY=%u\n",
-                DspCtrlPreMux, (DspCtrlPreMux >> 31) & 1U);
-  }
-  MmioWrite32 (0x27200000UL + 0x054C, 0x08000800U);
-  HDMI_DUMP_REG ("  CLKSEL_CON147 post", 0x27200000UL + 0x054C);
-  HDMI_DUMP_REG ("  CLKSEL_CON145 src ", 0x27200000UL + 0x0544);  /* dclk_vp0_src mux/div */
-  HDMI_DUMP_REG ("  CMU_STATUS postMux", Hdmi->Base + CMU_STATUS);
+    UINT32  DspCtrl = MmioRead32 (0x27D00000UL + 0xC00U);
+    HDMI_TRACE ("Setup: [4]  VP0_DSP_CTRL pre-mux  = 0x%08x  STANDBY=%u\n",
+                DspCtrl, (DspCtrl >> 31) & 1U);
 
-  /* [4b] VP0 standby cycle removed — mainline does not do this; relies on
-   * VOP2 already running with the right clock once DCLK mux is switched. */
+    /* [4a] Assert VP0 STANDBY */
+    HDMI_TRACE ("Setup: [4a] VP0 -> STANDBY (before DCLK mux switch)\n");
+    MmioWrite32 (0x27D00000UL + 0xC00U, DspCtrl | BIT (31));
+    MmioWrite32 (0x27D00000UL + 0x000U, 0x00018001U);   /* REG_CFG_DONE: commit VP0 */
+    MicroSecondDelay (20 * 1000);   /* 20 ms — one full frame at 60 Hz */
+    HDMI_TRACE ("Setup: [4a] VP0_DSP_CTRL after STANDBY commit = 0x%08x  STANDBY=%u\n",
+                MmioRead32 (0x27D00000UL + 0xC00U),
+                (MmioRead32 (0x27D00000UL + 0xC00U) >> 31) & 1U);
+
+    /* [4b] Switch DCLK_VP0 mux to clk_hdmiphy_pixel0
+     * DCLK_VP0 gate: CLKGATE_CON(61) bit13 @ CRU+0x800+61*4 = CRU+0x8F4
+     * HIWORD: mask bit13 => 0x20002000 = gate; 0x20000000 = ungate
+     */
+    HDMI_DUMP_REG ("  CLKGATE_CON61 pre ", 0x27200000UL + 0x8F4U);
+    MmioWrite32 (0x27200000UL + 0x8F4U, 0x20002000U);  /* gate DCLK_VP0 */
+    MmioWrite32 (0x27200000UL + 0x054C, 0x08000800U);
+    HDMI_DUMP_REG ("  CLKSEL_CON147 post", 0x27200000UL + 0x054C);
+    MmioWrite32 (0x27200000UL + 0x8F4U, 0x20000000U);  /* ungate DCLK_VP0 */
+    HDMI_DUMP_REG ("  CLKGATE_CON61 post", 0x27200000UL + 0x8F4U);
+    HDMI_DUMP_REG ("  CLKSEL_CON145 src ", 0x27200000UL + 0x0544);  /* dclk_vp0_src mux/div */
+    HDMI_DUMP_REG ("  CMU_STATUS postMux", Hdmi->Base + CMU_STATUS);
+    MicroSecondDelay (2 * 1000);    /* 2 ms — let new clock stabilise */
+
+    /* [4c] Deassert VP0 STANDBY */
+    HDMI_TRACE ("Setup: [4c] VP0 -> active (after DCLK mux switch)\n");
+    MmioWrite32 (0x27D00000UL + 0xC00U, DspCtrl & ~(UINT32)BIT (31));
+    MmioWrite32 (0x27D00000UL + 0x000U, 0x00018001U);   /* REG_CFG_DONE: commit VP0 */
+    MicroSecondDelay (20 * 1000);   /* 20 ms — allow VP0 to re-sync output */
+    HDMI_TRACE ("Setup: [4]  VP0_DSP_CTRL post-mux = 0x%08x  STANDBY=%u\n",
+                MmioRead32 (0x27D00000UL + 0xC00U),
+                (MmioRead32 (0x27D00000UL + 0xC00U) >> 31) & 1U);
+  }
 
   /* ── STEP 4c: VO0 GRF CON1 = TMDS link mode ─────────────────────────── */
   /*
@@ -1420,7 +1596,7 @@ DwHdmiQpSetup (
    * GRF registers survive soft reset, so a previous boot or ATF code could
    * have left this set.  Write it explicitly to guarantee TMDS mode.
    */
-  HDMI_TRACE ("Setup: [4c] VO0_GRF_SOC_CON1 <- TMDS link mode (bit0=0)\n");
+  HDMI_TRACE ("Setup: [4d] VO0_GRF_SOC_CON1 <- TMDS link mode (bit0=0)\n");
   MmioWrite32 (RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON1, HIWORD_UPDATE (0, BIT (0)));
   HDMI_DUMP_REG ("  VO0_GRF_CON1 post ", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON1);
 #endif
@@ -1434,23 +1610,37 @@ DwHdmiQpSetup (
   HDMI_TRACE ("Setup: [6] HDCP2 bypass\n");
   DwHdmiQpRegMod (Hdmi, HDCP2_BYPASS, HDCP2_BYPASS, HDCP2LOGIC_CONFIG0);
 
-  /* ── STEP 7: HDMI / DVI mode ────────────────────────────────────────── */
-  if (Hdmi->SignalingMode == HDMI_SIGNALING_MODE_AUTO) {
-    HdmiMode = SinkInfo->IsHdmi;
+  /* ── STEP 7: HDMI / DVI mode ──────────────────────────────────────────
+   * Force HDMI mode regardless of sink EDID parsing — user demand: always
+   * drive the link in HDMI TMDS mode (not DVI). This guarantees AVI
+   * infoframes, SCDC, GCP, and HDMI-specific signalling are emitted.
+   * Only honour an explicit DVI selection from the user via SignalingMode. */
+  if (Hdmi->SignalingMode == HDMI_SIGNALING_MODE_DVI) {
+    HdmiMode = FALSE;
   } else {
-    HdmiMode = (Hdmi->SignalingMode == HDMI_SIGNALING_MODE_HDMI);
+    HdmiMode = TRUE;
   }
   HDMI_TRACE (
-    "Setup: [7] mode=%a (SignalingMode=%u IsHdmi=%u) -> LINK_CONFIG0\n",
+    "Setup: [7] mode=%a (SignalingMode=%u IsHdmi=%u, FORCED=%a) -> LINK_CONFIG0\n",
     HdmiMode ? "HDMI" : "DVI",
     Hdmi->SignalingMode,
-    SinkInfo->IsHdmi
+    SinkInfo->IsHdmi,
+    (Hdmi->SignalingMode == HDMI_SIGNALING_MODE_DVI) ? "DVI(user)" : "HDMI"
     );
-  /* Clear OPMODE_DVI, OPMODE_FRL, OPMODE_FRL_4LANES → TMDS + HDMI/DVI mode.
-   * BSP hdmi_set_op_mode() explicitly clears FRL bits as part of TMDS setup.
-   * Reset value is 0 but GRF-persistent state may differ across warm reboots. */
-  DwHdmiQpRegMod (Hdmi, HdmiMode ? 0 : OPMODE_DVI,
-                  OPMODE_DVI | OPMODE_FRL | OPMODE_FRL_4LANES, LINK_CONFIG0);
+  /* Match Linux mainline dw_hdmi_qp_set_op_mode():
+   *   for HDMI TMDS:  OPMODE_FRL=0, OPMODE_FRL_4LANES=0, OPMODE_DVI=0
+   *   for DVI:        OPMODE_DVI=1 (others 0)
+   * The PHY-PLL configure step leaves LINK_CONFIG0=0x10 (bit4) which puts
+   * the link state machine in DVI mode by default. We must clear it for
+   * HDMI mode here, BEFORE the lane bring-up, so that lanes are configured
+   * for HDMI signalling (TMDS clock + control periods + data islands)
+   * rather than DVI (TMDS clock + sync + pixel data only).
+   */
+  {
+    UINT32  OpmodeMask = OPMODE_FRL | OPMODE_FRL_4LANES | OPMODE_DVI;
+    UINT32  OpmodeVal  = HdmiMode ? 0 : OPMODE_DVI;
+    DwHdmiQpRegMod (Hdmi, OpmodeVal, OpmodeMask, LINK_CONFIG0);
+  }
   HDMI_DUMP_REG ("  LINK_CONFIG0 now  ", Hdmi->Base + LINK_CONFIG0);
 
   /* ── STEP 7b: Disable scrambling ────────────────────────────────────── */
@@ -1463,12 +1653,50 @@ DwHdmiQpSetup (
   DwHdmiQpRegWrite (Hdmi, 0, SCRAMB_CONFIG0);
   HDMI_DUMP_REG ("  SCRAMB_CONFIG0    ", Hdmi->Base + SCRAMB_CONFIG0);
 
-
+  /* ── STEP 7c: Clear SCDC TMDS_CONFIG at the sink ──────────────────────
+   * Mirrors mainline dw_hdmi_qp_bridge_enable():
+   *   dw_hdmi_scdc_write(hdmi, SCDC_TMDS_CONFIG, 0)
+   *
+   * For HDMI 2.0 sinks (scdc=1), write SCDC register 0x20 = 0x00 to:
+   *   bit0 (TMDS_BIT_CLOCK_RATIO) = 0  → 1:10 ratio (for ≤ 340 Mbps)
+   *   bit1 (SCRAMBLING_ENABLE)    = 0  → no scrambling at sink
+   *
+   * If a previous Linux session left the sink in a scrambled state
+   * (e.g. from 4K mode or HDMI 2.0 testing), our unscrambled 1080p60
+   * TMDS would look like noise to the TV.  Explicitly clear the SCDC
+   * so the TV decodes our unscrambled TMDS correctly.
+   *
+   * SCDC_TMDS_CONFIG = 0x20 in the HDMI SCDC address space.
+   * This is an I2C write to slave 0x54 — same path as EDID DDC.
+   * Non-fatal: if the write fails, log and continue (EDID read already
+   * proved DDC is working, so this is extremely unlikely to fail).
+   */
+  if (SinkInfo->HdmiInfo.ScdcSupported) {
+    EFI_STATUS  ScdcSt;
+    UINT8       ScdcReadback = 0xFF;
+    HDMI_TRACE ("Setup: [7c] SCDC TMDS_CONFIG=0 (disable scrambling at sink)\n");
+    ScdcSt = DwHdmiScdcWrite (Hdmi, 0x20 /* SCDC_TMDS_CONFIG */, 0x00);
+    if (EFI_ERROR (ScdcSt)) {
+      HDMI_TRACE ("Setup: [7c] SCDC write FAILED Status=%r (non-fatal)\n", ScdcSt);
+    } else {
+      HDMI_TRACE ("Setup: [7c] SCDC TMDS_CONFIG=0 OK\n");
+      /* Readback for diagnostic */
+      ScdcSt = DwHdmiScdcRead (Hdmi, 0x20, &ScdcReadback);
+      HDMI_TRACE ("Setup: [7c] SCDC TMDS_CONFIG readback=0x%02x (%a)\n",
+                  ScdcReadback,
+                  EFI_ERROR (ScdcSt) ? "read-fail" : (ScdcReadback == 0 ? "OK=0" : "MISMATCH"));
+    }
+  }
 
   /* ── STEP 9: AVI infoframe ───────────────────────────────────────────── */
   if (HdmiMode) {
     HDMI_TRACE ("Setup: [9] HdmiConfigInfoframes (AVI)\n");
     DwHdmiQpRegMod (Hdmi, KEEPOUT_REKEY_ALWAYS, KEEPOUT_REKEY_CFG, FRAME_COMPOSER_CONFIG9);
+    /* Vendor U-Boot dw_hdmi_setup() writes FLT_CONFIG0=0 in the HDMI-mode
+     * branch right before the infoframes, regardless of FRL state.  Make sure
+     * we don't inherit any stale FRL link-training config from a previous
+     * firmware that left FLT_CONFIG0 non-zero. */
+    DwHdmiQpRegWrite (Hdmi, 0, FLT_CONFIG0);
     HdmiConfigInfoframes (Hdmi, DisplayState);
   }
 
@@ -1487,6 +1715,21 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  HDPTX_STATUS postLN", 0x26032000UL + 0x80);
   HDMI_DUMP_REG ("  CMU_STATUS  postLN ", Hdmi->Base + CMU_STATUS);
 
+  /* ── STEP 10e: Enable HDMI TX video path now that PHY is stable ──────── */
+  /*
+   * Now that the PHY PLL is locked and data lanes are ready, clear
+   * AVP_DATAPATH_VIDEO_SWDISABLE to connect VOP2 pixel output to the HDMI TX.
+   * Delaying this until after PHY init mirrors Linux (where VOP2 is in
+   * standby during HDMI TX setup): the HDMI TX sees a clean, stable pixel
+   * stream for the first time rather than potentially corrupted data from the
+   * clock-mux transition at step [4].
+   */
+  HDMI_TRACE ("Setup: [10e] Enable AVP video path (clear SWDISABLE) — PHY stable\n");
+  DwHdmiQpRegMod (Hdmi, 0, AVP_DATAPATH_VIDEO_SWDISABLE, GLOBAL_SWDISABLE);
+  MicroSecondDelay (5000);  /* 5 ms: allow HDMI TX to sync to incoming video */
+  HDMI_DUMP_REG ("  SWDISABLE   10e   ", Hdmi->Base + GLOBAL_SWDISABLE);
+  HDMI_DUMP_REG ("  VID_MON_ST0 10e   ", Hdmi->Base + VIDEO_MONITOR_STATUS0);
+
   /* HDPTX PHY internal register readback (whitelist: only registers
    * explicitly written by HdptxRopllCmnConfig / HdptxRopllTmdsModeConfig /
    * HdptxPostEnableLane).  PHY base = HDMI0TX_PHY_BASE = 0x2B000000.
@@ -1504,141 +1747,77 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  LN0_R030A(amp)     ", HDMI0TX_PHY_BASE + 0x0C28); /* want 0x17                */
   HDMI_DUMP_REG ("  LN0_R030B(swing)   ", HDMI0TX_PHY_BASE + 0x0C2C); /* want 0x77                */
   HDMI_DUMP_REG ("  LN0_R0312(rate)    ", HDMI0TX_PHY_BASE + 0x0C48); /* want 0x00 = RBR rate     */
+  /* EI (Electrical Idle) state — LANEx_REG01 bit7=OVRD bit6=EI_EN; want 0x80 (OVRD=1 EI_EN=0) */
+  HDMI_DUMP_REG ("  LN0_R0301(EI)      ", HDMI0TX_PHY_BASE + 0x0C04); /* data lane 0; want 0x80   */
+  HDMI_DUMP_REG ("  LN1_R0401(EI)      ", HDMI0TX_PHY_BASE + 0x1004); /* data lane 1; want 0x80   */
+  HDMI_DUMP_REG ("  LN2_R0501(EI)      ", HDMI0TX_PHY_BASE + 0x1404); /* data lane 2; want 0x80   */
+  HDMI_DUMP_REG ("  LN3_R0601(EI)clk   ", HDMI0TX_PHY_BASE + 0x1804); /* clock lane;  want 0x80   */
   HDMI_DUMP_REG ("  GRF_CON0(bias/bgr) ", 0x26032000UL + 0x00);       /* BIAS_EN|BGR_EN|PLL_EN    */
 
-  /* ── STEP 10d: HDMITX link trigger + VP0 standby→enable sequence ────────
+  /* ── STEP 10d: post-PHY status read-only dump ───────────────────────────
    *
-   * Reverse-engineering of the vendor "all-vendor-EDK2" binary shows:
+   * REMOVED: The VOP2 VP0 standby cycle that previously lived here.  Vendor
+   * U-Boot dw_hdmi_setup() and the BSP kernel dw_hdmi_qp_setup() / encoder
+   * enable paths NEVER touch VP0_DSP_CTRL / OVL_CTRL / IF_CTRL after the
+   * VOP2 has been brought up.  Toggling VP0 standby mid-flow created a
+   * disturbance in the pixel-clock domain that the sink interpreted as link
+   * loss (HPD dropped from HIGH to LOW after PreInit).  Trust Vop2Dxe's
+   * configuration and proceed straight to the avmute clear. */
+  HDMI_TRACE ("Setup: [10d] post-PHY status (read-only, no VOP touches)\n");
+  HDMI_DUMP_REG ("  LINK_CONFIG0  post-PHY   ", Hdmi->Base + LINK_CONFIG0);
+  HDMI_DUMP_REG ("  CMU_STATUS    post-PHY   ", Hdmi->Base + CMU_STATUS);
+  HDMI_DUMP_REG ("  MAIN_STATUS0  post-PHY   ", Hdmi->Base + MAINUNIT_STATUS0);
+  HDMI_DUMP_REG ("  VP0_DSP_CTRL  post-PHY   ", 0x27D00C00UL);
+  HDMI_DUMP_REG ("  OVL_CTRL      post-PHY   ", 0x27D00600UL);
+  HDMI_DUMP_REG ("  IF_CTRL[HDMI0] post-PHY  ", 0x27D00184UL);
+  HDMI_DUMP_REG ("  VID_IF_CFG0   post-PHY   ", Hdmi->Base + VIDEO_INTERFACE_CONFIG0);
+  HDMI_DUMP_REG ("  VID_IF_STATUS post-PHY   ", Hdmi->Base + VIDEO_INTERFACE_STATUS0);
+  HDMI_DUMP_REG ("  VID_MON_ST0   post-PHY   ", Hdmi->Base + VIDEO_MONITOR_STATUS0);
+
+  /* ── STEP 11: avmute clear + GCP TX enable ─────────────────────────────
+   * Vendor U-Boot dw_hdmi_setup() (rockchip-linux/u-boot next-dev,
+   * drivers/video/drm/dw_hdmi_qp.c) executes after PHY init:
+   *     mdelay(50);
+   *     hdmi_writel(hdmi, 2, PKTSCHED_PKT_CONTROL0);
+   *     hdmi_modb(hdmi, PKTSCHED_GCP_TX_EN, PKTSCHED_GCP_TX_EN,
+   *               PKTSCHED_PKT_EN);
    *
-   *   PHY lanes ready          (= our Step 10 — already done above)
-   *   LINK_CONFIG0 |= FRL_START  ← vendor logs "lnk=10 lnk_rb=0"
-   *   VP0 standby toggle:
-   *     STANDBY = 1, commit, wait ~20 ms (HDMITX FIFO drains)
-   *     STANDBY = 0, commit
-   *   wait for VID_MON_ST0 frame counter to advance
+   * The literal 2 in PKTSCHED_PKT_CONTROL0 is the General Control Packet
+   * body byte 0 with bit1 (CLEAR_AVMUTE) set.  When GCP_TX_EN is then
+   * enabled, the controller transmits a GCP that explicitly tells the sink
+   * to release AVMUTE.  Many sinks default to AVMUTE asserted after PHY
+   * (re)initialisation; if we send GCP_TX_EN with PKT_CONTROL0=0 the GCP
+   * carries an empty payload and the sink stays muted, presenting as
+   * "no signal".
    *
-   * SAFETY — clock-gating abort hazard:
-   *   VP0_DSP_CTRL bit31=STANDBY gates the VOP2→HDMITX pixel clock path.
-   *   While standby is asserted, the HDMITX video-monitor sub-block has no
-   *   pixel clock, and any read of registers in the 0x27DA08xx range
-   *   (VIDEO_MONITOR_STATUS0 @ 0x27DA0884, VIDEO_INTERFACE_CONFIG0/STATUS,
-   *   etc.) triggers a synchronous external abort (ESR=0x96000210).
-   *   Rule: between "STANDBY=1 write" and "standby=0 CFG_DONE poll done",
-   *   read ONLY VOP2 registers (0x27D0xxxx) and HDMITX control registers
-   *   that are not in the 0x27DA08xx range (e.g. LINK_CONFIG0).
-   *
-   * VP0_DSP_CTRL: regular (non-HIWORD) VOP2 register, bit31 = STANDBY_EN.
-   * REG_CFG_DONE (HIWORD): bit16=mask, bit15=GLB_CFG_DONE_EN, bit0=VP0.
-   * VOP2 base RK3576 = 0x27D00000.
-   */
-  {
-    CONST UINTN  Vop2Base   = 0x27D00000UL;
-    CONST UINTN  RegCfgDone = Vop2Base + 0x000U;
-    CONST UINTN  Vp0DspCtrl = Vop2Base + 0xC00U;
-    UINT32       LinkRb;
-    UINT32       DspCtrlPre;
-    UINT32       FrameCntPre;
-    UINT32       FrameCntNow;
-    UINTN        PollUs;
-    UINT32       CfgDoneVal;
-
-    HDMI_TRACE ("Setup: [10d] late-stage HDMITX/VOP2 enable (vendor-matched order)\n");
-
-    /* Pre-state: VOP2 registers only — safe regardless of standby.
-     * *** Do NOT read any 0x27DA08xx register before standby is cleared. *** */
-    HDMI_DUMP_REG ("  VP0_DSP_CTRL  pre        ", Vp0DspCtrl);
-    HDMI_DUMP_REG ("  REG_CFG_DONE  pre        ", RegCfgDone);
-    HDMI_DUMP_REG ("  LINK_CONFIG0  pre        ", Hdmi->Base + LINK_CONFIG0);
-
-    DspCtrlPre = MmioRead32 (Vp0DspCtrl);
-    HDMI_TRACE ("Setup: [10d] VP0 STANDBY currently %u\n", (DspCtrlPre >> 31) & 1U);
-
-    /* (a) Trigger HDMITX link re-arm: FRL_START is self-clearing.
-     *     Vendor writes 0x10 here; readback returns 0 (lnk_rb=0). */
-    HDMI_TRACE ("Setup: [10d] (a) LINK_CONFIG0 <- FRL_START (vendor 'lnk=10' trigger)\n");
-    DwHdmiQpRegMod (Hdmi, FRL_START, FRL_START, LINK_CONFIG0);
-    LinkRb = DwHdmiQpRegRead (Hdmi, LINK_CONFIG0);
-    HDMI_TRACE ("Setup: [10d]     LINK_CONFIG0 readback = 0x%08x (vendor sees 0)\n", LinkRb);
-
-    /* (b) Assert VP0 standby; commit; wait 20 ms for HDMITX FIFO to drain.
-     *     ─────────────────────────────────────────────────────────────────
-     *     NO reads of 0x27DA08xx below until standby is cleared in (c). */
-    HDMI_TRACE ("Setup: [10d] (b) VP0 STANDBY=1, commit, wait 20 ms\n");
-    MmioWrite32 (Vp0DspCtrl, MmioRead32 (Vp0DspCtrl) | (1U << 31));
-    MmioWrite32 (RegCfgDone, 0x00018001U);
-    MicroSecondDelay (20000);
-    /* Only VOP2 reads here — pixel-clock-independent. */
-    HDMI_DUMP_REG ("  VP0_DSP_CTRL  standby    ", Vp0DspCtrl);
-    HDMI_DUMP_REG ("  REG_CFG_DONE  standby    ", RegCfgDone);
-
-    /* (c) De-assert standby; re-commit against the now-live PHY pixel clock. */
-    HDMI_TRACE ("Setup: [10d] (c) VP0 STANDBY=0, commit (re-arm with live PHY clock)\n");
-    MmioWrite32 (Vp0DspCtrl, MmioRead32 (Vp0DspCtrl) & ~(1U << 31));
-    MmioWrite32 (RegCfgDone, 0x00018001U);
-
-    /* Poll REG_CFG_DONE bit0 for vsync ack (VOP2 register — always safe).
-     * VP0 is active once bit0 clears; pixel clock to HDMITX is restored. */
-    for (PollUs = 0; PollUs < 50000; PollUs += 200) {
-      CfgDoneVal = MmioRead32 (RegCfgDone);
-      if (!(CfgDoneVal & BIT (0))) {
-        break;
-      }
-      MicroSecondDelay (200);
-    }
-    if (PollUs >= 50000) {
-      HDMI_TRACE ("Setup: [10d]     WARN: REG_CFG_DONE bit0 still set after 50 ms\n");
-    } else {
-      HDMI_TRACE ("Setup: [10d]     REG_CFG_DONE bit0 cleared at ~%lu us (vsync OK)\n", PollUs);
-    }
-
-    /* ── Standby fully cleared; pixel clock restored to HDMITX. ──────────
-     * 0x27DA08xx reads are now safe again.                                  */
-
-    /* (d) Snapshot VID_MON_ST0 as baseline, then wait up to 500 ms for the
-     *     frame counter to advance — proof HDMITX is sampling pixel data.
-     *     At 1080p60 each frame is ~16.7 ms; 500 ms ≈ 30 frames. */
-    FrameCntPre = MmioRead32 (Hdmi->Base + VIDEO_MONITOR_STATUS0);
-    HDMI_TRACE ("Setup: [10d] (d) VID_MON_ST0 baseline = 0x%08x; waiting for advance\n",
-                FrameCntPre);
-    HDMI_DUMP_REG ("  VID_IF_CFG0   post-arm   ", Hdmi->Base + VIDEO_INTERFACE_CONFIG0);
-    HDMI_DUMP_REG ("  VID_IF_STATUS post-arm   ", Hdmi->Base + VIDEO_INTERFACE_STATUS0);
-    HDMI_DUMP_REG ("  MAIN_STATUS0  post-arm   ", Hdmi->Base + MAINUNIT_STATUS0);
-    HDMI_DUMP_REG ("  CMU_STATUS    post-arm   ", Hdmi->Base + CMU_STATUS);
-
-    for (PollUs = 0; PollUs < 500000; PollUs += 1000) {
-      FrameCntNow = MmioRead32 (Hdmi->Base + VIDEO_MONITOR_STATUS0);
-      if (FrameCntNow != FrameCntPre) {
-        break;
-      }
-      MicroSecondDelay (1000);
-    }
-    FrameCntNow = MmioRead32 (Hdmi->Base + VIDEO_MONITOR_STATUS0);
-    if (FrameCntNow == FrameCntPre) {
-      HDMI_TRACE ("Setup: [10d]     FAIL: VID_MON_ST0 frozen after 500 ms = 0x%08x\n",
-                  FrameCntNow);
-    } else {
-      HDMI_TRACE ("Setup: [10d]     OK: VID_MON_ST0 advanced at ~%lu us (0x%08x -> 0x%08x)\n",
-                  PollUs, FrameCntPre, FrameCntNow);
-    }
-
-    /* Final post-state dump. */
-    HDMI_DUMP_REG ("  VP0_DSP_CTRL  post       ", Vp0DspCtrl);
-    HDMI_DUMP_REG ("  REG_CFG_DONE  post       ", RegCfgDone);
-    HDMI_DUMP_REG ("  LINK_CONFIG0  post       ", Hdmi->Base + LINK_CONFIG0);
-    HDMI_DUMP_REG ("  VID_IF_CFG0   post       ", Hdmi->Base + VIDEO_INTERFACE_CONFIG0);
-    HDMI_DUMP_REG ("  VID_IF_STATUS post       ", Hdmi->Base + VIDEO_INTERFACE_STATUS0);
-    HDMI_DUMP_REG ("  VID_MON_ST0   post       ", Hdmi->Base + VIDEO_MONITOR_STATUS0);
-    HDMI_DUMP_REG ("  MAIN_STATUS0  post       ", Hdmi->Base + MAINUNIT_STATUS0);
-    HDMI_DUMP_REG ("  CMU_STATUS    post       ", Hdmi->Base + CMU_STATUS);
-  }
-
-  /* ── STEP 11: avmute clear + GCP TX enable ───────────────────────────── */
+   * The previous code wrote 0 here and used MicroSecondDelay(50) (50 µs,
+   * not 50 ms).  Both are bugs aligned with the observed "no signal"
+   * symptom — corrected against vendor U-Boot. */
   if (HdmiMode) {
-    HDMI_TRACE ("Setup: [11] Clear avmute, enable GCP_TX\n");
-    MicroSecondDelay (50);
+    HDMI_TRACE ("Setup: [11] Clear avmute (PKT_CTL0=2 vendor), enable GCP_TX\n");
+    MicroSecondDelay (50000);  /* 50 ms — match vendor mdelay(50) */
     DwHdmiQpRegWrite (Hdmi, 2, PKTSCHED_PKT_CONTROL0);
     DwHdmiQpRegMod (Hdmi, PKTSCHED_GCP_TX_EN, PKTSCHED_GCP_TX_EN, PKTSCHED_PKT_EN);
+    HDMI_DUMP_REG ("  PKTSCHED_PKT_CTL0  ", Hdmi->Base + PKTSCHED_PKT_CONTROL0);
     HDMI_DUMP_REG ("  PKTSCHED_PKT_EN    ", Hdmi->Base + PKTSCHED_PKT_EN);
+
+    /* VIDEO_INTERFACE_CONFIG0: do NOT write BIT(21).
+     *
+     * Linux ground-truth dump (working 8bpc HDMI): VID_IF_CONFIG0=0x00000000.
+     * Linux VID_IF_STATUS=0x00060560 (lower bits set = video active).
+     *
+     * When UEFI previously wrote BIT(21)=0x00200000, VID_MON registers
+     * confirmed correct 1080p60 timing arriving from VOP2, but
+     * VID_IF_STATUS stayed 0x00060000 (lower bits zero = no active video).
+     * Removing BIT(21) is required to allow the VIF block to arm and pass
+     * pixel data to the TMDS serialiser.
+     *
+     * Vendor U-Boot writes BIT(21) last with the comment "Mark uboot hdmi
+     * is enabled" — this is a U-Boot-specific bookkeeping flag that has no
+     * bearing on hardware functionality and actively breaks the VIF here. */
+    HDMI_TRACE ("Setup: [11b] VIDEO_INTERFACE_CONFIG0 = 0 (not written; Linux-confirmed correct)\n");
+    HDMI_DUMP_REG ("  VID_IF_CFG0 pre-final   ", Hdmi->Base + VIDEO_INTERFACE_CONFIG0);
+    HDMI_DUMP_REG ("  VID_IF_STATUS pre-final ", Hdmi->Base + VIDEO_INTERFACE_STATUS0);
   }
 
   /* [11b] 500ms TMDS wait removed — mainline does not block here. */
@@ -1658,7 +1837,8 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("HDMITX MAIN_STATUS0 ", Hdmi->Base + MAINUNIT_STATUS0);
   HDMI_DUMP_REG ("HDMITX VID_IF_CFG0  ", Hdmi->Base + VIDEO_INTERFACE_CONFIG0);
   /* VID_IF_CFG1/CFG2/CTL0/FC_CONFIG0/SCRAMB_CFG0 (0x804-0x960) trigger synchronous external abort
-   * when the video interface sub-block is ungated but VID_IF_CONFIG0=0 — skip these reads. */
+   * when the video interface sub-block is ungated but VID_IF_CONFIG0=0 — skip these reads.
+   * SCRAMB_CONFIG0 (0x960) specifically causes the abort; removed from this dump. */
   HDMI_DUMP_REG ("HDMITX VID_IF_STAT  ", Hdmi->Base + VIDEO_INTERFACE_STATUS0);
   HDMI_DUMP_REG ("HDMITX VID_MON_CFG0 ", Hdmi->Base + VIDEO_MONITOR_CONFIG0);
   HDMI_DUMP_REG ("HDMITX VID_MON_ST0  ", Hdmi->Base + VIDEO_MONITOR_STATUS0);
@@ -1668,8 +1848,12 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("HDMITX VID_MON_ST3  ", Hdmi->Base + VIDEO_MONITOR_STATUS3);
   HDMI_DUMP_REG ("HDMITX VID_MON_ST4  ", Hdmi->Base + VIDEO_MONITOR_STATUS4);
   HDMI_DUMP_REG ("HDMITX LINK_CONFIG0 ", Hdmi->Base + LINK_CONFIG0);
-  HDMI_DUMP_REG ("HDMITX SCRAMB_CFG0  ", Hdmi->Base + SCRAMB_CONFIG0);
+  /* SCRAMB_CONFIG0 (0x960) skipped: causes synchronous external abort when VID_IF_CONFIG0=0 */
   HDMI_DUMP_REG ("HDMITX PKTSCHED_EN  ", Hdmi->Base + PKTSCHED_PKT_EN);
+  HDMI_DUMP_REG ("HDMITX PKT_AVI_CON0 ", Hdmi->Base + PKT_AVI_CONTENTS0);
+  HDMI_DUMP_REG ("HDMITX PKT_AVI_CON1 ", Hdmi->Base + PKT_AVI_CONTENTS1);
+  HDMI_DUMP_REG ("HDMITX PKTSCHED_ST0 ", Hdmi->Base + PKTSCHED_PKT_STATUS0);
+  HDMI_DUMP_REG ("HDMITX PKTSCHED_ST1 ", Hdmi->Base + PKTSCHED_PKT_STATUS1);
   HDMI_DUMP_REG ("HDMITX TMDS_FIFO_C0 ", Hdmi->Base + TMDS_FIFO_CONFIG0);
   /* TMDS_FIFO_CONTROL0 @ 0x974 is a hole — triggers synchronous external abort, skip */
   HDMI_DUMP_REG ("IOC_MISC_CON0       ", RK3588_SYS_GRF_BASE + RK3576_IOC_MISC_CON0);

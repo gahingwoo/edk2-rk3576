@@ -630,25 +630,31 @@ HdmiTxIomux (
        * HDMI 5V power enable: GPIO2_PB0 = HDMI_TX_ON_H (active-HIGH).
        *
        * ROCK 4D V1.12 schematic page 20: VCC5V_HDMI_TX is gated by a MOSFET
-       * load switch (Q8/Q9/Q10/Q11, WNM6002-3/TR).  The gate is driven by the
-       * net HDMI_TX_ON_H which originates from GPIO2_PB0 (ball B19, page 14).
+       * load switch.  The gate is driven by HDMI_TX_ON_H = GPIO2_PB0 (ball B19).
        *
        * Without asserting GPIO2_PB0 HIGH:
-       *   - HDMI Pin 18 stays at 0 V  ->  monitor never detects cable
-       *   - Monitor never drives HPD HIGH  ->  HPD_STATUS stays 0x00000000
+       *   - HDMI Pin 18 stays at 0 V  -> monitor never detects cable
+       *   - Monitor never drives HPD HIGH  -> GPIO4_PC1 stays 0
        *   - Display remains dark despite correct PLL/VOP2/PHY initialisation
        *
-       * Drive the data register HIGH first, then switch to OUTPUT so the
-       * pad never glitches LOW during the direction change.
+       * Linux leaves this pin as INPUT because its DTS marks VCC5V_HDMI_TX as
+       * an always-on regulator (vcc_5v0_device) and the MOSFET gate has a
+       * hardware bias that keeps it active at runtime.  UEFI cold-boots from a
+       * clean state where no such bias has been established, so the explicit
+       * GPIO HIGH drive is required.
        *
-       * (GPIO4_PC0 is NOT the HDMI 5V enable on this board; it is the CEC
-       * function pin and is left untouched.)
+       * Drive data HIGH first, then switch to OUTPUT so the pad never glitches
+       * LOW during the direction change.
        */
-      DEBUG ((DEBUG_INFO, "HdmiTxIomux: GPIO2_PB0 -> HIGH (HDMI_TX_ON_H: enable HDMI 5V via MOSFET switch)\n"));
-      GpioPinWrite     (2, GPIO_PIN_PB0, TRUE);
+      DEBUG ((DEBUG_INFO,
+        "HdmiTxIomux: GPIO2_PB0 -> HIGH (HDMI_TX_ON_H: enable HDMI 5V via MOSFET switch)\n"));
+      GpioPinWrite (2, GPIO_PIN_PB0, TRUE);
       GpioPinSetDirection (2, GPIO_PIN_PB0, GPIO_PIN_OUTPUT);
       /* 50 ms for HDMI 5V rail to charge and stabilise before HPD wait */
       MicroSecondDelay (50 * 1000);
+      DEBUG ((DEBUG_INFO,
+        "HdmiTxIomux: IOC_HDMI_HPD_STATUS [0x2604A440] = 0x%08x  after 5V enable\n",
+        MmioRead32 (0x2604A440U)));
 
       /*
        * Ungate VOP2 & HDMI clocks (from clk-rk3576.c)
@@ -705,11 +711,29 @@ HdmiTxIomux (
        *
        * These clocks are required for the HDPTX PHY APB register interface.
        * Without PCLK_HDPTX_APB active, all writes to 0x2B000000 (PHY) are dropped.
+       *
+       * CLK_HDMITXHDP: PMU1CRU PMU_CLKGATE_CON(1), bit 13  (source: xin24m)
+       *   (source: Linux clk-rk3576.c: GATE(CLK_HDMITXHDP, "clk_hdmitxhdp", "xin24m",
+       *            0, RK3576_PMU_CLKGATE_CON(1), 13, GFLAGS))
+       *   PMU_CLKGATE_CON(1) = PMU1CRU_BASE + 0x800 + 1*4 = PMU1CRU_BASE + 0x804
+       *
+       *   This is the clock that feeds the HDMI TX HPD detection circuit.
+       *   Without CLK_HDMITXHDP running, the HPD detection block is starved of
+       *   its clock and IOC_HDMI_HPD_STATUS always reads 0x00000000, so the SoC
+       *   never sees the monitor's HPD assertion even when the cable is connected
+       *   and the monitor is powered on.
+       *   Linux enables this via the "hdp" entry in the HDMI TX clock-names list.
        */
+      DEBUG ((DEBUG_INFO, "HdmiTxIomux: PMU_CLKGATE_CON(1) before=0x%08x\n",
+        MmioRead32 (PMU1CRU_BASE + 0x800 + 1*4)));
       MmioWrite32 (PMU1CRU_BASE + 0x800,        /* PMU_CLKGATE_CON(0) */
         (BIT (1) << 16) | 0U);                  /* bit 1 = 0 → PCLK_HDPTX_APB ungated */
+      MmioWrite32 (PMU1CRU_BASE + 0x800 + 1*4,  /* PMU_CLKGATE_CON(1) */
+        (BIT (13) << 16) | 0U);                 /* bit 13 = 0 → CLK_HDMITXHDP ungated */
       MmioWrite32 (PMU1CRU_BASE + 0x800 + 5*4,  /* PMU_CLKGATE_CON(5) */
         (BIT (0) << 16) | 0U);                  /* bit 0 = 0 → PCLK_PMUPHY_ROOT ungated */
+      DEBUG ((DEBUG_INFO, "HdmiTxIomux: PMU_CLKGATE_CON(1) after=0x%08x (bit13=CLK_HDMITXHDP)\n",
+        MmioRead32 (PMU1CRU_BASE + 0x800 + 1*4)));
 
       /*
        * Enable HDPTX PHY analog bias + bandgap reference (BIAS_EN=bit6,
@@ -749,7 +773,20 @@ HdmiTxIomux (
        */
       MmioWrite32 (CRU_SOFTRST_CON (22), (0x0040U << 16) | 0U);  /* SRST_HDMITX0_REF deassert */
       MmioWrite32 (CRU_SOFTRST_CON (28), (0x0020U << 16) | 0U);  /* SRST_HDMITXHDP   deassert */
-      DEBUG ((DEBUG_INFO, "HdmiTxIomux: HDMI TX resets deasserted (SRST_HDMITX0_REF & SRST_HDMITXHDP)\n"));
+      /*
+       * SRST_LINKSYM_HDMITXPHY0 = reset ID 405 → SOFTRST_CON25 bit5
+       *   address = CRU_BASE + 0xA00 + 25*4 = 0x27200000 + 0xA64
+       * Pre-deassert here so the link-symbol clock domain is released before
+       * the HDPTX PHY is initialised.  DwHdmiQpSetup() will do an explicit
+       * assert+deassert pulse just before HdptxRopllCmnConfig().
+       */
+      MmioWrite32 (CRU_SOFTRST_CON (25), (0x0020U << 16) | 0U);  /* SRST_LINKSYM_HDMITXPHY0 deassert */
+      DEBUG ((DEBUG_INFO, "HdmiTxIomux: HDMI TX resets deasserted (SRST_HDMITX0_REF, SRST_HDMITXHDP, SRST_LINKSYM_HDMITXPHY0)\n"));
+
+      /* Brief delay for HPD circuit to stabilize after clock+reset release */
+      MicroSecondDelay (5 * 1000);
+      DEBUG ((DEBUG_INFO, "HdmiTxIomux: IOC_HDMI_HPD_STATUS after CLK_HDMITXHDP ungate = 0x%08x\n",
+        MmioRead32 (0x26040000U + 0xA440U)));
 
       DEBUG ((DEBUG_INFO, "HdmiTxIomux: VOP, HDMI and HDPTX APB clocks ungated, HDPTX BIAS+BGR enabled\n"));
       break;

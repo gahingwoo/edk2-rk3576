@@ -23,6 +23,7 @@
 #include <Protocol/OhciDeviceProtocol.h>
 #include <Protocol/Usb2HostController.h>
 
+#include <VarStoreData.h>
 #include "UsbHcd.h"
 
 STATIC
@@ -217,19 +218,19 @@ XhciCoreInit (
      */
     MmioOr32 ((UINTN)&Dwc3Reg->GUsb3PipeCtl[0], DWC3_GUSB3PIPECTL_SUSPHY);
     DEBUG ((DEBUG_WARN,
-      "[USB] DWC3@0x%08x: SUSPHY set pre-HOST (SS→SSDisabled; combphy1 not init)"
-      " — HS-only via u2phy1\n", UsbReg));
+      "[USB] DWC3@0x%08x: SUSPHY set pre-HOST (SS→SSDisabled; SS PHY unavailable)"
+      " — HS-only\n", UsbReg));
   }
 
   Dwc3SetMode (Dwc3Reg, DWC3_GCTL_PRTCAP_HOST);
 
   /*
-   * HS-only controller (combphy1 uninitialised): clear PP on the SS port
-   * immediately after SetMode(HOST).
+   * HS-only controller (SS PHY not available for this DWC3): clear PP on the
+   * SS port immediately after SetMode(HOST).
    *
    * Why this is necessary:
-   *   SUSPHY=1 requests that the PHY enter P3, but combphy1 has no reference
-   *   clock so P3_ACK never arrives.  The DWC3 LTSSM starts Rx.Detect/Polling
+   *   SUSPHY=1 requests that the PHY enter P3, but if the PHY has no reference
+   *   clock, P3_ACK never arrives.  The DWC3 LTSSM starts Rx.Detect/Polling
    *   as soon as PRTCAPDIR=HOST is written, before SUSPHY can take effect.
    *
    *   XhciDxe's XhcHaltHC writes USBCMD.RS=0 then waits up to 16 ms for
@@ -518,17 +519,19 @@ UsbEndOfDxeCallback (
                          XhciControllerAddrArrayPtr[Index + 3] << 24;
 
     /*
-     * SS capability: DWC3@0x23000000 (USB-C) has Samsung USBDP PHY
-     * initialized by UsbDpPhyDxe → SS capable.
-     * DWC3@0x23400000 (USB-A) has combphy1 (Naneng) which is NEVER
-     * initialized by U-Boot SPL or TF-A → HS-only.
-     * XhciCoreInit handles SS disable internally via SUSPHY+PHYSOFTRST
-     * when SuperSpeedEnabled = FALSE.  No post-init patching needed.
+     * SS capability for RK3576/ROCK 4D:
+     *   DWC3@0x23000000 (USB-C, DRD0) → Samsung USBDP combo PHY (u3phy0).
+     *     UsbDpPhyDxe is RK3588-only and currently DISABLED for RK3576,
+     *     so the SS PHY is not initialized → must run HS-only.
+     *   DWC3@0x23400000 (USB-A, DRD1) → ComboPHY1 (Naneng).
+     *     SS+HS when PcdComboPhy1Mode == COMBO_PHY_MODE_USB3 (default).
+     *     HS-only when combphy1 is configured for PCIe or SATA (HII setting).
      */
-    BOOLEAN  SsEnabled = (XhciControllerAddr == 0x23000000U);
+    BOOLEAN  SsEnabled = (XhciControllerAddr == 0x23400000U) &&
+                         (PcdGet32 (PcdComboPhy1Mode) == COMBO_PHY_MODE_USB3);
 
     Print (L"XHCI: init DWC3 @ 0x%08x (%s) ... ",
-           XhciControllerAddr, SsEnabled ? L"SS+HS" : L"HS-only (combphy1 N/A)");
+           XhciControllerAddr, SsEnabled ? L"SS+HS" : L"HS-only");
     DEBUG ((DEBUG_INFO, "XHCI: init DWC3 @ 0x%08x SsEnabled=%d\n",
             XhciControllerAddr, SsEnabled));
 
@@ -736,27 +739,64 @@ UsbHcProtocolNotify (
      * UsbReadyToBootCallback after all XhciDxe/UsbBusDxe activity is done.
      */
 
-    /*
-     * DRD1 (0x23400000, USB-A): SS port PORTSC[0].PP=0 — permanent fix.
-     *
-     * XhciCoreInit already cleared PP before XhciDxe started, but HCRST
-     * (inside XhcResetHC) resets PORTSC to defaults (PP=1), which restarts
-     * the Polling LTSSM on the uninitialized combphy1.  UsbBusDxe would then
-     * see CCS=1 on the SS port and spin 10 s waiting for PRC after issuing
-     * PortReset — starving HS companion port (PORTSC[1]) enumeration.
-     *
-     * Apply PP=0 here (post-HCRST, post-XhcRunHC) so UsbBusDxe's first
-     * GetRootHubPortStatus call sees CCS=0 on port 0 and skips it cleanly.
-     * RWC bits [23:17] written 0 to preserve any pending CSC/PEC on port 1.
-     */
+    if (MatchAddr == 0x23000000U) {
+      /*
+       * DRD0 (0x23000000, USB-C): wait for stable device connection.
+       *
+       * Bus-powered portable HDDs go through an internal init cycle after
+       * VBUS is applied: the USB bridge chip appears briefly, then disconnects
+       * and reconnects once the storage layer (SATA spin-up, SCSI init) is
+       * ready.  If BDS ConnectAll fires during this reconnect window the
+       * xHCI Configure Endpoint command times out, the UsbBusDxe enumeration
+       * fails, and no boot option is created for the drive.
+       *
+       * Poll PORTSC[0].CCS (bit 0) here for up to USB_CCS_POLL_MS milliseconds.
+       * Once CCS=1 is seen, wait USB_CCS_STABLE_MS more for the bridge chip /
+       * HDD spindle to complete its internal reset and present a stable
+       * connection before UsbBusDxe starts enumeration.
+       *
+       * No debug output — this callback fires synchronously inside XhciDxe's
+       * InstallProtocolInterface and must not flood the 1.5 Mbaud UART FIFO.
+       */
+#define USB_CCS_POLL_MS    5000U   /* max wait for device to appear    */
+#define USB_CCS_STABLE_MS  3000U   /* extra settle time once CCS=1     */
+      {
+        UINTN   HsPortscAddr = RawOpBase + 0x0400U;  /* PORTSC[0] HS port */
+        UINTN   PollMs;
+        for (PollMs = 0; PollMs < USB_CCS_POLL_MS; PollMs++) {
+          if ((MmioRead32 (HsPortscAddr) & 0x1U) != 0) {
+            break;  /* device physically present — move to settle phase */
+          }
+          MicroSecondDelay (1000U);  /* 1 ms per iteration */
+        }
+        /* If a device was seen, give it time to finish its internal init */
+        if ((MmioRead32 (HsPortscAddr) & 0x1U) != 0) {
+          MicroSecondDelay (USB_CCS_STABLE_MS * 1000U);
+        }
+      }
+    }
+
     if (MatchAddr == 0x23400000U) {
-      UINTN  SsPortscAddr = RawOpBase + 0x0400U;
-      UINT32 SsPortsc     = MmioRead32 (SsPortscAddr);
-      MmioWrite32 (SsPortscAddr,
-                   SsPortsc & ~((UINT32)(1u << 9) |      /* PP=0 */
-                                (UINT32)(0x7Fu << 17))); /* RWC=0 */
-      /* Re-assert SUSPHY in case HCRST cleared it */
-      MmioOr32 ((UINTN)(MatchAddr + 0xC2C0UL), DWC3_GUSB3PIPECTL_SUSPHY);
+      if (PcdGet32 (PcdComboPhy1Mode) != COMBO_PHY_MODE_USB3) {
+        /*
+         * combphy1 not in USB3 mode (PCIe/SATA/unconnected): SS PHY
+         * has no reference clock so Polling never completes.  Kill SS
+         * port PP=0 and re-assert SUSPHY so UsbBusDxe sees CCS=0 on
+         * port 0 and falls through cleanly to the HS companion port.
+         * RWC bits [23:17] written 0 to preserve pending CSC/PEC on port 1.
+         */
+        UINTN  SsPortscAddr = RawOpBase + 0x0400U;
+        UINT32 SsPortsc     = MmioRead32 (SsPortscAddr);
+        MmioWrite32 (SsPortscAddr,
+                     SsPortsc & ~((UINT32)(1u << 9) |      /* PP=0 */
+                                  (UINT32)(0x7Fu << 17))); /* RWC=0 */
+        MmioOr32 ((UINTN)(MatchAddr + 0xC2C0UL), DWC3_GUSB3PIPECTL_SUSPHY);
+      }
+      /*
+       * combphy1 in USB3 mode: leave SS port alone.  XhciCoreInit did not
+       * set SUSPHY, so the LTSSM is free to train.  A connected device will
+       * have CCS=1 / PLS=Polling here; enumeration continues normally.
+       */
     }
   }
 

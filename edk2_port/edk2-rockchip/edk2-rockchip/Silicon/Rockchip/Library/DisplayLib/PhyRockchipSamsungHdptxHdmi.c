@@ -1319,7 +1319,9 @@ HdptxRopllCmnConfig (
     Hdptx,
     CMN_REG0086,
     PLL_PCG_CLK_SEL_MASK,
-    PLL_PCG_CLK_SEL (1)    /* Linux uses CLK_SEL=1 → UPDATE(1,3,1)=2 → bit1 set → CMN_R0086=0x13 */
+    PLL_PCG_CLK_SEL (1)    /* Bug#9: Linux measures CMN_R0086=0x13 (CLK_SEL=1) at 2560x1440@60Hz;
+                            *         match Linux even for 8bpc — CLK_SEL may select a high-freq
+                            *         pixel-clock path rather than bpc encoding depth. */
     );
 
   PhyUpdateBits (Hdptx, CMN_REG0086, PLL_PCG_CLK_EN, PLL_PCG_CLK_EN);
@@ -1371,6 +1373,18 @@ HdptxPostEnableLane (
 
   /* 4 lanes frl mode */
   PhyWrite (Hdptx, LNTOP_REG0207, 0x0f);
+
+  /* Explicitly disable EI (Electrical Idle) on all 4 TMDS lanes.
+   * LANE_REG0x01 bit7 = OVRD_LN_TX_DRV_EI_EN, bit6 = LN_TX_DRV_EI_EN.
+   * OVRD=1 + EI_EN=0 (0x80) forces the TX driver active (not quiesced).
+   * The DP PHY driver (rockchip_hdptx_phy_reset) does this explicitly because
+   * the APB reset default leaves EI_EN=1, which would prevent any TMDS signal
+   * from appearing on the differential outputs even though PLL is locked. */
+  PhyWrite (Hdptx, LANE_REG0301, 0x80);  /* data lane 0 */
+  PhyWrite (Hdptx, LANE_REG0401, 0x80);  /* data lane 1 */
+  PhyWrite (Hdptx, LANE_REG0501, 0x80);  /* data lane 2 */
+  PhyWrite (Hdptx, LANE_REG0601, 0x80);  /* clock lane  */
+  PHY_TRACE ("PostEnableLane: EI disabled on all 4 lanes (LANE_R0301/0401/0501/0601 = 0x80)\n");
 
   Val = 0;
   for (i = 0; i < 50; i++) {

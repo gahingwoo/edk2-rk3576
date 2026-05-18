@@ -94,10 +94,12 @@
   # Static SMBIOS tables (Type 0/1/2/3/4/7/9/11/16/17/19/32) — required so
   # UiApp banner shows "<NNNN> MB RAM" and OS sees system info.
   DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
-  # USB host: DWC3 DRD1 controller @ 0x23400000 (USB-A, combphy1).
-  # DRD0 @ 0x23000000 (USB-C) is power-supply only — excluded to avoid
-  # unnecessary combphy0 init and potential PCIe/combphy0 conflicts. (PCDs in
-  # RK3576Base.dsc.inc). RK3576 has no EHCI/OHCI -> set count to 0 below.
+  # USB hosts:
+  #   DWC3 DRD0 @ 0x23000000 (USB-C, u2phy0 + Samsung USBDP combo PHY) - HS only
+  #     (UsbDpPhyDxe is RK3588-only / not yet ported -> SS PHY not initialized).
+  #   DWC3 DRD1 @ 0x23400000 (USB-A, u2phy1 + combphy1) - SS + HS.
+  # PCDs (DwcXhci base addresses) are set further down. RK3576 has no
+  # EHCI/OHCI -> set count to 0 below.
   DEFINE RK_USB_ENABLE             = TRUE
 
   # Use RK3588 platform include (well-tested foundation)
@@ -181,9 +183,18 @@
   # FVB: correct SPI NOR byte offset for NV variable store.
   # (FdBase=0x40600000 skews the legacy formula to 0x1C0000; correct=0xFC0000)
   gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset|0xFC0000
+  # FVB: With PcdRkAtagsBase=0, RkFvbDxe cannot detect mBootDeviceType from
+  # ATAGS (stays at RkAtagBootDevTypeUnknown).  Without this PCD, the SPI
+  # NOR write path is gated off and NV silently falls back to the boot disk
+  # (which doesn't exist for SPI-NOR-only boot) — that is exactly the
+  # "Variable store changes will NOT persist!" warning users were seeing.
+  # Force-prefer SPI flash so RkFvbDxe always uses the SPI NOR @ 0xFC0000.
+  gRockchipTokenSpaceGuid.PcdNvStoragePreferSpiFlash|TRUE
 
-  # USB DWC3 (0x23000000, 0x23400000)
-  gRockchipTokenSpaceGuid.PcdDwc3BaseAddresses|{ UINT32(0x23400000) }
+  # USB DWC3 (0x23000000 USB-C, 0x23400000 USB-A)
+  # Both controllers are enumerated; USB-C is HS-only (no Samsung USBDP PHY
+  # driver for RK3576 yet), USB-A is SS+HS (combphy1 init'd by RK3576Dxe).
+  gRockchipTokenSpaceGuid.PcdDwc3BaseAddresses|{ UINT32(0x23000000), UINT32(0x23400000) }
   # RK3576 has no EHCI/OHCI controllers (RK3588 has 2). Override to 0
   # to skip the legacy USB2 path that would otherwise hit invalid MMIO.
   gRockchipTokenSpaceGuid.PcdNumEhciController|0
@@ -213,12 +224,17 @@
 
   # ConfigTable/FDT FixedAtBuild defaults (RK3576Base.dsc.inc not in include chain)
   # CONFIG_TABLE_MODE: ACPI=0x1, FDT=0x2, ACPI_FDT=0x3
-  # Default: ACPI-only (Windows ARM64 / ACPI-capable Linux)
-  gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|0x00000001
+  # Default: FDT-only.  Rationale: RK3576 has no upstream Rockchip ACPI HDMI /
+  # USB / GMAC drivers — booting a mainline Linux with ACPI-only ends up with
+  # no console (silent kernel), no HDMI, no USB enumeration.  Mainline DTB
+  # (vendored under devicetree/vendor/rk3576-rock-4d.dtb, 183 KB) drives all
+  # peripherals via dw-hdmi-qp, dwc3, stmmac, etc.  Users who want ACPI can
+  # still toggle this in the UEFI HII Setup menu.
+  gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|0x00000002
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|0
   # FDT_COMPAT_MODE: UNSUPPORTED=0, VENDOR=1, MAINLINE=2
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|0x00000002
-  gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|FALSE
+  gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|TRUE  # Force GOP (simpledrm/efifb) until kernel has native RK3576 DRM
   gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault|FALSE
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault|TRUE
 
@@ -255,21 +271,10 @@
     VOP_OUTPUT_IF_HDMI0
   })}
 
-  # Default display mode: 1920x1080@60Hz (1080p) instead of NATIVE.
-  #
-  # Q27B3S2 EDID preferred mode is 2560x1440 (BitRate=2417000 kbps). That rate
-  # is NOT in the ROPLL_TMDS_CONFIG table, so PhyRockchipSamsungHdptxHdmi.c uses
-  # HdptxPhyClkPllCalc() which computes Mdiv=101 → Fvco=24000×101=2424000 kHz
-  # (target 2417000 kHz, Δ≈+7000 ppm). The Q27B3S2 monitor appears to reject
-  # this off-frequency TMDS signal (HPD stays LOW) even though EDID reads fine.
-  #
-  # 1080p uses BitRate=1485000 kbps which IS in the table (hardcoded, exact PLL).
-  # This serves as a diagnostic baseline: if 1080p shows a picture, the root cause
-  # is confirmed as the dynamic PLL error for QHD, and the fix is either to add
-  # a 2417000 entry to ROPLL_TMDS_CONFIG or add SDM fractional correction.
-  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{CODE({
-    DISPLAY_MODE_1920_1080_60
-  })}
+  # Default display mode: 2560x1440@60 (DISPLAY_MODE_2560_1440_60 = 19 = 0x13).
+  # OscFreq=241500 kHz (CVT-RB dynamic ROPLL calc) works; 241700 kHz hardcoded entry does not.
+  # DISPLAY_MODE_2560_1440_60 = 19 = 0x13 (little-endian: { 0x13, 0x00, 0x00, 0x00 }).
+  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x13, 0x00, 0x00, 0x00 }
 
 
 
@@ -293,7 +298,7 @@
   # Display mode selection — HII formid 0x1000
   # PCDs are in gRK3588TokenSpaceGuid because the display driver libraries read from that namespace.
   # The NVRAM variable GUID is gRK3576DxeFormSetGuid (this formset), NOT gRK3588DxeFormSetGuid.
-  gRK3588TokenSpaceGuid.PcdDisplayModePreset|L"DisplayModePreset"|gRK3576DxeFormSetGuid|0x0|{0x0F, 0x00, 0x00, 0x00}
+  gRK3588TokenSpaceGuid.PcdDisplayModePreset|L"DisplayModePreset"|gRK3576DxeFormSetGuid|0x0|{0x13, 0x00, 0x00, 0x00}
   gRK3588TokenSpaceGuid.PcdDisplayModeCustom|L"DisplayModeCustom"|gRK3576DxeFormSetGuid|0x0|{0x0}
   gRK3588TokenSpaceGuid.PcdDisplayConnectorsPriority|L"DisplayConnectorsPriority"|gRK3576DxeFormSetGuid|0x0|{0x0}
   gRK3588TokenSpaceGuid.PcdDisplayForceOutput|L"DisplayForceOutput"|gRK3576DxeFormSetGuid|0x0|TRUE
@@ -313,8 +318,8 @@
 
 ################################################################################
 [Components.common]
-  # ACPI tables (for Windows ARM64, FreeBSD, and ACPI-capable OS)
-  $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+  # ACPI tables — disabled: FDT-only build.
+  # $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
 
   # Board-specific Device Tree (Vendor = pre-compiled DTB)
   $(PLATFORM_DIRECTORY)/DeviceTree/Vendor.inf
@@ -328,11 +333,8 @@
   # RK3576 SoC DXE driver
   Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.inf
 
-  # RK3576 ACPI platform driver (replaces RK3588 AcpiPlatformDxe for this board)
-  # Uses RK3576-specific MCFG struct / PCIe addresses and DSDT fixups.
-  # The RK3588 AcpiPlatformDxe is still compiled (from RK3588Base.dsc.inc) but
-  # exits early because gRK3588TokenSpaceGuid.PcdConfigTableMode = FDT-only (0x02).
-  Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
+  # RK3576 ACPI platform driver — disabled: FDT-only build.
+  # Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
 
   # FDT platform fixups (PCIe/SATA/VOP device tree nodes)
   Silicon/Rockchip/RK3576/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf

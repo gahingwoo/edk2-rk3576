@@ -1116,7 +1116,14 @@ Vop2CalcCruConfig (
   CRTC_STATE        *CrtcState      = &DisplayState->CrtcState;
   VOP2              *Vop2           = CrtcState->Private;
   UINT64            VPixclk         = DisplayMode->Clock;
+#ifdef SOC_RK3576
+  /* RK3576 VOP2 processes 2 pixels per clock (not 4 like RK3588).
+   * Linux reference: VP0_CLK_CTRL = 0x01 (÷2) when HDMI works.
+   * Using >> 2 (÷4) causes garbled timing seen by HDMI TX. */
+  UINT64            DclkCoreRate    = VPixclk >> 1;
+#else
   UINT64            DclkCoreRate    = VPixclk >> 2;
+#endif
   UINT64            DclkRate        = VPixclk;
   UINT64            IfDclkRate;
   UINT64            IfPixclkRate;
@@ -1313,13 +1320,17 @@ Vop2IfConfig (
   UINT32                        DclkRate;
   UINT32                        Val;
 
-  if (OutputIf & (VOP_OUTPUT_IF_HDMI0 | VOP_OUTPUT_IF_HDMI1)) {
-    Val  = (DisplayMode->Flags & DRM_MODE_FLAG_NHSYNC) ? BIT (HSYNC_POSITIVE) : 0;
-    Val |= (DisplayMode->Flags & DRM_MODE_FLAG_NVSYNC) ? BIT (VSYNC_POSITIVE) : 0;
-  } else {
-    Val  = (DisplayMode->Flags & DRM_MODE_FLAG_NHSYNC) ? 0 : BIT (HSYNC_POSITIVE);
-    Val |= (DisplayMode->Flags & DRM_MODE_FLAG_NVSYNC) ? 0 : BIT (VSYNC_POSITIVE);
-  }
+  // PIN_POL for all interfaces (HDMI, DP, eDP, RGB):
+  //   BIT(HSYNC_POSITIVE)=BIT(0) means OUTPUT positive H-sync
+  //   BIT(VSYNC_POSITIVE)=BIT(1) means OUTPUT positive V-sync
+  // Set the bit when mode sync is positive (+H or +V), clear when negative.
+  // Matches U-Boot rockchip_vop2.c rk3576_set_intf_mux() non-MIPI branch:
+  //   val = (NHSYNC) ? 0 : BIT(HSYNC_POSITIVE);
+  //   val |= (NVSYNC) ? 0 : BIT(VSYNC_POSITIVE);
+  // For 2560x1440@60Hz +H+V (flags=0x5, NHSYNC=0, NVSYNC=0):
+  //   Val = BIT(0)|BIT(1) = 3 → bits[5:4]=0x30 → IF_CTRL=0x80000033
+  Val  = (DisplayMode->Flags & DRM_MODE_FLAG_NHSYNC) ? 0 : BIT (HSYNC_POSITIVE);
+  Val |= (DisplayMode->Flags & DRM_MODE_FLAG_NVSYNC) ? 0 : BIT (VSYNC_POSITIVE);
 
   if (CrtcState->dsc_enable) {
     UINT32  K = 1;
@@ -1570,7 +1581,7 @@ Vop2IfConfig (
       UINT32  IfCtrl;
       UINT32  PreVal;
 
-      VOP2_TRACE ("IF_CTRL[HDMI0]: ENTRY VP=%u sync_pol_val=0x%x IfDclkDiv=%u IfPixclkDiv=%u\n",
+      VOP2_TRACE ("IF_CTRL[HDMI0]: ENTRY VP=%u pin_pol_val=0x%x (want 3 for +H+V) IfDclkDiv=%u IfPixclkDiv=%u\n",
                   CrtcState->CrtcID, Val, IfDclkDiv, IfPixclkDiv);
       PreVal = MmioRead32 (Vop2->BaseAddress + RK3576_HDMI0_IF_CTRL);
       VOP2_TRACE ("IF_CTRL[HDMI0]: pre  HDMI0_IF_CTRL@0x%x = 0x%08x\n",
@@ -1582,14 +1593,24 @@ Vop2IfConfig (
       IfCtrl |= (1U << RK3576_DSP_IF_CFG_DONE_IMD_BIT);
       IfCtrl |= ((CrtcState->CrtcID & RK3576_DSP_IF_MUX_MASK) << RK3576_DSP_IF_MUX_SHIFT);
       /*
-       * IF_DCLK_DIV bits[5:4]: encode the DCLK÷N divider as (N-1).
-       * IfDclkDiv here is the LogCalculate()-encoded value (= log2 of N), so
-       * N = 1U << IfDclkDiv.  For 1080p60 and 2560x1440 N=4 → encoding=3 → 0x30.
-       * Linux rk3576_set_intf_mux confirms 0x80000033 for both resolutions.
-       * NOTE: sync polarity (Val) does NOT go in this register for RK3576 —
-       *       bits[5:4] are DCLK_DIV, not PIN_POL.
+       * PIN_POL bits[6:4] (RK3576_IF_PIN_POL, mask=0x7, shift=4):
+       *   bit4 (HSYNC_POSITIVE) = 1 → VOP2 outputs positive H-sync
+       *   bit5 (VSYNC_POSITIVE) = 1 → VOP2 outputs positive V-sync
+       *
+       * U-Boot rockchip_vop2.c (actual source, rk3576_set_intf_mux):
+       *   val = (NHSYNC) ? 0 : BIT(HSYNC_POSITIVE);
+       *   val |= (NVSYNC) ? 0 : BIT(VSYNC_POSITIVE);
+       *   vop2_mask_write(RK3576_HDMI0_IF_CTRL, 0x7, 4, val, false);
+       *
+       * For 2560x1440@60Hz +H+V (NHSYNC=0, NVSYNC=0):
+       *   Val = BIT(0)|BIT(1) = 3 → bits[5:4]=0x30 → IF_CTRL=0x80000033
+       *
+       * Previous code had HDMI logic inverted vs. U-Boot (set BIT only when
+       * NHSYNC was set, opposite of U-Boot), giving Val=0 → 0x80000003.
+       * That caused VOP2 to output wrong-polarity sync → VID_IF_STATUS=0
+       * and monitor never asserted HPD.
        */
-      IfCtrl |= (((1U << IfDclkDiv) - 1U) & RK3576_DSP_IF_DCLK_DIV_MASK) << RK3576_DSP_IF_DCLK_DIV_SHIFT;
+      IfCtrl |= ((Val & RK3576_DSP_IF_DCLK_DIV_MASK) << RK3576_DSP_IF_DCLK_DIV_SHIFT);
       /*
        * PCLK_DIV semantics differ from RK3588: mainline only sets this bit when
        * port_pix_rate == 1 (single-pixel-per-cycle ports). VP0 on RK3576 has
@@ -1598,7 +1619,7 @@ Vop2IfConfig (
        * DCLK_SEL_OUT is only set for YUV420 output; not yet handled.
        */
 
-      VOP2_TRACE ("IF_CTRL[HDMI0]: write 0x%08x  (EN|CLKOUT|CFG_DONE_IMD|MUX=%u|POL=0x%x)\n",
+      VOP2_TRACE ("IF_CTRL[HDMI0]: write 0x%08x  (EN|CLKOUT|CFG_DONE_IMD|MUX=%u|PIN_POL=0x%x)\n",
                   IfCtrl, CrtcState->CrtcID, Val);
       MmioWrite32 (Vop2->BaseAddress + RK3576_HDMI0_IF_CTRL, IfCtrl);
       VOP2_TRACE ("IF_CTRL[HDMI0]: post HDMI0_IF_CTRL@0x%x = 0x%08x\n",

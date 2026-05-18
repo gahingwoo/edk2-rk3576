@@ -105,7 +105,18 @@ InitializeDisplayVariables (
                              ) : EFI_NOT_FOUND;
     if (EFI_ERROR (Status) ||
         (ModePreset.Preset == DISPLAY_MODE_NATIVE &&
-         ((DISPLAY_MODE_PRESET_VARSTORE_DATA *)PcdData)->Preset != DISPLAY_MODE_NATIVE))
+         ((DISPLAY_MODE_PRESET_VARSTORE_DATA *)PcdData)->Preset != DISPLAY_MODE_NATIVE) ||
+        /*
+         * Reverse migration: firmware default changed TO NATIVE (e.g. after the
+         * ROPLL_TMDS_CONFIG table was extended to cover QHD bit rates). If the
+         * NVRAM still holds a specific numeric preset that was written by a
+         * previous firmware version (not by the user), override it with NATIVE so
+         * the board automatically uses the monitor's preferred resolution.
+         * Users who deliberately chose a specific preset via the HII menu will
+         * have their selection preserved by re-selecting it after the reset.
+         */
+        (((DISPLAY_MODE_PRESET_VARSTORE_DATA *)PcdData)->Preset == DISPLAY_MODE_NATIVE &&
+         ModePreset.Preset != DISPLAY_MODE_NATIVE))
     {
       //
       // Seed the PCD with the firmware's FixedAtBuild default when:
@@ -118,7 +129,38 @@ InitializeDisplayVariables (
       //
       Size   = sizeof (ModePreset);
       Status = PcdSetPtrS (PcdDisplayModePreset, &Size, PcdData);
-      ASSERT_EFI_ERROR (Status);
+      DEBUG ((
+        DEBUG_INFO,
+        "RK3576Dxe: DisplayModePreset migration: old Preset=0x%x → default 0x%x (PcdSetPtrS=%r)\n",
+        ModePreset.Preset,
+        ((DISPLAY_MODE_PRESET_VARSTORE_DATA *)PcdData)->Preset,
+        Status
+        ));
+      //
+      // Also write the EFI variable directly.  PcdSetPtrS may fail silently in
+      // RELEASE builds; the direct SetVariable ensures the change is persisted.
+      // After the write, trigger a warm reset so that PcdDxe re-initialises its
+      // in-memory cache from the updated NV on the very next boot.  Without the
+      // reset LcdGraphicsOutputDxe would still see the stale cached value on
+      // this boot.  The one extra reboot only occurs once after firmware update.
+      //
+      Size   = sizeof (ModePreset);
+      Status = gRT->SetVariable (
+                      L"DisplayModePreset",
+                      &gRK3576DxeFormSetGuid,
+                      EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                      Size,
+                      PcdData
+                      );
+      DEBUG ((
+        DEBUG_INFO,
+        "RK3576Dxe: DisplayModePreset NV update → %r; requesting cold reset for migration\n",
+        Status
+        ));
+      if (!EFI_ERROR (Status)) {
+        gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
+        /* UNREACHABLE */
+      }
     }
   }
 

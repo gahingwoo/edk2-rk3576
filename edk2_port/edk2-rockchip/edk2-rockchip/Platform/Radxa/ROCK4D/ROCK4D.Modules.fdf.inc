@@ -8,8 +8,8 @@
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
-  # ACPI tables (for Windows ARM64, FreeBSD, and ACPI-capable OS)
-  INF RuleOverride = ACPITABLE $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+  # ACPI tables — disabled: FDT-only build.
+  # INF RuleOverride = ACPITABLE $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
 
   # Vendor Device Tree (pre-compiled DTB from U-Boot upstream)
   INF RuleOverride = DTB $(PLATFORM_DIRECTORY)/DeviceTree/Vendor.inf

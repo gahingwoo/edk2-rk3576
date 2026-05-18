@@ -235,6 +235,71 @@ FdtFixupComboPhyDevices (
 STATIC
 VOID
 EFIAPI
+FdtFixupChosen (
+  IN VOID  *Fdt
+  )
+{
+  //
+  // Defensive: when the OS bootloader (GRUB / systemd-boot via efistub /
+  // direct EFI LoadImage) forwards a kernel command line, Linux uses that
+  // and the value of /chosen/bootargs is ignored.  But if the user boots
+  // without any cmdline source (eg. raw kernel image launched from the
+  // UEFI shell, or some installers that rely solely on the FDT), the
+  // kernel will end up with NO console, since UART output is gated by
+  // either `earlycon` or `console=ttyS0,...` on the cmdline.
+  //
+  // Inject a default `bootargs` that enables earlycon on UART0 (RK3576
+  // serial0 alias = uart0 @ 0x2ad40000, 1500000 baud) -- ONLY if chosen
+  // doesn't already carry one.  This makes "OS booted but silent" much
+  // less likely without ever overriding a user-supplied cmdline.
+  //
+  STATIC CONST CHAR8  DefaultBootArgs[] =
+    "earlycon=uart8250,mmio32,0x2ad40000 console=ttyS0,1500000n8 console=tty1";
+
+  INT32       Chosen;
+  INT32       Ret;
+  CONST VOID  *Existing;
+  INT32       Len;
+
+  Chosen = FdtPathOffset (Fdt, "/chosen");
+  if (Chosen < 0) {
+    Chosen = FdtAddSubnode (Fdt, FdtPathOffset (Fdt, "/"), "chosen");
+    if (Chosen < 0) {
+      DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to add /chosen. Ret=%a\n", FdtStrerror (Chosen)));
+      return;
+    }
+  }
+
+  Existing = FdtGetProp (Fdt, Chosen, "bootargs", &Len);
+  if ((Existing != NULL) && (Len > 1)) {
+    DEBUG ((
+      DEBUG_INFO,
+      "FdtPlatform: /chosen/bootargs already present (\"%a\"), keeping it.\n",
+      (CHAR8 *)Existing
+      ));
+    return;
+  }
+
+  Ret = FdtSetPropString (Fdt, Chosen, "bootargs", (CHAR8 *)DefaultBootArgs);
+  if (Ret < 0) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "FdtPlatform: Failed to set default bootargs. Ret=%a\n",
+      FdtStrerror (Ret)
+      ));
+    return;
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "FdtPlatform: Injected default bootargs=\"%a\"\n",
+    DefaultBootArgs
+    ));
+}
+
+STATIC
+VOID
+EFIAPI
 FdtFixupPcieResources (
   IN VOID  *Fdt
   )
@@ -366,11 +431,30 @@ FdtFixupVopDevices (
   //
 
   STATIC CHAR8  *VopNodesToDisable[] = {
-    "/vop@27d00000",
-    "/iommu@27d07e00",
-    "/hdmi@27da0000",
+    // Mainline kernel DTS puts peripheral nodes under /soc/; the
+    // /display-subsystem composite node lives at the root in both DTB styles.
+    "/soc/vop@27d00000",
+    "/soc/iommu@27d07e00",
+    "/soc/hdmi@27da0000",
+    "/soc/hdmiphy@2b000000",   // Samsung HDPTX PHY — disable to prevent probe hang
     "/display-subsystem",
-    "/power-management@27380000/power-controller/power-domain@"XS (RK3576_PD_VOP),
+    //
+    // Disable the PD_VOP power-domain DT node so that rockchip-pm-domain does
+    // NOT register it (or its children, including PD_USB) with genpd.
+    //
+    // Background: PD_USB (RK3576_PD_USB) is a DT sub-node of PD_VOP
+    // (RK3576_PD_VOP).  With VOP/HDMI nodes disabled (force-GOP mode), genpd
+    // sees PD_VOP as having no consumers and powers it off at ~t=2s via
+    // "PM: genpd: Disabling unused power domains".  This takes PD_USB down at
+    // the hardware level, making the DWC3@23000000 MMIO inaccessible.
+    //
+    // When the PD_VOP DT node is disabled, rockchip-pm-domain skips both
+    // PD_VOP and its children entirely.  The hardware stays at the UEFI-
+    // initialized state (powered on).  DWC3 no longer has a power-domains
+    // reference (removed in FdtFixupUsbDrd0) and probes cleanly without any
+    // genpd interaction.
+    //
+    "/soc/power-management@27380000/power-controller/power-domain@" XS (RK3576_PD_VOP),
   };
 
   STATIC UINT32  VopRequiredCruClocks[] = {
@@ -405,7 +489,7 @@ FdtFixupVopDevices (
     return;
   }
 
-  Node = FdtPathOffset (Fdt, "/clock-controller@27200000");
+  Node = FdtPathOffset (Fdt, "/soc/clock-controller@27200000");
   if (Node < 0) {
     DEBUG ((DEBUG_ERROR, "FdtPlatform: Couldn't locate CRU node. Ret=%a\n", FdtStrerror (Node)));
     return;
@@ -482,6 +566,212 @@ FdtFixupVopDevices (
 }
 
 STATIC
+VOID
+EFIAPI
+FdtFixupPowerDomains (
+  IN VOID  *Fdt
+  )
+{
+  INT32  Node;
+  INT32  Ret;
+
+  //
+  // PD_USB (RK3576_PD_USB = 7) is a child of PD_VOP (RK3576_PD_VOP = 18) in
+  // the hardware PMU hierarchy.  When PD_VOP is powered off (it has no VOP/HDMI
+  // consumers because we disabled those nodes for force-GOP mode), the RK3576
+  // PMU physically cuts power to the entire PD_VOP subtree — including PD_USB.
+  //
+  // Even though DWC3 (usb@23000000) holds a software genpd reference to
+  // PD_USB, the hardware-level power gate on PD_VOP makes the DWC3 MMIO
+  // inaccessible.  Any register read (e.g. xhci_portsc_readl during
+  // hub_suspend) causes an AXI slave error (ESR 0xbf000002) → kernel panic.
+  //
+  // Fix: mark both PD_VOP and PD_USB as "always-on" in the FDT.  The
+  // rockchip-pm-domain driver respects this DT property by setting
+  // GENPD_FLAG_ALWAYS_ON on the genpd object, preventing genpd from ever
+  // powering off these domains.  PD_VOP stays powered (keeping PD_USB
+  // accessible), and DWC3 operates without hardware power being cut under it.
+  //
+
+  DEBUG ((DEBUG_INFO, "FdtPlatform: Marking PD_VOP and PD_USB as always-on\n"));
+
+  //
+  // PD_VOP: /soc/power-management@27380000/power-controller/power-domain@18
+  //
+  Node = FdtPathOffset (Fdt,
+           "/soc/power-management@27380000/power-controller"
+           "/power-domain@" XS (RK3576_PD_VOP));
+  if (Node < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: PD_VOP node not found: %a\n", FdtStrerror (Node)));
+  } else {
+    Ret = FdtSetPropEmpty (Fdt, Node, "always-on");
+    if (Ret < 0) {
+      DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to set PD_VOP always-on: %a\n", FdtStrerror (Ret)));
+    }
+  }
+
+  //
+  // PD_USB: .../power-domain@18/power-domain@7
+  //
+  Node = FdtPathOffset (Fdt,
+           "/soc/power-management@27380000/power-controller"
+           "/power-domain@" XS (RK3576_PD_VOP)
+           "/power-domain@" XS (RK3576_PD_USB));
+  if (Node < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: PD_USB node not found: %a\n", FdtStrerror (Node)));
+  } else {
+    Ret = FdtSetPropEmpty (Fdt, Node, "always-on");
+    if (Ret < 0) {
+      DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to set PD_USB always-on: %a\n", FdtStrerror (Ret)));
+    }
+  }
+}
+
+STATIC
+VOID
+EFIAPI
+FdtFixupUfsDevices (
+  IN VOID  *Fdt
+  )
+{
+  //
+  // The UFS host controller (ufshc @ 0x2A2D0000) shares PD_USB with DWC3 DRD0.
+  // The Fedora kernel driver (ufshcd-rockchip) fails to probe on this board
+  // (no UFS storage is populated) and its deferred probe timeout leaves
+  // PD_USB in an indeterminate state.  Disable the node so the kernel does not
+  // attempt to probe UFS at all, keeping PD_USB cleanly owned by DWC3 alone.
+  //
+  DEBUG ((DEBUG_INFO, "FdtPlatform: Disabling UFS host controller (no UFS storage)\n"));
+  FdtEnableNode (Fdt, "/soc/ufshc@2a2d0000", FALSE);
+}
+
+STATIC
+VOID
+EFIAPI
+FdtFixupNorFlashDevices (
+  IN VOID  *Fdt
+  )
+{
+  //
+  // UEFI owns the SPI NOR flash controller (sfc0 @ 0x2A340000) via
+  // NorFlashDxe for EFI variable storage.  The hardware is left active
+  // after ExitBootServices and the kernel spi_rockchip_sfc module causes
+  // an asynchronous SError when it tries to probe the same MMIO range.
+  // Disable the node so the kernel leaves the SFC hardware untouched.
+  //
+  DEBUG ((DEBUG_INFO, "FdtPlatform: Disabling SFC NOR flash node (UEFI-owned)\n"));
+  FdtEnableNode (Fdt, "/soc/spi@2a340000", FALSE);
+}
+
+STATIC
+VOID
+EFIAPI
+FdtFixupUsbDrd0 (
+  IN VOID  *Fdt
+  )
+{
+  INT32       Node;
+  INT32       Ret;
+  CONST VOID  *Phys;
+  INT32       PhysLen;
+  UINT32      U2PhyPhandle;
+
+  //
+  // The Samsung USBDP combo PHY (usbdp_phy @ 0x2B010000) for DRD0 (USB-C) is
+  // not yet supported by the mainline kernel.
+  //
+  // Simply disabling the usbdp_phy DT node does NOT fix the problem: the DWC3
+  // node (usb@23000000) still has a phandle reference to it in its "phys"
+  // property.  When the kernel PHY subsystem cannot find a registered provider
+  // for that phandle (because the node is disabled and its driver never probed),
+  // it returns -EPROBE_DEFER rather than -ENODEV.  DWC3 then defers its probe
+  // for the full 30-second deferred_probe_timeout and ultimately fails with
+  // -ETIMEDOUT, leaving the USB-C port completely dead.
+  //
+  // Correct fix: REMOVE the USB3 PHY phandle from the "phys" and "phy-names"
+  // properties of usb@23000000 so that DWC3 never asks for it.  DWC3 will then
+  // probe successfully in USB2-only (HS) mode, which is sufficient to enumerate
+  // mass-storage devices.
+  //
+  // The "phys" property layout (before this fixup):
+  //   [u2phy0_otg phandle (1 cell, #phy-cells=0)]
+  //   [usbdp_phy phandle  (1 cell)]
+  //   [PHY_TYPE_USB3      (1 cell, the usbdp_phy specifier, #phy-cells=1)]
+  //   Total = 12 bytes
+  //
+  // We keep only the first 4 bytes (u2phy0_otg phandle) and rewrite
+  // phy-names as "usb2-phy".
+  //
+  // Also disable the usbdp_phy node itself so the kernel does not attempt
+  // (and fail) to bind the unsupported driver.
+  //
+
+  DEBUG ((DEBUG_INFO, "FdtPlatform: Trimming DRD0 phys to USB2-only\n"));
+
+  Node = FdtPathOffset (Fdt, "/soc/usb@23000000");
+  if (Node < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: usb@23000000 not found: %a\n", FdtStrerror (Node)));
+    goto DisablePhy;
+  }
+
+  Phys = FdtGetProp (Fdt, Node, "phys", &PhysLen);
+  if ((Phys == NULL) || (PhysLen < 4)) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: usb@23000000 phys property missing or too short\n"));
+    goto DisablePhy;
+  }
+
+  //
+  // Copy the first phandle (u2phy0_otg) before modifying the FDT, because
+  // FdtSetProp may reallocate the internal data and invalidate the pointer.
+  //
+  CopyMem (&U2PhyPhandle, Phys, sizeof (UINT32));
+
+  Ret = FdtSetProp (Fdt, Node, "phys", &U2PhyPhandle, sizeof (UINT32));
+  if (Ret < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to trim phys property: %a\n", FdtStrerror (Ret)));
+    goto DisablePhy;
+  }
+
+  Ret = FdtSetPropString (Fdt, Node, "phy-names", "usb2-phy");
+  if (Ret < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to update phy-names property: %a\n", FdtStrerror (Ret)));
+  }
+
+DisablePhy:
+  //
+  // Disable the usbdp_phy node regardless so the kernel does not probe the
+  // unsupported Samsung USBDP PHY driver.
+  //
+  FdtEnableNode (Fdt, "/soc/phy@2b010000", FALSE);
+
+  //
+  // Remove power-domains from usb@23000000.
+  //
+  // PD_USB is a hardware child of PD_VOP in the RK3576 PMU.  With VOP/HDMI DT
+  // nodes disabled (force-GOP mode), genpd has no consumers for PD_VOP and
+  // powers it off via "PM: genpd: Disabling unused power domains" at ~2s.
+  // This takes PD_USB down at the hardware level regardless of genpd's view of
+  // PD_USB.  Even after DWC3 probes and re-requests PD_USB, the power can be
+  // cut again between probe completion and the first hub_event workqueue run,
+  // causing an AXI slave SError (0xbf000002) in xhci_portsc_readl.
+  //
+  // Fix: remove the power-domains property from usb@23000000 entirely.
+  // UEFI has already powered and configured DWC3.  Without a power-domains
+  // reference, the kernel treats the hardware as always-on and never attempts
+  // to gate the DWC3 MMIO through genpd.
+  //
+  Node = FdtPathOffset (Fdt, "/soc/usb@23000000");
+  if (Node >= 0) {
+    Ret = FdtDelProp (Fdt, Node, "power-domains");
+    if ((Ret < 0) && (Ret != -FDT_ERR_NOTFOUND)) {
+      DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to remove usb@23000000 power-domains: %a\n", FdtStrerror (Ret)));
+    } else {
+      DEBUG ((DEBUG_INFO, "FdtPlatform: Removed power-domains from usb@23000000\n"));
+    }
+  }
+}
+
+STATIC
 EFI_STATUS
 EFIAPI
 ApplyPlatformFdtFixups (
@@ -490,8 +780,8 @@ ApplyPlatformFdtFixups (
 {
   EFI_STATUS  Status;
 
-  // Expand the FDT a bit to give room for any additions.
-  Status = FdtOpenIntoAlloc (Fdt, NULL, FdtTotalSize (*Fdt) + SIZE_4KB);
+  // Expand the FDT enough for the ForceGop clock keep-alive nodes + bootargs.
+  Status = FdtOpenIntoAlloc (Fdt, NULL, FdtTotalSize (*Fdt) + SIZE_8KB);
   if (EFI_ERROR (Status)) {
     return Status;
   }
@@ -499,6 +789,11 @@ ApplyPlatformFdtFixups (
   FdtFixupComboPhyDevices (*Fdt);
   FdtFixupPcieResources (*Fdt);
   FdtFixupVopDevices (*Fdt);
+  FdtFixupNorFlashDevices (*Fdt);
+  FdtFixupPowerDomains (*Fdt);
+  FdtFixupUfsDevices (*Fdt);
+  FdtFixupUsbDrd0 (*Fdt);
+  FdtFixupChosen (*Fdt);
 
   return EFI_SUCCESS;
 }

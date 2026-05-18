@@ -1260,7 +1260,16 @@ FvbDiskNvDumpHandler (
   EFI_STATUS  Status;
 
   if (mFvbDevice->DiskDevice == NULL) {
-    DEBUG ((DEBUG_WARN, "%a: NV disk device not found (yet?)\n", __FUNCTION__));
+    //
+    // Disk fallback path is only used when SPI flash is unavailable (eg.
+    // booted from eMMC/SD with no SPI nor preference).  When SPI flash is
+    // active, every WriteBlocks/EraseBlocks already commits to SPI in-line,
+    // so the absence of a disk device here is normal and expected — do not
+    // spam the log with a misleading warning that NV is "not found".
+    //
+    if (!mFvbDevice->IsSpiFlashAvailable) {
+      DEBUG ((DEBUG_WARN, "%a: NV disk device not found (yet?)\n", __FUNCTION__));
+    }
     return;
   }
 
@@ -1632,8 +1641,25 @@ FvbFindBootDiskDevice (
   }
 
 Fail:
-  DEBUG ((DEBUG_WARN, "%a: WARNING: Boot disk device not found!\n", __FUNCTION__));
-  DEBUG ((DEBUG_WARN, "%a: WARNING: Variable store changes will NOT persist!\n", __FUNCTION__));
+  //
+  // The "boot disk" lookup is a SECONDARY fallback used when SPI flash is
+  // either absent or the user opted to persist NV on the boot device (eMMC
+  // / SD).  When IsSpiFlashAvailable=TRUE we already write/erase NV in-line
+  // through SpiFlashProtocol, so a missing disk device is harmless and the
+  // "will NOT persist" warning was misleading users into thinking variables
+  // are lost when they are in fact stored on SPI NOR.
+  //
+  if (mFvbDevice->IsSpiFlashAvailable) {
+    DEBUG ((
+      DEBUG_INFO,
+      "%a: No secondary boot disk located; SPI NOR will be used as the\n"
+      "    primary persistent store (this is normal for SPI-NOR boot).\n",
+      __FUNCTION__
+      ));
+  } else {
+    DEBUG ((DEBUG_WARN, "%a: WARNING: Boot disk device not found!\n", __FUNCTION__));
+    DEBUG ((DEBUG_WARN, "%a: WARNING: Variable store changes will NOT persist!\n", __FUNCTION__));
+  }
 
 Done:
   if (Handles != NULL) {
