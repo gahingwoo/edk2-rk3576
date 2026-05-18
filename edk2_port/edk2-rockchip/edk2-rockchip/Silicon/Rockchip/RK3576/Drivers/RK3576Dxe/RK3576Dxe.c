@@ -93,19 +93,62 @@ RK3576HdmiRouteDump (
           MmioRead32 (0x27DA0000 + 0xA0)));
   DEBUG ((DEBUG_INFO, "  [HDMITX]   CMU_STATUS     @0x27DA00B0 = 0x%08x  (raw PHY CMU status)\n",
           MmioRead32 (0x27DA0000 + 0xB0)));
+  /* CMU_FREQ registers: measured clock frequencies (count * ref_clk / 2^16)
+   * VIDQPCLK_FREQ: VP0 pixel clock from VOP2 -> HDMI TX (want ~148.5 MHz = 148500 kHz)
+   * LINKQPCLK_FREQ: TMDS link clock from HDPTX PHY -> HDMI TX (want ~148.5 MHz)
+   * If LINKQPCLK_FREQ = 0 -> HDPTX PHY is NOT providing link clock to HDMI TX (root cause!) */
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   CMU_VIDQPCLK_FREQ @0x27DA00B8 = 0x%08x  (VP0->HDMI pixel clk; 0=no clock from VOP2)\n",
+          MmioRead32 (0x27DA0000 + 0xB8)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   CMU_LINKQPCLK_FREQ@0x27DA00BC = 0x%08x  (HDPTX->HDMI link clk; 0=HDPTX not giving clock!)\n",
+          MmioRead32 (0x27DA0000 + 0xBC)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   CMU_AUDQPCLK_FREQ @0x27DA00C0 = 0x%08x  (audio clock freq)\n",
+          MmioRead32 (0x27DA0000 + 0xC0)));
   /* Also dump VP0 DCLK mux — CLKSEL_CON(147) bit11: 0=vp0_src, 1=hdmiphy_pixel0 */
   DEBUG ((DEBUG_INFO, "  [CRU]      CLKSEL_CON147  @0x2720054C = 0x%08x  (bit11=VP0 DCLK mux; want 1=hdmiphy_pixel0)\n",
           MmioRead32 (0x27200000 + 0x054C)));
   DEBUG ((DEBUG_INFO, "  [HDMITX]   MAIN_STATUS0   @0x27DA0180 = 0x%08x\n",
           MmioRead32 (0x27DA0000 + 0x180)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   SWDISABLE      @0x27DA0044 = 0x%08x  (bit6=AVP_VIDEO_SWDIS; 0=enabled)\n",
+          MmioRead32 (0x27DA0000 + 0x44)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   RST_MGR_ST0    @0x27DA0050 = 0x%08x  (reset manager status)\n",
+          MmioRead32 (0x27DA0000 + 0x50)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   RST_MGR_ST1    @0x27DA0054 = 0x%08x\n",
+          MmioRead32 (0x27DA0000 + 0x54)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   RST_MGR_ST2    @0x27DA0058 = 0x%08x\n",
+          MmioRead32 (0x27DA0000 + 0x58)));
   DEBUG ((DEBUG_INFO, "  [HDMITX]   VID_IF_STATUS  @0x27DA0814 = 0x%08x  (video interface status)\n",
           MmioRead32 (0x27DA0000 + 0x814)));
-  DEBUG ((DEBUG_INFO, "  [HDMITX]   VID_MON_ST0    @0x27DA0884 = 0x%08x  (active frame count)\n",
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   VID_MON_ST0    @0x27DA0884 = 0x%08x  ({bits[31:16]=H_SYNC,bits[15:0]=H_FP}; 1080p60=0x002C0058)\n",
           MmioRead32 (0x27DA0000 + 0x884)));
+  /* VID_MON_ST1=H_TOTAL|V_TOTAL, ST2=H_ACTIVE|V_ACTIVE, ST3=V_FP|V_SYNC, ST4=H_BP|V_BP */
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   VID_MON_ST1    @0x27DA0888 = 0x%08x  ({H_TOTAL,V_TOTAL}; 1080p60=0x08980465)\n",
+          MmioRead32 (0x27DA0000 + 0x888)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   VID_MON_ST2    @0x27DA088C = 0x%08x  ({H_ACTIVE,V_ACTIVE}; 1080p60=0x07800438)\n",
+          MmioRead32 (0x27DA0000 + 0x88C)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   VID_MON_ST3    @0x27DA0890 = 0x%08x  ({V_FP,V_SYNC}; 1080p60=0x00040005)\n",
+          MmioRead32 (0x27DA0000 + 0x890)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   VID_MON_ST4    @0x27DA0894 = 0x%08x  ({H_BP,V_BP}; 1080p60=0x00940024)\n",
+          MmioRead32 (0x27DA0000 + 0x894)));
+  DEBUG ((DEBUG_INFO, "  [VOP2]     OVL_CTRL       @0x27D00600 = 0x%08x  (bit28=PORT_MUX_IMD; Vop2Enable sets to 0x10000000)\n",
+          MmioRead32 (0x27D00000 + 0x600)));
   DEBUG ((DEBUG_INFO, "  [HDMITX]   LINK_CONFIG0   @0x27DA0968 = 0x%08x  (bit0=1 means DVI mode)\n",
           MmioRead32 (0x27DA0000 + 0x968)));
   DEBUG ((DEBUG_INFO, "  [HDMITX]   PKTSCHED_PKT_EN@0x27DA0AA8 = 0x%08x  (bit3=GCP_TX_EN)\n",
           MmioRead32 (0x27DA0000 + 0xAA8)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   PKT_AVI_CON0   @0x27DA0BE0 = 0x%08x  (AVI InfoFrame header: {CS,len,ver,type}; want 0x??0D0282)\n",
+          MmioRead32 (0x27DA0000 + 0xBE0)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   PKT_AVI_CON1   @0x27DA0BE4 = 0x%08x  (AVI bytes 4-7; want 0x1000____ VIC=bit24..31)\n",
+          MmioRead32 (0x27DA0000 + 0xBE4)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   PKTSCHED_ST0   @0x27DA0AB4 = 0x%08x  (PKT scheduler status 0)\n",
+          MmioRead32 (0x27DA0000 + 0xAB4)));
+  DEBUG ((DEBUG_INFO, "  [HDMITX]   PKTSCHED_ST1   @0x27DA0AB8 = 0x%08x  (PKT scheduler status 1)\n",
+          MmioRead32 (0x27DA0000 + 0xAB8)));
+  DEBUG ((DEBUG_INFO, "  [GPIO2]    SWPORT_DR      @0x2AE20000 = 0x%08x  (bit8=PB0=HDMI_TX_ON_H; want bit8=1)\n",
+          MmioRead32 (0x2AE20000)));
+  DEBUG ((DEBUG_INFO, "  [GPIO2]    SWPORT_DDR_L   @0x2AE20008 = 0x%08x  (bit8=PB0 direction; want bit8=1=output)\n",
+          MmioRead32 (0x2AE20008)));
+  DEBUG ((DEBUG_INFO, "  [GPIO2]    EXT_PORT       @0x2AE20070 = 0x%08x  (bit8=PB0 pad level; want bit8=1=HIGH)\n",
+          MmioRead32 (0x2AE20070)));
   DEBUG ((DEBUG_INFO, "================================================================\n"));
 }
 

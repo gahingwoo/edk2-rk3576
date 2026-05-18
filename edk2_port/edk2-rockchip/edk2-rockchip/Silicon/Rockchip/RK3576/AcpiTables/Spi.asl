@@ -128,9 +128,20 @@ Device (SFC0)
   Name (_UID, 3)
   Name (_CCA, 0)
 
+  /*
+   * RK3576 SFC/FSPI0 is at 0x2A340000, NOT 0xfe2b0000 (which was a copy-paste
+   * error from another SoC). Disable this ACPI device to prevent Linux from
+   * probing the wrong address and triggering an AXI bus SError (kernel panic).
+   * UEFI accesses the SFC directly via NorFlashDxe without using ACPI.
+   *
+   * TODO: Fix address to 0x2A340000 and add proper clock/interrupt resources
+   * once ACPI-mode SFC support is needed by Linux on RK3576.
+   */
+  Name (_STA, 0x0)  /* Disable: wrong base address 0xfe2b0000 vs real 0x2A340000 */
+
   Method (_CRS, 0x0, Serialized) {
     Name (RBUF, ResourceTemplate() {
-      Memory32Fixed (ReadWrite, 0xfe2b0000, 0x4000)
+      Memory32Fixed (ReadWrite, 0x2A340000, 0x4000)
       Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 238 }
     })
     Return (RBUF)

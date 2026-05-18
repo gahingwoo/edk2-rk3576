@@ -932,17 +932,25 @@
 #define RK3576_VO0_GRF_SOC_CON8   0x0020
 #define RK3576_COLOR_DEPTH_MASK   (0xF << 8)
 /*
- * Color depth field values in VO0_GRF_SOC_CON8 bits[11:8].
- * Verified against mainline Linux drivers/gpu/drm/rockchip/dw_hdmi_qp-rockchip.c
- * (master, v6.15): RK3576_8BPC=0, RK3576_10BPC=6, used pre-shifted with HIWORD_UPDATE.
- * NOTE: An earlier "fix" set 8BPC=(0x6<<8) which actually selects 10bpc — that
- * mismatch with the VOP (which outputs 8bpc) is exactly why the monitor stayed
- * dark even though the TMDS encoder reported active.
+ * Color depth/format field values in VO0_GRF_SOC_CON8.
+ * bits[11:8] = depth, bits[7:4] = format.
+ *
+ * Linux ground-truth (working 8bpc HDMI output): register reads 0x0600,
+ * i.e. bits[11:8]=6 (depth), bits[7:4]=0 (RGB).
+ *
+ * U-Boot rockchip_dw_hdmi_qp.c defines RK3576_8BPC=(0x0<<8), but writing
+ * 0 leaves depth=0 which does not activate the DW HDMI QP VIF block
+ * (VID_IF_STATUS lower bits stay zero).  The Linux kernel correctly uses
+ * bits[11:8]=6 for 8bpc, which does activate the VIF.  U-Boot's constant
+ * naming is misleading — 0x0600 is the 8bpc encoding for RK3576 hardware.
+ *
+ * These defines are kept for reference but the HIWORD_UPDATE call in
+ * Rk3588SetColorFormat uses the empirical 0x0600 value directly.
  */
-#define RK3576_8BPC               (0x0 << 8)  /* depth code 0 = 8bpc */
-#define RK3576_10BPC              (0x6 << 8)  /* depth code 6 = 10bpc */
+#define RK3576_8BPC               (0x6 << 8)  /* depth code 6 = 8bpc (Linux ground-truth) */
+#define RK3576_10BPC              (0x0 << 8)  /* depth code 0 = 10bpc? (unused; TBD) */
 #define RK3576_COLOR_FORMAT_MASK  (0xF << 4)
-#define RK3576_RGB                (0x9 << 4)
+#define RK3576_RGB                (0x0 << 4)  /* RGB = field value 0 */
 #define RK3576_YUV422             (0x1 << 4)
 #define RK3576_YUV444             (0x2 << 4)
 #define RK3576_YUV420             (0x3 << 4)

@@ -20,6 +20,9 @@
 #include <Library/GpioLib.h>
 #include <Library/Rk3576Pcie.h>
 
+/* RK3576 has 2 PCIe controllers: pcie0 (PCIe2.0 x1) + pcie1 (PCIe2.0 x1) */
+#define NUM_PCIE_CONTROLLER  2
+
 #define EFI_ACPI_OEM_ID  {'R','K','C','P',' ',' '}
 
 #define EFI_ACPI_OEM_TABLE_ID  SIGNATURE_64 ('R','K','3','5','7','6',' ',' ')

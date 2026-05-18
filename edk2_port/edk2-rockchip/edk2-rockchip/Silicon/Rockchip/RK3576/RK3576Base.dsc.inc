@@ -197,5 +197,6 @@
   # RK3588 drivers reused by RK3576
   # Silicon/Rockchip/RK3588/Drivers/UsbDpPhyDxe/UsbDpPhyDxe.inf  # DISABLED: RK3588-specific
   Silicon/Rockchip/RK3576/Drivers/GmacPlatformDxe/GmacPlatformDxe.inf
-  Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
+  # RK3576AcpiPlatformDxe — disabled: FDT-only build.
+  # Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
   Silicon/Rockchip/RK3576/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf
