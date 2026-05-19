@@ -25,7 +25,7 @@ Tested on **Radxa ROCK 4D, 12 GB LPDDR5 SKU**.
 | Ethernet (1 GbE)               | OK                         | OK                        |
 | GIC v3                         | OK                         | OK                        |
 | Generic Timer                  | OK                         | OK                        |
-| HDMI / display                 | **No signal yet** †        | OK                        |
+| HDMI / display                 | **Working** — GOP at native res (2560×1440@60) † | OK           |
 | PCIe 2.1 x1 (Combo PHY0)       | RC enumerated, link fails ‡| OK                        |
 | EDK2 UEFI Shell over UART      | OK                         | —                         |
 | GRUB on USB → Linux            | OK                         | OK                        |
@@ -33,10 +33,11 @@ Tested on **Radxa ROCK 4D, 12 GB LPDDR5 SKU**.
 \* SDMMC0 reports `DwSdExecTrb: Command error … IntStatus=104` for CMD1/CMD8/CMD55/CMD7/CMD3
   during identification when no card is present; harmless.
 
-† `RK3576SimpleFbDxe` installs a 1920×1080 GOP and a framebuffer in DRAM, but
-  HDMI TX / VOP2 are **not initialised** in EDK2, so nothing reaches the
-  monitor until the Linux kernel takes over the display controller. See
-  [KNOWN_ISSUES.md](KNOWN_ISSUES.md#display-hdmi--no-signal-from-uefi).
+† VOP2 + DW HDMI QP TX PHY are fully initialised by EDK2. EDID is read
+  via DDC; GOP is installed at the monitor's native resolution. UEFI menus
+  and GRUB render on the monitor without requiring a Linux display driver.
+  Minor visual artifacts (horizontal stripes, slight horizontal shift) are
+  under investigation — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md#display-hdmi--visual-artifacts).
 
 ‡ PCIe DBI is reachable (`VID:DID = 0x1D87:0x3576`), but LTSSM stays in
   `0x0003000D → 0x00000003` and never reaches L0 — `PciHostBridgeDxe` aborts
@@ -52,6 +53,7 @@ Tested on **Radxa ROCK 4D, 12 GB LPDDR5 SKU**.
 
 | Stage                    | Screenshot                                |
 |--------------------------|-------------------------------------------|
+| **UEFI front page (HDMI)**| ![monitor](imgs/monitor.png)             |
 | GRUB on Fedora 44 USB    | ![grub](imgs/grub.png)                    |
 | Fedora live console      | ![fedora](imgs/fedora.png)                |
 | Fedora 44 GNOME desktop  | ![desktop](imgs/desktop.png)              |

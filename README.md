@@ -1,6 +1,6 @@
 # edk2-rk3576 — UEFI for Rockchip RK3576 Boards
 
-[![Status](https://img.shields.io/badge/status-experimental-orange)]()
+[![Status](https://img.shields.io/badge/status-working-brightgreen)]()
 [![SoC](https://img.shields.io/badge/SoC-RK3576-blue)]()
 [![Board](https://img.shields.io/badge/board-Radxa%20ROCK%204D-green)]()
 [![Board](https://img.shields.io/badge/board-FriendlyElec%20NanoPi%20M5-blue)]()
@@ -12,11 +12,11 @@ the **FriendlyElec NanoPi M5**. The ROCK 4D port includes a matching
 **TF-A BL31 + U-Boot SPL** boot stack, verified on real hardware
 (12 GB LPDDR5 SKU) booting **Fedora 44 aarch64** to GNOME desktop.
 
-> **Status:** chain-loads GRUB → Linux from USB; full RAM, USB 2.0, USB 3.0
-> SuperSpeed, eMMC, SD, Ethernet and SMBIOS are functional. **HDMI is not
-> initialised by UEFI** (no signal until Linux brings the display up), and
-> **PCIe link training does not complete** under UEFI (controller is
-> probed, but LTSSM never reaches L0).
+> **Status:** UEFI front page and menus render natively over **HDMI at
+> 2560×1440@60 (QHD)** from EDID. Chain-loads GRUB → Linux from USB.
+> Full RAM, USB 2.0, USB 3.0 SuperSpeed, eMMC, SD, Ethernet and SMBIOS
+> are functional. **PCIe link training does not complete** under UEFI
+> (controller is probed, but LTSSM never reaches L0).
 
 ---
 
@@ -24,14 +24,13 @@ the **FriendlyElec NanoPi M5**. The ROCK 4D port includes a matching
 
 | | |
 |---|---|
-| ![GRUB on USB](docs/imgs/grub.png) | ![Fedora live + lsusb](docs/imgs/fedora.png) |
-| GRUB on the Fedora 44 USB stick (renders after the kernel HDMI init) | Fedora live shell — note the `xhci-hcd 5000M` USB 3.0 root hub |
+| ![UEFI front page on monitor](docs/imgs/monitor.png) | ![GRUB on USB](docs/imgs/grub.png) |
+| TianoCore UEFI front page — 2560×1440@60 QHD via HDMI, native on-board VOP2 + HDPTX PHY | GRUB on the Fedora 44 USB stick |
 
-![Fedora 44 GNOME — System Details](docs/imgs/desktop.png)
-
-GNOME *About* identifies the board as **Radxa ROCK 4D**, firmware
-**rk3576-rock4d-v0.1**, **11.5 GiB** RAM — all from the SMBIOS tables
-populated by `PlatformSmbiosDxe`.
+| | |
+|---|---|
+| ![Fedora live + lsusb](docs/imgs/fedora.png) | ![Fedora 44 GNOME — System Details](docs/imgs/desktop.png) |
+| Fedora live shell — `xhci-hcd 5000M` USB 3.0 root hub | GNOME *About* — **Radxa ROCK 4D**, **11.5 GiB** RAM from SMBIOS |
 
 ---
 
@@ -79,25 +78,24 @@ Full instructions in [docs/BUILDING.md](docs/BUILDING.md).
 * **CPU / RAM**: 8× Cortex-A72/A53, 12 GB LPDDR5 @ 2736 MHz dual-channel
 * **Boot chain**: BootROM → U-Boot SPL → FIT → TF-A BL31 (EL3) → EDK2 (EL2, BL33)
 * **EDK2 services**: GIC, generic timer, runtime services, SMBIOS,
-  variable services (in-RAM only — see Known Issues)
+  variable services (SPI NOR-backed)
 * **Storage**: eMMC, SPI NOR, SD card
 * **USB 2.0 host (EHCI + OHCI)** — HID, mass-storage
 * **USB 3.0 host (xHCI / DWC3 SuperSpeed)** — verified at 5 Gbps,
   enumerates SS hubs and devices in UEFI; Linux sees a `5000M` root hub
 * **Network**: 1 GbE (in Linux; UEFI driver pending)
+* **HDMI display**: VOP2 + DW HDMI QP TX PHY fully initialised in EDK2.
+  EDID read via DDC. GOP installed at the monitor's native resolution
+  (2560×1440@60 QHD on the test monitor). UEFI menus and GRUB render
+  directly on the monitor without requiring Linux to bring up the display.
 * **Boot path**: GRUB on USB stick → Fedora 44 aarch64 → GNOME 50
 
 ## What doesn't work yet
 
-* **HDMI / display in UEFI** — `RK3576SimpleFbDxe` installs a GOP, but
-  RK3576 HDMI TX PHY + VOP2 are not initialised; no signal until Linux
-  takes over the display controller
 * **PCIe** — RC enumerated and DBI is reachable
   (`VID:DID = 0x1D87:0x3576`), but LTSSM stays in `Polling.*` and never
   reaches L0 (`Link up timeout!`); endpoints work fine under Linux on the
   same physical slot
-* **Persistent UEFI variables** — variable storage is in-RAM
-  (`VariableStubDxe`), settings are lost across reboots
 * **ACPI** — only stub tables, FDT mode is the supported configuration
 
 Details and workarounds in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
@@ -111,8 +109,8 @@ Details and workarounds in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 * `edk2_port/` — the EDK2 source overlay:
   * `Platform/Radxa/ROCK4D/` — board package
   * `Silicon/Rockchip/RK3576/` — SoC silicon package, including
-    `RK3576Dxe`, `RK3576SimpleFbDxe`, `FdtPlatformDxe`,
-    `Rk3576PciHostBridgeLib`, `Rk3576PciSegmentLib`
+    `RK3576Dxe`, `Vop2Dxe`, `DwHdmiQpLib`, `PhyRockchipSamsungHdptxHdmi`,
+    `FdtPlatformDxe`, `Rk3576PciHostBridgeLib`, `Rk3576PciSegmentLib`
   * `build_rock4d_uefi.sh` — one-shot build script with all the GCC 10–13
     workarounds baked in
 
@@ -133,7 +131,7 @@ build time. See [docs/BUILDING.md](docs/BUILDING.md).
 | USB 2.0 (EHCI/OHCI) | Working — HID and mass-storage |
 | USB 3.0 xHCI @ 5 Gbps | Working — verified |
 | 1 GbE (GMAC0) | Working under Linux; UEFI SNP driver pending |
-| HDMI | Partial — GOP installed, no signal until Linux brings up VOP2 |
+| HDMI | **Working** — VOP2 + HDPTX PHY init, EDID read, GOP at native res |
 | PCIe | Partial — DBI reachable, LTSSM never reaches L0 |
 | SMBIOS | Working — populated by `PlatformSmbiosDxe` |
 

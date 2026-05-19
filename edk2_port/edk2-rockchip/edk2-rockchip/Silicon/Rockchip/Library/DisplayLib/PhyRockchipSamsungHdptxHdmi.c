@@ -674,14 +674,16 @@ STATIC CONST struct RoPllConfig  ROPLL_TMDS_CONFIG[] = {
   { 2970000, 124,  124,  1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 62,  1, 16,   5, 0,
     1, 1, 0, 0x20, 0x0c, 1, 0x0e, 0, 0, },
   /*
-   * 2560x1440@60Hz (QHD): BitRate = 2417000 kbps.
-   * Fout = 2417000/2 = 1208500 kHz. Pms_Sdiv=1 → actual Sdiv=2 → Fvco=2417000 kHz.
-   * Mdiv=101: Fvco_nom = 24000×101 = 2424000 kHz, Δ = +7000 kHz.
-   * SDM correction: Sdm_Num=7, Sdm_Deno=24, Sdm_Num_Sign=1 (subtract) →
-   *   Fvco_eff = 2424000 - 24000×(7/24) = 2424000 - 7000 = 2417000 kHz (exact).
-   * Same Ssc/Ana/Ref parameters as the 2970000 entry above.
+   * 2560x1440@60Hz (QHD): actual EDID pixel clock = 241500 kHz → BitRate = 2415000 kbps.
+   * Fout = 2415000/2 = 1207500 kHz. Pms_Sdiv=1 → actual Sdiv=2 → Fvco=2415000 kHz.
+   * Mdiv=101: Fvco_nom = 24000×101 = 2424000 kHz, correction = +9000 kHz.
+   * SDM: Sdm_Num=3, Sdm_Deno=8, Sdm_Num_Sign=1 (subtract) →
+   *   Fvco_eff = 2424000 - 24000×(3/8) = 2424000 - 9000 = 2415000 kHz (exact).
+   * NOTE: the dynamic calc path (HdptxPhyClkPllCalc) produces Sdm_Num=6/Sdm_Deno=13
+   * which the hardware SDM interprets as 24000×(6/13)=11077 kHz correction → Fvco=2412923
+   * (wrong). This table entry bypasses the dynamic path for the exact 2415000 match.
    */
-  { 2417000, 101,  101,  1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 24,  1, 7,    5, 0,
+  { 2415000, 101,  101,  1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 8,   1, 3,    5, 0,
     1, 1, 0, 0x20, 0x0c, 1, 0x0e, 0, 0, },
   { 1620000, 135,  135,  1, 1, 3,   1, 1, 0, 1, 1, 1, 1, 4,   0, 3,    5, 5,   0x10,
     1, 0, 0x20, 0x0c, 1, 0x0e, 0, 0, },

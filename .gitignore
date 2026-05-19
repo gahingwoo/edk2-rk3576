@@ -62,6 +62,7 @@ edk2_port/bl32.bin
 edk2_port/rk3576-rock-4d.dtb
 edk2_port/rk3576-rock-4d_EFI.its
 edk2_port/rk3576-rock-4d_EFI.itb
+log.txt
 
 # ==============================================================================
 # Generic build artifacts
