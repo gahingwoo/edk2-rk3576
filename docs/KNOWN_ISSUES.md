@@ -1,38 +1,46 @@
 # Known issues
 
-## Display (HDMI) — no signal from UEFI
+## Display (HDMI) — visual artifacts
 
-`RK3576SimpleFbDxe` allocates a 1920×1080 framebuffer in DRAM and installs a
-proper EFI `GraphicsOutputProtocol`, and it programs `VOP2 WIN0_YRGB_MST` to
-that buffer:
+HDMI display is **working**: VOP2 and the DW HDMI QP TX PHY are fully
+initialised, EDID is read via DDC, and the GOP is installed at the monitor's
+native resolution (2560×1440@60 QHD on the test monitor). The UEFI front
+page, HII menus, and GRUB all render directly on the monitor.
+
+Two minor visual issues remain under investigation:
+
+### Horizontal stripe artifacts
+
+Faint horizontal bands overlay the image. Root cause: the ROPLL dynamic
+calculation path (`HdptxPhyClkPllCalc`) produces incorrect SDM register
+values for BitRate=2415000 kbps (2560×1440@60 EDID pixel clock × 10).
+
+The `RationalBestApproximation` call computes K=6 / Lc=13 as a ratio of
+`(Fref×Mdiv − Fvco) / (Sdc/16)`, but the hardware SDM evaluates
+`correction = Fref × (Sdm_Num / Sdm_Deno)`. Writing Sdm_Num=6,
+Sdm_Deno=13 to the hardware yields:
 
 ```
-RK3576SimpleFb: GOP installed — 1920x1080 FB @ 0xEEB30000 stride 7680
+Fvco = 24000 × (101 − 6/13) ≈ 2 412 923 kHz   ← wrong (2077 kHz low)
 ```
 
-**However**, the HDMI TX PHY and VOP2 timing engine are **not** initialised
-by EDK2, and U-Boot SPL on RK3576 does not bring them up either. The result
-is that nothing leaves the SoC pin until the Linux DRM driver takes over the
-display controller — at which point GRUB (via `efifb` on the surviving GOP)
-and Fedora both render normally.
+The correct table entry uses Sdm_Num=3, Sdm_Deno=8:
 
-Concretely missing / TODO:
+```
+Fvco = 24000 × (101 − 3/8) = 2 415 000 kHz    ← exact
+```
 
-* RK3576-specific HDMI TX PHY init (bases at `0x27DA0000` /
-  HDPTXPHY GRF at `0x26032000`)
-* RK3576 VOP2 mode-set (the existing `Vop2Dxe.c` is RK3588-only — different
-  GRF map and plane-mask layout)
-* EDID readout (DDC over I²C5 or via SCDC)
+**Fix:** `ROPLL_TMDS_CONFIG` now has a `{ 2415000, … }` entry with the
+correct Sdm_Num=3 / Sdm_Deno=8, replacing the previous 2417000 placeholder
+(which was never matched). The dynamic path is no longer taken for this
+bit-rate. Rebuilt image pending hardware verification.
 
-The RK3588 display drivers in `edk2-rockchip` cannot be reused as-is:
+### Slight horizontal shift
 
-* `DwHdmiQpLib.c` hard-codes `RK3588_SYS_GRF_BASE`, `RK3588_VO1_GRF_BASE`,
-  `RK3588_*_MASK`.
-* `Vop2Dxe.c` only carries `mVpDataRK3588`, `mVpPlaneMaskRK3588`,
-  `RK3588_*_PD_*`.
-* `LcdGraphicsOutputDxe.inf` references only `gRK3588TokenSpaceGuid`.
-
-**Workaround:** boot via UART; let GRUB or Linux bring up the panel.
+The framebuffer content appears shifted a few pixels to the right relative
+to the monitor's expected active-image position. Under investigation — may
+be a downstream effect of the ROPLL clock error above (monitor auto-adjust
+compensating for wrong pixel clock); expected to resolve after the ROPLL fix.
 
 ## PCIe — link training fails in UEFI
 
