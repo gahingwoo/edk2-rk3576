@@ -986,7 +986,16 @@ DwHdmiQpConnectorInit (
 {
   CONNECTOR_STATE  *ConnectorState = &DisplayState->ConnectorState;
 
-  ConnectorState->OutputMode = ROCKCHIP_OUT_MODE_AAAA;
+  /*
+   * Use P888 (24bpp, 8bpc per channel) for standard HDMI output.
+   * AAAA (30bpp) causes a VOP2↔DW-HDMI-QP bit-width mismatch: VOP2 outputs
+   * 10 bits/channel on the parallel bus but VO0_GRF_SOC_CON8=0x0600 tells the
+   * HDMI TX to expect 8 bits/channel (24-bit bus). The resulting misalignment
+   * produces horizontal stripe artifacts and a horizontal image shift.
+   * P888 matches the VO0_GRF 8bpc setting and is what Linux DRM uses for
+   * standard (non-deep-colour) HDMI on RK3576.
+   */
+  ConnectorState->OutputMode = ROCKCHIP_OUT_MODE_P888;
   ConnectorState->ColorSpace = V4L2_COLORSPACE_DEFAULT;
 
   return EFI_SUCCESS;
@@ -1896,7 +1905,8 @@ DwHdmiQpConnectorEnable (
     DisplayState->ConnectorState.DisplayMode.Flags,
     DisplayState->ConnectorState.BusFormat,
     DisplayState->ConnectorState.OutputMode,
-    DisplayState->ConnectorState.OutputMode == 15 ? "AAAA=OK" : "UNEXPECTED"
+    DisplayState->ConnectorState.OutputMode == 0 ? "P888=OK" :
+    DisplayState->ConnectorState.OutputMode == 15 ? "AAAA(deep-color)" : "UNEXPECTED"
     );
 
   Status = DwHdmiQpSetup (Hdmi, DisplayState);
