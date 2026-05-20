@@ -207,7 +207,7 @@ Key hardware differences vs ROCK 4D:
 | HDMI 5V | Always-on from carrier board | GPIO2 PB0 (MOSFET switch) |
 | WiFi reset | GPIO1 PC6 active-low | GPIO2 PD1 active-high |
 | BT enable | GPIO1 PC7 active-high | Shared WiFi supply |
-| Work LED | GPIO0 PB4 | GPIO0 PB4 (power) + GPIO0 PC4 (user) |
+| LEDs | GPIO0_PB4 (module work LED) + GPIO2_PD0 (carrier green) + GPIO2_PD1 (carrier red) | GPIO0_PB4 (power) + GPIO0_PC4 (user) |
 
 **What is implemented (`Platform/ArmSoM/CM5IO/`):**
 

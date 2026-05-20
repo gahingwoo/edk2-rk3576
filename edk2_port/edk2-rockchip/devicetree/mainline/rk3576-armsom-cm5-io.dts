@@ -82,9 +82,17 @@
 	};
 
 	/*
-	 * Work LED: green LED on GPIO0 PB4 (active-high).
-	 * Located on the CM5-IO carrier PCB.
-	 * From rk3576-armsom-cm5-io.dts BSP.
+	 * LEDs on the CM5-IO carrier board (verified from schematic
+	 * ARMSOM-CM5-IO-1V1_20240829.DSN):
+	 *
+	 *  work-led  (module, GPIO0 PB4):  on CM5 module itself, active-high.
+	 *                                   BSP net: no explicit carrier net.
+	 *  led-green (carrier, GPIO2 PD0):  net "LED_GREEN_EN / UART4_TX_M0 /
+	 *                                   I2C6_SCL_M2" — green status LED
+	 *                                   on CM5-IO board.
+	 *  led-red   (carrier, GPIO2 PD1):  net "LED_RED_EN / UART4_RX_M0 /
+	 *                                   I2C6_SDA_M2" — red status LED
+	 *                                   on CM5-IO board.
 	 */
 	leds: leds {
 		compatible = "gpio-leds";
@@ -94,6 +102,24 @@
 			function = LED_FUNCTION_ACTIVITY;
 			gpios = <&gpio0 RK_PB4 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "heartbeat";
+		};
+
+		led_green: led-green {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&gpio2 RK_PD0 GPIO_ACTIVE_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&led_green_en>;
+			default-state = "on";
+		};
+
+		led_red: led-red {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_FAULT;
+			gpios = <&gpio2 RK_PD1 GPIO_ACTIVE_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&led_red_en>;
+			default-state = "off";
 		};
 	};
 
@@ -721,6 +747,16 @@
 	leds {
 		work_led_en: work-led-en {
 			rockchip,pins = <0 RK_PB4 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		/* GPIO2 PD0 — green carrier LED (LED_GREEN_EN / UART4_TX_M0 / I2C6_SCL_M2) */
+		led_green_en: led-green-en {
+			rockchip,pins = <2 RK_PD0 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		/* GPIO2 PD1 — red carrier LED (LED_RED_EN / UART4_RX_M0 / I2C6_SDA_M2) */
+		led_red_en: led-red-en {
+			rockchip,pins = <2 RK_PD1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
