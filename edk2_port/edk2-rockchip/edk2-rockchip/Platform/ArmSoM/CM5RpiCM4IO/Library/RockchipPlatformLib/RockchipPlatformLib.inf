@@ -1,0 +1,41 @@
+## @file
+#
+#  RockchipPlatformLib for ArmSoM CM5-IO (RK3576)
+#
+#  Board-specific initialization: GPIO iomux, PMIC voltage rails, GMAC,
+#  USB power, PCIe power/reset, HDMI, SPI NOR, and platform identification.
+#
+#  Copyright (c) 2021, Rockchip Limited.
+#  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
+#  Copyright (c) 2025, ArmSoM CM5-IO EDK2 Port
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = RockchipPlatformLib
+  FILE_GUID                      = b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = RockchipPlatformLib
+
+[Sources]
+  RockchipPlatformLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ArmPkg/ArmPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+  GpioLib
+  RK806
+  PWMLib
+  TimerLib

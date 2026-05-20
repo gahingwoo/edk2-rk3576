@@ -1,0 +1,19 @@
+##
+#  CM5Waveshare.Modules.fdf.inc — FV_MAIN module list for ArmSoM CM5-IO
+#
+#  Included by Silicon/Rockchip/RK3576/RK3576.fdf via
+#  RK_PLATFORM_FVMAIN_MODULES define in CM5Waveshare.dsc.
+##
+
+  # Compiled mainline DTS (rk3576-armsom-cm5-io-uefi.dts)
+  INF RuleOverride = DTB  $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
+
+  # Vendor DTB — currently not included (requires pre-compiled BSP DTB).
+  # To enable, obtain rk3576-armsom-cm5-io.dtb from the ArmSoM rockchip-kernel
+  # (branch linux-6.1-stan-rkr6.1), copy it to:
+  #   devicetree/vendor/rk3576-armsom-cm5-io.dtb
+  # then uncomment the line below:
+  # INF RuleOverride = DTB  $(PLATFORM_DIRECTORY)/DeviceTree/Vendor.inf
+
+  # Splash screen / boot logo
+  INF $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf

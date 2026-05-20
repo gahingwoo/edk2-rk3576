@@ -5,11 +5,14 @@
 [![Board](https://img.shields.io/badge/board-Radxa%20ROCK%204D-green)]()
 [![Board](https://img.shields.io/badge/board-FriendlyElec%20NanoPi%20M5-blue)]()
 [![Board](https://img.shields.io/badge/board-ArmSoM%20CM5--IO-orange)]()
+[![Board](https://img.shields.io/badge/board-ArmSoM%20CM5%20RPI--CM4--IO-purple)]()
+[![Board](https://img.shields.io/badge/board-Waveshare%20CM4--IO--BASE--B-red)]()
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20BSD--2--Clause--Patent-lightgrey)]()
 
 A working **EDK2 / TianoCore UEFI** port for **Rockchip RK3576** single-board
 computers. Primary target is the **Radxa ROCK 4D**, with initial support for
-the **FriendlyElec NanoPi M5** and **ArmSoM CM5-IO**. The ROCK 4D port includes a matching
+the **FriendlyElec NanoPi M5**, **ArmSoM CM5-IO**, **ArmSoM CM5 RPI-CM4-IO**,
+and **Waveshare CM4-IO-BASE-B**. The ROCK 4D port includes a matching
 **TF-A BL31 + U-Boot SPL** boot stack, verified on real hardware
 (12 GB LPDDR5 SKU) booting **Fedora 44 aarch64** to GNOME desktop.
 
@@ -229,6 +232,58 @@ Key hardware differences vs ROCK 4D:
 cd edk2_port
 bash build_rock4d_uefi.sh --config configs/armsom-cm5-io.conf
 # Output: Build/CM5IO/RELEASE_GCC/FV/BL33_AP_UEFI.Fv
+```
+
+### ArmSoM CM5 RPI-CM4-IO — Initial Support
+
+The **CM5 RPI-CM4-IO** is the official RPi CM4-compatible carrier board for the
+ArmSoM CM5 module, featuring a full-size HDMI, M.2 M-Key PCIe slot, 4× USB
+2.0/3.0, Gigabit Ethernet, 40-pin GPIO header, and RPi-compatible connectors.
+
+GPIO wiring is **identical to CM5-IO** for all UEFI-relevant peripherals
+(PCIe reset, GMAC reset, USB power, LEDs, WiFi/BT). Key carrier-board
+differences from CM5-IO:
+
+| Feature | CM5 RPI-CM4-IO | CM5-IO |
+|---|---|---|
+| USB HOST 5V regulator | Always-on (no GPIO gate) | GPIO4 PB0 |
+| Carrier RTC | PCF85063a on I2C5 (addr 0x51) | — |
+| Fan controller | EMC2301 on I2C5 (addr 0x2f) | — |
+| USB-C PD controller | None (power-in only) | — |
+
+**What is implemented (`Platform/ArmSoM/CM5RpiCM4IO/`):**
+
+- `CM5RpiCM4IO.dsc` — same PCDs as CM5-IO; `PcdDeviceTreeName="rk3576-armsom-cm5-rpi-cm4-io"`
+- `RockchipPlatformLib.c` — identical GPIO callbacks to CM5-IO
+- `rk3576-armsom-cm5-rpi-cm4-io.dts` + UEFI overlay DTS
+- I2C5 node: EMC2301 fan controller + PCF85063a RTC
+
+**Building:**
+
+```bash
+cd edk2_port
+bash build_rock4d_uefi.sh --config configs/armsom-cm5-rpi-cm4-io.conf
+```
+
+### Waveshare CM4-IO-BASE-B — Initial Support
+
+The **Waveshare CM4-IO-BASE-B** is a CM4-form-factor carrier board compatible
+with the ArmSoM CM5 module. Hardware is effectively identical to the
+CM5 RPI-CM4-IO from a UEFI perspective (same GPIO routing, same I2C5
+peripherals: PCF85063a RTC + EMC2301 fan).
+
+Only the `compatible` string and `model` differ:
+
+```
+compatible = "waveshare,cm4-io-base-b", "armsom,cm5", "rockchip,rk3576";
+model = "Waveshare CM4-IO-BASE-B";
+```
+
+**Building:**
+
+```bash
+cd edk2_port
+bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4b.conf
 ```
 
 ---
