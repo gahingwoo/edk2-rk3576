@@ -15,7 +15,8 @@
  *    - HDMI 5V:      always-on on carrier board (ROCK 4D: GPIO2 PB0)
  *    - WiFi reset:   GPIO1 PC6 active-low   (ROCK 4D: GPIO2 PD1 active-high)
  *    - BT power:     GPIO1 PC7 active-high  (ROCK 4D: shared with WiFi)
- *    - LED:          GPIO0 PB4 work LED AH  (ROCK 4D: GPIO0 PB4 + GPIO0 PC4)
+ *    - LED (module): GPIO0 PB4 work LED AH  (ROCK 4D: GPIO0 PB4 + GPIO0 PC4)
+ *    - LED (carrier): GPIO2 PD0 green (LED_GREEN_EN) + GPIO2 PD1 red (LED_RED_EN)
  *
  *  All GPIO pins verified from:
  *    ArmSoM rockchip-kernel (branch linux-6.1-stan-rkr6.1):
@@ -591,8 +592,12 @@ PwmFanSetSpeed (
 /*
  * PlatformInitLeds — Initialize board LEDs
  *
- * CM5-IO: one work LED on GPIO0 PB4 (active-high, green).
- * From rk3576-armsom-cm5-io.dts: work-led { gpios = <&gpio0 RK_PB4 GPIO_ACTIVE_HIGH> }
+ * CM5-IO LEDs (verified from schematic ARMSOM-CM5-IO-1V1_20240829.DSN):
+ *   - GPIO0 PB4: module work LED (on CM5 module, active-high)
+ *   - GPIO2 PD0: carrier green LED  net "LED_GREEN_EN / UART4_TX_M0 / I2C6_SCL_M2"
+ *   - GPIO2 PD1: carrier red   LED  net "LED_RED_EN  / UART4_RX_M0 / I2C6_SDA_M2"
+ *
+ * Use carrier LEDs for UEFI status: green = running, red = fault.
  */
 VOID
 EFIAPI
@@ -600,9 +605,17 @@ PlatformInitLeds (
   VOID
   )
 {
-  /* Work LED: GPIO0 PB4 = bank 0, pin 12 */
+  /* Module work LED: GPIO0 PB4 */
   GpioPinWrite (0, GPIO_PIN_PB4, FALSE);
   GpioPinSetDirection (0, GPIO_PIN_PB4, GPIO_PIN_OUTPUT);
+
+  /* Carrier green LED: GPIO2 PD0 (LED_GREEN_EN) */
+  GpioPinWrite (2, GPIO_PIN_PD0, FALSE);
+  GpioPinSetDirection (2, GPIO_PIN_PD0, GPIO_PIN_OUTPUT);
+
+  /* Carrier red LED: GPIO2 PD1 (LED_RED_EN) */
+  GpioPinWrite (2, GPIO_PIN_PD1, FALSE);
+  GpioPinSetDirection (2, GPIO_PIN_PD1, GPIO_PIN_OUTPUT);
 }
 
 VOID
@@ -611,8 +624,12 @@ PlatformSetStatusLed (
   IN BOOLEAN  Enable
   )
 {
-  /* Work LED: GPIO0 PB4 active-high */
+  /* Module work LED: GPIO0 PB4 active-high */
   GpioPinWrite (0, GPIO_PIN_PB4, Enable);
+
+  /* Carrier green LED on, red LED off when running */
+  GpioPinWrite (2, GPIO_PIN_PD0, Enable);
+  GpioPinWrite (2, GPIO_PIN_PD1, FALSE);
 }
 
 /*
