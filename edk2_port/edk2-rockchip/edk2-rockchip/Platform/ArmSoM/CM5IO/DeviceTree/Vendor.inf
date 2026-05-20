@@ -1,0 +1,27 @@
+#/** @file
+#
+#  ArmSoM CM5-IO Vendor Device Tree (pre-compiled DTB from ArmSoM BSP kernel)
+#
+#  To use this INF:
+#    1. Obtain rk3576-armsom-cm5-io.dtb from the ArmSoM rockchip-kernel
+#       (branch: linux-6.1-stan-rkr6.1, arch/arm64/boot/dts/rockchip/)
+#    2. Place the DTB at:
+#       devicetree/vendor/rk3576-armsom-cm5-io.dtb
+#    3. Uncomment the Vendor.inf line in CM5IO.Modules.fdf.inc
+#    4. Uncomment the $(PLATFORM_DIRECTORY)/DeviceTree/Vendor.inf line
+#       in the [Components.common] section of CM5IO.dsc
+#
+#  Copyright (c) 2025, ArmSoM CM5-IO EDK2 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = DeviceTree-Vendor
+  FILE_GUID                      = e4f5a6b7-c8d9-4e0f-1a2b-3c4d5e6f7a8b
+  MODULE_TYPE                    = USER_DEFINED
+  VERSION_STRING                 = 1.0
+
+[Binaries]
+  BIN|devicetree/vendor/rk3576-armsom-cm5-io.dtb

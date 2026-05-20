@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * ArmSoM CM5-IO — UEFI mainline FDT overlay
+ *
+ * Extends rk3576-armsom-cm5-io.dts with nodes that may not yet be in the
+ * upstream kernel but are required for a fully-featured UEFI-booted system:
+ *   - ComboPHY0 (USB3 lane for USB-C DRD0 port; here used for PCIe)
+ *     NOTE: When PcdComboPhy0Mode = PCIE (default), ComboPHY0 drives PCIe.
+ *           When switched to USB3, it drives USBDP PHY for DRD0 SS lane.
+ *           This overlay enables both for maximum Linux compatibility;
+ *           only one will actually be active at runtime based on CRU mux.
+ *   - USB-DP PHY (SuperSpeed for DRD0 USB-C)
+ *   - USB2 OTG PHY ports (DRD0 and DRD1 host-mode supplies)
+ *   - DRD0 DWC3 configured as host
+ *   - DRD1 DWC3 host mode (combphy1_psu USB3 + u2phy1 HS)
+ *   - UFS host controller
+ *
+ * Copyright (c) 2025, ArmSoM CM5-IO EDK2 Port
+ */
+
+#include "rk3576-armsom-cm5-io.dts"
+
+/*
+ * combphy0_ps: When used as USB3 lane for DRD0 (USB-C), enable here.
+ * The base DTS already has combphy0_ps = okay for PCIe mode.
+ * This is a no-op if already enabled; harmless to repeat.
+ */
+&combphy0_ps {
+	status = "okay";
+};
+
+/*
+ * USB-DP PHY — provides USB3 SuperSpeed lane to the USB-C port (DRD0).
+ * Required for SuperSpeed enumeration on the USB-C connector.
+ */
+&usbdp_phy {
+	status = "okay";
+};
+
+/*
+ * USB2 OTG sub-nodes: both ports driven as host.
+ * DRD0 (USB-C): u2phy0_otg with vcc_5v0_typec0 supply.
+ * DRD1 (USB-A): u2phy1_otg with vcc_5v0_usbhost supply.
+ */
+&u2phy0_otg {
+	phy-supply = <&vcc_5v0_typec0>;
+	status = "okay";
+};
+
+&u2phy1_otg {
+	phy-supply = <&vcc_5v0_usbhost>;
+	status = "okay";
+};
+
+/*
+ * DRD0 — USB-C port: force host mode for UEFI.
+ * The OS can switch to OTG/dual-role via a FUSB302 USB-PD controller
+ * on the carrier board.
+ */
+&usb_drd0_dwc3 {
+	dr_mode = "host";
+	status = "okay";
+};
+
+/*
+ * DRD1 — USB-A port: host mode (combphy1 SS + u2phy1 HS).
+ */
+&usb_drd1_dwc3 {
+	dr_mode = "host";
+	status = "okay";
+};
+
+/*
+ * UFS host controller.
+ * RK3576 silicon includes a UFS HC; enabling it allows the OS UFS driver
+ * to probe even if no UFS device is physically connected.
+ */
+&ufshc {
+	status = "okay";
+};
