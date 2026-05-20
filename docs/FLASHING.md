@@ -7,6 +7,20 @@ Two delivery paths are provided in this repo:
 | `binaries/u-boot.itb`      | U-Boot only (BL31 + U-Boot proper + DTB)     |
 | `rock4d-spi-edk2.img`      | Full UEFI image for 16 MB SPI NOR            |
 
+## Option 0 — Browser flash (easiest, no tools required)
+
+Open **[gahingwoo.github.io/edk2-webflash](https://gahingwoo.github.io/edk2-webflash/)** in **Chrome or Edge** (WebUSB required).
+
+1. Hold the MaskROM button, plug in USB-C, then release.
+2. Click **Flash UEFI** and pick the Rockchip device from the browser prompt.
+3. After the loader is sent, click **Reconnect Device** and pick the device again.
+4. Wait for *Flash complete* — the board reboots into UEFI automatically.
+
+No drivers needed on Linux / macOS. On Windows, install WinUSB for the device
+via [Zadig](https://zadig.akeo.ie/) first.
+
+Source: [github.com/gahingwoo/edk2-webflash](https://github.com/gahingwoo/edk2-webflash)
+
 ## Option A — SPI NOR (UEFI, persistent) via MaskROM
 
 1. Put the board in **MaskROM** mode (hold MaskROM button while powering on,

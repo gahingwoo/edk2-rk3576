@@ -8,6 +8,7 @@
 [![Board](https://img.shields.io/badge/board-ArmSoM%20CM5%20RPI--CM4--IO-purple)]()
 [![Board](https://img.shields.io/badge/board-Waveshare%20CM4--IO--BASE--B-red)]()
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20BSD--2--Clause--Patent-lightgrey)]()
+[![Flash](https://img.shields.io/badge/flash-WebUSB%20browser%20tool-informational)](https://gahingwoo.github.io/edk2-webflash/)
 
 A working **EDK2 / TianoCore UEFI** port for **Rockchip RK3576** single-board
 computers. Primary target is the **Radxa ROCK 4D**, with initial support for
@@ -53,7 +54,16 @@ and **Waveshare CM4-IO-BASE-B**. The ROCK 4D port includes a matching
 
 ## TL;DR
 
-### Flash the prebuilt UEFI image (16 MB SPI NOR, MaskROM mode)
+### Flash the prebuilt UEFI image
+
+#### Option 1 — Browser (no tools required)
+
+Open **[gahingwoo.github.io/edk2-webflash](https://gahingwoo.github.io/edk2-webflash/)** in Chrome or Edge.
+Hold the MaskROM button, plug in USB-C, follow the on-screen steps.
+No drivers or command-line tools needed on Linux / macOS.
+(Windows: install WinUSB for the device via [Zadig](https://zadig.akeo.ie/).)
+
+#### Option 2 — rkdeveloptool (MaskROM mode)
 
 ```bash
 rkdeveloptool db   binaries/rk3576_ddr.bin
