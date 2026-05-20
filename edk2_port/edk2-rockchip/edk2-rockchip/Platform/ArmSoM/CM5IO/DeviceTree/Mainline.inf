@@ -1,0 +1,24 @@
+#/** @file
+#
+#  ArmSoM CM5-IO Mainline Device Tree (compiled from DTS source at build time)
+#
+#  DTS source: devicetree/mainline/rk3576-armsom-cm5-io-uefi.dts
+#
+#  Copyright (c) 2025, ArmSoM CM5-IO EDK2 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = DeviceTree-Mainline
+  FILE_GUID                      = f5a6b7c8-d9e0-4f1a-2b3c-4d5e6f7a8b9c
+  MODULE_TYPE                    = USER_DEFINED
+  VERSION_STRING                 = 1.0
+
+[Sources]
+  devicetree/mainline/rk3576-armsom-cm5-io-uefi.dts
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec

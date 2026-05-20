@@ -4,11 +4,12 @@
 [![SoC](https://img.shields.io/badge/SoC-RK3576-blue)]()
 [![Board](https://img.shields.io/badge/board-Radxa%20ROCK%204D-green)]()
 [![Board](https://img.shields.io/badge/board-FriendlyElec%20NanoPi%20M5-blue)]()
+[![Board](https://img.shields.io/badge/board-ArmSoM%20CM5--IO-orange)]()
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20BSD--2--Clause--Patent-lightgrey)]()
 
 A working **EDK2 / TianoCore UEFI** port for **Rockchip RK3576** single-board
 computers. Primary target is the **Radxa ROCK 4D**, with initial support for
-the **FriendlyElec NanoPi M5**. The ROCK 4D port includes a matching
+the **FriendlyElec NanoPi M5** and **ArmSoM CM5-IO**. The ROCK 4D port includes a matching
 **TF-A BL31 + U-Boot SPL** boot stack, verified on real hardware
 (12 GB LPDDR5 SKU) booting **Fedora 44 aarch64** to GNOME desktop.
 
@@ -181,6 +182,54 @@ bash build_rock4d_uefi.sh --config configs/nanopi-m5.conf
 ```
 
 Or using the dedicated GitHub Actions workflow (`.github/workflows/build-nanopi-m5.yml`).
+
+### ArmSoM CM5-IO — Initial Support
+
+> **Mainline DTS status:** `rk3576-armsom-cm5-io.dts` is **not yet in mainline
+> Linux** (as of May 2026). This port ships a hand-written mainline-style DTS
+> based on GPIO data from the ArmSoM BSP kernel (`linux-6.1-stan-rkr6.1`).
+> No vendor DTB is bundled — the UEFI image defaults to the compiled mainline DTS.
+
+**Same RK3576 SoC as ROCK 4D.** The CM5 is an RPi CM4-form-factor compute
+module; the CM5-IO is the official carrier board.
+
+Key hardware differences vs ROCK 4D:
+
+| Feature | CM5-IO | ROCK 4D |
+|---|---|---|
+| eMMC | Onboard on CM5 module (`RK_EMMC_ENABLE=TRUE`) | None |
+| USB HOST 5V | GPIO4 PB0 | GPIO0 PD3 |
+| USB OTG 5V | GPIO2 PB6 | GPIO2 PD2 |
+| PCIe reset | GPIO2 PB1 | GPIO2 PB4 |
+| PCIe power | GPIO0 PC3 | GPIO2 PD3 |
+| GMAC0 PHY reset | GPIO2 PB3 (active-low) | GPIO2 PB5 (active-low) |
+| GMAC0 mode | `rgmii-rxid`, `tx_delay=0x21` | `rgmii-id` (PHY handles both delays) |
+| HDMI 5V | Always-on from carrier board | GPIO2 PB0 (MOSFET switch) |
+| WiFi reset | GPIO1 PC6 active-low | GPIO2 PD1 active-high |
+| BT enable | GPIO1 PC7 active-high | Shared WiFi supply |
+| Work LED | GPIO0 PB4 | GPIO0 PB4 (power) + GPIO0 PC4 (user) |
+
+**What is implemented (`Platform/ArmSoM/CM5IO/`):**
+
+- Full `CM5IO.dsc` with `RK_EMMC_ENABLE=TRUE`, PCIe, HDMI, GbE, USB
+- `RockchipPlatformLib.c`: all GPIO differences vs ROCK 4D reflected
+- `DeviceTree/Mainline.inf`: builds `rk3576-armsom-cm5-io-uefi.dts` at compile time
+- `DeviceTree/Vendor.inf`: present but commented out (supply your own DTB)
+- `rk3576-armsom-cm5-io.dts` + `rk3576-armsom-cm5-io-uefi.dts`: mainline-style board DTS
+
+**Known gaps / TODOs:**
+
+- No hardware sample available for boot testing
+- Vendor DTB must be compiled from ArmSoM BSP kernel (`linux-6.1-stan-rkr6.1`)
+- FUSB302 USB-C PD controller and ES8388 audio codec not yet in DTS
+
+**Building for CM5-IO:**
+
+```bash
+cd edk2_port
+bash build_rock4d_uefi.sh --config configs/armsom-cm5-io.conf
+# Output: Build/CM5IO/RELEASE_GCC/FV/BL33_AP_UEFI.Fv
+```
 
 ---
 
