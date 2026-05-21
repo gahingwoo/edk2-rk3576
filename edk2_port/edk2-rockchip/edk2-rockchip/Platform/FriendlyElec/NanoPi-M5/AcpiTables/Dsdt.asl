@@ -38,12 +38,28 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // GPIO pin controller and banks
     include ("Gpio.asl")
 
-    // Serial (UART2)
+    // DMA controllers (DMA0 @ 0x2ab90000, DMA1 @ 0x2abb0000, DMA2 @ 0x2abd0000)
+    include ("Dma.asl")
+
+    // Serial (UART2 @ 0x2AD50000)
     include ("Uart.asl")
+
+    // I2C buses (SoC-level)
+    // I2C1: RK806 PMIC @ 0x23 (on CM5/NanoPi M5 module)
+    // I2C2: HYM8563 RTC @ 0x51
+    include ("I2c.asl")
+
+    // SPI buses (SPI0..SPI4 on RK3576; SFC0 disabled — UEFI owns SPI-NOR flash)
+    include ("Spi.asl")
 
     // USB (2x DWC3 OTG — DRD0 and DRD1)
     include ("Usb3Host0.asl")
     include ("Usb3Host1.asl")
+    // XHC2 stub — disabled; RK3576 has only 2 USB DRD controllers
+    include ("Usb3Host2.asl")
+
+    // SATA — disabled stub; RK3576 has no SATA controller
+    include ("Sata.asl")
 
     // Network (GMAC0 + GMAC1, DWC EQoS)
     // NanoPi M5 has BOTH ports connected (unlike ROCK 4D which only uses GMAC0)

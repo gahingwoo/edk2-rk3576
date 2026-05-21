@@ -21,6 +21,9 @@ Scope (\_SB_) {
     }
     Name (_UID, Zero)
     Name (_CCA, Zero)
+    Name (_STA, Zero)  // disabled: RK3576 has no standalone EHCI; USB2 HS is
+                       // provided through DWC3 OTG cores (XHC0/XHC1).
+                       // Base address 0xFC800000 is RK3588-only; do not enable.
 
     Method (_CRS, 0x0, Serialized) {
       Name (RBUF, ResourceTemplate() {

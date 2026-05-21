@@ -30,8 +30,9 @@ Device (MAC1) {
   Name (_DSD, Package () {
     ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
     Package () {
-      Package () { "compatible", Package () { "snps,dwmac-4.20a", "snps,dwmac" } },
+      Package () { "compatible", Package () { "rockchip,rk3576-gmac", "snps,dwmac-4.20a", "snps,dwmac" } },
       Package () { "interrupt-names", Package () { "macirq", "eth_wake_irq" } },
+      Package () { "phy-mode", "rgmii-rxid" },
       Package () { "snps,mixed-burst", 1 },
       Package () { "snps,tso", 1 },
       Package () { "snps,axi-config", "AXIC" },

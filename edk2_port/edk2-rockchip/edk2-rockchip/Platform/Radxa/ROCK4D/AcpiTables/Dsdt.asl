@@ -35,7 +35,7 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // GPIO pin controller and banks (GPIO0..GPIO4)
     include ("Gpio.asl")
 
-    // DMA controllers (DMA0 @ 0xFEA10000, DMA1 @ 0xFEA30000)
+    // DMA controllers (DMA0 @ 0x2ab90000, DMA1 @ 0x2abb0000, DMA2 @ 0x2abd0000)
     include ("Dma.asl")
 
     // Serial (UART2)

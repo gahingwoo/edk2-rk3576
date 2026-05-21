@@ -1,11 +1,29 @@
 /** @file
  *
+ *  I2S / SAI audio controllers.
+ *
+ *  WARNING: This file contains RK3588 MMIO addresses and CRU register
+ *  offsets throughout.  It must NOT be included in any RK3576 platform
+ *  DSDT until all addresses have been corrected for RK3576.
+ *
+ *  Known incorrect values (RK3588 → RK3576 replacements needed):
+ *    I2S0: 0xfe470000 → 0x2a620000; IRQ 212 → TBD (verify rk3576.dtsi)
+ *    I2S1: 0xfe480000 → 0x2a630000; IRQ 213 → TBD
+ *    I2S0 CRU OperationRegion: 0xFD7C0360 → RK3576 CRU base (0x27200000) + offset
+ *    I2S1 CRU OperationRegion: 0xFD7F0314 → RK3576 PMU CRU base + offset
+ *    RK3588_PLL_AUPLL_RATE / RK3588_PLL_CPLL_RATE values differ on RK3576
+ *
+ *  None of the current RK3576 platform DSDTs include this file,
+ *  and no RK3576 .dsc file sets PcdI2S0Supported/PcdI2S1Supported
+ *  (those PCDs are in gRK3588TokenSpaceGuid).  This file is safe to
+ *  leave as-is until RK3576 audio support is implemented.
+ *
  *  Copyright (c) 2024, Mario Bălănică <mariobalanica02@gmail.com>
  *  Copyright (c) 2024, CoolStar. All rights reserved.
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *
- **/
+ **/ 
 #include "AcpiTables.h"
 
 #define RK3588_PLL_AUPLL_RATE   786432000
