@@ -5,6 +5,10 @@
 #  RK_PLATFORM_FVMAIN_MODULES define in CM5WaveshareA.dsc.
 ##
 
+  # ACPI tables — disabled: FDT-only build.
+  # To enable, uncomment the line below and the matching entries in CM5WaveshareA.dsc.
+  # INF RuleOverride = ACPITABLE  $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+
   # Compiled mainline DTS (rk3576-armsom-cm5-waveshare-cm4a-uefi.dts)
   INF RuleOverride = DTB  $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
 
