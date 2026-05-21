@@ -7,13 +7,14 @@
 [![Board](https://img.shields.io/badge/board-ArmSoM%20CM5--IO-orange)]()
 [![Board](https://img.shields.io/badge/board-ArmSoM%20CM5%20RPI--CM4--IO-purple)]()
 [![Board](https://img.shields.io/badge/board-Waveshare%20CM4--IO--BASE--B-red)]()
+[![Board](https://img.shields.io/badge/board-Waveshare%20CM4--IO--BASE--A-darkred)]()
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20BSD--2--Clause--Patent-lightgrey)]()
 [![Flash](https://img.shields.io/badge/flash-WebUSB%20browser%20tool-informational)](https://gahingwoo.github.io/edk2-webflash/)
 
 A working **EDK2 / TianoCore UEFI** port for **Rockchip RK3576** single-board
 computers. Primary target is the **Radxa ROCK 4D**, with initial support for
 the **FriendlyElec NanoPi M5**, **ArmSoM CM5-IO**, **ArmSoM CM5 RPI-CM4-IO**,
-and **Waveshare CM4-IO-BASE-B**. The ROCK 4D port includes a matching
+**Waveshare CM4-IO-BASE-B**, and **Waveshare CM4-IO-BASE-A**. The ROCK 4D port includes a matching
 **TF-A BL31 + U-Boot SPL** boot stack, verified on real hardware
 (12 GB LPDDR5 SKU) booting **Fedora 44 aarch64** to GNOME desktop.
 
@@ -303,6 +304,38 @@ model = "Waveshare CM4-IO-BASE-B";
 ```bash
 cd edk2_port
 bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4b.conf
+```
+
+### Waveshare CM4-IO-BASE-A — Initial Support
+
+The **Waveshare CM4-IO-BASE-A** is a simpler CM4-form-factor carrier board for
+the ArmSoM CM5 module. It omits the I2C5 RTC and fan controller found on the
+BASE-B and CM5 RPI-CM4-IO, and routes USB HOST 5V and USB HOST via an onboard
+FE1.1S USB hub (always-on, no GPIO gate).
+
+Key differences from CM4-IO-BASE-B:
+
+| Feature | CM4-IO-BASE-A | CM4-IO-BASE-B |
+|---|---|---|
+| Carrier RTC | None | PCF85063a on I2C5 |
+| Fan controller | None | EMC2301 on I2C5 |
+| USB HOST 5V | Always-on (FE1.1S hub) | Always-on |
+| USB-C DRD0 | Adapter connector (always-on) | Adapter connector |
+
+**What is implemented (`Platform/ArmSoM/CM5WaveshareA/`):**
+
+- `CM5WaveshareA.dsc` — uses correct CM5IO PCD format; PCIe, HDMI, GbE, USB
+- `RockchipPlatformLib.c` — USB HOST always-on, no I2C5, module work-LED only
+- `rk3576-armsom-cm5-waveshare-cm4a.dts` + UEFI overlay DTS
+- No I2C5 peripherals (no RTC, no fan controller)
+- **Build verified:** `output/CM5WaveshareA/CM5WaveshareA-spi-edk2.img` (16 MB)
+
+**Building:**
+
+```bash
+cd edk2_port
+bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4a.conf
+# Output: output/CM5WaveshareA/CM5WaveshareA-spi-edk2.img
 ```
 
 ---

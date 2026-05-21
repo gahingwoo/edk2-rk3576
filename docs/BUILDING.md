@@ -47,6 +47,14 @@ bash build_rock4d_uefi.sh
 # Build a different platform
 bash build_rock4d_uefi.sh --config configs/armsom-cm5-io.conf
 # Output: ../output/CM5IO/CM5IO-spi-edk2.img
+
+# Waveshare CM4-IO-BASE-A
+bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4a.conf
+# Output: ../output/CM5WaveshareA/CM5WaveshareA-spi-edk2.img
+
+# Waveshare CM4-IO-BASE-B
+bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4b.conf
+# Output: ../output/CM5Waveshare/CM5Waveshare-spi-edk2.img
 ```
 
 The script:

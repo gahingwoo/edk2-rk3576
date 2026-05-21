@@ -1,0 +1,28 @@
+#/** @file
+#
+#  ArmSoM CM5 Waveshare CM4-IO-BASE-A Vendor Device Tree (pre-compiled DTB)
+#
+#  To use this INF:
+#    1. Build or obtain rk3576-armsom-cm5-waveshare-cm4a.dtb from the ArmSoM
+#       rockchip-kernel (branch: linux-6.1-stan-rkr6.1,
+#       arch/arm64/boot/dts/rockchip/)
+#    2. Place the DTB at:
+#       devicetree/vendor/rk3576-armsom-cm5-waveshare-cm4a.dtb
+#    3. Uncomment the Vendor.inf line in CM5WaveshareA.Modules.fdf.inc
+#    4. Uncomment the $(PLATFORM_DIRECTORY)/DeviceTree/Vendor.inf line
+#       in the [Components.common] section of CM5WaveshareA.dsc
+#
+#  Copyright (c) 2025, Waveshare CM4-IO-BASE-A EDK2 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = DeviceTree-Vendor
+  FILE_GUID                      = 2a213934-0d7d-4008-bd58-76764fa7d4ee
+  MODULE_TYPE                    = USER_DEFINED
+  VERSION_STRING                 = 1.0
+
+[Binaries]
+  BIN|devicetree/vendor/rk3576-armsom-cm5-waveshare-cm4a.dtb

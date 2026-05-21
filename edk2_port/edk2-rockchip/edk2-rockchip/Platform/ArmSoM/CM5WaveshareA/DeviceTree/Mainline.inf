@@ -1,0 +1,24 @@
+#/** @file
+#
+#  ArmSoM CM5 Waveshare CM4-IO-BASE-A Mainline Device Tree (compiled from DTS source at build time)
+#
+#  DTS source: devicetree/mainline/rk3576-armsom-cm5-waveshare-cm4a-uefi.dts
+#
+#  Copyright (c) 2025, Waveshare CM4-IO-BASE-A EDK2 Port
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = DeviceTree-Mainline
+  FILE_GUID                      = 737a5941-8ace-4557-bc8d-8b504ddaca6d
+  MODULE_TYPE                    = USER_DEFINED
+  VERSION_STRING                 = 1.0
+
+[Sources]
+  devicetree/mainline/rk3576-armsom-cm5-waveshare-cm4a-uefi.dts
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
