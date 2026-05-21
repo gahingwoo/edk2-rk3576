@@ -5,6 +5,10 @@
 #  RK_PLATFORM_FVMAIN_MODULES define in CM5IO.dsc.
 ##
 
+  # ACPI tables — disabled: FDT-only build.
+  # To enable, uncomment the line below and the matching entries in CM5IO.dsc.
+  # INF RuleOverride = ACPITABLE  $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+
   # Compiled mainline DTS (rk3576-armsom-cm5-io-uefi.dts)
   INF RuleOverride = DTB  $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
 

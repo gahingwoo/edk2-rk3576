@@ -255,6 +255,12 @@
 
 ################################################################################
 [Components.common]
+  # ACPI tables (Windows ARM64, FreeBSD, ACPI-capable OS)
+  # Default: disabled — FDT-only build.
+  # To enable: uncomment both lines below, rebuild, and set ConfigTableMode to ACPI
+  # in the UEFI front-page menu (or set PcdConfigTableModeDefault to 0x1 or 0x3).
+  # $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+
   # Board-specific Device Tree (Mainline — compiled from DTS at build time)
   $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
 
@@ -270,6 +276,10 @@
 
   # RK3576 SoC DXE driver
   Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.inf
+
+  # RK3576 ACPI platform driver — disabled: FDT-only build.
+  # Uncomment together with AcpiTables.inf above to enable ACPI mode.
+  # Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
 
   # FDT platform fixups (PCIe / SATA / VOP device tree nodes)
   Silicon/Rockchip/RK3576/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf
