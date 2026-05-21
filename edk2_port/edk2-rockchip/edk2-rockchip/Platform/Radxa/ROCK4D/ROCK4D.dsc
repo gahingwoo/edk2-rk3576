@@ -58,8 +58,7 @@
   DEFINE RK3576_GMAC_ENABLE      = TRUE
   DEFINE RK_GMAC_ENABLE          = FALSE
   DEFINE RK3588_GMAC_ENABLE      = FALSE
-  # PCIe: disabled - no RK3576-native PciHostBridgeLib yet.
-  # Rk3588PciHostBridgeLib touches RK3588-only MMIO -> crash on RK3576.
+  # PCIe: enabled via Rk3576PciHostBridgeLib (native RK3576 implementation).
   DEFINE RK3576_PCIE_ENABLE      = TRUE
   DEFINE RK3588_PCIE_ENABLE      = FALSE
   # AHCI: RK3576 has no SATA controller
@@ -95,8 +94,9 @@
   # UiApp banner shows "<NNNN> MB RAM" and OS sees system info.
   DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
   # USB hosts:
-  #   DWC3 DRD0 @ 0x23000000 (USB-C, u2phy0 + Samsung USBDP combo PHY) - HS only
-  #     (UsbDpPhyDxe is RK3588-only / not yet ported -> SS PHY not initialized).
+  #   DWC3 DRD0 @ 0x23000000 (USB-C, u2phy0 + Samsung USBDP combo PHY)
+  #     UEFI phase: HS-only (UsbDpPhyDxe not ported to RK3576).
+  #     Kernel phase: SS+HS (phy-rockchip-usbdp.c in mainline Linux inits USBDP PHY).
   #   DWC3 DRD1 @ 0x23400000 (USB-A, u2phy1 + combphy1) - SS + HS.
   # PCDs (DwcXhci base addresses) are set further down. RK3576 has no
   # EHCI/OHCI -> set count to 0 below.

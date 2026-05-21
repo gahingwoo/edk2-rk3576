@@ -95,8 +95,10 @@ Full instructions in [docs/BUILDING.md](docs/BUILDING.md).
   variable services (SPI NOR-backed)
 * **Storage**: eMMC, SPI NOR, SD card
 * **USB 2.0 host (EHCI + OHCI)** — HID, mass-storage
-* **USB 3.0 host (xHCI / DWC3 SuperSpeed)** — verified at 5 Gbps,
-  enumerates SS hubs and devices in UEFI; Linux sees a `5000M` root hub
+* **USB 3.0 host (xHCI / DWC3 SuperSpeed)**
+  * USB-A (DRD1, combphy1): SS+HS in UEFI and Linux — verified at 5 Gbps
+  * USB-C (DRD0, Samsung USBDP combo PHY): HS in UEFI; SS+HS in Linux
+    kernel via mainline `phy-rockchip-usbdp.c` (`rockchip,rk3576-usbdp-phy`)
 * **Network**: 1 GbE (in Linux; UEFI driver pending)
 * **HDMI display**: VOP2 + DW HDMI QP TX PHY fully initialised in EDK2.
   EDID read via DDC. GOP installed at the monitor's native resolution
@@ -143,7 +145,8 @@ build time. See [docs/BUILDING.md](docs/BUILDING.md).
 | CPU / RAM | Working — 8-core A72+A53, 12 GB LPDDR5 |
 | eMMC / SD / SPI NOR | Working — all three storage paths functional |
 | USB 2.0 (EHCI/OHCI) | Working — HID and mass-storage |
-| USB 3.0 xHCI @ 5 Gbps | Working — verified |
+| USB 3.0 xHCI @ 5 Gbps (USB-A) | Working — verified |
+| USB-C (USB3 SS+HS in kernel) | Working — kernel via `phy-rockchip-usbdp.c` |
 | 1 GbE (GMAC0) | Working under Linux; UEFI SNP driver pending |
 | HDMI | **Working** — VOP2 + HDPTX PHY init, EDID read, GOP at native res |
 | PCIe | Partial — DBI reachable, LTSSM never reaches L0 |

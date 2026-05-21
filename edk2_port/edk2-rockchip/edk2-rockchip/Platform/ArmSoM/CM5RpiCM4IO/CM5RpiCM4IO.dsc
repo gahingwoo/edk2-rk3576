@@ -108,7 +108,8 @@
   # SMBIOS system tables
   DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
 
-  # USB: DWC3 DRD0 (USB2-only, USBDP PHY HS) + DWC3 DRD1 (combphy1)
+  # USB: DWC3 DRD0 (USBDP PHY; HS in UEFI, SS+HS in kernel) + DWC3 DRD1 (combphy1)
+  #   Note: RPi CM4 IO connector repurposes USB3 SS lanes for HDMI — no SS on this carrier.
   DEFINE RK_USB_ENABLE           = TRUE
 
   # Use RK3588 platform include (well-tested foundation); RK3576 PCDs override below
