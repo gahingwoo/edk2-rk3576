@@ -55,6 +55,10 @@ bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4a.conf
 # Waveshare CM4-IO-BASE-B
 bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4b.conf
 # Output: ../output/CM5Waveshare/CM5Waveshare-spi-edk2.img
+
+# Raspberry Pi CM4 IO Board (with ArmSoM CM5 module)
+bash build_rock4d_uefi.sh --config configs/armsom-cm5-rpi-cm4-io.conf
+# Output: ../output/CM5RpiCM4IO/CM5RpiCM4IO-spi-edk2.img
 ```
 
 The script:

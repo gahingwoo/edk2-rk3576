@@ -1,11 +1,15 @@
 ##
-#  CM5Waveshare.Modules.fdf.inc — FV_MAIN module list for ArmSoM CM5-IO
+#  CM5Waveshare.Modules.fdf.inc — FV_MAIN module list for ArmSoM CM5 (Waveshare CM4-IO-BASE-B)
 #
 #  Included by Silicon/Rockchip/RK3576/RK3576.fdf via
 #  RK_PLATFORM_FVMAIN_MODULES define in CM5Waveshare.dsc.
 ##
 
-  # Compiled mainline DTS (rk3576-armsom-cm5-io-uefi.dts)
+  # ACPI tables — disabled: FDT-only build.
+  # To enable, uncomment the line below and the matching entries in CM5Waveshare.dsc.
+  # INF RuleOverride = ACPITABLE  $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+
+  # Compiled mainline DTS (rk3576-armsom-cm5-waveshare-cm4b-uefi.dts)
   INF RuleOverride = DTB  $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
 
   # Vendor DTB — currently not included (requires pre-compiled BSP DTB).
