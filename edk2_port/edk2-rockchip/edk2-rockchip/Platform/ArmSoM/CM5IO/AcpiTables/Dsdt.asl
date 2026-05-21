@@ -60,17 +60,45 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // GPIO pin controller and banks (GPIO0..GPIO4)
     include ("Gpio.asl")
 
-    // DMA controllers (DMA0 @ 0xFEA10000, DMA1 @ 0xFEA30000)
+    // DMA controllers (DMA0 @ 0x2ab90000, DMA1 @ 0x2abb0000, DMA2 @ 0x2abd0000)
     include ("Dma.asl")
 
-    // Serial (UART0 @ 0x2AD40000, 1.5 Mbaud debug console)
+    // Serial: UART2 @ 0x2AD50000 (ttyS2 userspace UART; UART0 is SPCR debug console)
     include ("Uart.asl")
 
     // I2C buses (SoC-level; CM5-IO carrier has no I2C5 devices)
-    // I2C1: RK806 PMIC @ 0x23 (on CM5 module)
-    // I2C2: HYM8563 RTC @ 0x51 (on CM5 module)
-    // Note: CM5-IO carrier has no I2C5 EMC2301 fan or PCF85063 RTC
     include ("I2c.asl")
+
+    // CM5-IO board: RK806 PMIC on I2C1 @ 0x23
+    // rockchip,rk806 driver uses i2c_device_id; PRP0001 allows ACPI enumeration
+    // if the MFD driver supports OF-compatible probing via ACPI bus.
+    Scope (I2C1) {
+      Device (PMC0) {
+        Name (_ADR, 0x23)
+        Name (_HID, "PRP0001")
+        Name (_UID, 0)
+        Name (_DSD, Package () {
+          ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+          Package () {
+            Package () { "compatible", Package () { "rockchip,rk806" } },
+            Package () { "spi-max-frequency", 1000000 },
+          }
+        })
+        Method (_STA) { Return (0xf) }
+      }
+    }
+
+    // CM5-IO board: HYM8563 RTC on I2C2 @ 0x51
+    // Linux rtc-hym8563.c has built-in ACPI support for HID HYMB0001.
+    // No GPIO interrupt declared here; driver polls if IRQ not present.
+    Scope (I2C2) {
+      Device (RTC0) {
+        Name (_ADR, 0x51)
+        Name (_HID, "HYMB0001")
+        Name (_UID, 0)
+        Method (_STA) { Return (0xf) }
+      }
+    }
 
     // SPI buses (SPI0..SPI2 on RK3576; SFC0 is the separate SPI-NOR boot flash)
     include ("Spi.asl")

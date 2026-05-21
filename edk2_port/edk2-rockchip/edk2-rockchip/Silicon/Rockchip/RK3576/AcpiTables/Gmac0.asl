@@ -30,8 +30,12 @@ Device (MAC0) {
   Name (_DSD, Package () {
     ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
     Package () {
-      Package () { "compatible", Package () { "snps,dwmac-4.20a", "snps,dwmac" } },
+      // Use the SoC-specific compatible first; stmmac will fall back to dwmac-4.20a
+      Package () { "compatible", Package () { "rockchip,rk3576-gmac", "snps,dwmac-4.20a", "snps,dwmac" } },
       Package () { "interrupt-names", Package () { "macirq", "eth_wake_irq" } },
+      // phy-mode: most RK3576 boards use RGMII with RX-delay handled by PHY.
+      // TX delay is set by UEFI via PcdGmac0TxDelay and persists across handoff.
+      Package () { "phy-mode", "rgmii-rxid" },
       Package () { "snps,mixed-burst", 1 },
       Package () { "snps,tso", 1 },
       Package () { "snps,axi-config", "AXIC" },
