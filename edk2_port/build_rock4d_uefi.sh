@@ -40,24 +40,45 @@ WSDIR="$SCRIPT_DIR/edk2-rockchip"
 MISC="$SCRIPT_DIR/misc"
 LOG="$WSDIR/build_rock4d.log"
 BINDIR="$(dirname "$SCRIPT_DIR")/binaries"
-OUT_IMG="$(dirname "$SCRIPT_DIR")/rock4d-spi-edk2.img"
-
 RED='\033[0;31m'; GRN='\033[0;32m'; YLW='\033[1;33m'; CYN='\033[0;36m'; NC='\033[0m'
 info()  { echo -e "${GRN}[INFO]${NC}  $*"; }
 warn()  { echo -e "${YLW}[WARN]${NC}  $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 step()  { echo -e "\n${CYN}══ $* ══${NC}"; }
 
-# ── Subcommands ───────────────────────────────────────────────────────────────
-if [ "${1:-}" = "clean" ]; then
-    info "Cleaning..."
-    rm -rf "$WSDIR/Build" "$WSDIR/Conf" "$WSDIR/build_rock4d.log"
-    info "Done. Re-run without arguments to rebuild."
-    exit 0
-fi
-
+# ── Argument parsing ─────────────────────────────────────────────────────────────
 JUST_PACKAGE=0
-[ "${1:-}" = "package" ] && JUST_PACKAGE=1
+CONF_FILE=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        clean)
+            info "Cleaning..."
+            rm -rf "$WSDIR/Build" "$WSDIR/Conf" "$WSDIR/build_rock4d.log"
+            info "Done. Re-run without arguments to rebuild."
+            exit 0
+            ;;
+        package)  JUST_PACKAGE=1 ;;
+        --config) CONF_FILE="${2:-}"; shift ;;
+        *) ;;
+    esac
+    shift
+done
+
+# ── Load platform config ────────────────────────────────────────────────────────────
+[ -z "$CONF_FILE" ] && CONF_FILE="$SCRIPT_DIR/configs/rock-4d.conf"
+[[ "$CONF_FILE" = /* ]] || CONF_FILE="$SCRIPT_DIR/$CONF_FILE"
+[ -f "$CONF_FILE" ] || error "Config file not found: $CONF_FILE"
+# shellcheck disable=SC1090
+source "$CONF_FILE"
+PLATFORM_NAME="${PLATFORM_NAME:-ROCK4D}"
+DSC_FILE="${DSC_FILE:-edk2-rockchip/Platform/Radxa/ROCK4D/ROCK4D.dsc}"
+DEVICE_TREE_NAME="${DEVICE_TREE_NAME:-rk3576-rock-4d}"
+
+OUTDIR="$(dirname "$SCRIPT_DIR")/output/${PLATFORM_NAME}"
+OUT_IMG="$OUTDIR/${PLATFORM_NAME}-spi-edk2.img"
+mkdir -p "$OUTDIR"
+
+info "Platform: ${PLATFORM_NAME}  |  Config: $CONF_FILE"
 
 # ── STEP 1: Detect environment ────────────────────────────────────────────────
 step "1/6  Detect Environment"
@@ -271,8 +292,8 @@ if [ $JUST_PACKAGE -eq 0 ]; then
     warn "开始 EDK2 编译，预计 15-30 分钟..."
     set +e
     build -s -n "$(nproc)" -a AARCH64 -t GCC \
-          -p "Platform/Radxa/ROCK4D/ROCK4D.dsc" \
-          -b RELEASE -D FIRMWARE_VER="rk3576-rock4d-v0.1" \
+          -p "$DSC_FILE" \
+          -b RELEASE -D FIRMWARE_VER="rk3576-${PLATFORM_NAME}-v0.1" \
           2>&1 | tee "$LOG"
     BUILD_EXIT="${PIPESTATUS[0]}"
     set -e
@@ -284,7 +305,7 @@ fi
 # ── 打包成 SPI NOR 镜像 ───────────────────────────────────────────────────────
 
 # EDK2 编译产物
-FV="$WSDIR/Build/ROCK4D/RELEASE_GCC/FV/BL33_AP_UEFI.Fv"
+FV="$WSDIR/Build/${PLATFORM_NAME}/RELEASE_GCC/FV/BL33_AP_UEFI.Fv"
 [ -f "$FV" ] || error "找不到 BL33_AP_UEFI.Fv，编译是否成功？\n期望路径: $FV"
 
 FV_KB=$(( $(stat -c%s "$FV" 2>/dev/null || stat -f%z "$FV") / 1024 ))
@@ -322,14 +343,14 @@ touch "$PKGDIR/bl32.bin"  # OP-TEE stub（不使用，但 ITS 引用了它）
 
 # DTB：使用 SPL 传给 UEFI 用的 board DTB
 DTB_SRC="$MISC/rk3576_spl.dtb"
-[ ! -f "$DTB_SRC" ] && DTB_SRC="$SCRIPT_DIR/devicetree/vendor/rk3576-rock-4d.dtb"
-[ -f "$DTB_SRC" ] && cp "$DTB_SRC" "$PKGDIR/rk3576-rock-4d.dtb" || {
+[ ! -f "$DTB_SRC" ] && DTB_SRC="$SCRIPT_DIR/devicetree/vendor/${DEVICE_TREE_NAME}.dtb"
+[ -f "$DTB_SRC" ] && cp "$DTB_SRC" "$PKGDIR/${DEVICE_TREE_NAME}.dtb" || {
     warn "找不到 DTB，创建空占位"
-    touch "$PKGDIR/rk3576-rock-4d.dtb"
+    touch "$PKGDIR/${DEVICE_TREE_NAME}.dtb"
 }
 
 # 3. 生成 FIT image (.itb) — 使用 gen_fit_its.py 动态生成
-DEVICE="rk3576-rock-4d"
+DEVICE="$DEVICE_TREE_NAME"
 BL31_ENTRY=$(python3 -c "
 from elftools.elf.elffile import ELFFile
 with open('$BL31','rb') as f:
@@ -440,7 +461,7 @@ info "FIT image: 写入 0x060000 ✓ ($((FIT_SIZE/1024))KB / 上限 $((FIT_MAX/1
 #    store initialisation and producing:
 #      "FtwPei: Both working and spare block are invalid."
 #      "Firmware Volume for Variable Store is corrupted"
-FD="$WSDIR/Build/ROCK4D/RELEASE_GCC/FV/NOR_FLASH_IMAGE.fd"
+FD="$WSDIR/Build/${PLATFORM_NAME}/RELEASE_GCC/FV/NOR_FLASH_IMAGE.fd"
 if [ -f "$FD" ]; then
     # 0xFC0000 in 4KB blocks = 4032; 192KB / 4KB = 48 blocks
     dd if="$FD" of="$OUT_IMG" bs=4K skip=4032 count=48 seek=4032 conv=notrunc status=none
@@ -449,7 +470,7 @@ fi
 
 echo ""
 echo -e "${GRN}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GRN}║          ROCK 4D EDK2 UEFI 固件打包完成！               ║${NC}"
+echo -e "${GRN}║    ${PLATFORM_NAME} EDK2 UEFI 固件打包完成！                       ║${NC}"
 echo -e "${GRN}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  镜像: ${CYN}$OUT_IMG${NC}  ($(du -h "$OUT_IMG" | cut -f1))"
@@ -467,7 +488,7 @@ echo    "    BootROM → SPL → FIT 解析 → BL31 (EL3) → EDK2 BL33 (EL2) �
 echo ""
 echo -e "${CYN}刷写 SPI NOR (MaskROM 模式，USB-C 连接):${NC}"
 echo "  rkdeveloptool db binaries/rk3576_ddr.bin"
-echo "  rkdeveloptool wl 0 rock4d-spi-edk2.img"
+echo "  rkdeveloptool wl 0 output/${PLATFORM_NAME}/${PLATFORM_NAME}-spi-edk2.img"
 echo "  rkdeveloptool rd"
 echo ""
 echo -e "${CYN}串口 (1500000 8N1) 预期输出:${NC}"

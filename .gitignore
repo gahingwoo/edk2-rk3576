@@ -55,6 +55,9 @@ edk2_port/edk2-rockchip/idblock.bin
 edk2_port/edk2-rockchip/idblock-mainline.bin
 edk2_port/edk2-rockchip/images/
 
+# Per-platform firmware images produced by build_rock4d_uefi.sh
+output/
+
 # generated FIT image inputs / outputs left in edk2_port/
 edk2_port/BL33_AP_UEFI.Fv
 edk2_port/bl31_*.bin

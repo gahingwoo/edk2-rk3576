@@ -79,8 +79,14 @@ See [docs/FLASHING.md](docs/FLASHING.md) for details and recovery.
 ```bash
 cd edk2_port
 # Clone third-party trees once (see docs/BUILDING.md for the exact commands)
+
+# Build for ROCK 4D (default)
 bash build_rock4d_uefi.sh
-# Output: rock4d-spi-edk2.img
+# Output: output/ROCK4D/ROCK4D-spi-edk2.img
+
+# Build for a specific platform
+bash build_rock4d_uefi.sh --config configs/armsom-cm5-io.conf
+# Output: output/CM5IO/CM5IO-spi-edk2.img
 ```
 
 Full instructions in [docs/BUILDING.md](docs/BUILDING.md).

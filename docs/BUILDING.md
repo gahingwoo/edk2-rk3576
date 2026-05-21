@@ -40,11 +40,18 @@ git clone --depth=1 https://github.com/tianocore/edk2-platforms.git
 
 ```bash
 cd edk2_port
+# Build ROCK 4D (default)
 bash build_rock4d_uefi.sh
+# Output: ../output/ROCK4D/ROCK4D-spi-edk2.img
+
+# Build a different platform
+bash build_rock4d_uefi.sh --config configs/armsom-cm5-io.conf
+# Output: ../output/CM5IO/CM5IO-spi-edk2.img
 ```
 
 The script:
 
+* Loads the platform config (`--config`; defaults to `configs/rock-4d.conf`)
 * Detects host architecture (AArch64 / x86_64) and sets `GCC_AARCH64_PREFIX`
 * Rebuilds **BaseTools** locally (mandatory on AArch64 hosts — the prebuilt
   `bin/` shipped in EDK2 is x86_64)
@@ -52,14 +59,14 @@ The script:
   (`-Wimplicit-function-declaration`, LTO removal, stack-protector workaround)
 * Symlinks `/Scripts/GccBase.lds` (required by the EDK2 GCC linker script —
   it is hard-coded as an absolute path)
-* Builds `Platform/Radxa/ROCK4D/ROCK4D.dsc` (~15–30 minutes)
+* Builds the platform DSC (~15–30 minutes)
 * Packs **BL31 + EDK2 + DTB** into a FIT image
-* Assembles the final 16 MB SPI NOR image as `rock4d-spi-edk2.img`
+* Assembles the final 16 MB SPI NOR image into `../output/<PLATFORM_NAME>/`
 
 ## 4. Flash the result
 
-See [FLASHING.md](FLASHING.md) (use the freshly built `rock4d-spi-edk2.img`
-in place of the prebuilt one).
+See [FLASHING.md](FLASHING.md) (use the freshly built image from
+`output/<PLATFORM_NAME>/` in place of the prebuilt one).
 
 ## Manual build (if the script fails)
 
