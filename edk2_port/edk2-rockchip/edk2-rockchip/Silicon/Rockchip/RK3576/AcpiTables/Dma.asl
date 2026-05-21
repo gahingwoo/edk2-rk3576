@@ -1,5 +1,12 @@
 /** @file
  *
+ *  RK3576 DMA controllers (DMA0..DMA2, ARM PL330).
+ *
+ *  Addresses and interrupts verified against upstream rk3576.dtsi:
+ *    DMA0  @ 0x2ab90000, GIC_SPI 32+33 → ACPI 64+65
+ *    DMA1  @ 0x2abb0000, GIC_SPI 34+35 → ACPI 66+67
+ *    DMA2  @ 0x2abd0000, GIC_SPI 36+37 → ACPI 68+69
+ *
  *  Copyright (c) 2022, Rockchip Electronics Co. Ltd.
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -19,19 +26,19 @@
       Name (RBUF, ResourceTemplate ()
       {
         Memory32Fixed (ReadWrite,
-          0xFEA10000,         // Address Base
+          0x2ab90000,         // Address Base
           0x00004000,         // Address Length
         )
         Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
         {
-          0x00000076,
+          64,
         }
         Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
         {
-          0x00000077,
+          65,
         }
       })
-      Return (RBUF) /* \_SB_.DMA0._CRS.RBUF */
+      Return (RBUF)
     }
     Name (_DSD, Package() {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
@@ -50,19 +57,19 @@
       Name (RBUF, ResourceTemplate ()
       {
         Memory32Fixed (ReadWrite,
-          0xFEA30000,         // Address Base
+          0x2abb0000,         // Address Base
           0x00004000,         // Address Length
         )
         Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
         {
-          0x00000078,
+          66,
         }
         Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
         {
-          0x00000079,
+          67,
         }
       })
-      Return (RBUF) /* \_SB_.DMA0._CRS.RBUF */
+      Return (RBUF)
     }
     Name (_DSD, Package() {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
@@ -81,19 +88,19 @@
       Name (RBUF, ResourceTemplate ()
       {
         Memory32Fixed (ReadWrite,
-          0xFED10000,         // Address Base
+          0x2abd0000,         // Address Base
           0x00004000,         // Address Length
         )
         Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
         {
-          0x0000007A,
+          68,
         }
         Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
         {
-          0x0000007B,
+          69,
         }
       })
-      Return (RBUF) /* \_SB_.DMA0._CRS.RBUF */
+      Return (RBUF)
     }
     Name (_DSD, Package() {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
