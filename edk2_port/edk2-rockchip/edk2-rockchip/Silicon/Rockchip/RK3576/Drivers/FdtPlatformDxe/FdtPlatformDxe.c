@@ -670,79 +670,25 @@ FdtFixupUsbDrd0 (
   IN VOID  *Fdt
   )
 {
-  INT32       Node;
-  INT32       Ret;
-  CONST VOID  *Phys;
-  INT32       PhysLen;
-  UINT32      U2PhyPhandle;
+  INT32  Node;
+  INT32  Ret;
 
   //
-  // The Samsung USBDP combo PHY (usbdp_phy @ 0x2B010000) for DRD0 (USB-C) is
-  // not yet supported by the mainline kernel.
+  // The Samsung USBDP combo PHY (phy@2b010000, compatible:
+  // "rockchip,rk3576-usbdp-phy") is supported by the mainline Linux kernel
+  // driver phy-rockchip-usbdp.c.  DWC3 DRD0 (usb@23000000) retains its full
+  // "phys" list referencing both u2phy0_otg (USB2) and usbdp_phy (USB3 SS),
+  // enabling SuperSpeed operation on the USB-C port.
   //
-  // Simply disabling the usbdp_phy DT node does NOT fix the problem: the DWC3
-  // node (usb@23000000) still has a phandle reference to it in its "phys"
-  // property.  When the kernel PHY subsystem cannot find a registered provider
-  // for that phandle (because the node is disabled and its driver never probed),
-  // it returns -EPROBE_DEFER rather than -ENODEV.  DWC3 then defers its probe
-  // for the full 30-second deferred_probe_timeout and ultimately fails with
-  // -ETIMEDOUT, leaving the USB-C port completely dead.
+  // Note: when UEFI has previously initialised the USBDP PHY, the kernel's
+  // LCPLL lock check may time out on the first probe attempt and return
+  // -EPROBE_DEFER.  The driver handles this by retrying, so the second probe
+  // succeeds.  No special DT fixup is required for this.
   //
-  // Correct fix: REMOVE the USB3 PHY phandle from the "phys" and "phy-names"
-  // properties of usb@23000000 so that DWC3 never asks for it.  DWC3 will then
-  // probe successfully in USB2-only (HS) mode, which is sufficient to enumerate
-  // mass-storage devices.
+  // DisplayPort Alt Mode is NOT enabled; it requires a FUSB302 Type-C PD
+  // controller and the full Type-C mux/switch stack, which are not yet
+  // wired up in the board DTS.
   //
-  // The "phys" property layout (before this fixup):
-  //   [u2phy0_otg phandle (1 cell, #phy-cells=0)]
-  //   [usbdp_phy phandle  (1 cell)]
-  //   [PHY_TYPE_USB3      (1 cell, the usbdp_phy specifier, #phy-cells=1)]
-  //   Total = 12 bytes
-  //
-  // We keep only the first 4 bytes (u2phy0_otg phandle) and rewrite
-  // phy-names as "usb2-phy".
-  //
-  // Also disable the usbdp_phy node itself so the kernel does not attempt
-  // (and fail) to bind the unsupported driver.
-  //
-
-  DEBUG ((DEBUG_INFO, "FdtPlatform: Trimming DRD0 phys to USB2-only\n"));
-
-  Node = FdtPathOffset (Fdt, "/soc/usb@23000000");
-  if (Node < 0) {
-    DEBUG ((DEBUG_ERROR, "FdtPlatform: usb@23000000 not found: %a\n", FdtStrerror (Node)));
-    goto DisablePhy;
-  }
-
-  Phys = FdtGetProp (Fdt, Node, "phys", &PhysLen);
-  if ((Phys == NULL) || (PhysLen < 4)) {
-    DEBUG ((DEBUG_ERROR, "FdtPlatform: usb@23000000 phys property missing or too short\n"));
-    goto DisablePhy;
-  }
-
-  //
-  // Copy the first phandle (u2phy0_otg) before modifying the FDT, because
-  // FdtSetProp may reallocate the internal data and invalidate the pointer.
-  //
-  CopyMem (&U2PhyPhandle, Phys, sizeof (UINT32));
-
-  Ret = FdtSetProp (Fdt, Node, "phys", &U2PhyPhandle, sizeof (UINT32));
-  if (Ret < 0) {
-    DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to trim phys property: %a\n", FdtStrerror (Ret)));
-    goto DisablePhy;
-  }
-
-  Ret = FdtSetPropString (Fdt, Node, "phy-names", "usb2-phy");
-  if (Ret < 0) {
-    DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to update phy-names property: %a\n", FdtStrerror (Ret)));
-  }
-
-DisablePhy:
-  //
-  // Disable the usbdp_phy node regardless so the kernel does not probe the
-  // unsupported Samsung USBDP PHY driver.
-  //
-  FdtEnableNode (Fdt, "/soc/phy@2b010000", FALSE);
 
   //
   // Remove power-domains from usb@23000000.
