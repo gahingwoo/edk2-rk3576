@@ -2193,12 +2193,54 @@ Vop2PostConfig (
   BgOvlDly   = Crtc->Vps[CrtcState->CrtcID].BgOvlDly;
   BgDly      = Vop2->Data->VpData[CrtcState->CrtcID].PreScanMaxDly;
   BgDly     -= BgOvlDly;
+#ifdef SOC_RK3576
+  /*
+   * RK3576: override BgDly with mainline kernel value.
+   *
+   * Mainline drivers/gpu/drm/rockchip/rockchip_vop2_reg.c rk3576_vop2_setup_bg_dly():
+   *   bg_dly = pre_scan_max_dly[VOP2_DLY_WIN]       (=10 for VP0)
+   *          + pre_scan_max_dly[VOP2_DLY_LAYER_MIX] (=8)
+   *          + pre_scan_max_dly[VOP2_DLY_HDR_MIX]   (=2)
+   *          = 20
+   *
+   * Our VOP2_VP_DATA uses a single PreScanMaxDly=42 (RK3588 value).  This
+   * gives BgDly=38, way too high; combined with the BG_MIX_CTRL write going
+   * to the WRONG address (see below) the real BG_DLY register stayed at 0,
+   * making the layer mixer's scan-start happen before content was ready
+   * and clipping the left-side pixels off-screen (visible as ~20% right shift
+   * of the UEFI progress bar / front page) plus horizontal scanline patterns
+   * from incomplete mix-stage output.
+   */
+  BgDly = 20;
+#endif
   PreScanDly = BgDly + (HDisplay >> 1) - 1;
   if ((Vop2->Version == VOP_VERSION_RK3588) && (HSyncLen < 8)) {
     HSyncLen = 8;
   }
 
   PreScanDly = (PreScanDly << 16) | HSyncLen;
+#ifdef SOC_RK3576
+  /*
+   * RK3576: per-VP OVL_BG_MIX_CTRL is at 0x670 + vp*0x100, NOT at 0x6E0+vp*4
+   * like RK3568/RK3588 (where there was a single global BG_MIX_CTRL register
+   * with one byte per VP).  The 0x6E0 we used to write is some other VP0
+   * register on RK3576 and our write had no effect — BG_DLY stayed at its
+   * hardware reset value of 0.
+   *
+   * Mainline: vop2_writel(vop2, RK3576_OVL_BG_MIX_CTRL(vp->id),
+   *                       FIELD_PREP(RK3576_OVL_BG_MIX_CTRL__BG_DLY, bg_dly));
+   * where BG_DLY = GENMASK(31, 24) — same field position as our existing
+   * BG_MIX_CTRL_SHIFT=24 / BG_MIX_CTRL_MASK=0xff, just at the right address.
+   */
+  Vop2MaskWrite (
+    Vop2->BaseAddress,
+    0x670U + CrtcState->CrtcID * 0x100U,
+    BG_MIX_CTRL_MASK,
+    BG_MIX_CTRL_SHIFT,
+    BgDly,
+    FALSE
+    );
+#else
   Vop2MaskWrite (
     Vop2->BaseAddress,
     RK3568_VP0_BG_MIX_CTRL + CrtcState->CrtcID * 4,
@@ -2207,6 +2249,7 @@ Vop2PostConfig (
     BgDly,
     FALSE
     );
+#endif
   Vop2Writel (Vop2->BaseAddress, RK3568_VP0_PRE_SCAN_HTIMING + VPOffset, PreScanDly);
 
 #ifndef SOC_RK3576
