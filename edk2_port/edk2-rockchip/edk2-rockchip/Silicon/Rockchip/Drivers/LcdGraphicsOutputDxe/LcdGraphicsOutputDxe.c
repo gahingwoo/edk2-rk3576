@@ -915,6 +915,18 @@ LcdGraphicsSetMode (
   This->Mode->FrameBufferBase = VramBaseAddress;
   This->Mode->FrameBufferSize = VramSize;
 
+  DEBUG ((DEBUG_ERROR,
+    "[RK3576-GOP] FB installed: %ux%u PPSL=%u stride=%u bytes "
+    "FbBase=0x%lx FbSize=%u (mode HxV = %ux%u)\n",
+    This->Mode->Info->HorizontalResolution,
+    This->Mode->Info->VerticalResolution,
+    This->Mode->Info->PixelsPerScanLine,
+    This->Mode->Info->PixelsPerScanLine * RK_BYTES_PER_PIXEL,
+    (UINT64)VramBaseAddress,
+    VramSize,
+    Mode->HActive,
+    Mode->VActive));
+
   // The UEFI spec requires that we now clear the visible portions of the
   // output display to black.
 
