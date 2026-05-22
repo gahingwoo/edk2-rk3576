@@ -2917,11 +2917,18 @@ Vop2Init (
       break;
   }
 
-  if (ConnectorState->OutputMode == ROCKCHIP_OUT_MODE_AAAA) {
-    PreDitherDownEn = 0;
-  } else {
-    PreDitherDownEn = 1;
-  }
+  /*
+   * Do NOT override PreDitherDownEn based on OutputMode alone — the switch
+   * above already selects the correct value from BusFormat.  Forcing
+   * PreDitherDownEn=1 for every non-AAAA output enables down-dither even when
+   * source bpp == output bpp (e.g. RGB888 1X24 → P888), which adds a visible
+   * dither pattern to flat colour areas (the "horizontal stripes / banding"
+   * symptom on the UEFI menu background).
+   *
+   * Pre-dither is only meaningful when the internal VOP2 pipeline is wider
+   * than the output bus (e.g. 10bpc YUV processing → 8bpc RGB output); the
+   * BusFormat switch above sets that case correctly.
+   */
 
   Vop2MaskWrite (
     Vop2->BaseAddress,
