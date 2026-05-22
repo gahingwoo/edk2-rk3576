@@ -1518,35 +1518,6 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  CMU_STATUS  post  ", Hdmi->Base + CMU_STATUS);
   HDMI_DUMP_REG ("  SWDISABLE   post  ", Hdmi->Base + GLOBAL_SWDISABLE);
 
-  /* ── STEP 2b: Pulse AVP datapath software reset ──────────────────────────
-   *
-   * Symptom this fixes: on warm reboot (any reset path other than cold power-
-   * on) the HDMI output produces no signal — the previous boot left the
-   * HDMI-TX QP internal Audio/Video Processor in a state our incremental
-   * re-configuration cannot recover from.  Cold power-on works because the
-   * AVP starts at hardware reset defaults.
-   *
-   * Write AVP_DATAPATH_SWINIT_P (BIT(6)) to GLOBAL_SWRESET_REQUEST.  This is
-   * an "init pulse" bit: the hardware self-clears it after asserting an
-   * internal reset to the AVP datapath sub-blocks (frame composer, packet
-   * scheduler, video interface, TMDS serialiser feed).  After this pulse the
-   * AVP is at a known clean state regardless of what the previous boot left.
-   *
-   * Must come AFTER step [2] (clocks ungated) — the reset needs the LINK_QP
-   * and VID_QP clock domains running for the reset assertion to propagate.
-   * Must come BEFORE step [3] (PHY PLL) — otherwise the PHY init can leave
-   * fragments of itself attached to a still-half-reset AVP.
-   *
-   * 5 ms settling gives the reset deassert path time to release all internal
-   * sub-block resets before we start writing AVP-side configuration registers.
-   */
-  HDMI_TRACE ("Setup: [2b] AVP datapath SWRESET pulse — clear warm-boot residue\n");
-  DwHdmiQpRegWrite (Hdmi, AVP_DATAPATH_SWINIT_P, GLOBAL_SWRESET_REQUEST);
-  MicroSecondDelay (5000);
-  HDMI_DUMP_REG ("  SWRESET_REQUEST post", Hdmi->Base + GLOBAL_SWRESET_REQUEST);
-  HDMI_DUMP_REG ("  RST_MGR_STATUS0    ", Hdmi->Base + RESET_MANAGER_STATUS0);
-  HDMI_DUMP_REG ("  RST_MGR_STATUS2    ", Hdmi->Base + RESET_MANAGER_STATUS2);
-
   /* ── STEP 3: PHY PLL configure for TMDS ─────────────────────────────── */
 #ifdef SOC_RK3576
   /*
