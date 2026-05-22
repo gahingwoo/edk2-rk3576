@@ -932,6 +932,19 @@ HdptxPostEnablePll (
   }
 #endif
 
+  /*
+   * Settling delay before status polling — avoids reading stale GRF status bits
+   * left over from a previous PLL configuration (e.g. when a previous Linux
+   * session locked the PLL at a different rate and the status latch still
+   * reports PHY_CLK_RDY=1 before our new lock has actually completed).
+   *
+   * Without this delay, the loop has been observed to exit on iter 0 with
+   * stale "ready" status, which manifests as intermittent moiré or no-signal
+   * because the PHY is not actually producing a stable bit-clock when we
+   * proceed to lane configuration.
+   */
+  NanoSecondDelay (50000);   /* 50 us */
+
   Val = 0;
   for (i = 0; i < 50; i++) {
     Val = GrfRead (Hdptx, GRF_HDPTX_STATUS);
@@ -1387,6 +1400,16 @@ HdptxPostEnableLane (
   PhyWrite (Hdptx, LANE_REG0501, 0x80);  /* data lane 2 */
   PhyWrite (Hdptx, LANE_REG0601, 0x80);  /* clock lane  */
   PHY_TRACE ("PostEnableLane: EI disabled on all 4 lanes (LANE_R0301/0401/0501/0601 = 0x80)\n");
+
+  /*
+   * Settling delay before status polling.  PHY_RDY needs ~100 µs to come up
+   * after EI override + lane-reset deassert; without this delay the polling
+   * loop has been observed to exit on iter 0 with stale GRF status from a
+   * previous lane configuration, producing intermittent moiré because the
+   * differential outputs are still ramping up when we proceed to enable the
+   * AVP video path.
+   */
+  NanoSecondDelay (200000);   /* 200 us */
 
   Val = 0;
   for (i = 0; i < 50; i++) {

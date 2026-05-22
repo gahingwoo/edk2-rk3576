@@ -1479,6 +1479,27 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  CRU_GATE_CON64    ", 0x27200000UL + 0x800 + 64 * 4);
   HDMI_DUMP_REG ("  CRU_SOFTRST_CON28 ", 0x27200000UL + 0xA70);
 
+  /* ── STEP 1b: clear stale controller state from previous boot ──────────
+   *
+   * If Linux (or a previous EDK2 boot) was running before us, the HDMI TX
+   * packet scheduler may still have AVI/GCP/Vendor InfoFrames queued in its
+   * packet RAM and PKT_EN bits set.  When we re-enable the video path at
+   * step [10e] before our own packets are programmed, the controller
+   * momentarily transmits whatever stale packets are sitting in its RAM,
+   * confusing the sink (wrong VIC, wrong color-depth GCP, etc.) and producing
+   * the "sometimes no signal / sometimes moiré" symptom on the very first
+   * boot after a Linux session.
+   *
+   * Reset to a known-empty state: disable all scheduled packets and clear
+   * PKT_CONTROL0 (GCP body) before we run any of the configuration steps.
+   * Step [9] (AVI) and step [11] (AVMUTE/GCP_TX) will re-enable only the
+   * packets they explicitly populate.
+   */
+  HDMI_TRACE ("Setup: [1b] Clear stale packet scheduler state\n");
+  DwHdmiQpRegWrite (Hdmi, 0, PKTSCHED_PKT_EN);
+  DwHdmiQpRegWrite (Hdmi, 0, PKTSCHED_PKT_CONTROL0);
+  HDMI_DUMP_REG ("  PKTSCHED_PKT_EN cleared", Hdmi->Base + PKTSCHED_PKT_EN);
+
   /* ── STEP 2: Enable HDMI TX QP clocks ───────────────────────────────── */
   HDMI_TRACE ("Setup: [2] Enable QP clocks (CMU_CONFIG0) — keep SWDISABLE set until after PHY\n");
   /*
@@ -1681,19 +1702,43 @@ DwHdmiQpSetup (
    * proved DDC is working, so this is extremely unlikely to fail).
    */
   if (SinkInfo->HdmiInfo.ScdcSupported) {
-    EFI_STATUS  ScdcSt;
+    EFI_STATUS  ScdcSt = EFI_DEVICE_ERROR;
     UINT8       ScdcReadback = 0xFF;
+    UINT32      ScdcRetry;
+    BOOLEAN     ScdcWriteOk = FALSE;
+
     HDMI_TRACE ("Setup: [7c] SCDC TMDS_CONFIG=0 (disable scrambling at sink)\n");
-    ScdcSt = DwHdmiScdcWrite (Hdmi, 0x20 /* SCDC_TMDS_CONFIG */, 0x00);
-    if (EFI_ERROR (ScdcSt)) {
-      HDMI_TRACE ("Setup: [7c] SCDC write FAILED Status=%r (non-fatal)\n", ScdcSt);
+
+    /*
+     * Retry the SCDC write up to 3 times.  If a previous Linux session left
+     * the sink in HDMI-2.0 scrambling mode (e.g. after running at 4K), a single
+     * failed I2C transaction here leaves the monitor decoding our unscrambled
+     * TMDS as noise → "sometimes no signal".  Retries give the I2C bus a
+     * chance to recover from glitches caused by HPD bouncing or DDC bus
+     * contention with the EDID read that just completed.
+     */
+    for (ScdcRetry = 0; ScdcRetry < 3; ScdcRetry++) {
+      ScdcSt = DwHdmiScdcWrite (Hdmi, 0x20 /* SCDC_TMDS_CONFIG */, 0x00);
+      if (!EFI_ERROR (ScdcSt)) {
+        ScdcWriteOk = TRUE;
+        HDMI_TRACE ("Setup: [7c] SCDC TMDS_CONFIG=0 OK (attempt %u)\n", ScdcRetry + 1);
+        break;
+      }
+      HDMI_TRACE ("Setup: [7c] SCDC write attempt %u FAILED Status=%r — retrying\n",
+                  ScdcRetry + 1, ScdcSt);
+      MicroSecondDelay (2000);   /* 2 ms — let I2C bus settle between attempts */
+    }
+
+    if (!ScdcWriteOk) {
+      HDMI_TRACE ("Setup: [7c] SCDC write all retries FAILED — sink may stay scrambled\n");
     } else {
-      HDMI_TRACE ("Setup: [7c] SCDC TMDS_CONFIG=0 OK\n");
-      /* Readback for diagnostic */
+      /* Readback for diagnostic.  If the read times out the write still
+       * succeeded (ACK confirmed by DwHdmiScdcWrite); the sink has applied it. */
       ScdcSt = DwHdmiScdcRead (Hdmi, 0x20, &ScdcReadback);
       HDMI_TRACE ("Setup: [7c] SCDC TMDS_CONFIG readback=0x%02x (%a)\n",
                   ScdcReadback,
-                  EFI_ERROR (ScdcSt) ? "read-fail" : (ScdcReadback == 0 ? "OK=0" : "MISMATCH"));
+                  EFI_ERROR (ScdcSt) ? "read-fail (write ACKed)" :
+                  (ScdcReadback == 0 ? "OK=0" : "MISMATCH"));
     }
   }
 
@@ -1809,6 +1854,23 @@ DwHdmiQpSetup (
     DwHdmiQpRegMod (Hdmi, PKTSCHED_GCP_TX_EN, PKTSCHED_GCP_TX_EN, PKTSCHED_PKT_EN);
     HDMI_DUMP_REG ("  PKTSCHED_PKT_CTL0  ", Hdmi->Base + PKTSCHED_PKT_CONTROL0);
     HDMI_DUMP_REG ("  PKTSCHED_PKT_EN    ", Hdmi->Base + PKTSCHED_PKT_EN);
+
+    /*
+     * Re-trigger the AVMUTE CLEAR GCP once more after a 50 ms delay.
+     *
+     * A single GCP transmission can be lost on the HDMI link if it happens
+     * to coincide with HPD bouncing, the sink's PLL re-locking, or its CEC
+     * controller wake-up.  When that single GCP-clear is missed the sink
+     * stays in AVMUTE (default after a sink-side reset) and presents as
+     * "no signal" even though our PHY/VOP2 are healthy.
+     *
+     * Toggling PKT_EN GCP_TX off→on forces the scheduler to re-transmit the
+     * packet now sitting in CONTROL0 (still = 2 = CLEAR_AVMUTE).
+     */
+    MicroSecondDelay (50000);
+    DwHdmiQpRegMod (Hdmi, 0, PKTSCHED_GCP_TX_EN, PKTSCHED_PKT_EN);
+    DwHdmiQpRegMod (Hdmi, PKTSCHED_GCP_TX_EN, PKTSCHED_GCP_TX_EN, PKTSCHED_PKT_EN);
+    HDMI_TRACE ("Setup: [11b] Re-armed GCP_TX (second AVMUTE CLEAR transmission)\n");
 
     /* VIDEO_INTERFACE_CONFIG0: do NOT write BIT(21).
      *
