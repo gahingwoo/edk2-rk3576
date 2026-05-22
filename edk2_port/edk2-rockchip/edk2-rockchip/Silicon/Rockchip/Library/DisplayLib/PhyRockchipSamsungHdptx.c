@@ -805,7 +805,24 @@ RockchipHdptxPhySetRate (
   PhyWrite (Hdptx, 0x1858, 0x00);
   PhyWrite (Hdptx, 0x186C, 0x00);
   GrfWrite (Hdptx, HDPTXPHY_GRF_CON0, PLL_EN, 0x80);
-  GrfWrite (Hdptx, HDPTXPHY_GRF_STATUS0, PLL_LOCK_DONE, 0x8);
+  /*
+   * BUG: HDPTXPHY_GRF_STATUS0 is a read-only status register; the GrfWrite
+   * calls below silently no-op.  The original intent of the upstream
+   * Linaro driver was clearly to POLL these bits (PLL_LOCK_DONE and
+   * PHY_RDY) before proceeding, mirroring the HDMI PHY's PostEnablePll /
+   * PostEnableLane pattern.  Left in place to preserve behaviour for the
+   * DP-PHY code path that is not exercised on ROCK 4D (HDMI is the only
+   * output).  When DP is ever wired up here, replace these with proper
+   * polling loops using GrfRead (RockchipHdptxPhyDpPllInit style).
+   *
+   * Polling pattern that should replace these:
+   *   for (i = 0; i < 50; i++) {
+   *     if (MmioRead32(HDPTXPHY*_GRF_BASE + HDPTXPHY_GRF_STATUS0) & PLL_LOCK_DONE) break;
+   *     NanoSecondDelay (20000);
+   *   }
+   *   if (i == 50) { DEBUG ((DEBUG_ERROR, "DP PHY PLL lock timeout\n")); return -EBUSY; }
+   */
+  GrfWrite (Hdptx, HDPTXPHY_GRF_STATUS0, PLL_LOCK_DONE, 0x8);   /* BUG: status reg, see above */
   PhyUpdateBits (
     Hdptx,
     0x081c,
@@ -813,7 +830,7 @@ RockchipHdptxPhySetRate (
     GENMASK (Dp->LANES - 1, 0)
     );
   NanoSecondDelay (100000);
-  GrfWrite (Hdptx, HDPTXPHY_GRF_STATUS0, PHY_RDY, 0x2);
+  GrfWrite (Hdptx, HDPTXPHY_GRF_STATUS0, PHY_RDY, 0x2);          /* BUG: status reg, see above */
   NanoSecondDelay (10000);
   return 0;
 }
