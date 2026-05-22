@@ -12,7 +12,8 @@
 │   ├── rock4d-sd-uboot.img          ← SD/eMMC image (U-Boot only)
 │   ├── rock4d-spi-uboot.img         ← SPI image (U-Boot only)
 │   └── checksums.sha256
-├── rock4d-spi-edk2.img              ← 16 MB SPI NOR image with UEFI
+├── output/                          ← Built firmware images (gitignored)
+│   └── ROCK4D/ROCK4D-spi-edk2.img   ← 16 MB SPI NOR image with UEFI
 ├── docs/                            ← Documentation (this folder)
 ├── edk2_port/                       ← Source overlay
 │   ├── build_rock4d_uefi.sh         ← One-shot build script

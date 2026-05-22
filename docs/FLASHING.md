@@ -5,7 +5,7 @@ Two delivery paths are provided in this repo:
 | File                       | Use                                          |
 |----------------------------|----------------------------------------------|
 | `binaries/u-boot.itb`      | U-Boot only (BL31 + U-Boot proper + DTB)     |
-| `rock4d-spi-edk2.img`      | Full UEFI image for 16 MB SPI NOR            |
+| `output/ROCK4D/ROCK4D-spi-edk2.img`      | Full UEFI image for 16 MB SPI NOR            |
 
 ## Option 0 — Browser flash (easiest, no tools required)
 
@@ -30,7 +30,7 @@ Source: [github.com/gahingwoo/edk2-webflash](https://github.com/gahingwoo/edk2-w
 
    ```bash
    rkdeveloptool db   binaries/rk3576_ddr.bin    # download DDR init blob
-   rkdeveloptool wl 0 rock4d-spi-edk2.img        # write the 16 MB SPI image
+   rkdeveloptool wl 0 output/ROCK4D/ROCK4D-spi-edk2.img        # write the 16 MB SPI image
    rkdeveloptool rd                              # reboot
    ```
 

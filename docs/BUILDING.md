@@ -133,8 +133,8 @@ sed 's,@DEVICE@,rk3576-rock-4d,g' misc/uefi_rk3576.its > rk3576-rock-4d_EFI.its
 misc/tools/$(uname -m)/mkimage -f rk3576-rock-4d_EFI.its -E rk3576-rock-4d_EFI.itb
 
 # 4. Assemble the SPI NOR image
-dd if=/dev/zero bs=1M count=16 of=rock4d-spi-edk2.img
-dd if=misc/rk3576_spi_nor_gpt.img of=rock4d-spi-edk2.img conv=notrunc
-dd if=../binaries/u-boot-spl.bin   of=rock4d-spi-edk2.img bs=1K seek=32   conv=notrunc
-dd if=rk3576-rock-4d_EFI.itb       of=rock4d-spi-edk2.img bs=1K seek=1024 conv=notrunc
+dd if=/dev/zero bs=1M count=16 of=output/ROCK4D/ROCK4D-spi-edk2.img
+dd if=misc/rk3576_spi_nor_gpt.img of=output/ROCK4D/ROCK4D-spi-edk2.img conv=notrunc
+dd if=../binaries/u-boot-spl.bin   of=output/ROCK4D/ROCK4D-spi-edk2.img bs=1K seek=32   conv=notrunc
+dd if=rk3576-rock-4d_EFI.itb       of=output/ROCK4D/ROCK4D-spi-edk2.img bs=1K seek=1024 conv=notrunc
 ```
