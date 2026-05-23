@@ -3768,6 +3768,32 @@ Vop2Enable (
     VOP2_DUMP_REG ("  VTOTAL_VS_END post", Vop2->BaseAddress + RK3568_VP0_DSP_VTOTAL_VS_END + VPOffset);
     VOP2_DUMP_REG ("  VACT_ST_END post  ", Vop2->BaseAddress + RK3568_VP0_DSP_VACT_ST_END + VPOffset);
     VOP2_DUMP_REG ("  REG_CFG_DONE post ", Vop2->BaseAddress + RK3568_REG_CFG_DONE);
+
+    /* RK3576 per-VP OVL state (vp_offset = vp_id * 0x100) */
+    VOP2_DUMP_REG ("  OVL_CTRL(VP0)       ", Vop2->BaseAddress + 0x600U + VPOffset);
+    VOP2_DUMP_REG ("  OVL_LAYER_SEL(VP0)  ", Vop2->BaseAddress + 0x604U + VPOffset);
+    VOP2_DUMP_REG ("  OVL_MIX0_SRC_COLOR  ", Vop2->BaseAddress + 0x620U + VPOffset);
+    VOP2_DUMP_REG ("  OVL_MIX0_DST_COLOR  ", Vop2->BaseAddress + 0x624U + VPOffset);
+    VOP2_DUMP_REG ("  OVL_BG_MIX_CTRL(VP0)", Vop2->BaseAddress + 0x670U + VPOffset);
+    VOP2_DUMP_REG ("  legacy OVL_PORT_SEL ", Vop2->BaseAddress + 0x608U);
+    VOP2_DUMP_REG ("  legacy VP0_BG_MIX   ", Vop2->BaseAddress + 0x6E0U);
+    VOP2_DUMP_REG ("  VP0_PRE_SCAN_HTIMING", Vop2->BaseAddress + 0x0C18U + VPOffset);
+    VOP2_DUMP_REG ("  VP0_POST_DSP_HACT   ", Vop2->BaseAddress + 0x0C34U + VPOffset);
+    VOP2_DUMP_REG ("  VP0_POST_DSP_VACT   ", Vop2->BaseAddress + 0x0C38U + VPOffset);
+    VOP2_DUMP_REG ("  VP0_POST_SCL_CTRL   ", Vop2->BaseAddress + 0x0C40U + VPOffset);
+    VOP2_DUMP_REG ("  VP0_DCLK_SEL @0xC0C ", Vop2->BaseAddress + 0x0C0CU + VPOffset);
+
+    /* Esmart0 window state (base 0x1800) */
+    VOP2_DUMP_REG ("  ESMART0_CTRL0       ", Vop2->BaseAddress + 0x1800U);
+    VOP2_DUMP_REG ("  ESMART0_CTRL1       ", Vop2->BaseAddress + 0x1804U);
+    VOP2_DUMP_REG ("  ESMART0_REGION0_CTRL", Vop2->BaseAddress + 0x1810U);
+    VOP2_DUMP_REG ("  ESMART0_YRGB_MST    ", Vop2->BaseAddress + 0x1814U);
+    VOP2_DUMP_REG ("  ESMART0_REGION0_VIR ", Vop2->BaseAddress + 0x181CU);
+    VOP2_DUMP_REG ("  ESMART0_REGION0_ACT ", Vop2->BaseAddress + 0x1820U);
+    VOP2_DUMP_REG ("  ESMART0_REGION0_DSP ", Vop2->BaseAddress + 0x1824U);
+    VOP2_DUMP_REG ("  ESMART0_REGION0_DSPST", Vop2->BaseAddress + 0x1828U);
+    VOP2_DUMP_REG ("  ESMART0_REGION0_SCL_CTRL", Vop2->BaseAddress + 0x1830U);
+    VOP2_DUMP_REG ("  ESMART0_REGION0_SCL_YRGB", Vop2->BaseAddress + 0x1834U);
   }
 #endif
 
