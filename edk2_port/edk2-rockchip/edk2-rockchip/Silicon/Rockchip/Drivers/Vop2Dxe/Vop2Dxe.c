@@ -1002,60 +1002,15 @@ Vop2GlobalInitial (
     DEBUG ((DEBUG_INIT, "], primary plane: %d\n", Vop2->VpPlaneMask[i].PrimaryPlaneId));
   }
 
-#ifdef SOC_RK3576
-  /*
-   * RK3576 has PER-VP OVL_LAYER_SEL registers at 0x604, 0x704, 0x804 (not a
-   * single shared register like RK3568/RK3588).  And only the PRIMARY plane
-   * gets routed to slot 0 of each VP's layer mixer; the other "attached"
-   * planes are merely DECLARED as available — they must NOT be assigned to
-   * mixer slots when not actively rendering, otherwise the layer mixer
-   * reads garbage data from unenabled windows and blends it into the
-   * output (visible as horizontal scanlines / pixel banding).
-   *
-   * Matches vendor U-Boot drivers/video/drm/rockchip_vop2.c vop3_overlay():
-   *   1. Initialize each VP's OVL_LAYER_SEL register to 0xFFFFFFFF
-   *      (all 8 slots disabled).
-   *   2. For each VP with a primary plane, write only that plane's
-   *      layer_sel_win_id into slot 0.
-   */
-  for (i = 0; i < Vop2->Data->NrVps; i++) {
-    /* Init all 8 slots to "disabled" (0xF per slot). */
-    Vop2Writel (Vop2->BaseAddress, RK3568_OVL_LAYER_SEL + i * 0x100, 0xFFFFFFFFU);
-  }
-  for (i = 0; i < Vop2->Data->NrVps; i++) {
-    UINT8  PrimaryPhyId = Vop2->VpPlaneMask[i].PrimaryPlaneId;
-
-    if (Vop2->VpPlaneMask[i].AttachedLayersNr == 0) {
-      continue;
-    }
-
-    WinData = Vop2FindWinByPhysID (Vop2, PrimaryPhyId);
-    if (WinData == NULL) {
-      continue;
-    }
-
-    /* Route ONLY the primary plane to slot 0 of this VP's layer mixer.
-     * Other attached planes are intentionally left at the 0xF "disabled"
-     * sentinel so the mixer doesn't blend garbage from inactive windows. */
-    Vop2MaskWrite (
-      Vop2->BaseAddress,
-      RK3568_OVL_LAYER_SEL + i * 0x100,
-      LAYER_SEL_MASK,
-      0,
-      WinData->LayerSelWinID,
-      FALSE
-      );
-  }
-#else
-  /* RK3568 / RK3588: single shared OVL_LAYER_SEL register at 0x604 with
-   * sequential 4-bit slots, one per "attached" layer across all VPs. */
   Shift = 0;
+  /* layer sel win id */
   for (i = 0; i < Vop2->Data->NrVps; i++) {
     LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
     for (j = 0; j < LayerNr; j++) {
       LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
       WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
       if (WinData == NULL) {
+        /* Layer not found in this SoC's window table; skip to avoid NULL deref */
         Shift += 4;
         continue;
       }
@@ -1071,7 +1026,6 @@ Vop2GlobalInitial (
       Shift += 4;
     }
   }
-#endif
 
   /* win sel port */
   for (i = 0; i < Vop2->Data->NrVps; i++) {
