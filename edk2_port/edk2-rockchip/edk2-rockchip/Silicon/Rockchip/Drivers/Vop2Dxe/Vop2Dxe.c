@@ -2918,17 +2918,25 @@ Vop2Init (
   }
 
   /*
-   * Do NOT override PreDitherDownEn based on OutputMode alone — the switch
-   * above already selects the correct value from BusFormat.  Forcing
-   * PreDitherDownEn=1 for every non-AAAA output enables down-dither even when
-   * source bpp == output bpp (e.g. RGB888 1X24 → P888), which adds a visible
-   * dither pattern to flat colour areas (the "horizontal stripes / banding"
-   * symptom on the UEFI menu background).
+   * Match mainline Linux vop2_dither_setup() exactly:
+   * for any non-AAAA output mode, set PRE_DITHER_DOWN_EN.  Even though
+   * RGB888 1X24 → P888 is "8bpc → 8bpc" on paper (no down-dither needed in
+   * the colour sense), the VOP2 IF block on RK3576 requires this bit to be
+   * set when driving HDMI in P888 mode — otherwise the dual-pixel IF data
+   * path produces a visible vertical 1-pixel-period banding pattern (every
+   * other column alternates brightness) and the picture as a whole is
+   * dimmer than it should be.  This was identified empirically and confirmed
+   * by comparison with mainline vop2_dither_setup.
    *
-   * Pre-dither is only meaningful when the internal VOP2 pipeline is wider
-   * than the output bus (e.g. 10bpc YUV processing → 8bpc RGB output); the
-   * BusFormat switch above sets that case correctly.
+   * The DITHER_DOWN_SEL field at bits[19:18] is also implicitly set to
+   * DITHER_DOWN_ALLEGRO (=0) by virtue of being left unwritten — that's
+   * the hardware reset value and matches mainline FIELD_PREP(..., 0).
    */
+  if (ConnectorState->OutputMode == ROCKCHIP_OUT_MODE_AAAA) {
+    PreDitherDownEn = 0;
+  } else {
+    PreDitherDownEn = 1;
+  }
 
   Vop2MaskWrite (
     Vop2->BaseAddress,
