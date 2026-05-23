@@ -3055,22 +3055,6 @@ Vop2Init (
     }
   }
 
-#ifdef SOC_RK3576
-  /*
-   * Mainline Linux vop2_crtc_atomic_enable() unconditionally writes the FULL
-   * VP_MIPI_CTRL register to 0 (vop2_vp_write(vp, RK3568_VP_MIPI_CTRL, 0)).
-   *
-   * Our previous Vop2MaskWrite only cleared DCLK_DIV2 (2 bits) for non-YUV420
-   * paths, leaving any other bits in VP0_MIPI_CTRL at their hardware reset
-   * value or whatever upstream firmware left.  On RK3576 the residual bits
-   * (e.g. EDPI_TE_EN, EDPI_WMS_HOLD_EN, MIPI_DUAL_EN, MIPI_DUAL_SWAP_EN)
-   * can affect VP0's dual-pixel HDMI data path, producing the visible
-   * vertical 1-pixel-period banding + brightness drop symptom.
-   *
-   * Match mainline: explicit zero.
-   */
-  Vop2Writel (Vop2->BaseAddress, RK3568_VP0_MIPI_CTRL + VPOffset, 0);
-#else
   if (ConnectorState->OutputMode == ROCKCHIP_OUT_MODE_YUV420) {
     Vop2MaskWrite (
       Vop2->BaseAddress,
@@ -3090,7 +3074,6 @@ Vop2Init (
       FALSE
       );
   }
-#endif
 
   if (YUVOverlay) {
     Val = 0x20010200;
