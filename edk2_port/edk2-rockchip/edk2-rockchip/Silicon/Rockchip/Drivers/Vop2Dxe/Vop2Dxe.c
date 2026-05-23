@@ -1004,27 +1004,24 @@ Vop2GlobalInitial (
 
 #ifdef SOC_RK3576
   /*
-   * RK3576 has PER-VP OVL_LAYER_SEL registers at 0x604, 0x704, 0x804 — NOT a
-   * single shared register like RK3568/RK3588.
+   * RK3576 has PER-VP OVL_LAYER_SEL registers at 0x604, 0x704, 0x804 (not a
+   * single shared register like RK3568/RK3588).  And only the PRIMARY plane
+   * gets routed to slot 0 of each VP's layer mixer; the other "attached"
+   * planes are merely DECLARED as available — they must NOT be assigned to
+   * mixer slots when not actively rendering, otherwise the layer mixer
+   * reads garbage data from unenabled windows and blends it into the
+   * output (visible as horizontal scanlines / pixel banding).
    *
-   * Matches vendor U-Boot drivers/video/drm/rockchip_vop2.c rk3576_setup_overlay()
-   * EXACTLY (note: rk3576_setup_overlay differs from rk3528_setup_overlay —
-   * it does NOT initialise to 0xFFFFFFFF first, and does NOT touch
-   * OVL_SYS_PORT_SEL):
-   *
-   *   for (i = 0; i < nr_vps; i++) {
-   *       if (primary_plane_id != INVALID) {
-   *           vop2_mask_write(... OVL_PORT_LAYER_SEL+i*0x100,
-   *                           LAYER_SEL_MASK, 0,
-   *                           win_data->layer_sel_win_id[i], false);
-   *       }
-   *   }
-   *
-   * Initialising slots 1-7 to 0xF (as I tried previously) DESTROYS some
-   * required hardware-default value in those slots and kills the signal.
-   * Just write slot 0 = primary's layer_sel_id and leave everything else
-   * at whatever the previous boot stage left.
+   * Matches vendor U-Boot drivers/video/drm/rockchip_vop2.c vop3_overlay():
+   *   1. Initialize each VP's OVL_LAYER_SEL register to 0xFFFFFFFF
+   *      (all 8 slots disabled).
+   *   2. For each VP with a primary plane, write only that plane's
+   *      layer_sel_win_id into slot 0.
    */
+  for (i = 0; i < Vop2->Data->NrVps; i++) {
+    /* Init all 8 slots to "disabled" (0xF per slot). */
+    Vop2Writel (Vop2->BaseAddress, RK3568_OVL_LAYER_SEL + i * 0x100, 0xFFFFFFFFU);
+  }
   for (i = 0; i < Vop2->Data->NrVps; i++) {
     UINT8  PrimaryPhyId = Vop2->VpPlaneMask[i].PrimaryPlaneId;
 
@@ -1037,6 +1034,9 @@ Vop2GlobalInitial (
       continue;
     }
 
+    /* Route ONLY the primary plane to slot 0 of this VP's layer mixer.
+     * Other attached planes are intentionally left at the 0xF "disabled"
+     * sentinel so the mixer doesn't blend garbage from inactive windows. */
     Vop2MaskWrite (
       Vop2->BaseAddress,
       RK3568_OVL_LAYER_SEL + i * 0x100,
