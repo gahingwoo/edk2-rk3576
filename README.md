@@ -29,8 +29,8 @@ Hardware-verified on both the **ROCK 4D** and the **ArmSoM CM5-IO**.
 
 | Board | Boot medium | HDMI | eMMC | USB 3.0 | Ethernet | Status |
 |---|---|---|---|---|---|---|
-| Radxa ROCK 4D | SPI NOR | Working (QHD) | Working | Working (5 Gbps) | Working (Linux) | Hardware verified |
-| ArmSoM CM5-IO | SD card | WIP | Working (52 MHz HS) | Working (5 Gbps) | Working (Linux) | Hardware verified |
+| Radxa ROCK 4D | SPI NOR | Working (QHD) | Working | Working (5 Gbps) | Working (UEFI + Linux) | Hardware verified |
+| ArmSoM CM5-IO | SD card | WIP | Working (52 MHz HS) | Working (5 Gbps) | Working (UEFI + Linux) | Hardware verified |
 | ArmSoM CM5 RPI-CM4-IO | SD card | — | Working | — | — | Build-verified |
 | Waveshare CM4-IO-BASE-B | SD/SPI | — | Working | — | — | Build-verified |
 | Waveshare CM4-IO-BASE-A | SD/SPI | — | Working | — | — | Build-verified |
@@ -94,7 +94,7 @@ See [docs/BUILDING.md](docs/BUILDING.md) for dependency setup.
 | USB 2.0 (EHCI/OHCI) | Working — HID and mass-storage |
 | USB 3.0 xHCI @ 5 Gbps (USB-A) | Working — verified |
 | USB-C (SS+HS in Linux) | Working — via `phy-rockchip-usbdp.c` |
-| 1 GbE (GMAC0) | Working in Linux; UEFI SNP driver pending |
+| 1 GbE (GMAC0) | Working in UEFI (PXE verified) and Linux |
 | HDMI | Working — VOP2 + HDPTX PHY, EDID read, GOP at native resolution (QHD) |
 | PCIe | Partial — DBI reachable, LTSSM never reaches L0 |
 | SMBIOS | Working |
@@ -117,7 +117,7 @@ Both boot from SD card — the carrier SPI NOR is 64 KB and cannot hold the firm
 | USB 2.0 | Working |
 | USB 3.0 xHCI @ 5 Gbps (USB-A) | Working — via onboard 4-port hub (DRD1) |
 | USB-C (DRD0) | Not tested — DRD0 initialises HS-only in UEFI (SS PHY not brought up); untested on CM5-IO |
-| 1 GbE (GMAC0, YT8531C) | Working in Linux |
+| 1 GbE (GMAC0, YT8531C) | Working in UEFI (PXE verified) and Linux |
 | HDMI | WIP — PHY and VOP2 initialise, HPD detected, video timing output incorrect |
 | EFI variables | Not persistent — carrier SPI too small; settings reset on reboot |
 | PCIe | Not yet tested |
@@ -238,7 +238,6 @@ bash build_rock4d_uefi.sh --config configs/nanopi-m5.conf
 | EBBR compliance incomplete | CM5-IO family | Persistent NV storage required; WIP alongside eMMC boot path |
 | USB-C HS only in UEFI | All (ROCK 4D verified) | DRD0 initialises without SS PHY; SS+HS available in Linux via `phy-rockchip-usbdp.c` |
 | USB-C untested | CM5-IO | DRD0 present in firmware but not tested on this carrier |
-| UEFI Ethernet (SNP) driver missing | All | Ethernet works in Linux via `stmmac` |
 | ACPI tables are stubs only | All | Use the FDT (Device Tree) boot path |
 
 ---
