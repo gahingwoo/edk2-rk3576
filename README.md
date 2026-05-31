@@ -236,7 +236,7 @@ bash build_rock4d_uefi.sh --config configs/nanopi-m5.conf
 | HDMI no output | CM5-IO | VOP2/HDPTX init runs, HPD detected, video timing incorrect — WIP |
 | EFI variables not persistent | CM5-IO family | Carrier SPI NOR too small; eMMC-backed NV store is WIP |
 | EBBR compliance incomplete | CM5-IO family | Persistent NV storage required; WIP alongside eMMC boot path |
-| USB-C HS only in UEFI | All (ROCK 4D verified) | DRD0 initialises without SS PHY; SS+HS available in Linux via `phy-rockchip-usbdp.c` |
+| USB-C HS only in UEFI | All | DRD0 initialises without SS PHY; SS+HS available in Linux via `phy-rockchip-usbdp.c` |
 | USB-C untested | CM5-IO | DRD0 present in firmware but not tested on this carrier |
 | ACPI tables are stubs only | All | Use the FDT (Device Tree) boot path |
 
