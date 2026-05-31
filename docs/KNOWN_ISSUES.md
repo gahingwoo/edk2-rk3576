@@ -33,7 +33,7 @@ Fvco = 24000 × (101 − 3/8) = 2 415 000 kHz    ← exact
 **Fix:** `ROPLL_TMDS_CONFIG` now has a `{ 2415000, … }` entry with the
 correct Sdm_Num=3 / Sdm_Deno=8, replacing the previous 2417000 placeholder
 (which was never matched). The dynamic path is no longer taken for this
-bit-rate. Rebuilt image pending hardware verification.
+bit-rate.
 
 ### Slight horizontal shift
 

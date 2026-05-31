@@ -116,6 +116,7 @@ Both boot from SD card — the carrier SPI NOR is 64 KB and cannot hold the firm
 | SD card | Working |
 | USB 2.0 | Working |
 | USB 3.0 xHCI @ 5 Gbps (USB-A) | Working — via onboard 4-port hub (DRD1) |
+| USB-C (DRD0) | Not tested — DRD0 initialises HS-only in UEFI (SS PHY not brought up); untested on CM5-IO |
 | 1 GbE (GMAC0, YT8531C) | Working in Linux |
 | HDMI | WIP — PHY and VOP2 initialise, HPD detected, video timing output incorrect |
 | EFI variables | Not persistent — carrier SPI too small; settings reset on reboot |
@@ -131,6 +132,24 @@ Both boot from SD card — the carrier SPI NOR is 64 KB and cannot hold the firm
 - **HDMI output is not working yet.** The HDPTX PHY initialises and HPD is
   detected, but the VOP2 video timing output to the HDMI TX is incorrect.
   Under investigation.
+- **EBBR compliance is incomplete (WIP).** Full EBBR requires persistent EFI
+  variable storage; the volatile-only NV store on this carrier board does not
+  meet that requirement. Work on eMMC-backed variable storage is in progress.
+
+#### Boot method roadmap
+
+The CM5-IO currently boots exclusively from SD card. Two additional paths are
+being developed:
+
+**eMMC boot (WIP).** The firmware will gradually gain support for booting
+directly from the eMMC on the CM5 module, removing the SD card dependency
+entirely.
+
+**Mainline U-Boot on SD card.** A mainline-style U-Boot for RK3576 is available
+at [github.com/gahingwoo/u-boot](https://github.com/gahingwoo/u-boot) (pending
+merge to upstream). Flashing this U-Boot to the SD card provides a second boot
+path alongside the UEFI image and, once UEFI transfers control to U-Boot,
+restores persistent NV storage through U-Boot's own environment backend.
 
 #### Running a mainline Linux image on CM5-IO
 
@@ -215,7 +234,10 @@ bash build_rock4d_uefi.sh --config configs/nanopi-m5.conf
 |---|---|---|
 | PCIe LTSSM never reaches L0 | All | DBI reachable (`VID:DID = 0x1D87:0x3576`); works fine in Linux |
 | HDMI no output | CM5-IO | VOP2/HDPTX init runs, HPD detected, video timing incorrect — WIP |
-| EFI variables not persistent | CM5-IO family | Carrier SPI NOR too small; use SD/eMMC boot options |
+| EFI variables not persistent | CM5-IO family | Carrier SPI NOR too small; eMMC-backed NV store is WIP |
+| EBBR compliance incomplete | CM5-IO family | Persistent NV storage required; WIP alongside eMMC boot path |
+| USB-C HS only in UEFI | All (ROCK 4D verified) | DRD0 initialises without SS PHY; SS+HS available in Linux via `phy-rockchip-usbdp.c` |
+| USB-C untested | CM5-IO | DRD0 present in firmware but not tested on this carrier |
 | UEFI Ethernet (SNP) driver missing | All | Ethernet works in Linux via `stmmac` |
 | ACPI tables are stubs only | All | Use the FDT (Device Tree) boot path |
 
