@@ -21,8 +21,9 @@
 
 #include "DwcSdhciDxe.h"
 
-#define EMMC_FORCE_HIGH_SPEED  FixedPcdGetBool(PcdDwcSdhciForceHighSpeed)
-#define EMMC_DISABLE_HS400     FixedPcdGetBool(PcdDwcSdhciDisableHs400)
+#define EMMC_FORCE_HIGH_SPEED      FixedPcdGetBool(PcdDwcSdhciForceHighSpeed)
+#define EMMC_DISABLE_HS400         FixedPcdGetBool(PcdDwcSdhciDisableHs400)
+#define EMMC_NONDLL_STRBIN_DELAY   FixedPcdGet32(PcdDwcSdhciNonDllStrbinDelay)
 
 STATIC EFI_HANDLE  mSdMmcControllerHandle;
 
@@ -80,6 +81,7 @@ EmmcSdMmcCapability (
 
   if (EMMC_FORCE_HIGH_SPEED) {
     Capability->BaseClkFreq = 52;
+    *BaseClkFreq            = 52;   // keep Private->BaseClkFreq[Slot] in sync
     Capability->Sdr50       = 0;
     Capability->Ddr50       = 0;
     Capability->Sdr104      = 0;
@@ -129,6 +131,16 @@ EmmcSdMmcNotifyPhase (
   ASSERT (Slot == 0);
 
   switch (PhaseType) {
+    case EdkiiSdMmcResetPost:
+      /* SW_RST_ALL clears vendor registers on RK3576, including:
+       *   EMMC_MISC_CON[1]  (MISC_INTCLK_EN) → internal clock disabled → all cmds timeout
+       *   EMMC_CTRL[2]      (EMMC_RST_N)     → eMMC held in hardware reset → CMD0 timeout
+       * Matches rk35xx_sdhci_reset() in Linux sdhci-of-dwcmshc.c. */
+      MmioOr32 (EMMC_MISC_CON,  EMMC_MISC_INTCLK_EN);
+      MmioOr32 (EMMC_EMMC_CTRL, BIT2);
+      gBS->Stall (200);
+      break;
+
     case EdkiiSdMmcInitHostPost:
       /*
        * Just before this Notification POWER_CTRL is toggled to power off
@@ -147,7 +159,9 @@ EmmcSdMmcNotifyPhase (
 
       Timing = (SD_MMC_BUS_MODE *)PhaseData;
       if (*Timing == SdMmcMmcHs400) {
-        /* HS400 uses a non-standard setting */
+        /* HS400: set CARD_IS_EMMC to enable Data Strobe, and non-standard HOST_CTRL2 bits.
+         * Matches dwcmshci_set_uhs_signaling() in Linux sdhci-of-dwcmshc.c. */
+        MmioOr32 (EMMC_EMMC_CTRL, EMMC_CTRL_CARD_IS_EMMC);
         MmioOr16 ((UINT32)SD_MMC_HC_HOST_CTRL2, HOST_CTRL2_HS400);
       }
 
@@ -176,21 +190,21 @@ EmmcSdMmcNotifyPhase (
       DwcSdhciSetClockRate (MaxClockFreq);
 
       if (MaxClockFreq <= 52000000UL) {
-        MmioWrite32 (EMMC_DLL_CTRL, 0);
-        MmioWrite32 (EMMC_DLL_RXCLK, 0);
-        MmioWrite32 (EMMC_DLL_TXCLK, 0);
+        /* Non-DLL path: set bypass + start so the DLL does not produce
+         * spurious output, gate RXCLK, zero TX/CMD delay taps.
+         * STRBIN delay_num is platform-specific (RK3576: 0xa, RK3588: 0x10). */
+        MmioWrite32 (EMMC_DLL_CTRL,   EMMC_DLL_CTRL_BYPASS | EMMC_DLL_CTRL_START);
+        MmioWrite32 (EMMC_DLL_RXCLK,  EMMC_DLL_RXCLK_ORI_GATE);
+        MmioWrite32 (EMMC_DLL_TXCLK,  0);
         MmioWrite32 (EMMC_DLL_CMDOUT, 0);
         MmioWrite32 (
           EMMC_DLL_STRBIN,
           EMMC_DLL_DLYENA |
           EMMC_DLL_STRBIN_DELAY_NUM_SEL |
-          EMMC_DLL_STRBIN_DELAY_NUM_DEFAULT << EMMC_DLL_STRBIN_DELAY_NUM_OFFSET
+          EMMC_NONDLL_STRBIN_DELAY << EMMC_DLL_STRBIN_DELAY_NUM_OFFSET
           );
         break;
       }
-
-      /* Switch to eMMC mode */
-      MmioOr32 (EMMC_EMMC_CTRL, EMMC_CTRL_CARD_IS_EMMC);
 
       MmioWrite32 (EMMC_DLL_CTRL, EMMC_DLL_CTRL_SRST);
       gBS->Stall (1);
@@ -269,19 +283,31 @@ DwcSdhciDxeInitialize (
 
   DEBUG ((DEBUG_BLKIO, "%a\n", __FUNCTION__));
 
-  /* Start card on 375 kHz */
+  /* Identification clock: 375 kHz (xin_24m / 64).
+   * On RK3576, SDHCI CLOCK_CONTROL frequency-select bits are NOT functional —
+   * the actual eMMC clock is fully controlled by the CRU (DwcSdhciSetClockRate).
+   * Matches dwcmshc_rk3568_set_clock(): "clock <= 400000 → use 375000". */
   DwcSdhciSetClockRate (375000UL);
 
   /* Configure pins */
   DwcSdhciSetIoMux ();
 
-  /* Disable Command Conflict Check */
+  /* Enable SDHCI internal clock (MISC_INTCLK_EN) and disable Command Conflict Check. */
+  MmioOr32  (EMMC_MISC_CON,  EMMC_MISC_INTCLK_EN);
   MmioWrite32 (EMMC_HOST_CTRL3, 0);
 
-  /* Disable DLL for identification */
-  MmioWrite32 (EMMC_DLL_CTRL, 0);
-  MmioWrite32 (EMMC_DLL_RXCLK, 0);
-  MmioWrite32 (EMMC_DLL_TXCLK, 0);
+  /* Deassert eMMC hardware reset (EMMC_CTRL[2] = EMMC_RST_N).
+   * Power-on default is 0 (RST_N driven low = eMMC in hardware reset).
+   * When SPL boots from SD/SPI it never initialises the eMMC controller,
+   * so RST_N stays asserted and CMD0 times out.  Setting bit 2 releases
+   * reset; eMMC spec requires ≥200 µs before the first command. */
+  MmioOr32 (EMMC_EMMC_CTRL, BIT2);
+  gBS->Stall (200);
+
+  /* Initialise DLL in bypass mode (non-DLL path, same as ≤52 MHz runtime). */
+  MmioWrite32 (EMMC_DLL_CTRL,   EMMC_DLL_CTRL_BYPASS | EMMC_DLL_CTRL_START);
+  MmioWrite32 (EMMC_DLL_RXCLK,  EMMC_DLL_RXCLK_ORI_GATE);
+  MmioWrite32 (EMMC_DLL_TXCLK,  0);
   MmioWrite32 (EMMC_DLL_STRBIN, 0);
 
   Status = RegisterNonDiscoverableMmioDevice (

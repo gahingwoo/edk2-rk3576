@@ -55,7 +55,7 @@
 
   # Storage devices
   DEFINE RK_SD_ENABLE            = TRUE
-  DEFINE RK_EMMC_ENABLE          = TRUE   # CM5 module has onboard eMMC
+  DEFINE RK_EMMC_ENABLE          = TRUE   # HS400ES not implemented in UEFI SDHCI; HS400 disabled via PCD below
   DEFINE RK_NOR_FLASH_ENABLE     = TRUE
   DEFINE RK_FVB_ENABLE           = TRUE
   DEFINE RK_RTC8563_ENABLE       = FALSE
@@ -142,9 +142,15 @@
   # UART0 (RK3576: 0x2AD40000, 1.5 Mbaud)
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x2AD40000
 
-  # eMMC (sdhci @ 0x2A330000) — onboard on CM5 module
+  # eMMC: sdhci @ 0x2A330000 on CM5 module.
+  # HS200 and HS400 both require SDR104/DDR clock at 200 MHz which depends on
+  # the DWC DLL and a CRU-frequency hand-off that the UEFI SDHCI stack cannot
+  # synchronise correctly.  ForceHighSpeed caps the mode at 52 MHz legacy HS:
+  # no DLL, no tuning, reliable.  Fast enough for OS boot.
   gRK3576TokenSpaceGuid.PcdSdhciBaseAddr|0x2A330000
   gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress|0x2A330000
+  gRockchipTokenSpaceGuid.PcdDwcSdhciForceHighSpeed|TRUE
+  gRockchipTokenSpaceGuid.PcdDwcSdhciNonDllStrbinDelay|0xa   # RK3576: per U-Boot rk3576_data.ddr50_strbin_delay_num
 
   # SD card (sdmmc @ 0x2A310000) — slot on CM5-IO carrier board
   gRK3576TokenSpaceGuid.PcdSdmmcBaseAddr|0x2A310000

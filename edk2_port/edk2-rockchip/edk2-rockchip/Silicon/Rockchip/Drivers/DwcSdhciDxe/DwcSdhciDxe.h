@@ -34,10 +34,17 @@
 
 #define EMMC_CTRL_CARD_IS_EMMC  BIT0
 
+// EMMC_MISC_CON (offset 0x81C): must be set after every SDHCI SW_RST
+#define EMMC_MISC_CON          (DWC_SDHCI_BASE + 0x81C)
+#define EMMC_MISC_INTCLK_EN    BIT1   // enable SDHCI internal clock
+
 #define EMMC_DLL_CTRL_SRST                 BIT1
 #define EMMC_DLL_CTRL_START                BIT0
+#define EMMC_DLL_CTRL_BYPASS               BIT24  // bypass DLL for ≤52 MHz modes
 #define EMMC_DLL_CTRL_START_POINT_DEFAULT  (5 << 16)
 #define EMMC_DLL_CTRL_INCREMENT_DEFAULT    (2 << 8)
+
+#define EMMC_DLL_RXCLK_ORI_GATE  BIT31  // gate RXCLK in non-DLL mode
 
 #define EMMC_DLL_NO_INVERTER     BIT29
 #define EMMC_DLL_DLYENA          BIT27

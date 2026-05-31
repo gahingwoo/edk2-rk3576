@@ -45,6 +45,7 @@
   gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress
   gRockchipTokenSpaceGuid.PcdDwcSdhciForceHighSpeed
   gRockchipTokenSpaceGuid.PcdDwcSdhciDisableHs400
+  gRockchipTokenSpaceGuid.PcdDwcSdhciNonDllStrbinDelay
 
 [Depex]
   TRUE

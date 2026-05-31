@@ -3,18 +3,19 @@
 [![Status](https://img.shields.io/badge/status-working-brightgreen)]()
 [![SoC](https://img.shields.io/badge/SoC-RK3576-blue)]()
 [![Board](https://img.shields.io/badge/board-Radxa%20ROCK%204D-green)]()
-[![Board](https://img.shields.io/badge/board-FriendlyElec%20NanoPi%20M5-blue)]()
 [![Board](https://img.shields.io/badge/board-ArmSoM%20CM5--IO-orange)]()
 [![Board](https://img.shields.io/badge/board-ArmSoM%20CM5%20RPI--CM4--IO-purple)]()
 [![Board](https://img.shields.io/badge/board-Waveshare%20CM4--IO--BASE--B-red)]()
 [![Board](https://img.shields.io/badge/board-Waveshare%20CM4--IO--BASE--A-darkred)]()
+[![Board](https://img.shields.io/badge/board-FriendlyElec%20NanoPi%20M5-blue)]()
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20BSD--2--Clause--Patent-lightgrey)]()
 [![Flash](https://img.shields.io/badge/flash-WebUSB%20browser%20tool-informational)](https://gahingwoo.github.io/edk2-webflash/)
 
 A working **EDK2 / TianoCore UEFI** port for **Rockchip RK3576** single-board
-computers. Primary target is the **Radxa ROCK 4D**, with initial support for
-the **FriendlyElec NanoPi M5**, **ArmSoM CM5-IO**, **ArmSoM CM5 RPI-CM4-IO**,
-**Waveshare CM4-IO-BASE-B**, and **Waveshare CM4-IO-BASE-A**. The ROCK 4D port includes a matching
+computers. Primary target is the **Radxa ROCK 4D**, with hardware-verified support for
+the **ArmSoM CM5-IO**, and initial support for the **ArmSoM CM5 RPI-CM4-IO**,
+**Waveshare CM4-IO-BASE-B**, **Waveshare CM4-IO-BASE-A**, and **FriendlyElec NanoPi M5**.
+The ROCK 4D port includes a matching
 **TF-A BL31 + U-Boot SPL** boot stack, verified on real hardware
 (12 GB LPDDR5 SKU) booting **Fedora 44 aarch64** to GNOME desktop.
 
@@ -87,7 +88,7 @@ bash build_rock4d_uefi.sh
 
 # Build for a specific platform
 bash build_rock4d_uefi.sh --config configs/armsom-cm5-io.conf
-# Output: output/CM5IO/CM5IO-spi-edk2.img
+# Output: output/CM5IO/CM5IO-sdcard.img   (SD card — carrier SPI is 64 KB)
 ```
 
 Full instructions in [docs/BUILDING.md](docs/BUILDING.md).
@@ -161,52 +162,10 @@ build time. See [docs/BUILDING.md](docs/BUILDING.md).
 
 See full details above.
 
-### FriendlyElec NanoPi M5 — Initial Support
+### ArmSoM CM5-IO — Hardware Verified
 
-> **Mainline DTS status:** `rk3576-nanopi-m5.dts` is **not yet in mainline
-> Linux** (as of May 2026). The vendor DTS lives in FriendlyElec's
-> `nanopi6-v6.1.y` kernel branch. A placeholder DTB is used in CI;
-> replace it with a real DTB compiled from the vendor tree before flashing.
-
-**Same RK3576 SoC as ROCK 4D.** Key board-level differences:
-
-| Feature | NanoPi M5 | ROCK 4D |
-|---|---|---|
-| Ethernet | **2× 1 GbE** (GMAC0 + GMAC1, both RTL8211F RGMII-ID) | 1× 1 GbE (GMAC0) |
-| PMIC | RK806 @ I2C1 0x23 | RK806 @ I2C0 0x23 |
-| Storage | 16 MB SPI NOR + optional UFS 2.0 | 16 MB SPI NOR + eMMC |
-| PCIe slot | M.2 M-Key (PCIe 2.1 ×1) | M.2 M-Key (PCIe 2.1 ×1) |
-| LEDs | 3× (SYS / LED1 / LED2) | 1× power LED |
-
-**What is implemented (`Platform/FriendlyElec/NanoPi-M5/`):**
-
-- Full `NanoPi-M5.dsc` platform descriptor, `NanoPi-M5.Modules.fdf.inc`
-- `RockchipPlatformLib.c`: IOMUX for GMAC0 (GPIO bank 3) **and GMAC1**
-  (GPIO bank 4, eth1m0 pins, function 3), 3-LED init, UFS (no eMMC mux)
-- `AcpiTables/Dsdt.asl` includes both `Gmac0.asl` and `Gmac1.asl`
-- `DeviceTree/Vendor.inf` packs the vendor DTB
-- `PcdGmac1Supported|TRUE`, `PcdGmac0Supported|TRUE` (dual Ethernet)
-- PCDs: `PcdComboPhy0ModeDefault|PCIe`, `PcdComboPhy1ModeDefault|USB3`
-- SMBIOS strings: `NanoPi M5` / `FriendlyElec` / family `NanoPi`
-- Build verified: `BL33_AP_UEFI.Fv` produced cleanly in ~65 s
-
-**Known gaps / TODOs:**
-
-- GMAC1 PHY reset GPIO (GPIO4 PB0 assumed — verify from board schematic)
-- No hardware sample available for boot testing
-- Vendor DTB must be built manually from FriendlyElec kernel
-
-**Building for NanoPi M5:**
-
-```bash
-cd edk2_port
-bash build_rock4d_uefi.sh --config configs/nanopi-m5.conf
-# Output: Build/NanoPi-M5/RELEASE_GCC/FV/BL33_AP_UEFI.Fv
-```
-
-Or using the dedicated GitHub Actions workflow (`.github/workflows/build-nanopi-m5.yml`).
-
-### ArmSoM CM5-IO — Initial Support
+> **Special thanks to [ArmSoM](https://www.armsom.org/) for providing a CM5-IO
+> board for development and testing. Hardware access made this port possible.**
 
 > **Mainline DTS status:** `rk3576-armsom-cm5-io.dts` is **not yet in mainline
 > Linux** (as of May 2026). This port ships a hand-written mainline-style DTS
@@ -216,42 +175,60 @@ Or using the dedicated GitHub Actions workflow (`.github/workflows/build-nanopi-
 **Same RK3576 SoC as ROCK 4D.** The CM5 is an RPi CM4-form-factor compute
 module; the CM5-IO is the official carrier board.
 
+| Feature | Status |
+|---|---|
+| CPU / RAM | Working — 8-core A72+A53, up to 16 GB LPDDR5 |
+| eMMC (CM5 module) | **Working** — identified at 52 MHz HS, 8-bit bus; eMMC User + Boot partitions enumerated |
+| SD card (carrier slot) | Working |
+| USB 2.0 (EHCI/OHCI) | Working |
+| USB 3.0 xHCI @ 5 Gbps (USB-A) | **Working** — via onboard 4-port hub (DRD1, combphy1) |
+| 1 GbE (GMAC0, YT8531C PHY) | Working under Linux; UEFI SNP driver pending |
+| HDMI | Working — VOP2 + HDPTX PHY, EDID, GOP |
+| PCIe | Not yet tested on this carrier |
+| EFI variables | **Volatile** — carrier SPI is only 64 KB; settings reset on reboot |
+
 Key hardware differences vs ROCK 4D:
 
 | Feature | CM5-IO | ROCK 4D |
 |---|---|---|
-| eMMC | Onboard on CM5 module (`RK_EMMC_ENABLE=TRUE`) | None |
+| SPI NOR | **64 KB** (carrier board) — boot via SD card | 16 MB |
+| eMMC | Onboard on CM5 module | None |
 | USB HOST 5V | GPIO4 PB0 | GPIO0 PD3 |
 | USB OTG 5V | GPIO2 PB6 | GPIO2 PD2 |
 | PCIe reset | GPIO2 PB1 | GPIO2 PB4 |
 | PCIe power | GPIO0 PC3 | GPIO2 PD3 |
-| GMAC0 PHY reset | GPIO2 PB3 (active-low) | GPIO2 PB5 (active-low) |
-| GMAC0 mode | `rgmii-rxid`, `tx_delay=0x21` | `rgmii-id` (PHY handles both delays) |
+| GMAC0 PHY | YT8531C | RTL8211F |
+| GMAC0 mode | `rgmii-rxid`, `tx_delay=0x21` | `rgmii-id` |
 | HDMI 5V | Always-on from carrier board | GPIO2 PB0 (MOSFET switch) |
 | WiFi reset | GPIO1 PC6 active-low | GPIO2 PD1 active-high |
 | BT enable | GPIO1 PC7 active-high | Shared WiFi supply |
-| LEDs | GPIO0_PB4 (module work LED) + GPIO2_PD0 (carrier green) + GPIO2_PD1 (carrier red) | GPIO0_PB4 (power) + GPIO0_PC4 (user) |
+
+**Known limitations:**
+
+- **EFI variables are volatile**: the carrier board SPI NOR is only 64 KB —
+  far too small for the NV variable store. Boot order and UEFI settings reset
+  on every power cycle.
+- **eMMC runs at 52 MHz legacy HS** (not HS200/HS400): the DWC eMMC CRU
+  frequency hand-off is architecturally incompatible with the UEFI SDHCI
+  stack's clock-change sequence for HS200/HS400. 52 MHz is sufficient for
+  OS boot.
+- **PCIe** is implemented but not yet tested on the CM5-IO carrier.
 
 **What is implemented (`Platform/ArmSoM/CM5IO/`):**
 
 - Full `CM5IO.dsc` with `RK_EMMC_ENABLE=TRUE`, PCIe, HDMI, GbE, USB
 - `RockchipPlatformLib.c`: all GPIO differences vs ROCK 4D reflected
 - `DeviceTree/Mainline.inf`: builds `rk3576-armsom-cm5-io-uefi.dts` at compile time
-- `DeviceTree/Vendor.inf`: present but commented out (supply your own DTB)
 - `rk3576-armsom-cm5-io.dts` + `rk3576-armsom-cm5-io-uefi.dts`: mainline-style board DTS
-
-**Known gaps / TODOs:**
-
-- No hardware sample available for boot testing
-- Vendor DTB must be compiled from ArmSoM BSP kernel (`linux-6.1-stan-rkr6.1`)
-- FUSB302 USB-C PD controller and ES8388 audio codec not yet in DTS
+- DWC3 xHCI fixes for the onboard 4-port USB 3.0 hub (SS EvaluateContext skip + hub pre-config)
+- DWC eMMC fixes: `MISC_INTCLK_EN` restore after SW_RST, RST_N deassert, DLL bypass mode
 
 **Building for CM5-IO:**
 
 ```bash
 cd edk2_port
 bash build_rock4d_uefi.sh --config configs/armsom-cm5-io.conf
-# Output: Build/CM5IO/RELEASE_GCC/FV/BL33_AP_UEFI.Fv
+# Output: output/CM5IO/CM5IO-sdcard.img   (SD card; carrier SPI is 64 KB)
 ```
 
 ### ArmSoM CM5 RPI-CM4-IO — Initial Support
@@ -338,6 +315,51 @@ bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4a.conf
 # Output: output/CM5WaveshareA/CM5WaveshareA-spi-edk2.img
 ```
 
+### FriendlyElec NanoPi M5 — Initial Support
+
+> **Mainline DTS status:** `rk3576-nanopi-m5.dts` is **not yet in mainline
+> Linux** (as of May 2026). The vendor DTS lives in FriendlyElec's
+> `nanopi6-v6.1.y` kernel branch. A placeholder DTB is used in CI;
+> replace it with a real DTB compiled from the vendor tree before flashing.
+
+**Same RK3576 SoC as ROCK 4D.** Key board-level differences:
+
+| Feature | NanoPi M5 | ROCK 4D |
+|---|---|---|
+| Ethernet | **2× 1 GbE** (GMAC0 + GMAC1, both RTL8211F RGMII-ID) | 1× 1 GbE (GMAC0) |
+| PMIC | RK806 @ I2C1 0x23 | RK806 @ I2C0 0x23 |
+| Storage | 16 MB SPI NOR + optional UFS 2.0 | 16 MB SPI NOR + eMMC |
+| PCIe slot | M.2 M-Key (PCIe 2.1 ×1) | M.2 M-Key (PCIe 2.1 ×1) |
+| LEDs | 3× (SYS / LED1 / LED2) | 1× power LED |
+
+**What is implemented (`Platform/FriendlyElec/NanoPi-M5/`):**
+
+- Full `NanoPi-M5.dsc` platform descriptor, `NanoPi-M5.Modules.fdf.inc`
+- `RockchipPlatformLib.c`: IOMUX for GMAC0 (GPIO bank 3) **and GMAC1**
+  (GPIO bank 4, eth1m0 pins, function 3), 3-LED init, UFS (no eMMC mux)
+- `AcpiTables/Dsdt.asl` includes both `Gmac0.asl` and `Gmac1.asl`
+- `DeviceTree/Vendor.inf` packs the vendor DTB
+- `PcdGmac1Supported|TRUE`, `PcdGmac0Supported|TRUE` (dual Ethernet)
+- PCDs: `PcdComboPhy0ModeDefault|PCIe`, `PcdComboPhy1ModeDefault|USB3`
+- SMBIOS strings: `NanoPi M5` / `FriendlyElec` / family `NanoPi`
+- Build verified: `BL33_AP_UEFI.Fv` produced cleanly in ~65 s
+
+**Known gaps / TODOs:**
+
+- GMAC1 PHY reset GPIO (GPIO4 PB0 assumed — verify from board schematic)
+- No hardware sample available for boot testing
+- Vendor DTB must be built manually from FriendlyElec kernel
+
+**Building for NanoPi M5:**
+
+```bash
+cd edk2_port
+bash build_rock4d_uefi.sh --config configs/nanopi-m5.conf
+# Output: Build/NanoPi-M5/RELEASE_GCC/FV/BL33_AP_UEFI.Fv
+```
+
+Or using the dedicated GitHub Actions workflow (`.github/workflows/build-nanopi-m5.yml`).
+
 ---
 
 ## Credits
@@ -345,7 +367,8 @@ bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4a.conf
 * [TianoCore EDK2](https://github.com/tianocore/edk2) — UEFI reference implementation
 * [edk2-rk3588](https://github.com/edk2-porting/edk2-rk3588) — structural template for the RK3576 silicon package
 * [Trusted Firmware-A](https://www.trustedfirmware.org/projects/tf-a/) — BL31
-* [Radxa](https://radxa.com/products/rock4/4d/) — hardware
+* [Radxa](https://radxa.com/products/rock4/4d/) — ROCK 4D hardware
+* [ArmSoM](https://www.armsom.org/) — CM5-IO hardware (board provided for development)
 * [Rockchip](https://www.rock-chips.com/) — SoC and DDR init blobs
 
 ---
