@@ -6,12 +6,16 @@ Reads actual PT_LOAD segment addresses from BL31 ELF and generates a
 correct .its file.  Eliminates the "copy-paste RK3588 address" class of bugs.
 
 Usage:
-    python3 gen_fit_its.py <pkgdir> <device> <bl31_entry_hex>
+    python3 gen_fit_its.py <pkgdir> <device> <bl31_entry_hex> [--gzip-edk2]
 
     pkgdir       : directory containing BL33_AP_UEFI.Fv, bl31_0x*.bin,
                    bl32.bin, <device>.dtb
     device       : e.g. rk3576-rock-4d
     bl31_entry_hex: BL31 entry point from ELF e_entry, e.g. 0x40040000
+    --gzip-edk2  : compress BL33_AP_UEFI.Fv with gzip in the FIT
+                   (required for SD card boot via vendor SPL — 13MB
+                   uncompressed exceeds the MMC DMA transfer limit of
+                   Rockchip 2017.09 vendor SPL; gzip reduces it to ~2MB)
 
 The entry point is the paddr of atf-1 (main code segment), which SPL/BL31
 uses as the firmware entry in the FIT configuration node.
@@ -73,7 +77,7 @@ def make_atf_node(idx: int, paddr: int, filename: str, entry: int | None) -> str
     return "\n".join(lines)
 
 
-def generate(pkgdir: str, device: str, bl31_entry: int) -> str:
+def generate(pkgdir: str, device: str, bl31_entry: int, gzip_edk2: bool = False) -> str:
     segs = discover_bl31_segs(pkgdir)
     if not segs:
         raise RuntimeError(f"No bl31_0x*.bin files found in {pkgdir}")
@@ -134,7 +138,7 @@ def generate(pkgdir: str, device: str, bl31_entry: int) -> str:
 \t\t\ttype = "firmware";
 \t\t\tarch = "arm64";
 \t\t\tos = "u-boot";
-\t\t\tcompression = "none";
+\t\t\tcompression = "{'gzip' if gzip_edk2 else 'none'}";
 \t\t\tload = <{BL33_LOAD_ADDR:#010x}>;
 \t\t\tentry = <{BL33_LOAD_ADDR:#010x}>;
 \t\t}};
@@ -156,14 +160,15 @@ def generate(pkgdir: str, device: str, bl31_entry: int) -> str:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    if len(sys.argv) < 4:
         print(__doc__)
         sys.exit(1)
 
     pkgdir, device, entry_str = sys.argv[1], sys.argv[2], sys.argv[3]
     bl31_entry = int(entry_str, 16)
+    gzip_edk2 = "--gzip-edk2" in sys.argv[4:]
 
-    its_text = generate(pkgdir, device, bl31_entry)
+    its_text = generate(pkgdir, device, bl31_entry, gzip_edk2=gzip_edk2)
     out_path = os.path.join(pkgdir, f"{device}_EFI.its")
     with open(out_path, "w") as f:
         f.write(its_text)

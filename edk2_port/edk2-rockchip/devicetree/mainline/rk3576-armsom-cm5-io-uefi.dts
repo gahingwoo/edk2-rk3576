@@ -78,3 +78,12 @@
 &ufshc {
 	status = "okay";
 };
+
+/*
+ * Disable eMMC (SDHCI) in UEFI — the DwcSdhci driver hangs during HS400
+ * enumeration on CM5-IO. The SD card (SDMMC0 via RkSdmmcDxe) is used for
+ * UEFI boot instead. Linux reinitialises eMMC from scratch via its own driver.
+ */
+&sdhci {
+	status = "disabled";
+};

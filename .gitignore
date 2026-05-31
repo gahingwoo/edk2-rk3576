@@ -44,6 +44,8 @@ edk2_port/edk2-rockchip/devicetree/mainline/upstream/
 edk2_port/edk2-rockchip/devicetree/mainline/rk3588*
 # (rk3576-rock-4d.dts symlink and rk3576-rock-4d-uefi.dts ARE tracked)
 
+# uboot
+uboot/
 # ==============================================================================
 # Build output / logs
 # ==============================================================================

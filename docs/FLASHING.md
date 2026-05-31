@@ -6,6 +6,7 @@ Two delivery paths are provided in this repo:
 |----------------------------|----------------------------------------------|
 | `binaries/u-boot.itb`      | U-Boot only (BL31 + U-Boot proper + DTB)     |
 | `output/ROCK4D/ROCK4D-spi-edk2.img`      | Full UEFI image for 16 MB SPI NOR            |
+| `output/CM5IO/CM5IO-sdcard.img`          | Full UEFI image for CM5-IO SD card (SPI is 64 KB) |
 
 ## Option 0 — Browser flash (easiest, no tools required)
 
@@ -46,6 +47,34 @@ Use Radxa's upstream packaging recipe with `binaries/u-boot.itb` plus the
 |--------------------------|--------------------------|
 | 64                       | idblock (SPL + DDR init) |
 | 16384                    | u-boot.itb               |
+
+## Option C — SD card (ArmSoM CM5-IO — UEFI, persistent)
+
+The CM5-IO carrier board has only a **64 KB SPI NOR flash**, which cannot hold
+the UEFI firmware stack (~5 MB). Use an SD card (or eMMC) instead.
+
+SD card image layout:
+
+| Sector offset (× 512 B) | Byte offset | Content                              |
+|--------------------------|-------------|--------------------------------------|
+| 64 (0x40)                | 0x008000    | idblock (DDR init + mainline SPL)    |
+| 16384 (0x4000)           | 0x800000    | FIT image (BL31 + EDK2 BL33 + DTB)  |
+
+1. Insert an SD card (≥ 64 MB) into your host.
+2. Write the image (replace `/dev/sdX` with your SD card device):
+
+   ```bash
+   dd if=output/CM5IO/CM5IO-sdcard.img of=/dev/sdX bs=1M status=progress
+   sync
+   ```
+
+3. Insert the SD card into the CM5-IO SD slot and power on.
+4. On UART (1500000 8N1) you should see:
+   `U-Boot SPL → INFO: BL31 → TianoCore EDK2 / UEFI Interactive Shell`
+
+> **Note:** EFI variables are **volatile** on SD card boot. The carrier SPI
+> (64 KB) is too small for a variable store, so variable changes do not persist
+> across reboots.
 
 ## Recovery
 

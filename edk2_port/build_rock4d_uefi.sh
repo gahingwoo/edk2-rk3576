@@ -73,12 +73,17 @@ source "$CONF_FILE"
 PLATFORM_NAME="${PLATFORM_NAME:-ROCK4D}"
 DSC_FILE="${DSC_FILE:-edk2-rockchip/Platform/Radxa/ROCK4D/ROCK4D.dsc}"
 DEVICE_TREE_NAME="${DEVICE_TREE_NAME:-rk3576-rock-4d}"
+BOOT_MEDIUM="${BOOT_MEDIUM:-spi}"
 
 OUTDIR="$(dirname "$SCRIPT_DIR")/output/${PLATFORM_NAME}"
-OUT_IMG="$OUTDIR/${PLATFORM_NAME}-spi-edk2.img"
+if [ "$BOOT_MEDIUM" = "sdcard" ]; then
+    OUT_IMG="$OUTDIR/${PLATFORM_NAME}-sdcard.img"
+else
+    OUT_IMG="$OUTDIR/${PLATFORM_NAME}-spi-edk2.img"
+fi
 mkdir -p "$OUTDIR"
 
-info "Platform: ${PLATFORM_NAME}  |  Config: $CONF_FILE"
+info "Platform: ${PLATFORM_NAME}  |  Config: $CONF_FILE  |  Boot: ${BOOT_MEDIUM}"
 
 # ── STEP 1: Detect environment ────────────────────────────────────────────────
 step "1/6  Detect Environment"
@@ -348,6 +353,16 @@ DTB_SRC="$MISC/rk3576_spl.dtb"
     warn "找不到 DTB，创建空占位"
     touch "$PKGDIR/${DEVICE_TREE_NAME}.dtb"
 }
+# Pad DTB to 512-byte boundary so its external FIT data-offset is block-aligned
+# (MMC external FIT requires all data-offsets to be multiples of 512 bytes)
+python3 -c "
+import sys, os
+p = '$PKGDIR/${DEVICE_TREE_NAME}.dtb'
+size = os.path.getsize(p)
+pad = (512 - size % 512) % 512
+if pad:
+    with open(p, 'ab') as f: f.write(b'\x00' * pad)
+"
 
 # 3. 生成 FIT image (.itb) — 使用 gen_fit_its.py 动态生成
 DEVICE="$DEVICE_TREE_NAME"
@@ -357,7 +372,11 @@ with open('$BL31','rb') as f:
     print(hex(ELFFile(f).header.e_entry))
 ")
 info "BL31 entry: $BL31_ENTRY"
-python3 "$MISC/gen_fit_its.py" "$PKGDIR" "$DEVICE" "$BL31_ENTRY"
+# SD 卡启动须压缩 EDK2：Armbian 2017.09 vendor SPL 的 MMC DMA 传输上限约 2MB，
+# 13MB 未压缩会超时；gzip 后约 2MB 可正常加载。SPI 启动用 mainline SPL，无此限制。
+GEN_FIT_EXTRA=""
+[ "$BOOT_MEDIUM" = "sdcard" ] && GEN_FIT_EXTRA="--gzip-edk2"
+python3 "$MISC/gen_fit_its.py" "$PKGDIR" "$DEVICE" "$BL31_ENTRY" $GEN_FIT_EXTRA
 [ -f "$PKGDIR/${DEVICE}_EFI.its" ] || error "gen_fit_its.py 未生成 ITS 文件"
 
 # 找 mkimage —— 必须 ≥ 2020.07 (支持 -B 对齐 FIT header)
@@ -399,32 +418,21 @@ cd "$SCRIPT_DIR"
 ITB_KB=$(( $(stat -c%s "$PKGDIR/${DEVICE}_EFI.itb" 2>/dev/null || stat -f%z "$PKGDIR/${DEVICE}_EFI.itb") / 1024 ))
 info "FIT image: ${DEVICE}_EFI.itb  (${ITB_KB}KB) ✓"
 
-# ── 打包成 SPI NOR 镜像 (FIT 直通方案) ──────────────────────────────────────
+# ── 打包镜像 ─────────────────────────────────────────────────────────────────
 #
-# 启动链：BootROM -> SPL (idblock_mainline.bin) -> FIT
-#           FIT 由 SPL 解析: 加载 BL31 各段 + EDK2 BL33 + DTB
-#         BL31 (EL3) -> EDK2 (EL2, BL33) -> OS
-#
-# SPI NOR 16MB 布局：
+# BOOT_MEDIUM=spi  (默认): SPI NOR 16MB
 #   0x000000  GPT (32KB, 可选)
-#   0x008000  idblock_mainline.bin (DDR init blob + SPL, ~190KB)
-#   0x060000  FIT image (BL31 + EDK2 + DTB) ← SPL 硬编码加载偏移
+#   0x008000  idblock (DDR init + mainline SPL, ~190KB)
+#   0x060000  FIT image (BL31 + EDK2 + DTB)  ← SPL SPI 硬编码偏移
+#   0xFC0000  NV Variable Store (3×64KB)
+#
+# BOOT_MEDIUM=sdcard: SD 卡 / eMMC 原始镜像 (32MB)
+#   sector 64     (0x008000): idblock
+#   sector 16384  (0x800000): FIT image  ← SPL SD/eMMC 硬编码偏移
+#   注: EFI 变量在 SD 卡镜像中不持久 (无 SPI NOR 变量存储区)
 # ──────────────────────────────────────────────────────────────────────────────
 
-info "组装 SPI NOR 镜像 (16MB) - FIT 直通方案..."
-dd if=/dev/zero bs=1M count=16 of="$OUT_IMG" status=none
-
-# 1. 写入 GPT (可选)
-GPT="$MISC/rk3576_spi_nor_gpt.img"
-[ ! -f "$GPT" ] && GPT="$MISC/rk3588_spi_nor_gpt.img"
-if [ -f "$GPT" ]; then
-    dd if="$GPT" of="$OUT_IMG" conv=notrunc status=none
-    info "GPT: 写入 0x000000 ✓"
-fi
-
-# 2. 写入 idblock (DDR init + 极简 SPL)
-#    必须使用 mainline SPL — 它会从 SPI 0x60000 读取并解析 FIT，加载
-#    BL31/BL33/DTB 后跳转 BL31 入口；BL31 再交接给 EDK2 (BL33)。
+# 查找 idblock (SPI 和 SD 卡镜像都需要)
 IDBLOCK=""
 for cand in "$BINDIR/idblock_mainline.bin" \
             "$WSDIR/idblock-mainline.bin" \
@@ -432,64 +440,120 @@ for cand in "$BINDIR/idblock_mainline.bin" \
     [ -f "$cand" ] && IDBLOCK="$cand" && break
 done
 [ -z "$IDBLOCK" ] && error "找不到 idblock (mainline SPL)，无法构建 FIT 启动链"
-dd if="$IDBLOCK" of="$OUT_IMG" bs=1K seek=32 conv=notrunc status=none
 IDB_KB=$(( $(stat -c%s "$IDBLOCK") / 1024 ))
-info "idblock: 写入 0x008000 ✓ (${IDB_KB}KB, $IDBLOCK)"
 
-# 3. 写入 FIT image (BL31 + EDK2 + DTB) — SPL 硬编码偏移 0x60000
-#    上限 = NV-Var 区起点 0xFC0000 (RK3576.fdf) - 0x60000 = 15.375MB
 FIT="$PKGDIR/${DEVICE}_EFI.itb"
 [ -f "$FIT" ] || error "找不到 FIT image: $FIT"
 FIT_SIZE=$(stat -c%s "$FIT")
-FIT_MAX=$((0xFC0000 - 0x60000))
-[ "$FIT_SIZE" -gt "$FIT_MAX" ] && \
-    error "FIT image 过大 (${FIT_SIZE} > ${FIT_MAX})，缩减 EDK2 或调整布局"
-dd if="$FIT" of="$OUT_IMG" bs=1K seek=384 conv=notrunc status=none
-info "FIT image: 写入 0x060000 ✓ ($((FIT_SIZE/1024))KB / 上限 $((FIT_MAX/1024))KB)"
 
-# 4. NV Variable Store  (3 × 64KB at SPI 0xFC0000 / 0xFD0000 / 0xFE0000)
-#    Copy 3 × 64KB = 192KB from the FD (ErasePolarity=1 → filled with 0xFF).
-#    Writing 0xFF simulates a freshly-erased SPI NOR; the variable drivers
-#    detect the blank state and initialise a valid store on first boot.
-#    Using count=48 (48 × 4KB = 192KB) covers all three 64KB regions:
-#      skip=4032 / seek=4032 → offset 0xFC0000
-#      skip+8    / seek+8    → offset 0xFD0000  (FTW Working)
-#      skip+16   / seek+16   → offset 0xFE0000  (FTW Spare)
-#    IMPORTANT: count=3 (12KB) was the previous value — it left FTW Working
-#    and FTW Spare as 0x00 (from dd if=/dev/zero background), which the FTW
-#    driver treated as "corrupted" rather than "erased", preventing variable
-#    store initialisation and producing:
-#      "FtwPei: Both working and spare block are invalid."
-#      "Firmware Volume for Variable Store is corrupted"
-FD="$WSDIR/Build/${PLATFORM_NAME}/RELEASE_GCC/FV/NOR_FLASH_IMAGE.fd"
-if [ -f "$FD" ]; then
-    # 0xFC0000 in 4KB blocks = 4032; 192KB / 4KB = 48 blocks
-    dd if="$FD" of="$OUT_IMG" bs=4K skip=4032 count=48 seek=4032 conv=notrunc status=none
-    info "NV Variable Store: 写入 0xFC0000..0xFEFFFF ✓ (3×64KB, erased state 0xFF)"
+if [ "$BOOT_MEDIUM" = "sdcard" ]; then
+    # ── SD 卡 / eMMC 镜像 ───────────────────────────────────────────────────
+    SD_SIZE_MB=32
+    FIT_MAX=$(( SD_SIZE_MB * 1024 * 1024 - 0x800000 ))
+    [ "$FIT_SIZE" -gt "$FIT_MAX" ] && \
+        error "FIT image 过大 (${FIT_SIZE} > ${FIT_MAX})，增大 SD_SIZE_MB"
+
+    info "组装 SD 卡镜像 (${SD_SIZE_MB}MB) - FIT 直通方案..."
+    dd if=/dev/zero bs=1M count=$SD_SIZE_MB of="$OUT_IMG" status=none
+
+    # idblock at sector 64 (byte offset 0x8000)
+    dd if="$IDBLOCK" of="$OUT_IMG" bs=512 seek=64 conv=notrunc status=none
+    info "idblock: 写入 sector 64 (0x008000) ✓ (${IDB_KB}KB, $IDBLOCK)"
+
+    # FIT image at sector 16384 (byte offset 0x800000, 8MB)
+    dd if="$FIT" of="$OUT_IMG" bs=512 seek=16384 conv=notrunc status=none
+    info "FIT image: 写入 sector 16384 (0x800000) ✓ ($((FIT_SIZE/1024))KB / 上限 $((FIT_MAX/1024))KB)"
+
+    echo ""
+    echo -e "${GRN}╔══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GRN}║    ${PLATFORM_NAME} EDK2 UEFI SD 卡固件打包完成！                  ║${NC}"
+    echo -e "${GRN}╚══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "  镜像: ${CYN}$OUT_IMG${NC}  ($(du -h "$OUT_IMG" | cut -f1))"
+    echo ""
+    echo -e "  SD 卡镜像布局 (${SD_SIZE_MB}MB):"
+    echo    "    sector 64    (0x008000)  idblock (DDR init + mainline SPL)"
+    echo    "    sector 16384 (0x800000)  FIT image (BL31 + EDK2 BL33 + DTB)"
+    echo    "    注: EFI 变量不持久 (载板 SPI 仅 64KB，无法存储变量)"
+    echo ""
+    echo -e "  启动链:"
+    echo    "    BootROM → SPL(SD) → FIT 解析 → BL31 (EL3) → EDK2 BL33 (EL2) → TianoCore"
+    echo ""
+    echo -e "${CYN}写入 SD 卡 (将 /dev/sdX 替换为实际设备):${NC}"
+    echo "  dd if=output/${PLATFORM_NAME}/${PLATFORM_NAME}-sdcard.img of=/dev/sdX bs=1M status=progress"
+    echo "  sync"
+    echo ""
+    echo -e "${CYN}串口 (1500000 8N1) 预期输出:${NC}"
+    echo "  U-Boot SPL ... → INFO: BL31 ... → TianoCore EDK2 / UEFI Interactive Shell"
+else
+    # ── SPI NOR 镜像 ────────────────────────────────────────────────────────
+    FIT_MAX=$((0xFC0000 - 0x60000))
+    [ "$FIT_SIZE" -gt "$FIT_MAX" ] && \
+        error "FIT image 过大 (${FIT_SIZE} > ${FIT_MAX})，缩减 EDK2 或调整布局"
+
+    info "组装 SPI NOR 镜像 (16MB) - FIT 直通方案..."
+    dd if=/dev/zero bs=1M count=16 of="$OUT_IMG" status=none
+
+    # 1. GPT (可选)
+    GPT="$MISC/rk3576_spi_nor_gpt.img"
+    [ ! -f "$GPT" ] && GPT="$MISC/rk3588_spi_nor_gpt.img"
+    if [ -f "$GPT" ]; then
+        dd if="$GPT" of="$OUT_IMG" conv=notrunc status=none
+        info "GPT: 写入 0x000000 ✓"
+    fi
+
+    # 2. idblock at 0x8000
+    dd if="$IDBLOCK" of="$OUT_IMG" bs=1K seek=32 conv=notrunc status=none
+    info "idblock: 写入 0x008000 ✓ (${IDB_KB}KB, $IDBLOCK)"
+
+    # 3. FIT image at 0x060000 (SPL hardcoded SPI offset)
+    dd if="$FIT" of="$OUT_IMG" bs=1K seek=384 conv=notrunc status=none
+    info "FIT image: 写入 0x060000 ✓ ($((FIT_SIZE/1024))KB / 上限 $((FIT_MAX/1024))KB)"
+
+    # 4. NV Variable Store  (3 × 64KB at SPI 0xFC0000 / 0xFD0000 / 0xFE0000)
+    #    Copy 3 × 64KB = 192KB from the FD (ErasePolarity=1 → filled with 0xFF).
+    #    Writing 0xFF simulates a freshly-erased SPI NOR; the variable drivers
+    #    detect the blank state and initialise a valid store on first boot.
+    #    Using count=48 (48 × 4KB = 192KB) covers all three 64KB regions:
+    #      skip=4032 / seek=4032 → offset 0xFC0000
+    #      skip+8    / seek+8    → offset 0xFD0000  (FTW Working)
+    #      skip+16   / seek+16   → offset 0xFE0000  (FTW Spare)
+    #    IMPORTANT: count=3 (12KB) was the previous value — it left FTW Working
+    #    and FTW Spare as 0x00 (from dd if=/dev/zero background), which the FTW
+    #    driver treated as "corrupted" rather than "erased", preventing variable
+    #    store initialisation and producing:
+    #      "FtwPei: Both working and spare block are invalid."
+    #      "Firmware Volume for Variable Store is corrupted"
+    FD="$WSDIR/Build/${PLATFORM_NAME}/RELEASE_GCC/FV/NOR_FLASH_IMAGE.fd"
+    if [ -f "$FD" ]; then
+        # 0xFC0000 in 4KB blocks = 4032; 192KB / 4KB = 48 blocks
+        dd if="$FD" of="$OUT_IMG" bs=4K skip=4032 count=48 seek=4032 conv=notrunc status=none
+        info "NV Variable Store: 写入 0xFC0000..0xFEFFFF ✓ (3×64KB, erased state 0xFF)"
+    fi
+
+    echo ""
+    echo -e "${GRN}╔══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GRN}║    ${PLATFORM_NAME} EDK2 UEFI 固件打包完成！                       ║${NC}"
+    echo -e "${GRN}╚══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "  镜像: ${CYN}$OUT_IMG${NC}  ($(du -h "$OUT_IMG" | cut -f1))"
+    echo ""
+    echo -e "  SPI NOR FIT 直通布局:"
+    echo    "    0x000000  GPT 分区表"
+    echo    "    0x008000  idblock (DDR init + mainline SPL)"
+    echo    "    0x060000  FIT image (BL31 + EDK2 BL33 + DTB)"
+    echo    "    0xFC0000  NV Variable Store  (64KB)"
+    echo    "    0xFD0000  NV FTW Working     (64KB)"
+    echo    "    0xFE0000  NV FTW Spare       (64KB)"
+    echo ""
+    echo -e "  启动链:"
+    echo    "    BootROM → SPL → FIT 解析 → BL31 (EL3) → EDK2 BL33 (EL2) → TianoCore"
+    echo ""
+    echo -e "${CYN}刷写 SPI NOR (MaskROM 模式，USB-C 连接):${NC}"
+    echo "  rkdeveloptool db binaries/rk3576_ddr.bin"
+    echo "  rkdeveloptool wl 0 output/${PLATFORM_NAME}/${PLATFORM_NAME}-spi-edk2.img"
+    echo "  rkdeveloptool rd"
+    echo ""
+    echo -e "${CYN}串口 (1500000 8N1) 预期输出:${NC}"
+    echo "  U-Boot SPL ... → INFO: BL31 ... → TianoCore EDK2 / UEFI Interactive Shell"
 fi
-
-echo ""
-echo -e "${GRN}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GRN}║    ${PLATFORM_NAME} EDK2 UEFI 固件打包完成！                       ║${NC}"
-echo -e "${GRN}╚══════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "  镜像: ${CYN}$OUT_IMG${NC}  ($(du -h "$OUT_IMG" | cut -f1))"
-echo ""
-echo -e "  SPI NOR FIT 直通布局:"
-echo    "    0x000000  GPT 分区表"
-echo    "    0x008000  idblock (DDR init + mainline SPL)"
-echo    "    0x060000  FIT image (BL31 + EDK2 BL33 + DTB)"
-echo    "    0xFC0000  NV Variable Store  (64KB)"
-echo    "    0xFD0000  NV FTW Working     (64KB)"
-echo    "    0xFE0000  NV FTW Spare       (64KB)"
-echo ""
-echo -e "  启动链:"
-echo    "    BootROM → SPL → FIT 解析 → BL31 (EL3) → EDK2 BL33 (EL2) → TianoCore"
-echo ""
-echo -e "${CYN}刷写 SPI NOR (MaskROM 模式，USB-C 连接):${NC}"
-echo "  rkdeveloptool db binaries/rk3576_ddr.bin"
-echo "  rkdeveloptool wl 0 output/${PLATFORM_NAME}/${PLATFORM_NAME}-spi-edk2.img"
-echo "  rkdeveloptool rd"
-echo ""
-echo -e "${CYN}串口 (1500000 8N1) 预期输出:${NC}"
-echo "  U-Boot SPL ... → INFO: BL31 ... → TianoCore EDK2 / UEFI Interactive Shell"

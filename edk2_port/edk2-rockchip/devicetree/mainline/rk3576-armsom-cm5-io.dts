@@ -287,7 +287,7 @@
 		clocks = <&hym8563>;
 		clock-names = "ext_clock";
 		pinctrl-names = "default";
-		pinctrl-0 = <&wifi_reg_on>;
+		pinctrl-0 = <&wifi_poweren_gpio>;
 		reset-gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_LOW>;
 	};
 };
@@ -386,6 +386,90 @@
 
 &hdptxphy {
 	status = "okay";
+};
+
+/*
+ * I2C0: ES8388 audio codec @ 0x10, FUSB302 USB-PD controller @ 0x22.
+ * Pinctrl: i2c0m1 mux (GPIO0 PC4 SCL / GPIO0 PC5 SDA).
+ * NOTE: FUSB302 INT# uses GPIO0 PB4 per vendor DTS; same pin as work_led —
+ *       confirm against schematic before enabling both simultaneously.
+ */
+&i2c0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0m1_xfer>;
+
+	es8388: es8388@10 {
+		#sound-dai-cells = <0>;
+		compatible = "everest,es8388", "everest,es8323";
+		reg = <0x10>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sai1m0_mclk>;
+		status = "disabled";
+	};
+
+	usbc0: fusb302@22 {
+		compatible = "fcs,fusb302";
+		reg = <0x22>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PB4 IRQ_TYPE_LEVEL_LOW>;
+		int-n-gpios = <&gpio0 RK_PB4 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usbc0_int>;
+		vbus-supply = <&vcc_5v0_typec0>;
+		status = "okay";
+
+		port {
+			usbc0_role_sw: endpoint {
+				remote-endpoint = <&usb_drd0_role_switch>;
+			};
+		};
+
+		usb_con: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			data-role = "dual";
+			power-role = "dual";
+			try-power-role = "sink";
+			op-sink-microwatt = <1000000>;
+			sink-pdos =
+				<PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)
+				 PDO_FIXED(9000, 3000, PDO_FIXED_USB_COMM)
+				 PDO_FIXED(12000, 3000, PDO_FIXED_USB_COMM)>;
+			source-pdos =
+				<PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+
+			altmodes {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				altmode@0 {
+					reg = <0>;
+					svid = <0xff01>;
+					vdo = <0xffffffff>;
+				};
+			};
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					usbc0_orien_sw: endpoint {
+						remote-endpoint = <&usbdp_phy_orientation_switch>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					dp_altmode_mux: endpoint {
+						remote-endpoint = <&usbdp_phy_dp_altmode_mux>;
+					};
+				};
+			};
+		};
+	};
 };
 
 /*
@@ -780,6 +864,10 @@
 		usb_otg0_pwren: usb-otg0-pwren {
 			rockchip,pins = <2 RK_PB6 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
+		/* GPIO0 PB4 — FUSB302 INT# (USB-PD controller interrupt, active-low) */
+		usbc0_int: usbc0-int {
+			rockchip,pins = <0 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
 	};
 
 	wireless-bluetooth {
@@ -787,22 +875,17 @@
 		bt_reg_on: bt-reg-on {
 			rockchip,pins = <1 RK_PC7 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
-
-		/* GPIO0 PB0 — BT wake host (input) */
-		bt_wake_host: bt-wake-host {
-			rockchip,pins = <0 RK_PB0 RK_FUNC_GPIO &pcfg_pull_down>;
-		};
 	};
 
 	wireless-wlan {
-		/* GPIO0 PB0 — WiFi wake host (input, shared with BT wake) */
-		wifi_wake_host: wifi-wake-host {
+		/* GPIO0 PB0 — WiFi wake host interrupt (SDIO IRQ) */
+		wifi_host_wake_irq: wifi-host-wake-irq {
 			rockchip,pins = <0 RK_PB0 RK_FUNC_GPIO &pcfg_pull_down>;
 		};
 
-		/* GPIO1 PC6 — WiFi reset (active-low, part of sdio_pwrseq) */
-		wifi_reg_on: wifi-reg-on {
-			rockchip,pins = <1 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>;
+		/* GPIO1 PC6 — WiFi power enable / reset (sdio_pwrseq) */
+		wifi_poweren_gpio: wifi-poweren-gpio {
+			rockchip,pins = <1 RK_PC6 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 };
@@ -898,15 +981,24 @@
 	pinctrl-0 = <&uart4m1_xfer &uart4m1_ctsn &uart4m1_rtsn>;
 	pinctrl-names = "default";
 	uart-has-rtscts;
+	status = "okay";
 };
 
 /*
  * USB DRD0: USB-C port (USBDP PHY SuperSpeed + USB2 PHY HS).
- * Configured as host for UEFI; USB-C PD (FUSB302) may switch role in OS.
+ * Base DTS uses OTG + FUSB302 role-switch for Linux compatibility.
+ * The UEFI overlay overrides dr_mode to "host" for firmware operation.
  */
 &usb_drd0_dwc3 {
-	dr_mode = "host";
+	dr_mode = "otg";
+	usb-role-switch;
 	status = "okay";
+
+	port {
+		usb_drd0_role_switch: endpoint {
+			remote-endpoint = <&usbc0_role_sw>;
+		};
+	};
 };
 
 /*
@@ -919,6 +1011,25 @@
 
 &usbdp_phy {
 	status = "okay";
+	orientation-switch;
+	svid = <0xff01>;
+	sbu1-dc-gpios = <&gpio4 RK_PC4 GPIO_ACTIVE_HIGH>;
+	sbu2-dc-gpios = <&gpio4 RK_PC5 GPIO_ACTIVE_HIGH>;
+
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		usbdp_phy_orientation_switch: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&usbc0_orien_sw>;
+		};
+
+		usbdp_phy_dp_altmode_mux: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&dp_altmode_mux>;
+		};
+	};
 };
 
 &vop {

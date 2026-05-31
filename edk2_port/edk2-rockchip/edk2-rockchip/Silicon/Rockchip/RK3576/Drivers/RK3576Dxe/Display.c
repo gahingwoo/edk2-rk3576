@@ -154,13 +154,9 @@ InitializeDisplayVariables (
                       );
       DEBUG ((
         DEBUG_INFO,
-        "RK3576Dxe: DisplayModePreset NV update → %r; requesting cold reset for migration\n",
+        "RK3576Dxe: DisplayModePreset NV update → %r; skipping reset (PcdSetPtrS already updated cache)\n",
         Status
         ));
-      if (!EFI_ERROR (Status)) {
-        gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
-        /* UNREACHABLE */
-      }
     }
   }
 

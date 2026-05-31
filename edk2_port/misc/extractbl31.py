@@ -25,15 +25,14 @@ def generate_atf_binary(bl31_file_name):
                 paddr = seg.__getitem__(ELF_SEG_P_PADDR)
                 file_name = 'bl31_0x%08x.bin' % paddr
                 data = seg.data()
-                # Pad to 16-byte boundary. RK3576 SPL's SFC DMA requires
-                # transfer length to be aligned (>=4 bytes; round to 16 for
-                # cache-line safety). Without padding, the last partial word
-                # in RAM is not actually written by DMA, and the FIT SHA256
-                # over the unpadded source will not match the loaded RAM
-                # contents → "Bad hash value for atf-3 image" failure.
-                # The padding lies inside BL31's BSS region (memsz > filesz)
-                # which BL31 itself zero-clears on entry — fully safe.
-                pad = (16 - (len(data) % 16)) % 16
+                # Pad to 512-byte boundary. Two requirements:
+                # 1. MMC external FIT: data-offsets must be 512-byte aligned
+                #    so the SPL can use mmc_load_image_raw_sector() to read
+                #    each segment without sub-block addressing.
+                # 2. SFC DMA: transfer length >= 4 bytes, cache-line safe.
+                # 512 satisfies both. The padding lies inside BL31's BSS
+                # region (memsz > filesz) which BL31 zero-clears on entry.
+                pad = (512 - (len(data) % 512)) % 512
                 if pad:
                     data += b'\x00' * pad
                 with open(file_name, "wb") as atf:
