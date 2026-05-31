@@ -74,15 +74,28 @@ FindPeImageBase (
 {
   EFI_IMAGE_DOS_HEADER                 *DosHdr;
   EFI_IMAGE_OPTIONAL_HEADER_PTR_UNION  Hdr;
+  UINT32                               PeOffset;
 
   Base &= ~(EFI_PAGE_SIZE - 1);
 
   while (Base != 0) {
     DosHdr = (EFI_IMAGE_DOS_HEADER *)Base;
     if (DosHdr->e_magic == EFI_IMAGE_DOS_SIGNATURE) {
-      Hdr.Pe32 = (EFI_IMAGE_NT_HEADERS32 *)(Base + DosHdr->e_lfanew);
-      if (Hdr.Pe32->Signature == EFI_IMAGE_NT_SIGNATURE) {
-        break;
+      PeOffset = DosHdr->e_lfanew;
+      /*
+       * Validate e_lfanew before chasing the pointer.  A coincidental 'MZ'
+       * pattern in scanned memory can produce a garbage e_lfanew that puts
+       * the PE header pointer into unmapped address space, causing a
+       * Translation fault.  Real EFI PE images keep e_lfanew well below
+       * SIZE_1MB; reject anything implausibly large.
+       */
+      if ((PeOffset >= sizeof (EFI_IMAGE_DOS_HEADER)) &&
+          (PeOffset < SIZE_1MB))
+      {
+        Hdr.Pe32 = (EFI_IMAGE_NT_HEADERS32 *)(Base + PeOffset);
+        if (Hdr.Pe32->Signature == EFI_IMAGE_NT_SIGNATURE) {
+          break;
+        }
       }
     }
 

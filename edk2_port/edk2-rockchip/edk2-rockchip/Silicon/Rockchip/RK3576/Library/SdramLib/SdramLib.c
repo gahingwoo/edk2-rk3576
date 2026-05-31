@@ -84,6 +84,17 @@ SdramGetMemorySize (
     OsReg  = MmioRead32 (SDRAM_OS_REG_BASE + 8 * Bank);
     OsReg1 = MmioRead32 (SDRAM_OS_REG_BASE + 8 * Bank + 4);
 
+    /*
+     * OS_REG all-zero means the SPL never initialised this bank slot —
+     * no physical DRAM is present here.  Reading zero would produce a
+     * bogus 256 MB contribution from the bit-field arithmetic below.
+     */
+    if ((OsReg == 0) && (OsReg1 == 0)) {
+      DEBUG ((DEBUG_INFO, "%a(): Bank #%d: OS_REG=0 — skipping (no DRAM)\n",
+              __func__, Bank));
+      continue;
+    }
+
     Version = SYS_REG1_VERSION (OsReg1);
     DdrType = SYS_REG_DDRTYPE (OsReg);
     if (Version >= 3) {
