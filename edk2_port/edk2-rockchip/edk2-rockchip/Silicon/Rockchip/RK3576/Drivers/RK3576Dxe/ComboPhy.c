@@ -307,7 +307,8 @@ SetupComboPhyVariables (
                   &Size,
                   &Var32
                   );
-  if (EFI_ERROR (Status) || !FixedPcdGetBool (PcdComboPhy0Switchable)) {
+  if (EFI_ERROR (Status) || (Size != sizeof (UINT32)) ||
+      !FixedPcdGetBool (PcdComboPhy0Switchable)) {
     Status = PcdSet32S (PcdComboPhy0Mode, FixedPcdGet32 (PcdComboPhy0ModeDefault));
     ASSERT_EFI_ERROR (Status);
   } else {
@@ -326,7 +327,8 @@ SetupComboPhyVariables (
                   &Size,
                   &Var32
                   );
-  if (EFI_ERROR (Status) || !FixedPcdGetBool (PcdComboPhy1Switchable)) {
+  if (EFI_ERROR (Status) || (Size != sizeof (UINT32)) ||
+      !FixedPcdGetBool (PcdComboPhy1Switchable)) {
     Status = PcdSet32S (PcdComboPhy1Mode, FixedPcdGet32 (PcdComboPhy1ModeDefault));
     ASSERT_EFI_ERROR (Status);
   } else {
