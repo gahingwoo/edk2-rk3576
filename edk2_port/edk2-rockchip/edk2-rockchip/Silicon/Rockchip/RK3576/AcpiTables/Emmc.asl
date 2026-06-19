@@ -10,6 +10,7 @@
 
   Device (SDC3) {
     Name (_HID, "RKCP0D40")
+    Name (_CID, "PNP0D40")   // SDA-compatible: lets the Windows inbox SDHCI driver bind
     Name (_UID, 3)
     Name (_CCA, 0)
 

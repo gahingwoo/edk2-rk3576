@@ -19,7 +19,7 @@
 
 Device (SPI0)
 {
-  Name (_HID, "PRP0001")
+  Name (_HID, "RKCP3003")   // Windows binds ACPI\RKCP3003; _CID keeps Linux (PRP0001+compatible)
   Name (_CID, "PRP0001")
   Name (_UID, 0)
   Name (_CCA, 0)
@@ -44,7 +44,7 @@ Device (SPI0)
 
 Device (SPI1)
 {
-  Name (_HID, "PRP0001")
+  Name (_HID, "RKCP3003")
   Name (_CID, "PRP0001")
   Name (_UID, 1)
   Name (_CCA, 0)
@@ -69,7 +69,7 @@ Device (SPI1)
 
 Device (SPI2)
 {
-  Name (_HID, "PRP0001")
+  Name (_HID, "RKCP3003")
   Name (_CID, "PRP0001")
   Name (_UID, 2)
   Name (_CCA, 0)
@@ -94,7 +94,7 @@ Device (SPI2)
 
 Device (SPI3)
 {
-  Name (_HID, "PRP0001")
+  Name (_HID, "RKCP3003")
   Name (_CID, "PRP0001")
   Name (_UID, 3)
   Name (_CCA, 0)
@@ -119,7 +119,7 @@ Device (SPI3)
 
 Device (SPI4)
 {
-  Name (_HID, "PRP0001")
+  Name (_HID, "RKCP3003")
   Name (_CID, "PRP0001")
   Name (_UID, 4)
   Name (_CCA, 0)
