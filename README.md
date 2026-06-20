@@ -16,7 +16,7 @@ Hardware-verified on both the **ROCK 4D** and the **ArmSoM CM5-IO**.
 | Radxa ROCK 4D | ArmSoM CM5-IO |
 |---|---|
 | ![UEFI front page — ROCK 4D](docs/imgs/monitor-4d.png) | ![UEFI front page — CM5-IO](docs/imgs/monitor-cm5io.jpeg) |
-| TianoCore front page at 2560×1440@60 QHD via HDMI | TianoCore on CM5-IO via HDMI (minor horizontal offset, WIP) |
+| TianoCore front page at 2560×1440@60 QHD via HDMI | TianoCore on CM5-IO via HDMI (minor horizontal offset) |
 
 | | |
 |---|---|
@@ -30,7 +30,7 @@ Hardware-verified on both the **ROCK 4D** and the **ArmSoM CM5-IO**.
 | Board | Boot medium | HDMI | eMMC | USB 3.0 | Ethernet | Status |
 |---|---|---|---|---|---|---|
 | Radxa ROCK 4D | SPI NOR | Working (QHD) | Working | Working (5 Gbps) | Working (UEFI + Linux) | Hardware verified |
-| ArmSoM CM5-IO | SD card | WIP | Working (52 MHz HS) | Working (5 Gbps) | Working (UEFI + Linux) | Hardware verified |
+| ArmSoM CM5-IO | SD card | Working (minor offset) | Working (52 MHz HS) | Working (5 Gbps) | Working (UEFI + Linux) | Hardware verified |
 | ArmSoM CM5 RPI-CM4-IO | SD card | — | Working | — | — | Build-verified |
 | Waveshare CM4-IO-BASE-B | SD/SPI | — | Working | — | — | Build-verified |
 | Waveshare CM4-IO-BASE-A | SD/SPI | — | Working | — | — | Build-verified |
@@ -118,9 +118,9 @@ Both boot from SD card — the carrier SPI NOR is 64 KB and cannot hold the firm
 | USB 3.0 xHCI @ 5 Gbps (USB-A) | Working — via onboard 4-port hub (DRD1) |
 | USB-C (DRD0) | Not tested — DRD0 initialises HS-only in UEFI (SS PHY not brought up); untested on CM5-IO |
 | 1 GbE (GMAC0, YT8531C) | Working in UEFI (PXE verified) and Linux |
-| HDMI | WIP — PHY and VOP2 initialise, HPD detected, video timing output incorrect |
+| HDMI | Working — VOP2 + HDPTX PHY, EDID read, GOP at native resolution; minor horizontal offset |
 | EFI variables | Not persistent — carrier SPI too small; settings reset on reboot |
-| PCIe | Not yet tested |
+| PCIe | M.2 device detected (LTSSM reaches Recovery); link not yet trained — WIP |
 
 **Known limitations:**
 
@@ -129,9 +129,10 @@ Both boot from SD card — the carrier SPI NOR is 64 KB and cannot hold the firm
 - **eMMC at 52 MHz legacy HS, not HS200/HS400.** The DWC eMMC CRU↔SDHCI
   frequency hand-off is architecturally incompatible with the UEFI SDHCI stack's
   clock-change sequence. 52 MHz is reliable and sufficient for OS boot.
-- **HDMI output is not working yet.** The HDPTX PHY initialises and HPD is
-  detected, but the VOP2 video timing output to the HDMI TX is incorrect.
-  Under investigation.
+- **HDMI has a minor horizontal offset.** Output works — VOP2 + HDPTX PHY come
+  up, EDID is read, and TianoCore renders at the native resolution. The picture
+  is shifted slightly right because the RK3576 background/pre-scan delay is still
+  computed with the RK3588 formula; a one-register fix is pending.
 - **EBBR compliance is incomplete (WIP).** Full EBBR requires persistent EFI
   variable storage; the volatile-only NV store on this carrier board does not
   meet that requirement. Work on eMMC-backed variable storage is in progress.
@@ -233,7 +234,7 @@ bash build_rock4d_uefi.sh --config configs/nanopi-m5.conf
 | Issue | Boards affected | Notes |
 |---|---|---|
 | PCIe LTSSM never reaches L0 | All | DBI reachable (`VID:DID = 0x1D87:0x3576`); works fine in Linux |
-| HDMI no output | CM5-IO | VOP2/HDPTX init runs, HPD detected, video timing incorrect — WIP |
+| HDMI minor horizontal offset | CM5-IO | Picture works (EDID + GOP at native res); RK3576 bg/pre-scan delay still uses the RK3588 formula — one-register fix pending |
 | EFI variables not persistent | CM5-IO family | Carrier SPI NOR too small; eMMC-backed NV store is WIP |
 | EBBR compliance incomplete | CM5-IO family | Persistent NV storage required; WIP alongside eMMC boot path |
 | USB-C HS only in UEFI | All | DRD0 initialises without SS PHY; SS+HS available in Linux via `phy-rockchip-usbdp.c` |
