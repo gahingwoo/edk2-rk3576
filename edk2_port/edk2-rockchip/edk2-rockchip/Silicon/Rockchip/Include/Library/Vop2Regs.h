@@ -150,6 +150,17 @@
 #define LAYER_SEL_PORT_MASK   0x3
 #define LAYER_SEL_PORT_SHIFT  16
 
+/*
+ * RK3576 routes each window to a video port via a PER-WINDOW VP-select register
+ * (mainline VOP2_WIN_VP_SEL), NOT the RK3588 central OVL_PORT_SEL above.  These
+ * offsets are relative to the window's own register base (esmart base 0x1800,
+ * cluster base 0x1000), bits[1:0] = target VP id.  Without writing this on
+ * RK3576 the window is composited to no VP → black screen with valid signal.
+ */
+#define RK3576_SMART_PORT_SEL_IMD    0xF4
+#define RK3576_CLUSTER_PORT_SEL_IMD  0x1F4
+#define RK3576_WIN_VP_SEL_MASK       0x3
+
 #define RK3568_CLUSTER0_MIX_SRC_COLOR_CTRL  0x610
 #define RK3568_CLUSTER0_MIX_DST_COLOR_CTRL  0x614
 #define RK3568_CLUSTER0_MIX_SRC_ALPHA_CTRL  0x618

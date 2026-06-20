@@ -1002,54 +1002,92 @@ Vop2GlobalInitial (
     DEBUG ((DEBUG_INIT, "], primary plane: %d\n", Vop2->VpPlaneMask[i].PrimaryPlaneId));
   }
 
-  Shift = 0;
-  /* layer sel win id */
-  for (i = 0; i < Vop2->Data->NrVps; i++) {
-    LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
-    for (j = 0; j < LayerNr; j++) {
-      LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
-      WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
-      if (WinData == NULL) {
-        /* Layer not found in this SoC's window table; skip to avoid NULL deref */
-        Shift += 4;
+  if (Vop2->Data->Version >= VOP_VERSION_RK3576) {
+    /*
+     * RK3576 has a PER-VP layer-sel register (RK3576_OVL_LAYER_SEL(vp) =
+     * 0x604 + vp*0x100), unlike the single central RK3588 register.  Each
+     * nibble selects a window (by layer_sel_id) for that zpos; 0xf disables
+     * the slot.  The layer-sel MUST agree with the per-window VP_SEL routing:
+     * only the window actually routed to this VP may appear here, otherwise
+     * the mixer references an unrouted window and the VP output is corrupted.
+     * UEFI drives a single primary plane, so put it at zpos 0 and disable the
+     * rest.  See memory project_rk3576_vop2_overlay.
+     */
+    for (i = 0; i < Vop2->Data->NrVps; i++) {
+      if (Vop2->VpPlaneMask[i].AttachedLayersNr == 0) {
         continue;
       }
 
-      Vop2MaskWrite (
+      WinData = Vop2FindWinByPhysID (Vop2, Vop2->VpPlaneMask[i].PrimaryPlaneId);
+      if (WinData == NULL) {
+        continue;
+      }
+
+      Vop2Writel (
         Vop2->BaseAddress,
-        RK3568_OVL_LAYER_SEL,
-        LAYER_SEL_MASK,
-        Shift,
-        WinData->LayerSelWinID,
-        FALSE
+        RK3568_OVL_LAYER_SEL + i * 0x100,
+        0xFFF0 | (WinData->LayerSelWinID & 0xF)
         );
-      Shift += 4;
+    }
+  } else {
+    Shift = 0;
+    /* layer sel win id (RK3588 central register) */
+    for (i = 0; i < Vop2->Data->NrVps; i++) {
+      LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
+      for (j = 0; j < LayerNr; j++) {
+        LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
+        WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
+        if (WinData == NULL) {
+          /* Layer not found in this SoC's window table; skip to avoid NULL deref */
+          Shift += 4;
+          continue;
+        }
+
+        Vop2MaskWrite (
+          Vop2->BaseAddress,
+          RK3568_OVL_LAYER_SEL,
+          LAYER_SEL_MASK,
+          Shift,
+          WinData->LayerSelWinID,
+          FALSE
+          );
+        Shift += 4;
+      }
     }
   }
 
-  /* win sel port */
-  for (i = 0; i < Vop2->Data->NrVps; i++) {
-    LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
-    for (j = 0; j < LayerNr; j++) {
-      if (!Vop2->VpPlaneMask[i].AttachedLayers[j]) {
-        continue;
-      }
+  /*
+   * win sel port — RK3588 central OVL_PORT_SEL.  On RK3576 the 0x608 register
+   * is INSIDE video-port 0's per-VP OVL block (RK3576_OVL_* = 0x600+vp*0x100),
+   * NOT a global window-to-port selector.  RK3576 instead routes each window
+   * via its own per-window VP_SEL register (written in Vop2SetSmartWin /
+   * Vop2SetClusterWin).  Writing the RK3588 layout here corrupts VP0's OVL
+   * block, so skip it on RK3576.
+   */
+  if (Vop2->Data->Version < VOP_VERSION_RK3576) {
+    for (i = 0; i < Vop2->Data->NrVps; i++) {
+      LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
+      for (j = 0; j < LayerNr; j++) {
+        if (!Vop2->VpPlaneMask[i].AttachedLayers[j]) {
+          continue;
+        }
 
-      LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
-      WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
-      if (WinData == NULL) {
-        continue;
-      }
+        LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
+        WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
+        if (WinData == NULL) {
+          continue;
+        }
 
-      Shift      = WinData->WinSelPortOffset * 2;
-      Vop2MaskWrite (
-        Vop2->BaseAddress,
-        RK3568_OVL_PORT_SEL,
-        LAYER_SEL_PORT_MASK,
-        LAYER_SEL_PORT_SHIFT + Shift,
-        i,
-        FALSE
-        );
+        Shift      = WinData->WinSelPortOffset * 2;
+        Vop2MaskWrite (
+          Vop2->BaseAddress,
+          RK3568_OVL_PORT_SEL,
+          LAYER_SEL_PORT_MASK,
+          LAYER_SEL_PORT_SHIFT + Shift,
+          i,
+          FALSE
+          );
+      }
     }
   }
 
@@ -1070,14 +1108,20 @@ Vop2GlobalInitial (
     }
 
     Crtc->Vps[i].BgOvlDly = (Vop2->Data->NrMixers - PortMux) << 1;
-    Vop2MaskWrite (
-      Vop2->BaseAddress,
-      RK3568_OVL_PORT_SEL,
-      PORT_MUX_MASK,
-      PORT_MUX_SHIFT + Shift,
-      PortMux,
-      FALSE
-      );
+
+    /* RK3576: 0x608 is inside VP0's OVL block, not the central port-mux —
+     * skip the write (see the win-sel-port note above).  BgOvlDly is still
+     * computed for the pre-scan timing used by the VP enable path. */
+    if (Vop2->Data->Version < VOP_VERSION_RK3576) {
+      Vop2MaskWrite (
+        Vop2->BaseAddress,
+        RK3568_OVL_PORT_SEL,
+        PORT_MUX_MASK,
+        PORT_MUX_SHIFT + Shift,
+        PortMux,
+        FALSE
+        );
+    }
   }
 
   Vop2->GlobalInit = TRUE;
@@ -3499,6 +3543,21 @@ Vop2SetClusterWin (
     FALSE
     );
 
+  /*
+   * RK3576: per-window VP select (cluster base + 0x1F4, bits[1:0]).  See the
+   * matching note in Vop2SetSmartWin and memory project_rk3576_vop2_overlay.
+   */
+  if (Vop2->Data->Version >= VOP_VERSION_RK3576) {
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_CLUSTER0_WIN0_CTRL0 + WinOffset + RK3576_CLUSTER_PORT_SEL_IMD,
+      RK3576_WIN_VP_SEL_MASK,
+      0,
+      CrtcState->CrtcID,
+      FALSE
+      );
+  }
+
   Vop2Writel (Vop2->BaseAddress, RK3568_REG_CFG_DONE, CfgDone);
 }
 
@@ -3607,6 +3666,24 @@ Vop2SetSmartWin (
     CSCMode,
     FALSE
     );
+
+  /*
+   * RK3576: select this window's target video port via its own per-window
+   * PORT_SEL register (esmart base + 0xF4, bits[1:0]).  RK3588 used the central
+   * OVL_PORT_SEL (0x608) which has no effect on RK3576, so without this the
+   * window is composited to no VP and the screen stays black despite a valid
+   * HDMI signal.  See memory project_rk3576_vop2_overlay.
+   */
+  if (Vop2->Data->Version >= VOP_VERSION_RK3576) {
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_ESMART0_CTRL0 + WinOffset + RK3576_SMART_PORT_SEL_IMD,
+      RK3576_WIN_VP_SEL_MASK,
+      0,
+      CrtcState->CrtcID,
+      FALSE
+      );
+  }
 
   Vop2Writel (Vop2->BaseAddress, RK3568_REG_CFG_DONE, CfgDone);
 }
