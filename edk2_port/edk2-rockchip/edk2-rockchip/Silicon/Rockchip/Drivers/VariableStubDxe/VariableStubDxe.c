@@ -26,7 +26,7 @@
  *  Replace with a real Variable provider once SPI flash and ATAGS
  *  plumbing for RK3576 is in place.
  *
- *  Copyright (c) 2026, ROCK 4D RK3576 Port
+ *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *
  **/

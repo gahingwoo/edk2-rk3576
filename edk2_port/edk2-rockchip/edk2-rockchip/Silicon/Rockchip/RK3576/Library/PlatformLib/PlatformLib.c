@@ -3,7 +3,7 @@
  *  RK3576 Silicon-level Platform Library stub
  *  Board-specific init is in Platform/Radxa/ROCK4D/Library/RockchipPlatformLib/
  *
- *  Copyright (c) 2025, ROCK 4D RK3576 Port
+ *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  **/
 

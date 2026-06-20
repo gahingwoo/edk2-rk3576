@@ -2,7 +2,7 @@
 #
 #  RK3576 Platform DSC include — for board-level DSC files
 #
-#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 ##

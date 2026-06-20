@@ -27,7 +27,7 @@
  *               PD:      IOC + 0xB398 + ((pin-24)/4)*4
  *
  *  Copyright (c) 2021, Jared McNeill <jmcneill@invisible.ca>    (original RK3588)
- *  Copyright (c) 2025, ROCK 4D RK3576 Port                     (RK3576 adaptation)
+ *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>                     (RK3576 adaptation)
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *

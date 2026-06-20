@@ -10,7 +10,7 @@
  *
  *  Copyright (c) 2022, Jared McNeill <jmcneill@invisible.ca>
  *  Copyright (c) 2023, Gábor Stefanik <netrolller.3d@gmail.com>
- *  Copyright (c) 2025, ROCK 4D RK3576 Port
+ *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  **/

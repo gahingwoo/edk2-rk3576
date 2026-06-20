@@ -10,7 +10,7 @@
  *    combphy0_ps  (0x2B050000)  — PCIe2x1l0 only  (M.2 NVMe slot)
  *    combphy1_psu (0x2B060000)  — DRD1 USB3 or PCIe2x1l1
  *
- *  Copyright (c) 2025, ROCK 4D RK3576 Port
+ *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *

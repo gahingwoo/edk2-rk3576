@@ -2,7 +2,7 @@
  *
  *  RK3576 PCIe hardware mapping
  *
- *  Copyright (c) 2025, ROCK 4D RK3576 Port
+ *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *

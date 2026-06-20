@@ -9,7 +9,7 @@
  *   - ROCK 4D has a single HDMI0 output
  *
  *  Copyright (c) 2025, Mario Bălănică <mariobalanica02@gmail.com>
- *  Copyright (c) 2025, ROCK 4D RK3576 Port
+ *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *

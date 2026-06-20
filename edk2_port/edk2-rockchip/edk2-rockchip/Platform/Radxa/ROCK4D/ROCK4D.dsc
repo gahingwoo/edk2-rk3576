@@ -11,7 +11,7 @@
 #  Debug:  UART0 @ 0x2AD40000, 1.5Mbaud
 #
 #  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
-#  Copyright (c) 2025, ROCK 4D RK3576 Port
+#  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #

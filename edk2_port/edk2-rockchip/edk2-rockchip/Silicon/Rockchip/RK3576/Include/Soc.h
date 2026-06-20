@@ -6,7 +6,7 @@
  *    linux/arch/arm64/boot/dts/rockchip/rk3576.dtsi (mainline)
  *    u-boot/dts/upstream/src/arm64/rockchip/rk3576.dtsi
  *
- *  Copyright (c) 2025, ROCK 4D RK3576 Port
+ *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  **/
 

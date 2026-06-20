@@ -7,7 +7,7 @@
  *  Copyright (c) 2018-2020, Andrey Warkentin <andrey.warkentin@gmail.com>
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Copyright (c) 2021, ARM Limited. All rights reserved.
- *  Copyright (c) 2025, ROCK 4D RK3576 Port
+ *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *
