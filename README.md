@@ -15,8 +15,8 @@ Hardware-verified on both the **ROCK 4D** and the **ArmSoM CM5-IO**.
 
 | Radxa ROCK 4D | ArmSoM CM5-IO |
 |---|---|
-| ![UEFI front page — ROCK 4D](docs/imgs/monitor.png) | ![UEFI front page — CM5-IO](docs/imgs/edk2.png) |
-| TianoCore front page at 2560×1440@60 QHD via HDMI | TianoCore on CM5-IO (HDMI output WIP — serial capture) |
+| ![UEFI front page — ROCK 4D](docs/imgs/monitor-4d.png) | ![UEFI front page — CM5-IO](docs/imgs/monitor-cm5io.jpeg) |
+| TianoCore front page at 2560×1440@60 QHD via HDMI | TianoCore on CM5-IO via HDMI (minor horizontal offset, WIP) |
 
 | | |
 |---|---|
