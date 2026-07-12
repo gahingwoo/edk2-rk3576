@@ -145,11 +145,15 @@
   # eMMC: sdhci @ 0x2A330000 on CM5 module.
   # HS200 and HS400 both require SDR104/DDR clock at 200 MHz which depends on
   # the DWC DLL and a CRU-frequency hand-off that the UEFI SDHCI stack cannot
-  # synchronise correctly.  ForceHighSpeed caps the mode at 52 MHz legacy HS:
-  # no DLL, no tuning, reliable.  Fast enough for OS boot.
+  # synchronise correctly.  Even plain HighSpeed (~50 MHz, non-DLL sampling)
+  # turned out marginal when the controller is brought up cold from an SD/SPI
+  # boot (no from-eMMC stage tuned its phase): the command line works but 8-bit
+  # data reads CRC and enumeration stalls.  ForceDefaultSpeed caps at 26 MHz
+  # legacy SDR — widest sampling window, no DLL, no tuning, reliable.  eMMC is
+  # secondary storage here; this trades throughput for a board that always boots.
   gRK3576TokenSpaceGuid.PcdSdhciBaseAddr|0x2A330000
   gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress|0x2A330000
-  gRockchipTokenSpaceGuid.PcdDwcSdhciForceHighSpeed|TRUE
+  gRockchipTokenSpaceGuid.PcdDwcSdhciForceDefaultSpeed|TRUE
   gRockchipTokenSpaceGuid.PcdDwcSdhciNonDllStrbinDelay|0xa   # RK3576: per U-Boot rk3576_data.ddr50_strbin_delay_num
 
   # SD card (sdmmc @ 0x2A310000) — slot on CM5-IO carrier board

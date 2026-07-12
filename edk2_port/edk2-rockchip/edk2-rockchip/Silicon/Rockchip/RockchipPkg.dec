@@ -80,6 +80,11 @@
   gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress|0x0|UINT32|0x40000035
   gRockchipTokenSpaceGuid.PcdDwcSdhciForceHighSpeed|FALSE|BOOLEAN|0x40000036
   gRockchipTokenSpaceGuid.PcdDwcSdhciDisableHs400|FALSE|BOOLEAN|0x40000037
+  # Cap eMMC at default/legacy speed (26 MHz SDR), clearing the HighSpeed
+  # capability.  For boards where the non-DLL HighSpeed (~50 MHz) RX sampling
+  # is marginal when the controller is brought up cold (booting from SD/SPI,
+  # not eMMC): 8-bit data reads CRC and enumeration stalls.
+  gRockchipTokenSpaceGuid.PcdDwcSdhciForceDefaultSpeed|FALSE|BOOLEAN|0x40000039
   # STRBIN delay count for non-DLL (<=52 MHz) mode.
   # RK3576: 0xa  RK3588: 0x10 (DLL_STRBIN_DELAY_NUM_DEFAULT)
   gRockchipTokenSpaceGuid.PcdDwcSdhciNonDllStrbinDelay|0x10|UINT32|0x40000038

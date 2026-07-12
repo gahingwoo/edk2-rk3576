@@ -22,6 +22,7 @@
 #include "DwcSdhciDxe.h"
 
 #define EMMC_FORCE_HIGH_SPEED      FixedPcdGetBool(PcdDwcSdhciForceHighSpeed)
+#define EMMC_FORCE_DEFAULT_SPEED   FixedPcdGetBool(PcdDwcSdhciForceDefaultSpeed)
 #define EMMC_DISABLE_HS400         FixedPcdGetBool(PcdDwcSdhciDisableHs400)
 #define EMMC_NONDLL_STRBIN_DELAY   FixedPcdGet32(PcdDwcSdhciNonDllStrbinDelay)
 
@@ -79,7 +80,23 @@ EmmcSdMmcCapability (
 
   Capability->Hs400 = !EMMC_DISABLE_HS400;
 
-  if (EMMC_FORCE_HIGH_SPEED) {
+  if (EMMC_FORCE_DEFAULT_SPEED) {
+    //
+    // eMMC HighSpeed (~50 MHz, non-DLL RX sampling) is marginal on this board
+    // when the controller is brought up cold — i.e. booting from SD or SPI, so
+    // no earlier stage (SPL/TF-A from-eMMC boot) tuned the controller phase.
+    // The command line still works (CMD7/CMD9 responses are fine), but 8-bit
+    // data reads (EXT_CSD, blocks) return CRC errors and enumeration stalls.
+    // Cap at default/legacy speed (26 MHz SDR) by clearing the HighSpeed
+    // capability: the sampling window is wide enough not to need any DLL phase
+    // tuning.  eMMC is secondary storage here, not the boot device.
+    //
+    Capability->HighSpeed = 0;
+    Capability->Sdr50     = 0;
+    Capability->Ddr50     = 0;
+    Capability->Sdr104    = 0;
+    Capability->Hs400     = 0;
+  } else if (EMMC_FORCE_HIGH_SPEED) {
     Capability->BaseClkFreq = 52;
     *BaseClkFreq            = 52;   // keep Private->BaseClkFreq[Slot] in sync
     Capability->Sdr50       = 0;
