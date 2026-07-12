@@ -91,11 +91,22 @@ Rk3576CombPhy0InitPcie (
   /* pipe_clk_100m */
   MmioWrite32 (PhyGrf + 0x0004U, (0x6000U << 16) | 0x4000U);
 
-  /* 5. PHY tuning registers (rk3576_combphy_cfg PCIe + 100 MHz) */
-  /* SSC downward spread spectrum: reg[0x7C] bits[5:4] = 01 */
+  /* 5. PHY tuning registers (vendor rk3576_combphy_cfg PCIe + 100 MHz) */
+  /*
+   * SSC downward spread spectrum: PHYREG32 (0x7C) bits[5:4] = 01.
+   *
+   * The vendor BSP combphy driver writes this UNCONDITIONALLY for PCIe, and
+   * the vendor rk-pcie stack is what actually links this board's NVMe at Gen2
+   * (mainline dw-pcie fails to probe here).  Mainline gates SSC on a DT flag
+   * (default off), so a mainline-derived sequence omits it — but without SSC
+   * the link reaches L0, drops into Recovery (0x0D) and collapses, so the NVMe
+   * never enumerates.  Only touch bits[5:4]: an earlier attempt cleared bits
+   * [7:4] (mask 0xF0) which clobbered adjacent fields and made things worse;
+   * the vendor uses GENMASK(5,4).
+   */
   Val  = MmioRead32 (Phy + 0x7CU);
-  Val &= ~0xF0U;
-  Val |=  (1U << 4);
+  Val &= ~0x30U;
+  Val |=  0x10U;
   MmioWrite32 (Phy + 0x7CU, Val);
 
   /* gate_tx_pck_sel for L1SS */
@@ -116,8 +127,27 @@ Rk3576CombPhy0InitPcie (
   MmioWrite32 (Phy + 0x30U, 0x88U);
   MmioWrite32 (Phy + 0x34U, 0x56U);
 
-  /* 6. Deassert PHY pipe reset → PLL lock sequence starts */
+  /*
+   * force_det_out — "Tx detect Rx" erratum workaround.  The vendor combphy
+   * driver sets it for every rk3576 PCIe PHY (cfg->force_det_out = true):
+   * PHYREG25 (0x19<<2 = 0x64) bit5 = 1.  Without it the receiver-detect during
+   * Detect is unreliable, so the link can reach L0 yet fail to hold it.  Not in
+   * mainline; mainline dw-pcie does not link this board at all.
+   */
+  Val  = MmioRead32 (Phy + 0x64U);
+  Val |= (1U << 5);
+  MmioWrite32 (Phy + 0x64U, Val);
+
+  /* 6. Deassert PHY pipe reset (CRU) → PLL lock sequence starts */
   MmioWrite32 (PHP_CRU_SOFTRST_CON (1), (1U << (5 + 16)) | 0U);
+
+  /*
+   * Deassert the second, GRF-based PHY reset (pipe_phy_grf_reset): pipe-phy-grf
+   * offset 0x14, bits[1:0] = 0x3 (released).  The vendor combphy_init does this
+   * right after the CRU reset; we were missing it entirely, leaving the PHY in a
+   * half-reset state that trains but does not stay up.
+   */
+  MmioWrite32 (PhyGrf + 0x14U, (0x3U << 16) | 0x3U);
 
   MicroSecondDelay (10 * 1000);
 
@@ -167,9 +197,11 @@ Rk3576CombPhy1InitPcie (
   MmioWrite32 (PhyGrf + 0x0004U, (0x6000U << 16) | 0x4000U);
 
   /* 5. PHY tuning (same Naneng IP settings as PHY0 PCIe) */
+  /* SSC downward spread spectrum, bits[5:4]=01 — see the note in
+   * Rk3576CombPhy0InitPcie (the vendor combphy driver writes this for PCIe). */
   Val  = MmioRead32 (Phy + 0x7CU);
-  Val &= ~0xF0U;
-  Val |=  (1U << 4);
+  Val &= ~0x30U;
+  Val |=  0x10U;
   MmioWrite32 (Phy + 0x7CU, Val);
 
   MmioWrite32 (Phy + 0x74U, 0xC0U);
@@ -185,8 +217,18 @@ Rk3576CombPhy1InitPcie (
   MmioWrite32 (Phy + 0x30U, 0x88U);
   MmioWrite32 (Phy + 0x34U, 0x56U);
 
-  /* 6. Deassert PHY1 pipe reset */
+  /* force_det_out (Tx detect Rx erratum) — PHYREG25 (0x64) bit5 = 1.
+   * See the note in Rk3576CombPhy0InitPcie. */
+  Val  = MmioRead32 (Phy + 0x64U);
+  Val |= (1U << 5);
+  MmioWrite32 (Phy + 0x64U, Val);
+
+  /* 6. Deassert PHY1 pipe reset (CRU) */
   MmioWrite32 (PHP_CRU_SOFTRST_CON (1), (1U << (8 + 16)) | 0U);
+
+  /* Deassert the GRF-based PHY reset (pipe_phy_grf_reset): PhyGrf 0x14
+   * bits[1:0] = 0x3 — see the note in Rk3576CombPhy0InitPcie. */
+  MmioWrite32 (PhyGrf + 0x14U, (0x3U << 16) | 0x3U);
 
   MicroSecondDelay (10 * 1000);
 

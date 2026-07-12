@@ -71,6 +71,13 @@
 
 #define PCIE_TYPE0_HDR_DBI2_OFFSET  0x100000
 
+/*
+ * Number of full link-training attempts (PERST# cycle + LTSSM re-enable +
+ * link-up wait) before declaring the link dead.  A single marginal train used
+ * to give up immediately, leaving the NVMe undetected until the next boot.
+ */
+#define PCIE_LINK_TRAIN_RETRIES  3
+
 /* ATU Registers */
 #define ATU_CAP_BASE  0x300000
 #define IATU_REGION_CTRL_OUTBOUND(n)  (ATU_CAP_BASE + ((n) << 9))
@@ -231,15 +238,6 @@ PciSetupBars (
 
 STATIC
 VOID
-PciDirectSpeedChange (
-  IN EFI_PHYSICAL_ADDRESS  DbiBase
-  )
-{
-  MmioOr32 (DbiBase + PL_GEN2_CTRL_OFF, DIRECT_SPEED_CHANGE);
-}
-
-STATIC
-VOID
 PciSetupLinkSpeed (
   IN EFI_PHYSICAL_ADDRESS  DbiBase,
   IN UINT32                Speed,
@@ -340,15 +338,21 @@ PciIsLinkUp (
     LastVal = Val;
   }
 
-  if ((Val & RDLH_LINK_UP) == 0) {
-    return FALSE;
-  }
-
-  if ((Val & SMLH_LINK_UP) == 0) {
-    return FALSE;
-  }
-
-  return (Val & SMLH_LTSSM_STATE_MASK) == SMLH_LTSSM_STATE_LINK_UP;
+  //
+  // The link is up once both the SMLH (PHY/MAC) and RDLH (data-link) link-up
+  // bits latch.  This matches mainline rockchip_pcie_link_up(), which tests
+  // only PCIE_LINKUP_MASK = GENMASK(17,16) and deliberately does NOT require
+  // the LTSSM state field to read exactly L0 (0x11).
+  //
+  // Once L0 is reached the link-up bits stay set while the LTSSM legitimately
+  // cycles through Recovery (0x0D RcvrLock / 0x0E RcvrSpeed / 0x0F RcvrCfg) for
+  // clock compensation — the link is still up during those states.  Requiring
+  // state == 0x11 made us reject an up-but-recovering link and time out:
+  // observed LTSSM_STATUS=0x0003000D (both link-up bits set, state 0x0D), which
+  // mainline counts as up.  Accepting it here lets enumeration proceed while the
+  // link is live instead of leaving it idle until it falls back to Polling.
+  //
+  return ((Val & RDLH_LINK_UP) != 0) && ((Val & SMLH_LINK_UP) != 0);
 }
 
 STATIC
@@ -407,6 +411,18 @@ PciValidateCfg0 (
   IN  EFI_PHYSICAL_ADDRESS  Cfg0Base
   )
 {
+  UINT32  Cfg0;
+
+  /*
+   * Read dword 0 (VID:DID) of the directly-attached endpoint's config space
+   * through the CFG0 iATU window.  0xFFFFFFFF means the link is up but the
+   * endpoint did not answer the config TLP (link unstable, or drive not ready
+   * yet); a real VID:DID confirms the device is reachable and PciBusDxe should
+   * enumerate it.  Logged unconditionally so the boot log shows endpoint state.
+   */
+  Cfg0 = MmioRead32 (Cfg0Base);
+  DEBUG ((DEBUG_WARN, "PCIe%u: endpoint CFG0 VID:DID = 0x%08X\n", Segment, Cfg0));
+
   /*
    * Check if the downstream device appears mirrored (due to 64 KB iATU granularity)
    * and needs config accesses shifted for single-device ECAM mode in ACPI.
@@ -414,7 +430,7 @@ PciValidateCfg0 (
    * ACPI Pcie.asl uses a fixed value. Adjust if full ECAM compliance needed.
    */
   if (  (MmioRead32 (Cfg0Base + 0x8000) == 0xffffffff)
-     && (MmioRead32 (Cfg0Base) != 0xffffffff))
+     && (Cfg0 != 0xffffffff))
   {
     DEBUG ((DEBUG_INFO, "PCIe: Working CFG0 TLP filtering for connected device!\n"));
   }
@@ -615,8 +631,11 @@ InitializePciHost (
   EFI_PHYSICAL_ADDRESS  DbiBase;
   EFI_PHYSICAL_ADDRESS  CfgBase;
   UINTN                 Retry;
+  UINTN                 Attempt;
+  BOOLEAN               LinkUp;
   UINT32                LinkSpeed;
   UINT32                LinkWidth;
+  UINT32                Ltssm;
 
   if (Segment >= NUM_PCIE_CONTROLLER) {
     DEBUG ((DEBUG_WARN, "PCIe: Invalid segment %u\n", Segment));
@@ -719,58 +738,77 @@ InitializePciHost (
     );
 
   /*
-   * Link training — Phase 1: establish a stable Gen1 link first.
+   * Link training — train directly at Gen2 (5 GT/s), matching mainline
+   * (DT max-link-speed = <2>) and, crucially, what actually works on this
+   * hardware.  Verified against Linux on this exact CM5-IO + NVMe: the link
+   * trains to a stable L0 at Gen2 x1 (LTSSM 0x..0011) and the drive enumerates.
    *
-   * IMPORTANT: Do NOT call PciDirectSpeedChange() before LTSSM runs.
-   * That call sets the DIRECT_SPEED_CHANGE bit in PL_GEN2_CTRL_OFF,
-   * which causes the DWC to immediately enter Recovery as soon as any
-   * Gen1 link trains — attempting a Gen2 speed change.  On RK3576
-   * ComboPHY0 this results in LTSSM state 0x0D (Recovery.RcvrCfg)
-   * without a successful Gen2 acquisition, dropping the link back to
-   * Detect.Quiet and causing a link-up timeout.
+   * An earlier version forced Gen1 first and only then issued a directed Gen2
+   * speed change.  On RK3576 ComboPHY0 that left the LTSSM stuck in Recovery
+   * (0x0D), never reaching a stable L0 (0x11), so the downstream endpoint's
+   * config space stayed unreadable (0xFFFFFFFF) and the NVMe was never found.
    *
-   * The correct two-phase sequence is:
-   *   Phase 1 — train at Gen1 (reliable), confirm stable L0.
-   *   Phase 2 — upgrade to Gen2 via directed speed change once Gen1
-   *             is confirmed; PCIe spec mandates fallback to Gen1 if
-   *             Gen2 negotiation fails, so this is safe.
+   * Set the Gen2 target speed AND the DIRECT_SPEED_CHANGE bit BEFORE enabling
+   * the LTSSM, so the DWC performs the speed change as part of the normal
+   * training sequence — exactly as the DWC core does for link_gen >= 2.
    */
-  DEBUG ((DEBUG_WARN, "PCIe%u: Set link speed Gen1 x1 (initial training)...\n", Segment));
-  PciSetupLinkSpeed (DbiBase, 1, 1);
+  DEBUG ((DEBUG_WARN, "PCIe%u: Set link speed Gen2 x1...\n", Segment));
+  PciSetupLinkSpeed (DbiBase, 2, 1);
+  MmioOr32 (DbiBase + PL_GEN2_CTRL_OFF, DIRECT_SPEED_CHANGE);
 
   /* Disallow writing RO registers through the DBI */
   MmioAnd32 (DbiBase + PL_MISC_CONTROL_1_OFF, ~DBI_RO_WR_EN);
 
-  DEBUG ((DEBUG_WARN, "PCIe%u: Assert PERST#...\n", Segment));
-  PciePeReset (Segment, TRUE);
+  /*
+   * Link training — exact bare-metal sequence from the vendor U-Boot
+   * pcie_dw_rockchip rk_pcie_link_up().  This is the closest analogue to EDK2
+   * (no Linux phy framework / power-domain machinery) and it trains this board's
+   * NVMe to a stable Gen2 link.  Two things differ from what we were doing, and
+   * both matter:
+   *
+   *   1. Release PERST# *before* enabling the LTSSM (we had it backwards).  The
+   *      endpoint must be out of reset with its receiver terminations live before
+   *      the root port begins Detect; otherwise the link trains half-formed,
+   *      reaches L0, then collapses out of Recovery (the 0x..000D -> 0x..0003 we
+   *      kept seeing).
+   *   2. Once the link-up bits latch, simply wait 1 s ("link maybe in Gen switch
+   *      recovery") and accept it — do NOT require the LTSSM state to read a
+   *      stable L0 (0x11), and do NOT power-cycle/retry.
+   */
+  /*
+   * Retry the whole PERST# + LTSSM training a few times.  A single marginal
+   * attempt (endpoint slow to bring up its receiver terminations, ComboPHY
+   * still settling) used to abort with EFI_TIMEOUT and leave the drive
+   * undetected until the next cold boot.  Each attempt re-cycles PERST# so the
+   * endpoint restarts Detect cleanly.
+   */
+  LinkUp = FALSE;
+  for (Attempt = 0; (Attempt < PCIE_LINK_TRAIN_RETRIES) && !LinkUp; Attempt++) {
+    DEBUG ((DEBUG_WARN,
+            "PCIe%u: train attempt %u/%u — assert PERST#, settle 200ms, release...\n",
+            Segment, (UINT32)(Attempt + 1), (UINT32)PCIE_LINK_TRAIN_RETRIES));
+    PciePeReset (Segment, TRUE);
+    gBS->Stall (200000);            /* T_PVPERL: PERST# asserted >= 200 ms */
+    PciePeReset (Segment, FALSE);   /* release the endpoint BEFORE LTSSM */
+    gBS->Stall (20000);
 
-  DEBUG ((DEBUG_WARN, "PCIe%u: Enable LTSSM...\n", Segment));
-  PciEnableLtssm (ApbBase, TRUE);
+    DEBUG ((DEBUG_WARN, "PCIe%u: Enable LTSSM (PERST# already released)...\n", Segment));
+    PciEnableLtssm (ApbBase, FALSE);
+    PciEnableLtssm (ApbBase, TRUE);
 
-  /* PCIe spec T_PVPERL: hold PERST# asserted for at least 100 ms after
-   * the reference clock is stable so the endpoint can power up correctly. */
-  gBS->Stall (100000);
-  DEBUG ((DEBUG_WARN, "PCIe%u: Deassert PERST# (100ms done)...\n", Segment));
-  PciePeReset (Segment, FALSE);
+    DEBUG ((DEBUG_WARN, "PCIe%u: Waiting for link up (up to 500ms)...\n", Segment));
+    for (Retry = 50; Retry != 0; Retry--) {
+      if (PciIsLinkUp (ApbBase)) {
+        LinkUp = TRUE;
+        break;
+      }
 
-  /* Short post-deassert delay — NVMe drives may need a few milliseconds
-   * of internal initialization time before they respond to Polling.Active
-   * ordered-sets (PCIe spec: endpoint must be link-training-capable within
-   * T_PVPERL = 100 ms after PERST# deassert; 20 ms covers most drives). */
-  gBS->Stall (20000);
-
-  /* Phase 1: wait for Gen1 link up (up to 1 s) */
-  DEBUG ((DEBUG_WARN, "PCIe%u: Waiting for Gen1 link up (up to 1s)...\n", Segment));
-  for (Retry = 10; Retry != 0; Retry--) {
-    if (PciIsLinkUp (ApbBase)) {
-      break;
+      gBS->Stall (10000);
     }
-
-    gBS->Stall (100000);
   }
 
-  if (Retry == 0) {
-    DEBUG ((DEBUG_WARN, "PCIe%u: Gen1 link up timeout — asserting DWC reset (SOFTRST_CON%u)\n",
+  if (!LinkUp) {
+    DEBUG ((DEBUG_WARN, "PCIe%u: link up timeout — asserting DWC reset (SOFTRST_CON%u)\n",
             (UINT32)Segment, (Segment == PCIE_SEGMENT_PCIE0) ? 34U : 36U));
     /*
      * Assert-only (no deassert): leave the DWC controller in reset so it
@@ -794,34 +832,16 @@ InitializePciHost (
   }
 
   /*
-   * Phase 2: attempt Gen2 speed upgrade (5 GT/s).
-   *
-   * Gen1 link is stable at L0.  Unlock DBI RO registers, set the Gen2
-   * target speed in LINK_CONTROL2 / LINK_CAPABILITY, then pulse
-   * DIRECT_SPEED_CHANGE.  The DWC enters Recovery; if both ComboPHY0
-   * and the endpoint support Gen2 the link retrains at 5 GT/s.  If
-   * Gen2 fails the PCIe spec mandates hardware fallback to the highest
-   * mutually-supported speed (Gen1), so this attempt cannot break a
-   * working Gen1 link.
+   * Link-up bits latched.  The Gen1->Gen2 switch may still be in Recovery, so
+   * give it a full second to finish before enumeration touches the endpoint —
+   * exactly what the vendor U-Boot does here.
    */
-  DEBUG ((DEBUG_WARN, "PCIe%u: Gen1 link stable — attempting Gen2 upgrade...\n", Segment));
-  MmioOr32  (DbiBase + PL_MISC_CONTROL_1_OFF, DBI_RO_WR_EN);    /* unlock */
-  PciSetupLinkSpeed (DbiBase, 2, 1);
-  PciDirectSpeedChange (DbiBase);
-  MmioAnd32 (DbiBase + PL_MISC_CONTROL_1_OFF, ~DBI_RO_WR_EN);   /* re-lock */
-
-  /* Wait up to 500 ms for the link to stabilise at Gen2 (or Gen1 fallback). */
-  for (Retry = 5; Retry != 0; Retry--) {
-    if (PciIsLinkUp (ApbBase)) {
-      break;
-    }
-
-    gBS->Stall (100000);
-  }
-
-  if (Retry == 0) {
-    DEBUG ((DEBUG_WARN, "PCIe%u: Gen2 upgrade timed out; link remains at Gen1.\n", Segment));
-  }
+  Ltssm = MmioRead32 (ApbBase + PCIE_CLIENT_LTSSM_STATUS);
+  DEBUG ((DEBUG_WARN, "PCIe%u: link up (LTSSM_STATUS=0x%08X) — waiting 1s for Gen switch...\n",
+          Segment, Ltssm));
+  gBS->Stall (1000000);
+  Ltssm = MmioRead32 (ApbBase + PCIE_CLIENT_LTSSM_STATUS);
+  DEBUG ((DEBUG_WARN, "PCIe%u: post-settle LTSSM_STATUS=0x%08X\n", Segment, Ltssm));
 
   PciGetLinkSpeedWidth (DbiBase, &LinkSpeed, &LinkWidth);
   PciPrintLinkSpeedWidth (LinkSpeed, LinkWidth);
