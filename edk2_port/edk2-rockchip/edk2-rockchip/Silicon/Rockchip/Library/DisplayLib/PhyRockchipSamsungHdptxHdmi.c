@@ -40,6 +40,14 @@
 #define HDPTX_O_PHY_RDY        BIT(1)
 #define HDPTX_O_SB_RDY         BIT(0)
 
+//
+// Number of full PLL/lane bring-up attempts before giving up.  A single
+// marginal lock used to leave HDMI dark until the next cold boot ("sometimes
+// signal, sometimes not"); retrying with a reset in between makes bring-up
+// deterministic.
+//
+#define HDPTX_LOCK_RETRIES     3
+
 #define CMN_REG0000    0x0000
 #define CMN_REG0001    0x0004
 #define CMN_REG0002    0x0008
@@ -900,78 +908,112 @@ HdptxPostEnablePll (
 {
   UINT32  Val = 0;
   UINT32  i;
+  UINT32  Attempt;
 
-  Val = HDPTX_I_BIAS_EN | HDPTX_I_BGR_EN;
-  GrfWrite (Hdptx, GRF_HDPTX_CON0, Val, Val);
-  NanoSecondDelay (10000);
-  /* deassert init reset */
+  //
+  // Retry the whole enable + lock sequence a few times.  A single marginal
+  // lock used to abort the entire HDMI bring-up (return EFI_TIMEOUT with no
+  // second try), leaving the output dark until the next cold boot — the
+  // "sometimes signal, sometimes not" symptom.  Between attempts we re-assert
+  // the INIT+CMN resets so the PLL and its GRF status latch restart clean.
+  //
+  for (Attempt = 0; Attempt < HDPTX_LOCK_RETRIES; Attempt++) {
+    if (Attempt > 0) {
+      PHY_TRACE ("PostEnablePll: retry %u — re-assert INIT+CMN reset\n", Attempt);
 #ifdef SOC_RK3576
-  PHY_TRACE ("PostEnablePll: deassert INIT_RST (CRU+0xA70 bit2)\n");
-  MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_INIT_RST, 0);
+      MainCruWrite (
+        RK3576_CRU_SOFTRST_CON28,
+        RK3576_HDPTX_INIT_RST | RK3576_HDPTX_CMN_RST,
+        RK3576_HDPTX_INIT_RST | RK3576_HDPTX_CMN_RST
+        );
 #else
-  if (!Hdptx->Id) {
-    CruWrite (PMU1CRU_SOFTRST_CON03, BIT (11), 0);
-  } else {
-    CruWrite (PMU1CRU_SOFTRST_CON03, BIT (15), 0);
-  }
+      if (!Hdptx->Id) {
+        CruWrite (PMU1CRU_SOFTRST_CON03, BIT (11) | BIT (12), BIT (11) | BIT (12));
+      } else {
+        CruWrite (PMU1CRU_SOFTRST_CON03, BIT (15), BIT (15));
+        CruWrite (PMU1CRU_SOFTRST_CON04, BIT (0), BIT (0));
+      }
 #endif
-
-  NanoSecondDelay (10000);
-  Val = HDPTX_I_PLL_EN;
-  GrfWrite (Hdptx, GRF_HDPTX_CON0, Val, Val);
-  NanoSecondDelay (10000);
-  /* deassert cmn reset */
-#ifdef SOC_RK3576
-  PHY_TRACE ("PostEnablePll: deassert CMN_RST (CRU+0xA70 bit3)\n");
-  MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_CMN_RST, 0);
-#else
-  if (!Hdptx->Id) {
-    CruWrite (PMU1CRU_SOFTRST_CON03, BIT (12), 0);
-  } else {
-    CruWrite (PMU1CRU_SOFTRST_CON04, BIT (0), 0);
-  }
-#endif
-
-  /*
-   * Settling delay before status polling — avoids reading stale GRF status bits
-   * left over from a previous PLL configuration (e.g. when a previous Linux
-   * session locked the PLL at a different rate and the status latch still
-   * reports PHY_CLK_RDY=1 before our new lock has actually completed).
-   *
-   * Without this delay, the loop has been observed to exit on iter 0 with
-   * stale "ready" status, which manifests as intermittent moiré or no-signal
-   * because the PHY is not actually producing a stable bit-clock when we
-   * proceed to lane configuration.
-   */
-  NanoSecondDelay (50000);   /* 50 us */
-
-  Val = 0;
-  for (i = 0; i < 50; i++) {
-    Val = GrfRead (Hdptx, GRF_HDPTX_STATUS);
-
-    if (Val & HDPTX_O_PHY_CLK_RDY) {
-      break;
+      NanoSecondDelay (20000);
     }
 
-    NanoSecondDelay (20000);
+    Val = HDPTX_I_BIAS_EN | HDPTX_I_BGR_EN;
+    GrfWrite (Hdptx, GRF_HDPTX_CON0, Val, Val);
+    NanoSecondDelay (10000);
+    /* deassert init reset */
+#ifdef SOC_RK3576
+    PHY_TRACE ("PostEnablePll: deassert INIT_RST (CRU+0xA70 bit2)\n");
+    MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_INIT_RST, 0);
+#else
+    if (!Hdptx->Id) {
+      CruWrite (PMU1CRU_SOFTRST_CON03, BIT (11), 0);
+    } else {
+      CruWrite (PMU1CRU_SOFTRST_CON03, BIT (15), 0);
+    }
+#endif
+
+    NanoSecondDelay (10000);
+    Val = HDPTX_I_PLL_EN;
+    GrfWrite (Hdptx, GRF_HDPTX_CON0, Val, Val);
+    NanoSecondDelay (10000);
+    /* deassert cmn reset */
+#ifdef SOC_RK3576
+    PHY_TRACE ("PostEnablePll: deassert CMN_RST (CRU+0xA70 bit3)\n");
+    MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_CMN_RST, 0);
+#else
+    if (!Hdptx->Id) {
+      CruWrite (PMU1CRU_SOFTRST_CON03, BIT (12), 0);
+    } else {
+      CruWrite (PMU1CRU_SOFTRST_CON04, BIT (0), 0);
+    }
+#endif
+
+    /*
+     * Settling delay before status polling — avoids reading stale GRF status
+     * bits left over from a previous PLL configuration (e.g. when a previous
+     * Linux session locked the PLL at a different rate and the status latch
+     * still reports ready before our new lock has actually completed).
+     */
+    NanoSecondDelay (50000);   /* 50 us */
+
+    Val = 0;
+    for (i = 0; i < 50; i++) {
+      Val = GrfRead (Hdptx, GRF_HDPTX_STATUS);
+
+      //
+      // Require BOTH the clock-ready and the PLL-lock-done bits, matching
+      // mainline rk_hdptx_post_enable_pll() (HDPTX_O_PLL_LOCK_DONE |
+      // HDPTX_O_PHY_CLK_RDY).  The old code accepted PHY_CLK_RDY alone, which
+      // could latch a stale "ready" left by a previous configuration and let
+      // us proceed on an unlocked PLL.  PLL_LOCK_DONE is known to assert on
+      // this silicon — the lane stage below already waits on it.
+      //
+      if ((Val & HDPTX_O_PHY_CLK_RDY) && (Val & HDPTX_O_PLL_LOCK_DONE)) {
+        break;
+      }
+
+      NanoSecondDelay (20000);
+    }
+
+    if (i < 50) {
+      DEBUG ((DEBUG_INIT, "%a hdptx phy pll locked!\n", __func__));
+      PHY_TRACE ("PostEnablePll: PLL locked (attempt %u, iter %u), GRF_HDPTX_STATUS=0x%08x\n",
+                 Attempt, i, Val);
+      return EFI_SUCCESS;
+    }
+
+    PHY_TRACE ("PostEnablePll: attempt %u TIMEOUT, GRF_HDPTX_STATUS=0x%08x\n", Attempt, Val);
   }
 
-  if (i == 50) {
-    DEBUG ((DEBUG_INIT, "%a hdptx phy pll can't lock!\n", __func__));
-    PHY_TRACE ("PostEnablePll: TIMEOUT after %u iters, GRF_HDPTX_STATUS=0x%08x\n", i, Val);
-    PHY_TRACE ("  PHY_CLK_RDY=%u PHY_RDY=%u PLL_LOCK=%u SB_RDY=%u\n",
-               (Val & HDPTX_O_PHY_CLK_RDY) ? 1 : 0,
-               (Val & HDPTX_O_PHY_RDY) ? 1 : 0,
-               (Val & HDPTX_O_PLL_LOCK_DONE) ? 1 : 0,
-               (Val & HDPTX_O_SB_RDY) ? 1 : 0);
-    return EFI_TIMEOUT;
-  }
-
-  DEBUG ((DEBUG_INIT, "%a hdptx phy pll locked!\n", __func__));
-  PHY_TRACE ("PostEnablePll: PLL locked after %u iters (~%u us), GRF_HDPTX_STATUS=0x%08x\n",
-             i, i * 20, Val);
-
-  return EFI_SUCCESS;
+  DEBUG ((DEBUG_INIT, "%a hdptx phy pll can't lock!\n", __func__));
+  PHY_TRACE ("PostEnablePll: FAILED after %u attempts, GRF_HDPTX_STATUS=0x%08x\n",
+             (UINT32)HDPTX_LOCK_RETRIES, Val);
+  PHY_TRACE ("  PHY_CLK_RDY=%u PHY_RDY=%u PLL_LOCK=%u SB_RDY=%u\n",
+             (Val & HDPTX_O_PHY_CLK_RDY) ? 1 : 0,
+             (Val & HDPTX_O_PHY_RDY) ? 1 : 0,
+             (Val & HDPTX_O_PLL_LOCK_DONE) ? 1 : 0,
+             (Val & HDPTX_O_SB_RDY) ? 1 : 0);
+  return EFI_TIMEOUT;
 }
 
 STATIC
@@ -1370,74 +1412,98 @@ HdptxPostEnableLane (
 {
   UINT32  Val = 0;
   UINT32  i;
+  UINT32  Attempt;
 
-  /* deassert lane reset */
+  //
+  // Same retry rationale as HdptxPostEnablePll: a marginal lane bring-up used
+  // to abort HDMI with no second try.  Re-assert LANE_RST between attempts.
+  //
+  for (Attempt = 0; Attempt < HDPTX_LOCK_RETRIES; Attempt++) {
+    /* (re-)deassert lane reset */
 #ifdef SOC_RK3576
-  PHY_TRACE ("PostEnableLane: deassert LANE_RST (CRU+0xA70 bit4)\n");
-  MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_LANE_RST, 0);
-#else
-  if (!Hdptx->Id) {
-    CruWrite (PMU1CRU_SOFTRST_CON03, BIT (13), 0);
-  } else {
-    CruWrite (PMU1CRU_SOFTRST_CON04, BIT (1), 0);
-  }
-#endif
-
-  Val = HDPTX_I_BIAS_EN | HDPTX_I_BGR_EN;
-  GrfWrite (Hdptx, GRF_HDPTX_CON0, Val, Val);
-
-  /* 4 lanes frl mode */
-  PhyWrite (Hdptx, LNTOP_REG0207, 0x0f);
-
-  /* Explicitly disable EI (Electrical Idle) on all 4 TMDS lanes.
-   * LANE_REG0x01 bit7 = OVRD_LN_TX_DRV_EI_EN, bit6 = LN_TX_DRV_EI_EN.
-   * OVRD=1 + EI_EN=0 (0x80) forces the TX driver active (not quiesced).
-   * The DP PHY driver (rockchip_hdptx_phy_reset) does this explicitly because
-   * the APB reset default leaves EI_EN=1, which would prevent any TMDS signal
-   * from appearing on the differential outputs even though PLL is locked. */
-  PhyWrite (Hdptx, LANE_REG0301, 0x80);  /* data lane 0 */
-  PhyWrite (Hdptx, LANE_REG0401, 0x80);  /* data lane 1 */
-  PhyWrite (Hdptx, LANE_REG0501, 0x80);  /* data lane 2 */
-  PhyWrite (Hdptx, LANE_REG0601, 0x80);  /* clock lane  */
-  PHY_TRACE ("PostEnableLane: EI disabled on all 4 lanes (LANE_R0301/0401/0501/0601 = 0x80)\n");
-
-  /*
-   * Settling delay before status polling.  PHY_RDY needs ~100 µs to come up
-   * after EI override + lane-reset deassert; without this delay the polling
-   * loop has been observed to exit on iter 0 with stale GRF status from a
-   * previous lane configuration, producing intermittent moiré because the
-   * differential outputs are still ramping up when we proceed to enable the
-   * AVP video path.
-   */
-  NanoSecondDelay (200000);   /* 200 us */
-
-  Val = 0;
-  for (i = 0; i < 50; i++) {
-    Val = GrfRead (Hdptx, GRF_HDPTX_STATUS);
-
-    if (Val & HDPTX_O_PHY_RDY && Val & HDPTX_O_PLL_LOCK_DONE) {
-      break;
+    if (Attempt > 0) {
+      PHY_TRACE ("PostEnableLane: retry %u — re-assert LANE_RST\n", Attempt);
+      MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_LANE_RST, RK3576_HDPTX_LANE_RST);
+      NanoSecondDelay (20000);
     }
 
-    NanoSecondDelay (100000);
+    PHY_TRACE ("PostEnableLane: deassert LANE_RST (CRU+0xA70 bit4)\n");
+    MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_LANE_RST, 0);
+#else
+    if (Attempt > 0) {
+      if (!Hdptx->Id) {
+        CruWrite (PMU1CRU_SOFTRST_CON03, BIT (13), BIT (13));
+      } else {
+        CruWrite (PMU1CRU_SOFTRST_CON04, BIT (1), BIT (1));
+      }
+      NanoSecondDelay (20000);
+    }
+
+    if (!Hdptx->Id) {
+      CruWrite (PMU1CRU_SOFTRST_CON03, BIT (13), 0);
+    } else {
+      CruWrite (PMU1CRU_SOFTRST_CON04, BIT (1), 0);
+    }
+#endif
+
+    Val = HDPTX_I_BIAS_EN | HDPTX_I_BGR_EN;
+    GrfWrite (Hdptx, GRF_HDPTX_CON0, Val, Val);
+
+    /* 4 lanes frl mode */
+    PhyWrite (Hdptx, LNTOP_REG0207, 0x0f);
+
+    /* Explicitly disable EI (Electrical Idle) on all 4 TMDS lanes.
+     * LANE_REG0x01 bit7 = OVRD_LN_TX_DRV_EI_EN, bit6 = LN_TX_DRV_EI_EN.
+     * OVRD=1 + EI_EN=0 (0x80) forces the TX driver active (not quiesced).
+     * The DP PHY driver (rockchip_hdptx_phy_reset) does this explicitly because
+     * the APB reset default leaves EI_EN=1, which would prevent any TMDS signal
+     * from appearing on the differential outputs even though PLL is locked. */
+    PhyWrite (Hdptx, LANE_REG0301, 0x80);  /* data lane 0 */
+    PhyWrite (Hdptx, LANE_REG0401, 0x80);  /* data lane 1 */
+    PhyWrite (Hdptx, LANE_REG0501, 0x80);  /* data lane 2 */
+    PhyWrite (Hdptx, LANE_REG0601, 0x80);  /* clock lane  */
+    PHY_TRACE ("PostEnableLane: EI disabled on all 4 lanes (LANE_R0301/0401/0501/0601 = 0x80)\n");
+
+    /*
+     * Settling delay before status polling.  PHY_RDY needs ~100 µs to come up
+     * after EI override + lane-reset deassert; without this delay the polling
+     * loop has been observed to exit on iter 0 with stale GRF status from a
+     * previous lane configuration, producing intermittent moiré because the
+     * differential outputs are still ramping up when we proceed to enable the
+     * AVP video path.
+     */
+    NanoSecondDelay (200000);   /* 200 us */
+
+    Val = 0;
+    for (i = 0; i < 50; i++) {
+      Val = GrfRead (Hdptx, GRF_HDPTX_STATUS);
+
+      if (Val & HDPTX_O_PHY_RDY && Val & HDPTX_O_PLL_LOCK_DONE) {
+        break;
+      }
+
+      NanoSecondDelay (100000);
+    }
+
+    if (i < 50) {
+      DEBUG ((DEBUG_INIT, "%a hdptx phy lane locked!\n", __func__));
+      PHY_TRACE ("PostEnableLane: PHY+PLL ready (attempt %u, iter %u), GRF_HDPTX_STATUS=0x%08x\n",
+                 Attempt, i, Val);
+      return EFI_SUCCESS;
+    }
+
+    PHY_TRACE ("PostEnableLane: attempt %u TIMEOUT, GRF_HDPTX_STATUS=0x%08x\n", Attempt, Val);
   }
 
-  if (i == 50) {
-    DEBUG ((DEBUG_INIT, "%a hdptx phy lane can't ready!\n", __func__));
-    PHY_TRACE ("PostEnableLane: TIMEOUT after %u iters, GRF_HDPTX_STATUS=0x%08x\n", i, Val);
-    PHY_TRACE ("  PHY_CLK_RDY=%u PHY_RDY=%u PLL_LOCK=%u SB_RDY=%u\n",
-               (Val & HDPTX_O_PHY_CLK_RDY) ? 1 : 0,
-               (Val & HDPTX_O_PHY_RDY) ? 1 : 0,
-               (Val & HDPTX_O_PLL_LOCK_DONE) ? 1 : 0,
-               (Val & HDPTX_O_SB_RDY) ? 1 : 0);
-    return EFI_TIMEOUT;
-  }
-
-  DEBUG ((DEBUG_INIT, "%a hdptx phy lane locked!\n", __func__));
-  PHY_TRACE ("PostEnableLane: PHY+PLL ready after %u iters (~%u us), GRF_HDPTX_STATUS=0x%08x\n",
-             i, i * 100, Val);
-
-  return EFI_SUCCESS;
+  DEBUG ((DEBUG_INIT, "%a hdptx phy lane can't ready!\n", __func__));
+  PHY_TRACE ("PostEnableLane: FAILED after %u attempts, GRF_HDPTX_STATUS=0x%08x\n",
+             (UINT32)HDPTX_LOCK_RETRIES, Val);
+  PHY_TRACE ("  PHY_CLK_RDY=%u PHY_RDY=%u PLL_LOCK=%u SB_RDY=%u\n",
+             (Val & HDPTX_O_PHY_CLK_RDY) ? 1 : 0,
+             (Val & HDPTX_O_PHY_RDY) ? 1 : 0,
+             (Val & HDPTX_O_PLL_LOCK_DONE) ? 1 : 0,
+             (Val & HDPTX_O_SB_RDY) ? 1 : 0);
+  return EFI_TIMEOUT;
 }
 
 EFI_STATUS

@@ -30,8 +30,16 @@
 //
 #define VOP2_TRACE(Fmt, ...)  \
   DEBUG ((DEBUG_INFO, "[RK3576-VOP2] " Fmt, ##__VA_ARGS__))
-#define VOP2_DUMP_REG(Tag, Addr) \
-  VOP2_TRACE ("  %a [0x%08x] = 0x%08x\n", (Tag), (UINT32)(UINTN)(Addr), MmioRead32 (Addr))
+//
+// VOP2_DUMP_REG is deliberately a no-op.  On RK3576 a plain MmioRead32() of a
+// VOP2 OVL/VP/IF register during or after Vop2Enable is NOT side-effect free:
+// it perturbs the live overlay and drops HDMI sync, which shows up as
+// intermittent no-signal.  Reads that "shouldn't" change anything cost us
+// several flash/boot cycles chasing phantom LAYER_SEL bugs, so keep this
+// compiled out.  If a one-shot diagnostic is ever needed, read the SINGLE
+// register under investigation directly and gate it behind a build flag.
+//
+#define VOP2_DUMP_REG(Tag, Addr)  do { (VOID)(Tag); (VOID)(Addr); } while (FALSE)
 
 STATIC VPS_CONFIG  mVpsConfigs[][VOP2_VP_MAX] = {
   {
