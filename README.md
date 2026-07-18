@@ -43,7 +43,7 @@ Hardware-verified on both the **ROCK 4D** and the **ArmSoM CM5-IO**.
 ### Flash (ROCK 4D)
 
 **Browser** (Chrome/Edge, no tools needed):
-[**gahingwoo.github.io/edk2-webflash**](https://gahingwoo.github.io/edk2-webflash/) — hold MaskROM button, plug USB-C.
+[**https://blog.gahingwoo.com/edk2-webflash/**](https://blog.gahingwoo.com/edk2-webflash/) — hold MaskROM button, plug USB-C.
 
 **CLI:**
 ```bash
