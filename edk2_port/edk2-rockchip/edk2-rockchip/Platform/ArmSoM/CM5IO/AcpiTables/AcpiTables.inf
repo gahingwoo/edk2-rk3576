@@ -9,9 +9,10 @@
 #    - eMMC onboard on CM5 module (same silicon path as ROCK 4D)
 #  All common ASL files come from Silicon/Rockchip/RK3576/AcpiTables/.
 #
-#  NOTE: These tables are NOT compiled into the default FDT-only image.
-#  To enable ACPI mode, see the instructions in CM5IO.dsc and
-#  CM5IO.Modules.fdf.inc.
+#  These tables are built into the image alongside the DTB
+#  (PcdConfigTableModeDefault = 0x3), so the same firmware boots Linux via FDT
+#  and Windows on ARM / FreeBSD via ACPI.  Supports Windows ARM64, FreeBSD and
+#  other ACPI-capable OS environments.
 #
 #  Copyright (c) 2019-2021, ARM Limited. All rights reserved.
 #  Copyright (c) Microsoft Corporation. All rights reserved.
@@ -24,7 +25,7 @@
 [Defines]
   INF_VERSION                    = 0x0001001A
   BASE_NAME                      = AcpiTables
-  FILE_GUID                      = dc99f6bd-e1ee-4e66-bc4b-7c354e2d1a15
+  FILE_GUID                      = 7E374E25-8E01-4FEE-87F2-390C23C606CD
   MODULE_TYPE                    = USER_DEFINED
   VERSION_STRING                 = 1.0
   RK_COMMON_ACPI_DIR             = Silicon/Rockchip/RK3576/AcpiTables
@@ -54,17 +55,13 @@
   Silicon/Rockchip/RK3576/RK3576.dec
 
 [FixedPcd]
-  gRK3576TokenSpaceGuid.PcdPcieEcamBase
-  gRK3576TokenSpaceGuid.PcdPcieEcamSize
-  gRK3576TokenSpaceGuid.PcdPcieBusMin
-  gRK3576TokenSpaceGuid.PcdPcieBusMax
-  gRK3576TokenSpaceGuid.PcdPcieIoBase
-  gRK3576TokenSpaceGuid.PcdPcieIoSize
-  gRK3576TokenSpaceGuid.PcdPcieIoTranslation
-  gRK3576TokenSpaceGuid.PcdPcieMmio32Base
-  gRK3576TokenSpaceGuid.PcdPcieMmio32Size
-  gRK3576TokenSpaceGuid.PcdPcieMmio32Translation
-  gRK3576TokenSpaceGuid.PcdPcieMmio64Base
-  gRK3576TokenSpaceGuid.PcdPcieMmio64Size
-  gRK3576TokenSpaceGuid.PcdPcieMmio64Translation
-  gRK3576TokenSpaceGuid.PcdPcieSegmentCount
+  gArmTokenSpaceGuid.PcdArmArchTimerIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerHypIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerSecIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerVirtIntrNum
+  gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase
+  gArmTokenSpaceGuid.PcdGicDistributorBase
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase
+  gRockchipTokenSpaceGuid.PcdRkMtlMailBoxBase
+  gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSize
+  gRockchipTokenSpaceGuid.PcdRkSdmmcCardDetectBroken

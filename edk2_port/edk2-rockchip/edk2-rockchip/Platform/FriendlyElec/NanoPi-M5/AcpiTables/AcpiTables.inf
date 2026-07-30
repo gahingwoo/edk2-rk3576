@@ -15,7 +15,7 @@
 [Defines]
   INF_VERSION                    = 0x0001001A
   BASE_NAME                      = AcpiTables
-  FILE_GUID                      = 9F4A1E2B-3C5D-4E6F-7A8B-9C0D1E2F3A4B
+  FILE_GUID                      = 7E374E25-8E01-4FEE-87F2-390C23C606CD
   MODULE_TYPE                    = USER_DEFINED
   VERSION_STRING                 = 1.0
   RK_COMMON_ACPI_DIR             = Silicon/Rockchip/RK3576/AcpiTables

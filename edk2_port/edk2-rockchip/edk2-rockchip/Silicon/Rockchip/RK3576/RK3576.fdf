@@ -164,9 +164,18 @@ READ_LOCK_STATUS   = TRUE
 !endif
 
   #
-  # ACPI Support — disabled: FDT-only build, ACPI tables not needed.
+  # ACPI Support — deliberately NOT listed here.
   #
-  # INF Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
+  # RK3576AcpiPlatformDxe is only in [Components] for the platforms that enable
+  # ACPI (CM5IO, NanoPi-M5); referencing it from this shared FDF would fail the
+  # FDT-only builds. Platforms that want it add it to their own
+  # <Platform>.Modules.fdf.inc, which is included at RK_PLATFORM_FVMAIN_MODULES
+  # below — see Platform/ArmSoM/CM5IO/CM5IO.Modules.fdf.inc.
+  #
+  # (Putting AcpiTables.inf in the .dsc alone is not enough either: a module has
+  # to appear in an FDF to actually land in an FV. That is how the CM5-IO ACPI
+  # platform driver went missing from the image for a while.)
+  #
   # INF Silicon/Rockchip/RK3588/Drivers/AcpiPlatformDxe/AcpiPlatformDxe.inf
 
   #
