@@ -24,6 +24,17 @@
   DEBUG ((DEBUG_INFO, "[RK3576-HDMI] " Fmt, ##__VA_ARGS__))
 #define HDMI_DUMP_REG(Tag, Addr) \
   HDMI_TRACE ("  %a [0x%08x] = 0x%08x\n", (Tag), (UINT32)(UINTN)(Addr), MmioRead32 (Addr))
+
+/*
+ * Same rule as VOP2_DUMP_REG in Vop2Dxe.c: on RK3576 a live MmioRead32() of a
+ * VOP2 OVL/VP register during or after Vop2Enable is NOT side-effect free — it
+ * perturbs the live overlay and drops HDMI sync.  That was fixed for Vop2Dxe
+ * but the diagnostics in this file kept reading VOP2 through HDMI_DUMP_REG,
+ * including inside the 20 ms window right after VP0 leaves STANDBY.  Reads of
+ * HDMITX/GRF/CRU registers are fine; only VOP2 is poisoned, so it gets its own
+ * no-op macro rather than gutting all the tracing.
+ */
+#define HDMI_DUMP_VOP2_REG(Tag, Addr)  do { (VOID)(Tag); (VOID)(Addr); } while (FALSE)
 #include <Library/DrmModes.h>
 #include <Library/RockchipPlatformLib.h>
 #include <Library/MediaBusFormat.h>
@@ -1581,9 +1592,9 @@ DwHdmiQpSetup (
     MmioWrite32 (0x27D00000UL + 0xC00U, DspCtrl | BIT (31));
     MmioWrite32 (0x27D00000UL + 0x000U, 0x00018001U);   /* REG_CFG_DONE: commit VP0 */
     MicroSecondDelay (20 * 1000);   /* 20 ms — one full frame at 60 Hz */
-    HDMI_TRACE ("Setup: [4a] VP0_DSP_CTRL after STANDBY commit = 0x%08x  STANDBY=%u\n",
-                MmioRead32 (0x27D00000UL + 0xC00U),
-                (MmioRead32 (0x27D00000UL + 0xC00U) >> 31) & 1U);
+    /* Report the value just written; do not read VOP2 back here. */
+    HDMI_TRACE ("Setup: [4a] VP0_DSP_CTRL after STANDBY commit = 0x%08x  STANDBY=1\n",
+                DspCtrl | BIT (31));
 
     /* [4b] Switch DCLK_VP0 mux to clk_hdmiphy_pixel0
      * DCLK_VP0 gate: CLKGATE_CON(61) bit13 @ CRU+0x800+61*4 = CRU+0x8F4
@@ -1604,9 +1615,9 @@ DwHdmiQpSetup (
     MmioWrite32 (0x27D00000UL + 0xC00U, DspCtrl & ~(UINT32)BIT (31));
     MmioWrite32 (0x27D00000UL + 0x000U, 0x00018001U);   /* REG_CFG_DONE: commit VP0 */
     MicroSecondDelay (20 * 1000);   /* 20 ms — allow VP0 to re-sync output */
-    HDMI_TRACE ("Setup: [4]  VP0_DSP_CTRL post-mux = 0x%08x  STANDBY=%u\n",
-                MmioRead32 (0x27D00000UL + 0xC00U),
-                (MmioRead32 (0x27D00000UL + 0xC00U) >> 31) & 1U);
+    /* Likewise — and this one sat inside the 20 ms VP0 re-sync window. */
+    HDMI_TRACE ("Setup: [4]  VP0_DSP_CTRL post-mux = 0x%08x  STANDBY=0\n",
+                DspCtrl & ~(UINT32)BIT (31));
   }
 
   /* ── STEP 4c: VO0 GRF CON1 = TMDS link mode ─────────────────────────── */
@@ -1812,9 +1823,9 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  LINK_CONFIG0  post-PHY   ", Hdmi->Base + LINK_CONFIG0);
   HDMI_DUMP_REG ("  CMU_STATUS    post-PHY   ", Hdmi->Base + CMU_STATUS);
   HDMI_DUMP_REG ("  MAIN_STATUS0  post-PHY   ", Hdmi->Base + MAINUNIT_STATUS0);
-  HDMI_DUMP_REG ("  VP0_DSP_CTRL  post-PHY   ", 0x27D00C00UL);
-  HDMI_DUMP_REG ("  OVL_CTRL      post-PHY   ", 0x27D00600UL);
-  HDMI_DUMP_REG ("  IF_CTRL[HDMI0] post-PHY  ", 0x27D00184UL);
+  HDMI_DUMP_VOP2_REG ("  VP0_DSP_CTRL  post-PHY   ", 0x27D00C00UL);
+  HDMI_DUMP_VOP2_REG ("  OVL_CTRL      post-PHY   ", 0x27D00600UL);
+  HDMI_DUMP_VOP2_REG ("  IF_CTRL[HDMI0] post-PHY  ", 0x27D00184UL);
   HDMI_DUMP_REG ("  VID_IF_CFG0   post-PHY   ", Hdmi->Base + VIDEO_INTERFACE_CONFIG0);
   HDMI_DUMP_REG ("  VID_IF_STATUS post-PHY   ", Hdmi->Base + VIDEO_INTERFACE_STATUS0);
   HDMI_DUMP_REG ("  VID_MON_ST0   post-PHY   ", Hdmi->Base + VIDEO_MONITOR_STATUS0);

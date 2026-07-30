@@ -153,6 +153,31 @@ ArmPlatformGetVirtualMemoryMap (
     #define RK3576_DRAM_SAFE_BASE 0x40200000ULL  /* above TZRAM + share mem */
     #define RK3576_LOW_DRAM_TOP   0xF0000000ULL
 
+    /*
+     * Reclaiming the last 1.25 GB.
+     *
+     * With DRAM at [0x40000000 .. 0x140000000) the region
+     * [0xF0000000 .. 0x140000000) is ordinary DRAM — 256 MB that the old code
+     * carved out as a "TZASC firewall hole" plus the 1 GB the dead
+     * `> 0x100000000` test never reached. Both exclusions were reasoned from
+     * the RK3588 layout, where 0xF0000000 really is an MMIO hole.
+     *
+     * This is left OFF by default because it has not been probed on hardware
+     * yet, and because turning it on changes the memory map — which must not
+     * be bundled with any other display/boot experiment. To test:
+     *
+     *   1. `dmem 0xF0000000 0x20` and `dmem 0x100000000 0x20` from the UEFI
+     *      Shell. A synchronous abort (EC 0x25) with a matching FAR means the
+     *      region really is unusable; clean output means it is fine.
+     *   2. Flip this to 1, rebuild, confirm `memmap` shows ~4 GB and the board
+     *      still boots.
+     *
+     * Keep the top 256 MB reserved either way: Rockchip BL31 carves out a
+     * secure pool (OP-TEE TA memory, SCMI mailbox) at the top of DRAM.
+     */
+    #define RK3576_MAP_FULL_DRAM      0
+    #define RK3576_SECURE_TOP_RESERVE 0x10000000ULL  /* top 256 MB, BL31 */
+
     // RK3576 MMIO aperture (UART, GIC, SDHCI, SFC, CRU, USB, ...)
     VirtualMemoryTable[Index].PhysicalBase = 0x20000000;
     VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
@@ -165,8 +190,13 @@ ArmPlatformGetVirtualMemoryMap (
     // top has to be BASE + SIZE; the old code compared it against an address
     // directly, which only worked because RK3588's DRAM base is 0.
     {
+ #if RK3576_MAP_FULL_DRAM
+      UINT64  DramTop = (RK3576_DRAM_BASE + mSystemMemorySize) -
+                        RK3576_SECURE_TOP_RESERVE;
+ #else
       UINT64  DramTop = MIN (RK3576_DRAM_BASE + mSystemMemorySize,
                              RK3576_LOW_DRAM_TOP);
+ #endif
 
       ASSERT (DramTop > RK3576_DRAM_SAFE_BASE);
 
