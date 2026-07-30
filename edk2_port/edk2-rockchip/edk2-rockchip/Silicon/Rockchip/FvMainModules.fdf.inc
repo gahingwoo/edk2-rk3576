@@ -239,14 +239,18 @@
   INF Silicon/Rockchip/Drivers/NetworkStackConfigDxe/NetworkStackConfigDxe.inf
 
   #
-  # Realtek PCIe UNDI Driver
+  # Realtek PCIe / USB UNDI drivers.  Only worth building for boards that
+  # actually have a Realtek NIC; on others they are pure FV weight and their
+  # driver binding still runs at boot.  Defaults to TRUE so existing RK3588
+  # platforms are unaffected.
   #
+!ifndef RK_REALTEK_UNDI_ENABLE
+  DEFINE RK_REALTEK_UNDI_ENABLE = TRUE
+!endif
+!if $(RK_REALTEK_UNDI_ENABLE) == TRUE
   INF Drivers/Realtek/Bus/Pcie/PcieNetworking/RtkUndiDxe.inf
-
-  #
-  # Realtek USB UNDI Driver
-  #
   INF Drivers/Realtek/Bus/Usb/UsbNetworking/RtkUsbUndiDxe.inf
+!endif
 !endif
 
   #

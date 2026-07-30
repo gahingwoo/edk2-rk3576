@@ -91,8 +91,21 @@
   DEFINE NETWORK_IP4_ENABLE      = TRUE
   DEFINE NETWORK_IP6_ENABLE      = TRUE
   DEFINE NETWORK_PXE_BOOT_ENABLE = TRUE
-  DEFINE NETWORK_HTTP_BOOT_ENABLE = TRUE
-  DEFINE NETWORK_TLS_ENABLE      = TRUE
+  #
+  # HTTP boot + TLS off: FVMAIN was at 95% full, and this board installs from
+  # USB/eMMC rather than over the network.  HttpDxe was also one of the two
+  # drivers seen requesting ConvertPages at a bogus 0x180000000.  Flip back on
+  # if HTTPS boot is ever wanted -- it costs roughly a third of the remaining
+  # FV headroom.
+  #
+  DEFINE NETWORK_HTTP_BOOT_ENABLE = FALSE
+  DEFINE NETWORK_TLS_ENABLE      = FALSE
+  #
+  # No Realtek NIC on CM5-IO: GMAC0 goes to an on-module MotorComm YT8531.
+  # (The DT and the EDK2 port both used to claim RTL8211F; the schematic says
+  # otherwise -- U6601 = YT8531C-CA.)
+  #
+  DEFINE RK_REALTEK_UNDI_ENABLE  = FALSE
   DEFINE RK_X86_EMULATOR_ENABLE  = FALSE
 
   # SMBIOS system tables
