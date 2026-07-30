@@ -103,57 +103,55 @@ ArmPlatformGetVirtualMemoryMap (
     //
     // ===== RK3576-style layout (BL33 loaded into mid-DRAM) =====
     //
-    // RK3576 physical DRAM map (per Rockchip TRM + observed crashes):
-    //   [0x00000000 .. 0xF0000000)  — usable DRAM (NS-EL2 accessible)
-    //   [0xF0000000 .. 0x100000000) — RESERVED (alias / TZASC firewall)
-    //                                  faults with EC=0x25 ext-abort
-    //   [0x100000000 .. PhysTop - 256MB) — usable DRAM (>=4GB)
-    //   [PhysTop-256MB .. PhysTop)   — RESERVED (BL31 secure carve-out:
-    //                                  OP-TEE TA pool, SCMI mailbox, etc.)
+    // RK3576 physical DRAM starts at 0x40000000, NOT at 0.
     //
-    // The previous external abort at PC=0xFF634C3C, FAR=0x10F004 was caused
-    // by DxeCore allocating a driver image into [0xFF000000..0x100000000)
-    // which is not real DRAM on this SoC.
+    // Authority: TF-A plat/rockchip/rk3576/rk3576_def.h
+    //     #define RK_DRAM_BASE  0x40000000
+    //     #define TZRAM_BASE    RK_DRAM_BASE
+    //     #define TZRAM_SIZE    SZ_1M
+    //     #define BL31_BASE     (TZRAM_BASE + 0x40000)   -> 0x40040000
+    // and BL31_BASE matches the atf-2 load address in our own FIT. With 4 GB
+    // detected, DRAM is [0x40000000 .. 0x140000000), which is exactly what
+    // vendor U-Boot hands to Linux ("Adding bank: 0x40200000 - 0x100000000"
+    // plus "0x100000000 - 0x140000000").
     //
-    #define RK3576_LOW_DRAM_TOP       0xF0000000ULL
-    #define RK3576_TZASC_RESERVE_TOP  0x10000000ULL  /* top 256MB */
-    if (mSystemMemorySize > RK3576_TZASC_RESERVE_TOP) {
-      mSystemMemorySize -= RK3576_TZASC_RESERVE_TOP;
-    }
-    // [0x00200000 .. 0x08400000)   DRAM (WB)            — pre-OP-TEE region
-    // [0x08400000 .. 0x09400000)   OP-TEE              (WB, reserved)
-    // [0x09400000 .. 0x20000000)   DRAM (WB)
-    // [0x20000000 .. 0x30000000)   RK3576 MMIO         (DEVICE)
-    // [0x30000000 .. 0x100000000)  DRAM (WB)
-    // [0x100000000 .. SysMemEnd)   DRAM (WB)            — only if >4GB
-    // FV (0x40800000) and NV-Variable (0x40DCxxxx) fall inside the WB DRAM
-    // ranges with the correct attribute; runtime semantics are tracked by
-    // the GCD descriptor type, not the MMU attribute.
+    // Everything below 0x40000000 is SoC address space, not DRAM. The map
+    // used to declare three chunks of it as System RAM (inherited from the
+    // RK3588 layout, where DRAM really does start at 0):
+    //     [0x00200000 .. 0x08400000)   [0x09400000 .. 0x20000000)
+    //     [0x30000000 .. 0x40000000)
+    // Any access to those takes a synchronous external abort. Confirmed on
+    // hardware: `dmem 0x30000000` in the UEFI Shell gives
+    //     ESR=0x96000010 (DFSC 0b010000, sync external abort) FAR=0x30000000
+    // and the Windows boot manager died the same way, because its preferred
+    // ImageBase is 0x10000000 -- inside the bogus "mid" region -- so
+    // PeCoffLoaderLoadImage memcpy'd .text straight into nothing.
     //
-
-    // Pre-OP-TEE DRAM
-    VirtualMemoryTable[Index].PhysicalBase = 0x00200000;
-    VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-    VirtualMemoryTable[Index].Length       = 0x08400000 - 0x00200000;
-    VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
-    VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
-    VirtualMemoryInfo[Index++].Name        = L"System RAM (< OP-TEE)";
-
-    // OP-TEE
-    VirtualMemoryTable[Index].PhysicalBase = 0x08400000;
-    VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-    VirtualMemoryTable[Index].Length       = 0x01000000;
-    VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
-    VirtualMemoryInfo[Index].Type          = RK3588_MEM_RESERVED_REGION;
-    VirtualMemoryInfo[Index++].Name        = L"OP-TEE";
-
-    // DRAM between OP-TEE end and RK3576 MMIO start
-    VirtualMemoryTable[Index].PhysicalBase = 0x09400000;
-    VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-    VirtualMemoryTable[Index].Length       = 0x20000000 - 0x09400000;
-    VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
-    VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
-    VirtualMemoryInfo[Index++].Name        = L"System RAM (mid)";
+    // MMIO at [0x20000000 .. 0x30000000) is correct and stays (UART0
+    // 0x2AD40000, GIC 0x2A701000, USB 0x23000000/0x23400000, GRF 0x26040000,
+    // VOP2 0x27D00000, HDMI 0x27DA0000).
+    //
+    // Layout produced below:
+    //   [0x20000000 .. 0x30000000)   RK3576 MMIO                   (DEVICE)
+    //   [0x40200000 .. LowTop)       DRAM                          (WB)
+    //
+    // Deliberately left out, each for its own reason:
+    //   [0x40000000 .. 0x40200000)   TF-A: TZRAM (BL31) + DDR_SHARE_MEM.
+    //   [0xF0000000 .. 0x100000000)  Real DRAM on this SoC, but the previous
+    //                                author observed an abort here. That was
+    //                                most likely the same low-memory bug
+    //                                misattributed, yet it is unverified, so
+    //                                it stays excluded until someone probes
+    //                                it with `dmem`.
+    //   [0x100000000 .. 0x140000000) Real DRAM, 1 GB, never mapped because the
+    //                                old `> 0x100000000` test compared a
+    //                                *size* against an *address*. Adding it
+    //                                needs the >32-bit MMU/GCD span checked
+    //                                first; separate change.
+    //
+    #define RK3576_DRAM_BASE      0x40000000ULL
+    #define RK3576_DRAM_SAFE_BASE 0x40200000ULL  /* above TZRAM + share mem */
+    #define RK3576_LOW_DRAM_TOP   0xF0000000ULL
 
     // RK3576 MMIO aperture (UART, GIC, SDHCI, SFC, CRU, USB, ...)
     VirtualMemoryTable[Index].PhysicalBase = 0x20000000;
@@ -163,25 +161,23 @@ ArmPlatformGetVirtualMemoryMap (
     VirtualMemoryInfo[Index].Type          = RK3588_MEM_UNMAPPED_REGION;
     VirtualMemoryInfo[Index++].Name        = L"RK3576 MMIO";
 
-    // DRAM from end of RK3576 MMIO up to the low-DRAM safe top (0xF0000000).
-    // The [0xF0000000..0x100000000) hole is left UNMAPPED to avoid DxeCore
-    // allocating into it.
-    VirtualMemoryTable[Index].PhysicalBase = 0x30000000;
-    VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-    VirtualMemoryTable[Index].Length       = MIN (mSystemMemorySize, RK3576_LOW_DRAM_TOP) - 0x30000000;
-    VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
-    VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
-    VirtualMemoryInfo[Index++].Name        = L"System RAM (< 4GB)";
+    // The one and only DRAM region. Note mSystemMemorySize is a *size*, so the
+    // top has to be BASE + SIZE; the old code compared it against an address
+    // directly, which only worked because RK3588's DRAM base is 0.
+    {
+      UINT64  DramTop = MIN (RK3576_DRAM_BASE + mSystemMemorySize,
+                             RK3576_LOW_DRAM_TOP);
 
-    if (mSystemMemorySize > 0x100000000UL) {
-      // DRAM >= 4GB (already capped at PhysTop - 256MB above)
-      VirtualMemoryTable[Index].PhysicalBase = 0x100000000UL;
+      ASSERT (DramTop > RK3576_DRAM_SAFE_BASE);
+
+      VirtualMemoryTable[Index].PhysicalBase = RK3576_DRAM_SAFE_BASE;
       VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-      VirtualMemoryTable[Index].Length       = mSystemMemorySize - 0x100000000UL;
+      VirtualMemoryTable[Index].Length       = DramTop - RK3576_DRAM_SAFE_BASE;
       VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
       VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
-      VirtualMemoryInfo[Index++].Name        = L"System RAM >= 4GB";
+      VirtualMemoryInfo[Index++].Name        = L"System RAM";
     }
+
 
     // End of Table
     VirtualMemoryTable[Index].PhysicalBase = 0;
