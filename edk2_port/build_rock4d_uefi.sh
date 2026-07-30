@@ -433,14 +433,26 @@ info "FIT image: ${DEVICE}_EFI.itb  (${ITB_KB}KB) ✓"
 # ──────────────────────────────────────────────────────────────────────────────
 
 # 查找 idblock (SPI 和 SD 卡镜像都需要)
+#
+# 顺序很重要：per-platform 的 output/ 目录排在最前面。
+# 之前这个列表只看 binaries/ 和 workspace 根，于是即使刚为本平台编出了新的
+# idbloader，镜像里塞进去的仍然是 binaries/ 下那份预编译的 SPL —— CM5-IO 就
+# 这样被塞进了一个不含自己 U-Boot overlay 的 SPL（binaries 里是 2026.04，
+# 而 output/CM5IO 里是带 CM5-IO 修正的 2026.07-rc3）。刚编的优先。
 IDBLOCK=""
-for cand in "$BINDIR/idblock_mainline.bin" \
+for cand in "$OUTDIR/idbloader.img" \
+            "$BINDIR/idblock_mainline.bin" \
             "$WSDIR/idblock-mainline.bin" \
             "$WSDIR/idblock.bin"; do
     [ -f "$cand" ] && IDBLOCK="$cand" && break
 done
 [ -z "$IDBLOCK" ] && error "找不到 idblock (mainline SPL)，无法构建 FIT 启动链"
 IDB_KB=$(( $(stat -c%s "$IDBLOCK") / 1024 ))
+
+# 把实际用到的 SPL 版本打出来。刷完发现跑的不是自己的 SPL 是很难查的问题，
+# 版本号摆在构建日志里就一眼看得见。
+IDB_SPL_VER="$(strings -n 20 "$IDBLOCK" 2>/dev/null | grep -o 'U-Boot SPL [0-9][^ ]*' | head -1)"
+info "idblock SPL: ${IDB_SPL_VER:-<无版本字符串>}  ($IDBLOCK)"
 
 FIT="$PKGDIR/${DEVICE}_EFI.itb"
 [ -f "$FIT" ] || error "找不到 FIT image: $FIT"
@@ -463,6 +475,30 @@ if [ "$BOOT_MEDIUM" = "sdcard" ]; then
     # FIT image at sector 16384 (byte offset 0x800000, 8MB)
     dd if="$FIT" of="$OUT_IMG" bs=512 seek=16384 conv=notrunc status=none
     info "FIT image: 写入 sector 16384 (0x800000) ✓ ($((FIT_SIZE/1024))KB / 上限 $((FIT_MAX/1024))KB)"
+
+    # NV 变量存储区 (3×64KB) at 0x1600000, 必须是 0xFF ——
+    # 镜像其余部分是 dd if=/dev/zero 建的，而变量驱动把全 0 当成“已损坏”而不是
+    # “未初始化的擦除态”，于是每次启动都报 Variable Store is corrupted。
+    # 偏移必须与 CM5IO.dsc 的 PcdRkFvbNvStorageSpiOffset 一致。
+    NVS_OFFSET=$((0x1600000))
+    NVS_SIZE=$((3 * 64 * 1024))
+    if [ $((NVS_OFFSET + NVS_SIZE)) -le $((SD_SIZE_MB * 1024 * 1024)) ] && \
+       [ "$NVS_OFFSET" -ge $((0x800000 + FIT_SIZE)) ]; then
+        # 生产端必须是有界的：`tr < /dev/zero` 会一直写，dd 读满退出后 tr 收到
+        # SIGPIPE(141)，配合 `set -o pipefail` 会让整条管线算失败并触发 set -e，
+        # 把脚本掐在这里。head -c 限流后 tr 正常见到 EOF。
+        head -c "$NVS_SIZE" /dev/zero | tr '\0' '\377' | \
+            dd of="$OUT_IMG" bs=64K oflag=seek_bytes seek="$NVS_OFFSET" \
+               conv=notrunc status=none
+        # 读回来确认，这类"写了但没写全"的失败不该靠肉眼看日志发现
+        NVS_OK=$(dd if="$OUT_IMG" bs=64K iflag=skip_bytes,count_bytes \
+                    skip="$NVS_OFFSET" count="$NVS_SIZE" status=none \
+                 | tr -d '\377' | wc -c)
+        [ "$NVS_OK" -eq 0 ] || error "NV 变量区填充不完整（$NVS_OK 字节不是 0xFF）"
+        info "NV 变量区: 0xFF 填充 @ $(printf '0x%X' $NVS_OFFSET) ✓ ($((NVS_SIZE/1024))KB, 已复验)"
+    else
+        warn "NV 变量区 $(printf '0x%X' $NVS_OFFSET) 与 FIT 载荷重叠或超出镜像 — 跳过，变量不会持久"
+    fi
 
     echo ""
     echo -e "${GRN}╔══════════════════════════════════════════════════════════╗${NC}"

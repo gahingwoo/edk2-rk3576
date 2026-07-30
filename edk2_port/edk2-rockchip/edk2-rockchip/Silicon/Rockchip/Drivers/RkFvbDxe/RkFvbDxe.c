@@ -1240,12 +1240,19 @@ FvbDiskDumpNvData (
                  mFvbDevice->Media.BlockSize
                  );
 
+  //
+  // Source is the in-memory NV shadow buffer, not FvbOffset — that is a byte
+  // offset on the medium (see the DataOffset computation just above), so passing
+  // it as a pointer wrote from whatever happens to live at address 0x1600000.
+  // This path had never executed before: the boot disk was never adopted
+  // because PcdFitImageFlashAddress defaulted to 0, so the bug was latent.
+  //
   Status = DiskIo->WriteDisk (
                      DiskIo,
                      MediaId,
                      DataOffset,
                      mFvbDevice->FvbSize,
-                     (VOID *)mFvbDevice->FvbOffset
+                     (VOID *)mFvbDevice->RegionBaseAddress
                      );
 
   return Status;

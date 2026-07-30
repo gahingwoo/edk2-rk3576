@@ -166,10 +166,26 @@
 
   # FVB: ATAGS firewalled on RK3576; skip lookup
   gRockchipTokenSpaceGuid.PcdRkAtagsBase|0
-  # FVB: correct SPI NOR byte offset for NV variable store
-  gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset|0xFC0000
-  # Force SPI NOR as NV storage backend
-  gRockchipTokenSpaceGuid.PcdNvStoragePreferSpiFlash|TRUE
+  # FVB / NV variable store.
+  #
+  # This carrier's SPI NOR is 64 KB — too small for the 192 KB NV store, and in
+  # practice not even detected (SPL reports "unrecognized JEDEC id 00 00 00").
+  # So NV has to live on the boot medium (SD/eMMC), which means:
+  #
+  #   - PreferSpiFlash must be FALSE, or RkFvbDxe keeps the SPI path and never
+  #     falls back to the disk dump.
+  #   - PcdFitImageFlashAddress must point at the FIT on the boot medium, or
+  #     FvbCheckBootDiskDeviceHasFirmware reads offset 0, gets FDT_ERR_BADMAGIC,
+  #     and the boot disk is never adopted ("Variable store changes will NOT
+  #     persist!").  SD/eMMC layout puts the FIT at sector 16384 = 0x800000.
+  #   - The NV offset is reused as the byte offset on that medium. It cannot stay
+  #     at 0xFC0000, because on the 32 MB SD/eMMC layout that address falls
+  #     *inside* the FIT payload (0x800000..0x1550000). 0x1600000 sits past the
+  #     payload with room for the 192 KB store, still inside the 32 MB image.
+  #
+  gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset|0x1600000
+  gRockchipTokenSpaceGuid.PcdNvStoragePreferSpiFlash|FALSE
+  gRockchipTokenSpaceGuid.PcdFitImageFlashAddress|0x800000
 
   # USB DWC3: 0x23000000 (USB-C, USBDP PHY), 0x23400000 (USB-A, combphy1)
   gRockchipTokenSpaceGuid.PcdDwc3BaseAddresses|{ UINT32(0x23000000), UINT32(0x23400000) }
@@ -194,8 +210,10 @@
   gRK3576TokenSpaceGuid.PcdComboPhy0Switchable|TRUE
   gRK3576TokenSpaceGuid.PcdComboPhy1Switchable|TRUE
 
-  # Config table / FDT defaults: FDT-only (mainline DTS drives all peripherals)
-  gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|0x00000002
+  # Config table / FDT defaults: FDT + ACPI both installed (0x3).
+  # Linux keeps using the mainline DTS; ACPI-only OSes (Windows on ARM,
+  # FreeBSD) get the RK3576 tables. Switchable in the front-page menu.
+  gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|0x00000003
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|0
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|0x00000002
   gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|TRUE
@@ -266,10 +284,9 @@
 ################################################################################
 [Components.common]
   # ACPI tables (Windows ARM64, FreeBSD, ACPI-capable OS)
-  # Default: disabled — FDT-only build.
-  # To enable: uncomment both lines below, rebuild, and set ConfigTableMode to ACPI
-  # in the UEFI front-page menu (or set PcdConfigTableModeDefault to 0x1 or 0x3).
-  # $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+  # Installed alongside the DTB — see PcdConfigTableModeDefault (0x3) above.
+  # ConfigTableMode is switchable at runtime in the UEFI front-page menu.
+  $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
 
   # Board-specific Device Tree (Mainline — compiled from DTS at build time)
   $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
@@ -287,9 +304,9 @@
   # RK3576 SoC DXE driver
   Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.inf
 
-  # RK3576 ACPI platform driver — disabled: FDT-only build.
-  # Uncomment together with AcpiTables.inf above to enable ACPI mode.
-  # Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
+  # RK3576 ACPI platform driver — patches MCFG/IORT and the PCI0/PCI1 _STA
+  # from the live ComboPHY mode; runs only when ConfigTableMode has the ACPI bit.
+  Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
 
   # FDT platform fixups (PCIe / SATA / VOP device tree nodes)
   Silicon/Rockchip/RK3576/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf
