@@ -7,9 +7,14 @@
  *    Cluster 1: 4x Cortex-A72 (big)
  *
  *  Cache hierarchy (from ARM TRM):
- *    A53: 32KB L1D, 32KB L1I, 128KB L2 (per-cluster shared)
- *    A72: 48KB L1D, 48KB L1I, 512KB-1MB L2 (per-cluster shared)
+ *    A53: 32KB/4-way L1D, 32KB/2-way L1I, 256KB L2 (per-cluster shared)
+ *    A72: 32KB/2-way L1D, 48KB/3-way L1I, 512KB L2 (per-cluster shared)
  *    No L3 cache on RK3576.
+ *  Associativity is not a field — RK3576_PPTT_CACHE_NODE_INIT derives it as
+ *  Size / NumberOfSets / 64, so Size and NumberOfSets must both be exact.
+ *  The macro does not parenthesise Size, so any Size passed as an expression
+ *  MUST be wrapped in parens or precedence silently corrupts Associativity
+ *  (an unparenthesised SIZE_32KB + SIZE_16KB yields 1-way, not 3-way).
  *
  *  This table is based on the ACPI 6.2 spec because Windows
  *  (tested with build 22621.1992) is not able to properly parse
@@ -245,17 +250,19 @@ STATIC RK3576_PPTT  Pptt = {
     ),
   /* Cortex-A72 caches (from ARM Cortex-A72 TRM) */
   RK3576_PPTT_CACHE_NODE_INIT (
-    /* A72L1DCache */
+    /* A72L1DCache — A72 TRM: 32KB, 2-way (Size/Sets/64 = 32768/256/64 = 2) */
     OFFSET_OF (RK3576_PPTT, A72L2Cache),          /* NextLevelOfCache */
-    SIZE_32KB,                                    /* Size (32KB on A72) */
-    128,                                          /* NumberOfSets */
+    SIZE_32KB,                                    /* Size */
+    256,                                          /* NumberOfSets (2-way) */
     PPTT_DATA_CACHE_ATTRIBUTES                    /* Attributes */
     ),
   RK3576_PPTT_CACHE_NODE_INIT (
-    /* A72L1ICache */
+    /* A72L1ICache — A72 TRM: 48KB, 3-way (49152/256/64 = 3).
+     * Do NOT round to 64KB: the macro derives Associativity from Size, so a
+     * rounded size reports both a cache that does not exist and 4-way. */
     OFFSET_OF (RK3576_PPTT, A72L2Cache),          /* NextLevelOfCache */
-    SIZE_64KB,                                    /* Size (48KB on A72, rounded to 64KB) */
-    256,                                          /* NumberOfSets */
+    (SIZE_32KB + SIZE_16KB),                      /* Size (48KB) — parens required */
+    256,                                          /* NumberOfSets (3-way) */
     PPTT_INST_CACHE_ATTRIBUTES                    /* Attributes */
     ),
   RK3576_PPTT_CACHE_NODE_INIT (

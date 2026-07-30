@@ -68,13 +68,19 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
     //   A53: cpu@0 (0x000), cpu@1 (0x001), cpu@2 (0x002), cpu@3 (0x003)
     //   A72: cpu@100 (0x100), cpu@101 (0x101), cpu@102 (0x102), cpu@103 (0x103)
     //
+    // PmuIrq: RK3576's PMU is wired as per-core SPIs, not a shared PPI —
+    // rk3576.dtsi has arm,cortex-a53-pmu on GIC_SPI 0..3 (cpu_l0..l3) and
+    // arm,cortex-a72-pmu on GIC_SPI 4..7 (cpu_b0..b3), all LEVEL_HIGH.
+    // ACPI GSIV of GIC SPI n is 32 + n, hence 32..39 below (one per core).
+    // Flags bit1 (performance interrupt mode) stays 0 = level-triggered.
+    //
     EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
       // A53-0 (cluster 0, core 0)
       0,
       0,
       GET_MPID (0, 0x000),
       EFI_ACPI_6_0_GIC_ENABLED,
-      23,
+      32,   // PMU: GIC SPI 0 (32 + SPI)
       FixedPcdGet64 (PcdGicInterruptInterfaceBase),
       0x2A706000,
       0x2A704000,
@@ -88,7 +94,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       1,
       GET_MPID (0, 0x001),
       EFI_ACPI_6_0_GIC_ENABLED,
-      23,
+      33,   // PMU: GIC SPI 1 (32 + SPI)
       FixedPcdGet64 (PcdGicInterruptInterfaceBase),
       0x2A706000,
       0x2A704000,
@@ -102,7 +108,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       2,
       GET_MPID (0, 0x002),
       EFI_ACPI_6_0_GIC_ENABLED,
-      23,
+      34,   // PMU: GIC SPI 2 (32 + SPI)
       FixedPcdGet64 (PcdGicInterruptInterfaceBase),
       0x2A706000,
       0x2A704000,
@@ -116,7 +122,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       3,
       GET_MPID (0, 0x003),
       EFI_ACPI_6_0_GIC_ENABLED,
-      23,
+      35,   // PMU: GIC SPI 3 (32 + SPI)
       FixedPcdGet64 (PcdGicInterruptInterfaceBase),
       0x2A706000,
       0x2A704000,
@@ -130,7 +136,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       4,
       GET_MPID (0, 0x100),
       EFI_ACPI_6_0_GIC_ENABLED,
-      23,
+      36,   // PMU: GIC SPI 4 (32 + SPI)
       FixedPcdGet64 (PcdGicInterruptInterfaceBase),
       0x2A706000,
       0x2A704000,
@@ -144,7 +150,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       5,
       GET_MPID (0, 0x101),
       EFI_ACPI_6_0_GIC_ENABLED,
-      23,
+      37,   // PMU: GIC SPI 5 (32 + SPI)
       FixedPcdGet64 (PcdGicInterruptInterfaceBase),
       0x2A706000,
       0x2A704000,
@@ -158,7 +164,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       6,
       GET_MPID (0, 0x102),
       EFI_ACPI_6_0_GIC_ENABLED,
-      23,
+      38,   // PMU: GIC SPI 6 (32 + SPI)
       FixedPcdGet64 (PcdGicInterruptInterfaceBase),
       0x2A706000,
       0x2A704000,
@@ -172,7 +178,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       7,
       GET_MPID (0, 0x103),
       EFI_ACPI_6_0_GIC_ENABLED,
-      23,
+      39,   // PMU: GIC SPI 7 (32 + SPI)
       FixedPcdGet64 (PcdGicInterruptInterfaceBase),
       0x2A706000,
       0x2A704000,
