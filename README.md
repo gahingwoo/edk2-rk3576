@@ -9,6 +9,13 @@ Working **EDK2 / TianoCore UEFI** port for **Rockchip RK3576** SBCs.
 Boots Fedora 44 aarch64 to GNOME desktop on the Radxa ROCK 4D (12 GB LPDDR5 SKU).
 Hardware-verified on both the **ROCK 4D** and the **ArmSoM CM5-IO**.
 
+🚧 **Windows on Arm bring-up is in progress on the ArmSoM CM5 / CM5-IO.** The
+Windows boot manager loads from this firmware and runs as far as
+`ExitBootServices`. It does not boot to a desktop yet — see
+[Windows on Arm](#windows-on-arm-armsom-cm5--cm5-io-in-progress) for exactly
+what is verified, what is not, and the one architectural limit that is not
+going away.
+
 ---
 
 ## Screenshots
@@ -30,11 +37,89 @@ Hardware-verified on both the **ROCK 4D** and the **ArmSoM CM5-IO**.
 | Board | Boot medium | HDMI | eMMC | USB 3.0 | Ethernet | Status |
 |---|---|---|---|---|---|---|
 | Radxa ROCK 4D | SPI NOR | Working (QHD) | Working | Working (5 Gbps) | Working (UEFI + Linux) | Hardware verified |
-| ArmSoM CM5-IO | SD card | Working (minor offset) | Working (52 MHz HS) | Working (5 Gbps) | Working (UEFI + Linux) | Hardware verified |
+| ArmSoM CM5-IO | SD card | Intermittent — see below | Working (52 MHz HS) | Working (5 Gbps) | Working (UEFI + Linux) | Hardware verified |
 | ArmSoM CM5 RPI-CM4-IO | SD card | — | Working | — | — | Build-verified |
 | Waveshare CM4-IO-BASE-B | SD/SPI | — | Working | — | — | Build-verified |
 | Waveshare CM4-IO-BASE-A | SD/SPI | — | Working | — | — | Build-verified |
 | FriendlyElec NanoPi M5 | SPI NOR | — | — | — | — | Build-verified, no hardware |
+
+---
+
+## Windows on Arm (ArmSoM CM5 / CM5-IO, in progress)
+
+Windows is not booting yet. What follows is what has actually been observed on
+hardware, so that anyone picking this up knows where the edge is.
+
+### How far it gets
+
+The Windows boot manager loads from `\EFI\BOOT\BOOTAA64.EFI`, runs, and reaches:
+
+```
+ExitBootServices: Booting Windows OS at 0x40D7F000
+XhcClearBiosOwnership: called to clear BIOS ownership
+```
+
+and then goes quiet. Windows on Arm does not write to the serial port, and
+display output is unreliable on this board, so a hang and a
+running-but-invisible system are indistinguishable from the console. Treat
+"reaches ExitBootServices" as the honest high-water mark.
+
+### Firmware groundwork that is verified on hardware
+
+| | Evidence |
+|---|---|
+| **All nine ACPI tables install** — DBG2 FACP GTDT APIC MCFG PPTT IORT SPCR DSDT | `acpiview -r 1` on the board, every checksum OK |
+| **MADT** per-core PMU GSIVs read `0x20..0x27` | read back on hardware |
+| **PPTT** describes real Cortex-A72 caches (L1D 32 KB/2-way, L1I 48 KB/3-way) | read back on hardware |
+| **UEFI variables persist** across reboots | NV store lands on the boot medium |
+| **`\EFI\BOOT\BOOTAA64.EFI` fallback boot works** | UEFI Shell launched that way from USB |
+| **Correct memory map** — RK3576 DRAM starts at `0x40000000`, not 0 | earlier maps declared ~700 MB of non-DRAM as System RAM; any image loading low died on first touch |
+
+That last one is worth calling out: it looked exactly like an ARMv8.0
+instruction fault for a long time, and it was not. Windows had never executed
+an instruction.
+
+### The limit that is not going away
+
+**RK3576 is Cortex-A72, which is ARMv8.0.** Windows 11 24H2 and later require
+ARMv8.1 (LSE atomics) and will not run on this SoC. There is no viable
+workaround: an undefined instruction taken at EL1 is delivered to EL1's own
+vector table, and ARMv8 has no control bit that routes it to EL2 or EL3, so
+neither TF-A nor a hypervisor can trap and emulate it. Faking
+`ID_AA64ISAR0_EL1.Atomic` via `HCR_EL2.TID3` makes it strictly worse — Windows
+would then emit real LSE instructions.
+
+Viable targets are **Windows 11 23H2 (build 22631)** or **Windows 10 ARM64**.
+If 24H2+ is a hard requirement, that is a board decision: RK3588/RK3588S are
+Cortex-A76/A55, i.e. ARMv8.2.
+
+⚠ The ceiling has **not** been measured here. Every attempt so far either died
+inside the firmware (the memory-map bug above) or reached ExitBootServices and
+went quiet, so nothing has been proven either way empirically. The reasoning
+above is architectural.
+
+### Known blockers
+
+- **HDMI output is intermittent on CM5-IO** — roughly one cold boot in four
+  produces a picture, measured over eight cold boots. Every VOP2, HDMI-TX and
+  HDPTX register reads byte-identical between a boot that works and one that
+  does not; the only observable that tracks the outcome is bits 1 and 4 of
+  `IOC_HDMI_HPD_STATUS`. The connector enable now retries against that. This is
+  under active investigation and is the main thing making Windows bring-up hard
+  to observe.
+- **The console never draws into the GOP framebuffer.** Writing a test pattern
+  directly proves scanout, pixel format and stride are all correct, so this is a
+  separate defect from the one above.
+- **No signed drivers have run on silicon.** Five ARM64 kernel-mode drivers
+  (GPIO, I²C, SPI, SD/eMMC, GMAC) build clean under WDK 10.0.26100 with
+  `/W4 /WX` in CI, but none has been loaded on hardware.
+
+### Driver side
+
+The Windows drivers live in a separate repository:
+**[woa-rk3576](https://github.com/gahingwoo/woa-rk3576)** — see its
+`docs/INSTALL.md` for the NVRAM-less install route that the
+`\EFI\BOOT\BOOTAA64.EFI` result above makes possible.
 
 ---
 
@@ -118,21 +203,30 @@ Both boot from SD card — the carrier SPI NOR is 64 KB and cannot hold the firm
 | USB 3.0 xHCI @ 5 Gbps (USB-A) | Working — via onboard 4-port hub (DRD1) |
 | USB-C (DRD0) | Not tested — DRD0 initialises HS-only in UEFI (SS PHY not brought up); untested on CM5-IO |
 | 1 GbE (GMAC0, YT8531C) | Working in UEFI (PXE verified) and Linux |
-| HDMI | Working — VOP2 + HDPTX PHY, EDID read, GOP at native resolution; minor horizontal offset |
-| EFI variables | Not persistent — carrier SPI too small; settings reset on reboot |
+| HDMI | Intermittent — comes up on ~1 cold boot in 4; when it does, EDID read and GOP at native resolution, with a minor horizontal offset |
+| EFI variables | Persistent — NV store lives on the boot medium; flushed on clean reset / ReadyToBoot |
 | PCIe | M.2 device detected (LTSSM reaches Recovery); link not yet trained — WIP |
 
 **Known limitations:**
 
-- **EFI variables reset on reboot.** The carrier SPI NOR is 64 KB — far below the
-  minimum for an NV variable store. Boot order and UEFI settings do not persist.
+- **EFI variables persist, but only across a clean reset.** The carrier SPI NOR
+  is 64 KB, far below the minimum for an NV variable store, so the store lives on
+  the boot medium instead. It is written out on a reset notification or at
+  ReadyToBoot — pulling power mid-session loses anything written since the last
+  flush.
 - **eMMC at 52 MHz legacy HS, not HS200/HS400.** The DWC eMMC CRU↔SDHCI
   frequency hand-off is architecturally incompatible with the UEFI SDHCI stack's
   clock-change sequence. 52 MHz is reliable and sufficient for OS boot.
-- **HDMI has a minor horizontal offset.** Output works — VOP2 + HDPTX PHY come
-  up, EDID is read, and TianoCore renders at the native resolution. The picture
-  is shifted slightly right because the RK3576 background/pre-scan delay is still
-  computed with the RK3588 formula; a one-register fix is pending.
+- **HDMI output is intermittent.** Roughly one cold boot in four produces a
+  picture, measured over eight cold boots; the rest give no signal at all. The
+  firmware reports complete success either way, and every VOP2, HDMI-TX and
+  HDPTX register reads byte-identical between the two outcomes — the only
+  observable that tracks it is bits 1 and 4 of `IOC_HDMI_HPD_STATUS`, which the
+  connector enable now retries against. Under investigation.
+- **When a picture does appear it is shifted slightly right,** because the RK3576
+  background/pre-scan delay is still computed with the RK3588 formula; a
+  one-register fix is pending. Vertical stripes also show up on some boots, which
+  is a separate known issue in the dithering setup.
 - **EBBR compliance is incomplete (WIP).** Full EBBR requires persistent EFI
   variable storage; the volatile-only NV store on this carrier board does not
   meet that requirement. Work on eMMC-backed variable storage is in progress.
@@ -234,12 +328,12 @@ bash build_rock4d_uefi.sh --config configs/nanopi-m5.conf
 | Issue | Boards affected | Notes |
 |---|---|---|
 | PCIe LTSSM never reaches L0 | All | DBI reachable (`VID:DID = 0x1D87:0x3576`); works fine in Linux |
-| HDMI minor horizontal offset | CM5-IO | Picture works (EDID + GOP at native res); RK3576 bg/pre-scan delay still uses the RK3588 formula — one-register fix pending |
-| EFI variables not persistent | CM5-IO family | Carrier SPI NOR too small; eMMC-backed NV store is WIP |
+| HDMI intermittent no-signal | CM5-IO | ~1 cold boot in 4 produces a picture; firmware reports success either way and all VOP2/HDMI-TX/HDPTX registers read identically. Retry keyed on `IOC_HDMI_HPD_STATUS` bits 1/4 — under investigation |
+| HDMI horizontal offset + occasional vertical stripes | CM5-IO | When a picture appears: RK3576 bg/pre-scan delay still uses the RK3588 formula; stripes are a separate dithering issue |
 | EBBR compliance incomplete | CM5-IO family | Persistent NV storage required; WIP alongside eMMC boot path |
 | USB-C HS only in UEFI | All | DRD0 initialises without SS PHY; SS+HS available in Linux via `phy-rockchip-usbdp.c` |
 | USB-C untested | CM5-IO | DRD0 present in firmware but not tested on this carrier |
-| ACPI tables are stubs only | All | Use the FDT (Device Tree) boot path |
+| ACPI is minimal but real | All | Nine tables install and validate on hardware (`acpiview`); enough for the Windows boot manager, not a full description of the SoC. Linux should use the FDT boot path |
 
 ---
 
