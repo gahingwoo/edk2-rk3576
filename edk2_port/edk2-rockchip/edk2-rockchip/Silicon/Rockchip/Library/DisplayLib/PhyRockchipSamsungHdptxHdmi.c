@@ -26,6 +26,20 @@
 #define PHY_TRACE(Fmt, ...)  \
   DEBUG ((DEBUG_INFO, "[RK3576-HDPTX] " Fmt, ##__VA_ARGS__))
 
+//
+// Run mainline's lane/sideband quiesce at the top of HdptxPrePowerUp.
+//
+// OFF. This mirrors rk_hdptx_phy_disable() faithfully and the reasoning behind
+// it still looks right, but it did not fix the intermittent no-signal, and the
+// boot that was tested with it enabled produced no picture either. Until there
+// is a baseline that reliably shows a picture, carrying an unproven change
+// makes every later result harder to read. Flip to 1 to A/B it -- the log line
+// it emits says whether it ran.
+//
+#ifndef RK_HDPTX_QUIESCE_BEFORE_POWERDOWN
+#define RK_HDPTX_QUIESCE_BEFORE_POWERDOWN  0
+#endif
+
 #define UPDATE(x, h, l)  (((x) << (l)) & GENMASK((h), (l)))
 
 #define GRF_HDPTX_CON0         0x00
@@ -864,6 +878,53 @@ HdptxPrePowerUp (
   )
 {
   UINT32  Val = 0;
+
+#if RK_HDPTX_QUIESCE_BEFORE_POWERDOWN
+  /*
+   * Quiesce the lanes and sideband before anything else.
+   *
+   * Cold power-on drives a picture; a warm reboot produces no output at all --
+   * the sink does not even see a device when the cable is re-plugged, so the
+   * lanes really are dead rather than the monitor failing to re-acquire.  Yet
+   * every VOP2, HDMI-TX and HDPTX status register reads BYTE-IDENTICAL between
+   * the boot that works and the boot that does not.  Whatever differs is not
+   * exposed in the status registers, which points at the analog side.
+   *
+   * Mainline has a teardown path we never ran.  rk_hdptx_phy_disable() --
+   * reached from atomic_disable -> phy power_off -> consumer_put -- does this
+   * BEFORE it asserts the resets and drops the bias:
+   *
+   *   LNTOP_REG(0207) = 0x00     disable all four lanes
+   *   LANE_REG(0300)  = 0x82
+   *   SB_REG(010f)    = 0xc1     quiesce the sideband
+   *   SB_REG(0110)    = 0x01
+   *   LANE_REG(03/04/05/06 01) = 0x80   drivers into electrical idle
+   *
+   * HdptxPrePowerUp only ever did the last two steps of that sequence (assert
+   * the resets, clear PLL/BIAS/BGR).  On a cold boot the omission costs
+   * nothing because the PHY is already idle out of power-on reset.  On a warm
+   * reboot we cut power to a PHY whose lanes and sideband are still live from
+   * the previous firmware run, and it does not come back.
+   *
+   * Linux never hits this because the previous Linux instance ran
+   * atomic_disable on the way out.  Nothing disables this PHY between our runs
+   * -- DwHdmiQpConnectorDisable is a `// Todo` stub that returns SUCCESS, and
+   * LcdGraphicsOutputDxe never calls it anyway.
+   *
+   * Ordering follows mainline exactly: quiesce first, then reset, then bias
+   * off.  Doing it in the other order writes lane registers whose clock is
+   * already gone.
+   */
+  PHY_TRACE ("PrePowerUp: quiesce lanes + sideband (mainline rk_hdptx_phy_disable)\n");
+  PhyWrite (Hdptx, LNTOP_REG0207, 0x00);
+  PhyWrite (Hdptx, LANE_REG0300, 0x82);
+  PhyWrite (Hdptx, SB_REG010F, 0xc1);
+  PhyWrite (Hdptx, SB_REG0110, 0x01);
+  PhyWrite (Hdptx, LANE_REG0301, 0x80);
+  PhyWrite (Hdptx, LANE_REG0401, 0x80);
+  PhyWrite (Hdptx, LANE_REG0501, 0x80);
+  PhyWrite (Hdptx, LANE_REG0601, 0x80);
+#endif
 
   /* APB reset cycle: resets PHY APB register bank to hardware defaults.
    * This clears stale values (e.g. LANE_REG0301 EI override) left by previous

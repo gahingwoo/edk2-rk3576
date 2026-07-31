@@ -813,6 +813,191 @@ LcdGraphicsQueryMode (
   return EFI_SUCCESS;
 }
 
+//
+// ---------------------------------------------------------------------------
+// VOP2 bring-up test pattern
+// ---------------------------------------------------------------------------
+//
+// Set to 0 for a production build.
+//
+// "Signal locks but the picture is black" and "nothing is drawn into the
+// framebuffer" look identical from the far end of an HDMI cable, and the whole
+// EDK2 console stack (GraphicsConsole -> ConSplitter -> Blt -> LogoDxe) sits
+// between the two.  This writes a known pattern straight into the framebuffer
+// with plain 32-bit stores, so a photograph of the screen answers the question
+// on its own without needing a single VOP2 register read.
+//
+// What each element tells us:
+//
+//   colour bars   scanout works at all, and the pixel format and stride are
+//                 right.  Wrong stride shears the bars diagonally; a swapped
+//                 format reorders them (expected left to right: white, yellow,
+//                 cyan, green, magenta, red, blue, black).
+//   white border  the active area lines up with the timing.  A border that is
+//                 clipped or offset is the bg/pre-scan delay problem, not a
+//                 compositing problem.
+//   corner blocks orientation and that the last scanline is reached: red near
+//                 the top-left, green near the bottom-right.
+//   centre block  drawn *after* the connector is enabled.  Bars but no centre
+//                 block means writes stop landing once scanout is running,
+//                 which would point at the write-combining mapping rather than
+//                 at VOP2.
+//
+#define RK_VOP2_TEST_PATTERN  1
+
+#if RK_VOP2_TEST_PATTERN
+
+//
+// PixelBlueGreenRedReserved8BitPerColor: byte 0 blue, byte 1 green, byte 2
+// red.  Little-endian, so a pixel is (R << 16) | (G << 8) | B.
+//
+#define RK_TP_WHITE    0x00FFFFFFu
+#define RK_TP_YELLOW   0x00FFFF00u
+#define RK_TP_CYAN     0x0000FFFFu
+#define RK_TP_GREEN    0x0000FF00u
+#define RK_TP_MAGENTA  0x00FF00FFu
+#define RK_TP_RED      0x00FF0000u
+#define RK_TP_BLUE     0x000000FFu
+#define RK_TP_BLACK    0x00000000u
+
+#define RK_TP_BORDER   4     // white frame thickness, pixels
+#define RK_TP_CORNER   64    // corner block size, pixels
+#define RK_TP_INSET    8     // corner block distance from the edge
+#define RK_TP_CENTRE   128   // phase-1 centre block size, pixels
+
+STATIC
+VOID
+RkFillRect (
+  IN volatile UINT32  *Fb,
+  IN UINT32           PixelsPerScanLine,
+  IN UINT32           X,
+  IN UINT32           Y,
+  IN UINT32           W,
+  IN UINT32           H,
+  IN UINT32           Colour
+  )
+{
+  UINT32  Row;
+  UINT32  Col;
+
+  for (Row = 0; Row < H; Row++) {
+    volatile UINT32  *Line = Fb + ((UINTN)(Y + Row) * PixelsPerScanLine) + X;
+
+    for (Col = 0; Col < W; Col++) {
+      Line[Col] = Colour;
+    }
+  }
+}
+
+STATIC
+VOID
+RkDrawTestPattern (
+  IN EFI_PHYSICAL_ADDRESS  FbBase,
+  IN UINT32                Width,
+  IN UINT32                Height,
+  IN UINT32                PixelsPerScanLine,
+  IN UINT32                Phase
+  )
+{
+  STATIC CONST UINT32  Bars[8] = {
+    RK_TP_WHITE, RK_TP_YELLOW, RK_TP_CYAN,  RK_TP_GREEN,
+    RK_TP_MAGENTA, RK_TP_RED,  RK_TP_BLUE,  RK_TP_BLACK
+  };
+
+  volatile UINT32  *Fb;
+  UINT32           BarWidth;
+  UINT32           X;
+  UINT32           Y;
+
+  if ((FbBase == 0) || (Width == 0) || (Height == 0)) {
+    return;
+  }
+
+  Fb = (volatile UINT32 *)(UINTN)FbBase;
+
+  if (Phase == 0) {
+    //
+    // Colour bars across the whole visible area. The last bar absorbs the
+    // remainder when the width does not divide by eight.
+    //
+    BarWidth = Width / ARRAY_SIZE (Bars);
+    if (BarWidth == 0) {
+      BarWidth = 1;
+    }
+
+    for (Y = 0; Y < Height; Y++) {
+      volatile UINT32  *Line = Fb + ((UINTN)Y * PixelsPerScanLine);
+
+      for (X = 0; X < Width; X++) {
+        UINT32  Bar = X / BarWidth;
+
+        Line[X] = Bars[MIN (Bar, ARRAY_SIZE (Bars) - 1)];
+      }
+    }
+
+    //
+    // White frame, so a clipped or shifted active area is obvious.
+    //
+    if ((Width > 2 * RK_TP_BORDER) && (Height > 2 * RK_TP_BORDER)) {
+      RkFillRect (Fb, PixelsPerScanLine, 0, 0, Width, RK_TP_BORDER, RK_TP_WHITE);
+      RkFillRect (Fb, PixelsPerScanLine, 0, Height - RK_TP_BORDER, Width, RK_TP_BORDER, RK_TP_WHITE);
+      RkFillRect (Fb, PixelsPerScanLine, 0, 0, RK_TP_BORDER, Height, RK_TP_WHITE);
+      RkFillRect (Fb, PixelsPerScanLine, Width - RK_TP_BORDER, 0, RK_TP_BORDER, Height, RK_TP_WHITE);
+    }
+
+    //
+    // Corner markers, inset so they sit inside the frame.
+    //
+    if ((Width > 2 * (RK_TP_INSET + RK_TP_CORNER)) &&
+        (Height > 2 * (RK_TP_INSET + RK_TP_CORNER)))
+    {
+      RkFillRect (
+        Fb, PixelsPerScanLine,
+        RK_TP_INSET, RK_TP_INSET,
+        RK_TP_CORNER, RK_TP_CORNER, RK_TP_RED
+        );
+      RkFillRect (
+        Fb, PixelsPerScanLine,
+        Width - RK_TP_INSET - RK_TP_CORNER,
+        Height - RK_TP_INSET - RK_TP_CORNER,
+        RK_TP_CORNER, RK_TP_CORNER, RK_TP_GREEN
+        );
+    }
+
+    DEBUG ((
+      DEBUG_ERROR,
+      "[RK3576-TP] phase 0: bars+frame+corners drawn at 0x%lx (%ux%u, ppsl %u)\n",
+      (UINT64)FbBase, Width, Height, PixelsPerScanLine
+      ));
+  } else {
+    //
+    // Drawn after the connector is live. Blue so it cannot be confused with
+    // anything from phase 0 at that position.
+    //
+    if ((Width > RK_TP_CENTRE) && (Height > RK_TP_CENTRE)) {
+      RkFillRect (
+        Fb, PixelsPerScanLine,
+        (Width - RK_TP_CENTRE) / 2,
+        (Height - RK_TP_CENTRE) / 2,
+        RK_TP_CENTRE, RK_TP_CENTRE, RK_TP_BLUE
+        );
+    }
+
+    DEBUG ((
+      DEBUG_ERROR,
+      "[RK3576-TP] phase 1: centre block drawn after connector enable\n"
+      ));
+  }
+
+  //
+  // The framebuffer is mapped write-combining; make sure the stores are out of
+  // the write buffers before the VOP2 DMA reads them.
+  //
+  MemoryFence ();
+}
+
+#endif /* RK_VOP2_TEST_PATTERN */
+
 EFI_STATUS
 EFIAPI
 LcdGraphicsSetMode (
@@ -947,6 +1132,20 @@ LcdGraphicsSetMode (
                    0
                    );
 
+#if RK_VOP2_TEST_PATTERN
+  //
+  // Overwrite the black fill the UEFI spec just asked for. This is a bring-up
+  // build; the pattern has to be in memory before scanout starts.
+  //
+  RkDrawTestPattern (
+    VramBaseAddress,
+    This->Mode->Info->HorizontalResolution,
+    This->Mode->Info->VerticalResolution,
+    This->Mode->Info->PixelsPerScanLine,
+    0
+    );
+#endif
+
   for (Index = 0; Index < Instance->DisplayStatesCount; Index++) {
     DisplayState = Instance->DisplayStates[Index];
     if ((DisplayState == NULL) || !DisplayState->IsEnable) {
@@ -1041,6 +1240,19 @@ LcdGraphicsSetMode (
       DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Connector->Enable is NULL\n", (UINT32)Index));
     }
   }
+
+#if RK_VOP2_TEST_PATTERN
+  //
+  // Second marker, written while scanout is already running.
+  //
+  RkDrawTestPattern (
+    VramBaseAddress,
+    This->Mode->Info->HorizontalResolution,
+    This->Mode->Info->VerticalResolution,
+    This->Mode->Info->PixelsPerScanLine,
+    1
+    );
+#endif
 
 EXIT:
   return Status;

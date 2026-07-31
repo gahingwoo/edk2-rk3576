@@ -14,6 +14,9 @@
 #include <Library/TimerLib.h>
 #include <Library/BaseLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/PrintLib.h>
+#include <Library/UefiLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/DwHdmiQpLib.h>
 
 //
@@ -26,15 +29,127 @@
   HDMI_TRACE ("  %a [0x%08x] = 0x%08x\n", (Tag), (UINT32)(UINTN)(Addr), MmioRead32 (Addr))
 
 /*
- * Same rule as VOP2_DUMP_REG in Vop2Dxe.c: on RK3576 a live MmioRead32() of a
- * VOP2 OVL/VP register during or after Vop2Enable is NOT side-effect free — it
- * perturbs the live overlay and drops HDMI sync.  That was fixed for Vop2Dxe
- * but the diagnostics in this file kept reading VOP2 through HDMI_DUMP_REG,
- * including inside the 20 ms window right after VP0 leaves STANDBY.  Reads of
- * HDMITX/GRF/CRU registers are fine; only VOP2 is poisoned, so it gets its own
- * no-op macro rather than gutting all the tracing.
+ * VOP2 reads from inside this file, kept on the same switch as VOP2_DUMP_REG in
+ * Vop2Dxe.c -- see the long note there for why "VOP2 reads drop HDMI sync" is
+ * being re-tested rather than assumed.  Reads of HDMITX/GRF/CRU registers were
+ * never in question and stay unconditional; only the VOP2 ones move with the
+ * flag, which is what makes the A/B meaningful.
  */
+#ifndef RK_VOP2_DIAG_READS
+#define RK_VOP2_DIAG_READS  1
+#endif
+
+//
+// Pulse the HDMI TX controller reset at the start of Setup.
+//
+// OFF. Tried against the intermittent no-signal and it did nothing: the pulse
+// executed, RESET_MANAGER_STATUS0 read 0x00000000 both before and after, and
+// the warm reboot still produced no output. Kept behind the flag rather than
+// deleted only because it is one A/B away from being useful if the picture
+// ever turns out to depend on controller state -- but it is not the bug, and
+// leaving it on adds an unexplained variable to every future experiment.
+//
+#ifndef RK_HDMI_WARM_RESET
+#define RK_HDMI_WARM_RESET  0
+#endif
+
+//
+// Re-run the connector enable until the sink reacts.
+//
+// Keyed on bits 1 and 4 of IOC_HDMI_HPD_STATUS. With the screen state recorded
+// against each boot, a matched pair came out as:
+//
+//   bars      hpd=FB vis=00060560 vms=00200030 cmu=0255 phy=0E vp=0000000F ...
+//   no signal hpd=E9 vis=00060560 vms=00200030 cmu=0255 phy=0E vp=0000000F ...
+//
+// -- identical in every recorded field except those two bits. Mainline names
+// only bit 3 here (RK3576_HDMI_LEVEL_INT) and reads the whole word as an
+// interrupt status in its HPD IRQ handler, so bits 1 and 4 are very likely edge
+// latches: the sink reacting to a link it has just acquired.
+//
+// This is a symptom of success, not its cause, which is exactly what makes it
+// usable as a completion test -- and it is the only thing the firmware has ever
+// been able to see that tracks the outcome at all. Setup's own return value is
+// SUCCESS in every failing boot.
+//
+// Not treated as gospel: of four samples three agree and one does not (a
+// no-signal boot that read FB from inside Setup, a different point in the
+// sequence). So a retry that stops early on a false positive is possible, and
+// the log records every attempt's value so that shows up in the data.
+//
+// Measured success rate is about 25% per attempt over eight cold boots. If
+// attempts are independent, six of them reach ~82%.
+//
+#ifndef RK_HDMI_ENABLE_RETRIES
+#define RK_HDMI_ENABLE_RETRIES  6
+#endif
+
+//
+// ---------------------------------------------------------------------------
+// Cross-boot diagnostics in a UEFI variable
+// ---------------------------------------------------------------------------
+//
+// Every experiment's serial output has landed in a region the host terminal
+// eats (it interprets the console's clear-screen escapes), so the lines that
+// matter are exactly the ones we never get to read. And because the failure is
+// intermittent, a single boot's log would not settle anything even if it
+// arrived intact.
+//
+// So the firmware records a one-line summary per boot into a non-volatile
+// variable, keeping the last RK_DIAG_SLOTS boots in a ring. Power-cycle a few
+// times, then read all of them at once from the Shell:
+//
+//   dmpstore RkDisplayDiag
+//
+// The lines are plain ASCII, so they are legible in dmpstore's right-hand
+// column without decoding anything.
+//
+#ifndef RK_DISPLAY_DIAG_VARIABLE
+#define RK_DISPLAY_DIAG_VARIABLE  1
+#endif
+
+#define RK_DIAG_SLOTS     8
+#define RK_DIAG_LINE_MAX  112
+#define RK_DIAG_SIG       SIGNATURE_32 ('R', 'K', 'D', 'G')
+#define RK_DIAG_VERSION   1
+
+typedef struct {
+  UINT32    Signature;
+  UINT32    Version;
+  UINT32    Next;                                  // slot the next boot writes
+  UINT32    Count;                                 // valid slots, saturating
+  CHAR8     Line[RK_DIAG_SLOTS][RK_DIAG_LINE_MAX];
+} RK_DISPLAY_DIAG_STORE;
+
+//
+// {0f6d3f21-9c4e-4a17-9b28-6d7a1c05e3b4}
+//
+STATIC EFI_GUID  mRkDisplayDiagGuid = {
+  0x0f6d3f21, 0x9c4e, 0x4a17,
+  { 0x9b, 0x28, 0x6d, 0x7a, 0x1c, 0x05, 0xe3, 0xb4 }
+};
+
+//
+// How long to give the sink to notice a new signal before deciding it has not.
+//
+#ifndef RK_HDMI_SINK_SETTLE_MS
+#define RK_HDMI_SINK_SETTLE_MS  300
+#endif
+
+//
+// IOC_HDMI_HPD_STATUS bits that are set once the sink has reacted. Bit 3 is
+// mainline's RK3576_HDMI_LEVEL_INT (HPD level) and is already set whenever a
+// cable is present, so it cannot discriminate. Bits 1 and 4 are unnamed in
+// mainline; empirically they appear exactly in the boots that produce a
+// picture (0xFB) and not in the ones that do not (0xE9).
+//
+#define RK3576_HPD_SINK_ACQUIRED  (BIT (1) | BIT (4))
+
+#if RK_VOP2_DIAG_READS
+#define HDMI_DUMP_VOP2_REG(Tag, Addr)  HDMI_DUMP_REG (Tag, Addr)
+#else
 #define HDMI_DUMP_VOP2_REG(Tag, Addr)  do { (VOID)(Tag); (VOID)(Addr); } while (FALSE)
+#endif
 #include <Library/DrmModes.h>
 #include <Library/RockchipPlatformLib.h>
 #include <Library/MediaBusFormat.h>
@@ -1520,6 +1635,73 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  CMU_STATUS  post  ", Hdmi->Base + CMU_STATUS);
   HDMI_DUMP_REG ("  SWDISABLE   post  ", Hdmi->Base + GLOBAL_SWDISABLE);
 
+#if RK_HDMI_WARM_RESET
+  /* ── STEP 2b: Reset the HDMI TX controller ──────────────────────────────
+   *
+   * Cold power-on shows a picture; every warm reboot after it shows no signal
+   * at all.  That was root-caused once already (27c0b03) and the reasoning
+   * still holds: a cold start hands us a controller at hardware reset
+   * defaults, while a warm reboot hands us whatever the *previous firmware
+   * run* left behind -- frame composer stopped mid-frame, video interface
+   * armed against a PHY that no longer exists, TMDS serialiser feed
+   * half-configured.  Our init is incremental and cannot recover from that.
+   *
+   * 27c0b03 was reverted seven minutes after it landed, with an empty revert
+   * message.  Its test almost certainly could not have succeeded: at that
+   * time nothing was being drawn into the framebuffer at all, so the screen
+   * stayed black whether or not the reset worked.  That is only visible now
+   * because the bring-up test pattern writes the framebuffer directly.
+   *
+   * What is different here is which reset gets pulsed.  27c0b03 wrote BIT(6)
+   * to GLOBAL_SWRESET_REQUEST as "AVP_DATAPATH_SWINIT_P"; mainline defines
+   * only BIT(10) (audio datapath) and BIT(27) (eARC) in that register, so
+   * BIT(6) was a guess.  Use the reset the RK3576 binding actually declares
+   * for this controller instead:
+   *
+   *   resets = <&cru SRST_HDMITX0_REF>, <&cru SRST_HDMITXHDP>;
+   *
+   * with the register and bit taken from rst-rk3576.c:
+   *
+   *   RK3576_CRU_RESET_OFFSET(SRST_HDMITX0_REF, 64, 9)
+   *     -> SOFTRST_CON64 = 0xA00 + 64*4 = 0xB00, bit 9
+   *
+   * Only the "ref" reset is pulsed.  SRST_HDMITXHDP covers hot-plug detect,
+   * and HPD plus the EDID read are already established by this point -- there
+   * is no reason to disturb them and a good chance it would cost us the
+   * detection state we depend on.
+   *
+   * Mainline never asserts either reset, which is not a counter-argument: on
+   * a warm reboot into Linux the previous Linux instance ran atomic_disable
+   * first.  Nothing disables this controller between our runs.
+   */
+  HDMI_TRACE ("Setup: [2b] pulse SRST_HDMITX0_REF (clear warm-boot residue)\n");
+  HDMI_DUMP_REG ("  RST_MGR_STATUS0 pre ", Hdmi->Base + RESET_MANAGER_STATUS0);
+
+  //
+  // HIWORD-masked: upper half selects which bits the write applies to.
+  //
+  MmioWrite32 (
+    RK3576_MAIN_CRU_BASE + RK3576_CRU_SOFTRST_CON64,
+    (RK3576_HDMITX0_REF_RST << 16) | RK3576_HDMITX0_REF_RST
+    );
+  MicroSecondDelay (20);
+  MmioWrite32 (
+    RK3576_MAIN_CRU_BASE + RK3576_CRU_SOFTRST_CON64,
+    (RK3576_HDMITX0_REF_RST << 16) | 0
+    );
+  MicroSecondDelay (5000);
+
+  HDMI_DUMP_REG ("  RST_MGR_STATUS0 post", Hdmi->Base + RESET_MANAGER_STATUS0);
+  HDMI_DUMP_REG ("  CMU_STATUS      post", Hdmi->Base + CMU_STATUS);
+
+  //
+  // The reset returns CMU_CONFIG0 to its default, so the clock ungate from
+  // step [2] has to be redone.
+  //
+  DwHdmiQpRegMod (Hdmi, 0, VIDQPCLK_OFF | LINKQPCLK_OFF, CMU_CONFIG0);
+  HDMI_DUMP_REG ("  CMU_CONFIG0 re-post ", Hdmi->Base + CMU_CONFIG0);
+#endif
+
   /* ── STEP 3: PHY PLL configure for TMDS ─────────────────────────────── */
 #ifdef SOC_RK3576
   /*
@@ -1947,6 +2129,155 @@ DwHdmiQpSetup (
   return EFI_SUCCESS;
 }
 
+#if RK_DISPLAY_DIAG_VARIABLE
+
+STATIC CHAR8      mRkDiagLine[RK_DIAG_LINE_MAX] = { 0 };
+STATIC EFI_EVENT  mRkDiagReadyToBootEvent       = NULL;
+
+//
+// How many times DwHdmiQpSetup ran this boot, and the HPD reading after each.
+// If a picture ever appears on an attempt later than the first, DwHdmiQpSetup
+// is re-runnable and the retry is a real mitigation; if it never does, the
+// failure is latched somewhere a re-run does not reach, which is worth just as
+// much to know.
+//
+STATIC UINT32     mRkDiagAttempts               = 1;
+STATIC UINT32     mRkDiagHpdSeen[RK_HDMI_ENABLE_RETRIES];
+
+/*
+ * Re-print this boot's summary once the console has settled.
+ *
+ * Everything the display path emits lands in a stretch of serial output the
+ * host terminal discards, so the one line per boot that actually matters has
+ * never survived a capture. By ReadyToBoot the console has finished clearing
+ * the screen and output gets through -- BDS's boot-option dump is legible in
+ * every log we have.
+ */
+STATIC
+VOID
+EFIAPI
+DwHdmiQpDiagReadyToBoot (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  if (mRkDiagLine[0] != '\0') {
+    DEBUG ((DEBUG_ERROR, "[RK3576-DIAG] %a", mRkDiagLine));
+  }
+}
+
+/*
+ * Append this boot's summary to the ring and write it back.
+ *
+ * Everything recorded here is read straight from hardware after Setup has
+ * finished, so the record describes the state the picture (or the lack of one)
+ * was actually produced from -- not what Setup believes it configured. Setup's
+ * own return value is stored too, but only so the log shows how little it is
+ * worth: it has read SUCCESS in every failing boot so far.
+ *
+ * Failures to read or write the variable are ignored on purpose. This is
+ * instrumentation; it must never be able to stop a display from coming up.
+ */
+STATIC
+VOID
+DwHdmiQpRecordDiag (
+  IN struct DwHdmiQpDevice  *Hdmi,
+  IN EFI_STATUS             SetupStatus
+  )
+{
+  RK_DISPLAY_DIAG_STORE  *Store;
+  UINTN                  Size;
+  UINT32                 Slot;
+  EFI_STATUS             Status;
+
+  Store = AllocateZeroPool (sizeof (*Store));
+  if (Store == NULL) {
+    return;
+  }
+
+  Size   = sizeof (*Store);
+  Status = gRT->GetVariable (
+                  L"RkDisplayDiag",
+                  &mRkDisplayDiagGuid,
+                  NULL,
+                  &Size,
+                  Store
+                  );
+  if (EFI_ERROR (Status) ||
+      (Size != sizeof (*Store)) ||
+      (Store->Signature != RK_DIAG_SIG) ||
+      (Store->Version != RK_DIAG_VERSION))
+  {
+    ZeroMem (Store, sizeof (*Store));
+    Store->Signature = RK_DIAG_SIG;
+    Store->Version   = RK_DIAG_VERSION;
+  }
+
+  Slot = Store->Next % RK_DIAG_SLOTS;
+
+  AsciiSPrint (
+    Store->Line[Slot],
+    RK_DIAG_LINE_MAX,
+    "b%02u try=%u hpd=%02x vis=%08x vms=%08x cmu=%04x phy=%02x vp=%08x ovl=%08x es=%u/%08x st=%c\n",
+    Store->Count + 1,
+    mRkDiagAttempts,
+    MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS) & 0xFF,
+    MmioRead32 (Hdmi->Base + VIDEO_INTERFACE_STATUS0),
+    MmioRead32 (Hdmi->Base + VIDEO_MONITOR_STATUS0),
+    MmioRead32 (Hdmi->Base + CMU_STATUS) & 0xFFFF,
+    MmioRead32 (0x26032080) & 0xFF,             // GRF_HDPTX_STATUS
+    MmioRead32 (0x27D00C00),                    // VP0_DSP_CTRL
+    MmioRead32 (0x27D00600),                    // OVL_CTRL
+    MmioRead32 (0x27D01810) & 1,                // ESMART0 REGION0_CTRL win enable
+    MmioRead32 (0x27D01814),                    // ESMART0 YRGB_MST
+    EFI_ERROR (SetupStatus) ? 'E' : 'S'
+    );
+
+  Store->Next = (Store->Next + 1) % RK_DIAG_SLOTS;
+  if (Store->Count < 0xFFFFFFFFu) {
+    Store->Count++;
+  }
+
+  gRT->SetVariable (
+         L"RkDisplayDiag",
+         &mRkDisplayDiagGuid,
+         EFI_VARIABLE_NON_VOLATILE |
+         EFI_VARIABLE_BOOTSERVICE_ACCESS |
+         EFI_VARIABLE_RUNTIME_ACCESS,
+         sizeof (*Store),
+         Store
+         );
+
+  //
+  // Emit it to serial now, and again at ReadyToBoot.
+  //
+  // The variable only reaches the SD card when RkFvbDxe dumps it, and it does
+  // that on exactly two triggers: a reset notification and ReadyToBoot. A hard
+  // power cut hits neither, so on a bench where every test is a power-cycle the
+  // ring resets to a single entry every boot -- which is precisely what the
+  // first eight-boot run produced. The variable is still written (it is worth
+  // having whenever the board is reset cleanly), but it cannot be the only copy.
+  //
+  // The immediate print lands in the region the host terminal eats, because the
+  // console clears the screen a few lines later. ReadyToBoot fires after that,
+  // where serial output has survived intact in every log so far.
+  //
+  AsciiStrCpyS (mRkDiagLine, sizeof (mRkDiagLine), Store->Line[Slot]);
+  HDMI_TRACE ("diag: %a", mRkDiagLine);
+
+  if (mRkDiagReadyToBootEvent == NULL) {
+    EfiCreateEventReadyToBootEx (
+      TPL_CALLBACK,
+      DwHdmiQpDiagReadyToBoot,
+      NULL,
+      &mRkDiagReadyToBootEvent
+      );
+  }
+
+  FreePool (Store);
+}
+#endif /* RK_DISPLAY_DIAG_VARIABLE */
+
 EFI_STATUS
 DwHdmiQpConnectorEnable (
   OUT ROCKCHIP_CONNECTOR_PROTOCOL  *This,
@@ -1973,6 +2304,76 @@ DwHdmiQpConnectorEnable (
     );
 
   Status = DwHdmiQpSetup (Hdmi, DisplayState);
+
+#if RK_HDMI_ENABLE_RETRIES > 1
+  /*
+   * Retry the whole enable until the sink reacts, and record what happened.
+   *
+   * Three targeted fixes for the intermittent no-signal have now failed, and
+   * the reason they were guesses is that every VOP2, HDMI-TX and HDPTX
+   * register reads BYTE-IDENTICAL between a boot that produces a picture and
+   * one that produces nothing.  There is exactly one observable that tracks
+   * the outcome: IOC_HDMI_HPD_STATUS ends at 0xFB when the picture appears and
+   * stays at 0xE9 when it does not -- bits 1 and 4 get set only in the good
+   * case.
+   *
+   * Mainline names only bit 3 in this register (RK3576_HDMI_LEVEL_INT, the HPD
+   * level) and reads the whole word as an interrupt status in its IRQ handler,
+   * so bits 1 and 4 are almost certainly HPD edge latches: the sink pulsing
+   * HPD as it re-acquires the link.  That makes them a symptom of success
+   * rather than a cause of it -- which is exactly what makes them useful to
+   * poll on.
+   *
+   * So: wait for the sink to respond, and if it does not, do the whole thing
+   * again.  This is a measurement first and a mitigation second. Whatever the
+   * failure turns out to be, one boot now yields several samples instead of
+   * needing the user to power-cycle repeatedly, and the log says whether a
+   * second attempt succeeds where the first did not -- which by itself
+   * settles whether DwHdmiQpSetup is idempotent.
+   *
+   * Deliberately NOT gated on Status: Setup already returns SUCCESS in the
+   * failing case. Its opinion of itself is not evidence.
+   */
+  {
+    UINT32  Attempt;
+    UINT32  Hpd;
+
+    for (Attempt = 1; Attempt < RK_HDMI_ENABLE_RETRIES; Attempt++) {
+      //
+      // Give the sink time to notice the new signal and pulse HPD. A monitor
+      // re-acquiring a 1440p link takes well over a frame.
+      //
+      MicroSecondDelay (RK_HDMI_SINK_SETTLE_MS * 1000);
+
+      Hpd = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
+      mRkDiagHpdSeen[Attempt - 1] = Hpd & 0xFF;
+      HDMI_TRACE (
+        "ConnectorEnable: attempt %u settled, HPD_STATUS=0x%08x (want bits 0x%02x set)\n",
+        Attempt, Hpd, RK3576_HPD_SINK_ACQUIRED
+        );
+
+      if ((Hpd & RK3576_HPD_SINK_ACQUIRED) == RK3576_HPD_SINK_ACQUIRED) {
+        HDMI_TRACE ("ConnectorEnable: sink acquired after %u attempt(s)\n", Attempt);
+        break;
+      }
+
+      HDMI_TRACE ("ConnectorEnable: sink did not acquire — redoing Setup (attempt %u)\n",
+                  Attempt + 1);
+      mRkDiagAttempts = Attempt + 1;
+      Status          = DwHdmiQpSetup (Hdmi, DisplayState);
+    }
+
+    if (Attempt >= RK_HDMI_ENABLE_RETRIES) {
+      Hpd = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
+      HDMI_TRACE ("ConnectorEnable: gave up after %u attempts, HPD_STATUS=0x%08x\n",
+                  RK_HDMI_ENABLE_RETRIES, Hpd);
+    }
+  }
+#endif
+
+#if RK_DISPLAY_DIAG_VARIABLE
+  DwHdmiQpRecordDiag (Hdmi, Status);
+#endif
 
   HDMI_TRACE ("ConnectorEnable: EXIT Status=%r\n", Status);
   return Status;

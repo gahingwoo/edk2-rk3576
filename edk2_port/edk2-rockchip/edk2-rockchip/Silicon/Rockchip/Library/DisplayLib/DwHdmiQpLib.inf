@@ -28,6 +28,8 @@
 
 [LibraryClasses]
   TimerLib
+  PrintLib
+  UefiRuntimeServicesTableLib
   DebugLib
   IoLib
   BaseLib

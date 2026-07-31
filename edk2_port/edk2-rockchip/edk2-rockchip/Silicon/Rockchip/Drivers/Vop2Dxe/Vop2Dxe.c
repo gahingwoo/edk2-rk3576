@@ -31,15 +31,36 @@
 #define VOP2_TRACE(Fmt, ...)  \
   DEBUG ((DEBUG_INFO, "[RK3576-VOP2] " Fmt, ##__VA_ARGS__))
 //
-// VOP2_DUMP_REG is deliberately a no-op.  On RK3576 a plain MmioRead32() of a
-// VOP2 OVL/VP/IF register during or after Vop2Enable is NOT side-effect free:
-// it perturbs the live overlay and drops HDMI sync, which shows up as
-// intermittent no-signal.  Reads that "shouldn't" change anything cost us
-// several flash/boot cycles chasing phantom LAYER_SEL bugs, so keep this
-// compiled out.  If a one-shot diagnostic is ever needed, read the SINGLE
-// register under investigation directly and gate it behind a build flag.
+// VOP2 register reads: the standing belief in this tree has been that a plain
+// MmioRead32() of a VOP2 OVL/VP/IF register during or after Vop2Enable is not
+// side-effect free -- that it perturbs the live overlay and drops HDMI sync --
+// so VOP2_DUMP_REG was compiled out in 2a1ee1d.
 //
+// That belief is now in doubt, and it matters because it is the reason we are
+// blind:
+//
+//   - The symptom it was blamed for (no-signal) is INTERMITTENT, and it is
+//     still intermittent with every one of those reads removed.  A cause that
+//     is gone while the effect remains is not the cause.
+//   - The one hard piece of evidence for "reads are dangerous" was a Shell
+//     `dmem` of 0x27D01810 taking a synchronous external abort.  dmem reads at
+//     byte/64-bit width; the VOP2 APB only answers 32-bit aligned accesses, so
+//     that abort says something about dmem, not about VOP2.
+//
+// So make it a switch instead of a verdict.  Build once each way and compare:
+// if the intermittency tracks this flag, the original diagnosis was right and
+// this comment is wrong.  If it does not, we get our register dumps back.
+//
+#ifndef RK_VOP2_DIAG_READS
+#define RK_VOP2_DIAG_READS  1
+#endif
+
+#if RK_VOP2_DIAG_READS
+#define VOP2_DUMP_REG(Tag, Addr) \
+  VOP2_TRACE ("  %a [0x%08x] = 0x%08x\n", (Tag), (UINT32)(UINTN)(Addr), MmioRead32 (Addr))
+#else
 #define VOP2_DUMP_REG(Tag, Addr)  do { (VOID)(Tag); (VOID)(Addr); } while (FALSE)
+#endif
 
 STATIC VPS_CONFIG  mVpsConfigs[][VOP2_VP_MAX] = {
   {
@@ -3777,6 +3798,34 @@ Vop2Enable (
     VOP2_DUMP_REG ("  VACT_ST_END post  ", Vop2->BaseAddress + RK3568_VP0_DSP_VACT_ST_END + VPOffset);
     VOP2_DUMP_REG ("  REG_CFG_DONE post ", Vop2->BaseAddress + RK3568_REG_CFG_DONE);
   }
+
+#if RK_VOP2_DIAG_READS
+  //
+  // The overlay side, which is what actually decides whether anything reaches
+  // the panel once the timing is right. Printed as one block so two boots can
+  // be diffed directly -- the failure is intermittent, so a single sample of
+  // any of these proves nothing on its own.
+  //
+  // Esmart0 is the plane the GOP framebuffer is attached to. If REGION0_CTRL
+  // bit 0 is clear, or YRGB_MST is not the framebuffer address the GOP printed,
+  // the picture cannot appear no matter how good the HDMI side looks.
+  //
+  {
+    UINTN  Base = Vop2->BaseAddress;
+
+    DEBUG ((DEBUG_ERROR, "[RK3576-VOP2] overlay digest (VP%u):\n", CrtcState->CrtcID));
+    VOP2_DUMP_REG ("  OVL_CTRL          ", Base + RK3568_OVL_CTRL);
+    VOP2_DUMP_REG ("  OVL_LAYER_SEL     ", Base + RK3568_OVL_LAYER_SEL);
+    VOP2_DUMP_REG ("  OVL_PORT_SEL      ", Base + RK3568_OVL_PORT_SEL);
+    VOP2_DUMP_REG ("  ESMART0_CTRL0     ", Base + RK3568_ESMART0_CTRL0);
+    VOP2_DUMP_REG ("  ESMART0_REG0_CTRL ", Base + RK3568_ESMART0_REGION0_CTRL);
+    VOP2_DUMP_REG ("  ESMART0_YRGB_MST  ", Base + RK3568_ESMART0_REGION0_YRGB_MST);
+    VOP2_DUMP_REG ("  ESMART0_VIR       ", Base + RK3568_ESMART0_REGION0_VIR);
+    VOP2_DUMP_REG ("  ESMART0_ACT_INFO  ", Base + RK3568_ESMART0_REGION0_ACT_INFO);
+    VOP2_DUMP_REG ("  ESMART0_DSP_INFO  ", Base + RK3568_ESMART0_REGION0_DSP_INFO);
+    VOP2_DUMP_REG ("  ESMART0_DSP_ST    ", Base + RK3568_ESMART0_REGION0_DSP_ST);
+  }
+#endif
 #endif
 
  #ifdef DEBUG_DUMP_REG

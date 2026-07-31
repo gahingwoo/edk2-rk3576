@@ -994,6 +994,18 @@
 #define RK3576_HDPTX_APB_RST      BIT(12)
 
 #define RK3576_CRU_SOFTRST_CON28  0xA70
+
+//
+// SOFTRST_CON(n) = 0xA00 + n*4, which the two defines above and below agree on.
+//
+// SRST_HDMITX0_REF, from rst-rk3576.c:
+//   RK3576_CRU_RESET_OFFSET(SRST_HDMITX0_REF, 64, 9)
+// i.e. software-reset register 64, bit 9. This is the HDMI TX controller reset
+// the RK3576 devicetree binding declares; see the STEP 2b note in DwHdmiQpLib.c
+// for why it gets pulsed on entry.
+//
+#define RK3576_CRU_SOFTRST_CON64  0xB00
+#define RK3576_HDMITX0_REF_RST    BIT (9)
 #define RK3576_HDPTX_INIT_RST     BIT(2)
 #define RK3576_HDPTX_CMN_RST      BIT(3)
 #define RK3576_HDPTX_LANE_RST     BIT(4)
