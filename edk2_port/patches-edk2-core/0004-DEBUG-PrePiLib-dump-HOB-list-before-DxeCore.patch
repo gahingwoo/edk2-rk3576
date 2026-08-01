@@ -1,0 +1,72 @@
+--- a/EmbeddedPkg/Library/PrePiLib/PrePiLib.c
++++ b/EmbeddedPkg/Library/PrePiLib/PrePiLib.c
+@@ -7,6 +7,8 @@
+ **/
+ 
+ #include <PrePi.h>
++#include <Library/SerialPortLib.h>
++#include <Library/PrintLib.h>
+ 
+ //
+ // Hack to work in NT32
+@@ -149,8 +151,60 @@
+   BuildModuleHob (&FvFileInfo.FileName, (EFI_PHYSICAL_ADDRESS)(UINTN)ImageAddress, EFI_SIZE_TO_PAGES ((UINT32)ImageSize) * EFI_PAGE_SIZE, EntryPoint);
+ 
+   DEBUG ((DEBUG_INFO | DEBUG_LOAD, "Loading DxeCore at 0x%10p EntryPoint=0x%10p\n", (VOID *)(UINTN)ImageAddress, (VOID *)(UINTN)EntryPoint));
++  // ROCK4D-DEBUG: print DxeCore load info on UART unconditionally.
++  {
++    CHAR8 _b[96];
++    UINTN _n = AsciiSPrint (_b, sizeof (_b), "DxeCore@0x%lX size=0x%lX entry=0x%lX\n\r",
++                            (UINT64)(UINTN)ImageAddress, (UINT64)ImageSize, (UINT64)(UINTN)EntryPoint);
++    SerialPortWrite ((UINT8 *)_b, _n);
++  }
+ 
+   Hob = GetHobList ();
++  // ROCK4D-DEBUG: enumerate HOB list before handoff to DxeCore.
++  {
++    EFI_PEI_HOB_POINTERS H;
++    CHAR8 _b[160];
++    UINTN _n;
++    H.Raw = (UINT8 *)Hob;
++    _n = AsciiSPrint (_b, sizeof (_b), "HobList@0x%lX:\n\r", (UINT64)(UINTN)Hob);
++    SerialPortWrite ((UINT8 *)_b, _n);
++    while (!END_OF_HOB_LIST (H)) {
++      switch (H.Header->HobType) {
++        case EFI_HOB_TYPE_RESOURCE_DESCRIPTOR:
++          _n = AsciiSPrint (_b, sizeof (_b), " RES type=%u attr=0x%X start=0x%lX len=0x%lX\n\r",
++                            (UINT32)H.ResourceDescriptor->ResourceType,
++                            (UINT32)H.ResourceDescriptor->ResourceAttribute,
++                            (UINT64)H.ResourceDescriptor->PhysicalStart,
++                            (UINT64)H.ResourceDescriptor->ResourceLength);
++          break;
++        case EFI_HOB_TYPE_FV:
++          _n = AsciiSPrint (_b, sizeof (_b), " FV  base=0x%lX len=0x%lX\n\r",
++                            (UINT64)H.FirmwareVolume->BaseAddress,
++                            (UINT64)H.FirmwareVolume->Length);
++          break;
++        case EFI_HOB_TYPE_MEMORY_ALLOCATION:
++          _n = AsciiSPrint (_b, sizeof (_b), " MA  base=0x%lX len=0x%lX type=%u\n\r",
++                            (UINT64)H.MemoryAllocation->AllocDescriptor.MemoryBaseAddress,
++                            (UINT64)H.MemoryAllocation->AllocDescriptor.MemoryLength,
++                            (UINT32)H.MemoryAllocation->AllocDescriptor.MemoryType);
++          break;
++        case EFI_HOB_TYPE_HANDOFF:
++          _n = AsciiSPrint (_b, sizeof (_b), " HO  bot=0x%lX top=0x%lX freeBot=0x%lX freeTop=0x%lX\n\r",
++                            (UINT64)H.HandoffInformationTable->EfiMemoryBottom,
++                            (UINT64)H.HandoffInformationTable->EfiMemoryTop,
++                            (UINT64)H.HandoffInformationTable->EfiFreeMemoryBottom,
++                            (UINT64)H.HandoffInformationTable->EfiFreeMemoryTop);
++          break;
++        default:
++          _n = AsciiSPrint (_b, sizeof (_b), " ?   type=%u len=%u\n\r",
++                            (UINT32)H.Header->HobType, (UINT32)H.Header->HobLength);
++          break;
++      }
++      SerialPortWrite ((UINT8 *)_b, _n);
++      H.Raw = GET_NEXT_HOB (H);
++    }
++    SerialPortWrite ((UINT8 *)"HOB-end\n\r", 9);
++  }
+   if (StackSize == 0) {
+     // User the current stack
+ 

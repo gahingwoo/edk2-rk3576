@@ -1,0 +1,79 @@
+--- a/ArmPlatformPkg/PeilessSec/PeilessSec.c
++++ b/ArmPlatformPkg/PeilessSec/PeilessSec.c
+@@ -98,9 +98,18 @@
+                 );
+   SerialPortWrite ((UINT8 *)Buffer, CharCount);
+ 
++  //
++  // Bracket each phase with a single-letter UART checkpoint, so a silent hang
++  // can be located without a DEBUG build (which does not fit the FV).  Output
++  // appears as "[A][B][C]..." and costs three bytes per phase.
++  //
++  #define CHKPT(c)  do { UINT8 _ck[3] = { '[', (c), ']' }; SerialPortWrite (_ck, 3); } while (0)
++  CHKPT ('A');
++
+   // Initialize the Debug Agent for Source Level Debugging
+   InitializeDebugAgent (DEBUG_AGENT_INIT_POSTMEM_SEC, NULL, NULL);
+   SaveAndSetDebugTimerInterrupt (TRUE);
++  CHKPT ('B');
+ 
+   // Declare the PI/UEFI memory region
+   HobList = HobConstructor (
+@@ -110,10 +119,12 @@
+               (VOID *)StackBase // The top of the UEFI Memory is reserved for the stack
+               );
+   PrePeiSetHobList (HobList);
++  CHKPT ('C');
+ 
+   // Initialize MMU and Memory HOBs (Resource Descriptor HOBs)
+   Status = MemoryPeim (UefiMemoryBase, FixedPcdGet32 (PcdSystemMemoryUefiRegionSize));
+   ASSERT_EFI_ERROR (Status);
++  CHKPT ('D');
+ 
+   // Create the Stacks HOB
+   StacksSize = PcdGet32 (PcdCPUCorePrimaryStackSize);
+@@ -121,6 +132,7 @@
+ 
+   // TODO: Call CpuPei as a library
+   BuildCpuHob (ArmGetPhysicalAddressBits (), PcdGet8 (PcdPrePiCpuIoSize));
++  CHKPT ('E');
+ 
+   if (ArmIsMpCore ()) {
+     // Only MP Core platform need to produce gArmMpCoreInfoPpiGuid
+@@ -165,16 +177,19 @@
+ 
+   // Set the Boot Mode
+   SetBootMode (ArmPlatformGetBootMode ());
++  CHKPT ('F');
+ 
+   // Initialize Platform HOBs (CpuHob and FvHob)
+   Status = PlatformPeim ();
+   ASSERT_EFI_ERROR (Status);
++  CHKPT ('G');
+ 
+   // Now, the HOB List has been initialized, we can register performance information
+   PERF_START (NULL, "PEI", NULL, StartTimeStamp);
+ 
+   // SEC phase needs to run library constructors by hand.
+   ProcessLibraryConstructorList ();
++  CHKPT ('H');
+ 
+   //
+   // Clean + invalidate the entire FD region before decompression.
+@@ -196,13 +211,16 @@
+   // Assume the FV that contains the SEC (our code) also contains a compressed FV.
+   Status = DecompressFirstFv ();
+   ASSERT_EFI_ERROR (Status);
++  CHKPT ('I');
+ 
+   Status = MeasurePeilessSec ();
+   ASSERT_EFI_ERROR (Status);
++  CHKPT ('J');
+ 
+   // Load the DXE Core and transfer control to it
+   Status = LoadDxeCoreFromFv (NULL, 0);
+   ASSERT_EFI_ERROR (Status);
++  CHKPT ('K');
+ }
+ 
+ /**

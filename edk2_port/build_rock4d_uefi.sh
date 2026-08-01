@@ -86,7 +86,7 @@ mkdir -p "$OUTDIR"
 info "Platform: ${PLATFORM_NAME}  |  Config: $CONF_FILE  |  Boot: ${BOOT_MEDIUM}"
 
 # ── STEP 1: Detect environment ────────────────────────────────────────────────
-step "1/6  Detect Environment"
+step "1/7  Detect Environment"
 
 HOST_ARCH=$(uname -m)
 GCC_FULL=$(gcc --version | head -1)
@@ -110,7 +110,7 @@ else
 fi
 
 # ── STEP 2: Dependencies ──────────────────────────────────────────────────────
-step "2/6  Dependencies"
+step "2/7  Dependencies"
 
 NEED=()
 for p in build-essential uuid-dev nasm acpica-tools \
@@ -129,7 +129,7 @@ done
 info "依赖 OK ✓"
 
 # ── STEP 3: BaseTools ─────────────────────────────────────────────────────────
-step "3/6  Build BaseTools (native $HOST_ARCH)"
+step "3/7  Build BaseTools (native $HOST_ARCH)"
 
 BT_BIN="$EDK2/BaseTools/Source/C/bin/GenFw"
 BT_GENSEC="$EDK2/BaseTools/Source/C/bin/GenSec"
@@ -155,7 +155,7 @@ fi
 }
 
 # ── STEP 4: Git submodules ────────────────────────────────────────────────────
-step "4/6  Init Submodules"
+step "4/7  Init Submodules"
 
 cd "$EDK2"
 for sub in \
@@ -185,8 +185,29 @@ if [ -d "$PATCH_DIR" ]; then
     done
 fi
 
-# ── STEP 5: Patch tools_def.txt ───────────────────────────────────────────────
-step "5/6  Patch tools_def.txt (GCC $GCC_MAJOR 兼容)"
+# ── STEP 5: Patch the vendored EDK2 core ──────────────────────────────────────
+step "5/7  Patch EDK2 core (edk2/ is gitignored — see patches-edk2-core/README.md)"
+
+# edk2/ is an upstream checkout excluded by .gitignore, so edits made inside it
+# are invisible to git and vanish on a re-clone.  Two of these patches are
+# functional fixes (FD cache flush before decompression, ESR/FAR on RELEASE
+# faults); without them the build still succeeds and still produces an image,
+# just a differently-behaving one.  Applying them here is what keeps a fresh
+# checkout equivalent to this one.  Set EDK2_CORE_DEBUG_PATCHES=1 to also get
+# the UART tracing patches.
+CORE_PATCH_ARGS=""
+if [ "${EDK2_CORE_DEBUG_PATCHES:-0}" = "1" ]; then
+    CORE_PATCH_ARGS="--with-debug"
+fi
+if [ -x "$SCRIPT_DIR/patches-edk2-core/apply.sh" ]; then
+    "$SCRIPT_DIR/patches-edk2-core/apply.sh" $CORE_PATCH_ARGS "$EDK2" \
+        || error "EDK2 core patches failed to apply — refusing to build an untraceable image"
+else
+    warn "patches-edk2-core/apply.sh missing; building against an unpatched EDK2 core"
+fi
+
+# ── STEP 6: Patch tools_def.txt ───────────────────────────────────────────────
+step "6/7  Patch tools_def.txt (GCC $GCC_MAJOR 兼容)"
 
 mkdir -p "$WSDIR/Conf"
 
@@ -268,8 +289,8 @@ PYEOF
 
 info "tools_def.txt 打补丁完成 ✓"
 
-# ── STEP 6: Build environment + compile ──────────────────────────────────────
-step "6/6  Compile + Package"
+# ── STEP 7: Build environment + compile ──────────────────────────────────────
+step "7/7  Compile + Package"
 
 export EDK_TOOLS_PATH="$EDK2/BaseTools"
 export WORKSPACE="$WSDIR"

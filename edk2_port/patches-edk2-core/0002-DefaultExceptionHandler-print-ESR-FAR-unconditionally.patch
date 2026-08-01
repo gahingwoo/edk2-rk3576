@@ -1,0 +1,26 @@
+--- a/ArmPkg/Library/DefaultExceptionHandlerLib/AArch64/DefaultExceptionHandler.c
++++ b/ArmPkg/Library/DefaultExceptionHandlerLib/AArch64/DefaultExceptionHandler.c
+@@ -206,6 +206,23 @@
+   CharCount = AsciiSPrint (Buffer, sizeof (Buffer), "\n\n%a Exception at 0x%016lx\n", gExceptionTypeString[ExceptionType], SystemContext.SystemContextAArch64->ELR);
+   SerialPortWrite ((UINT8 *)Buffer, CharCount);
+ 
++  //
++  // Emit ESR/FAR/SP/LR unconditionally via SerialPortWrite.  The
++  // DEBUG()-based register dump further down is filtered by
++  // PcdDebugPrintErrorLevel, so on a RELEASE build the four values that
++  // actually identify the fault are the ones least likely to survive.
++  //
++  CharCount = AsciiSPrint (
++                Buffer, sizeof (Buffer),
++                "ESR=0x%08lx FAR=0x%016lx SP=0x%016lx LR=0x%016lx EC=0x%02lx\n\r",
++                SystemContext.SystemContextAArch64->ESR,
++                SystemContext.SystemContextAArch64->FAR,
++                SystemContext.SystemContextAArch64->SP,
++                SystemContext.SystemContextAArch64->LR,
++                (SystemContext.SystemContextAArch64->ESR & 0xFC000000) >> 26
++                );
++  SerialPortWrite ((UINT8 *)Buffer, CharCount);
++
+   // Prepare a unicode buffer for ConOut, if applicable, in case the buffer
+   // gets reused.
+   UnicodeSPrintAsciiFormat (UnicodeBuffer, MAX_PRINT_CHARS, Buffer);

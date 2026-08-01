@@ -1,0 +1,26 @@
+--- a/ArmPlatformPkg/PeilessSec/PeilessSec.c
++++ b/ArmPlatformPkg/PeilessSec/PeilessSec.c
+@@ -176,6 +176,23 @@
+   // SEC phase needs to run library constructors by hand.
+   ProcessLibraryConstructorList ();
+ 
++  //
++  // Clean + invalidate the entire FD region before decompression.
++  //
++  // ArmConfigureMmu() enables the D-cache without first flushing it.  On
++  // platforms where the FD is loaded into DRAM by a prior boot stage (e.g.
++  // TF-A loading EDK2 as BL33), any lines that stage left cached -- such as
++  // those pulled in by BL31's FIT hash verification of this very region --
++  // would otherwise shadow the DRAM contents when the LZMA section header
++  // and compressed data are read, and DecompressFirstFv() fails.
++  //
++  // DC CIVAC over the whole FD guarantees the reads below see DRAM.
++  //
++  WriteBackInvalidateDataCacheRange (
++    (VOID *)(UINTN)FixedPcdGet64 (PcdFdBaseAddress),
++    FixedPcdGet32 (PcdFdSize)
++    );
++
+   // Assume the FV that contains the SEC (our code) also contains a compressed FV.
+   Status = DecompressFirstFv ();
+   ASSERT_EFI_ERROR (Status);
