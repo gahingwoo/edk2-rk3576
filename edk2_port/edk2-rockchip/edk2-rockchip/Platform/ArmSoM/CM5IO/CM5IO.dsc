@@ -283,7 +283,17 @@
     VOP_OUTPUT_IF_HDMI0
   })}
 
-  # Default display mode: 2560x1440@60 (same as ROCK 4D)
+  # Default display mode.
+  #
+  # BRING-UP OVERRIDE, not a considered default: 0x0F is 1920x1080@60, forced
+  # because the HDMI capture card used as the objective instrument for the
+  # intermittent-no-signal work only accepts 1080p. The comment here used to
+  # claim 2560x1440@60 while the value said otherwise.
+  #
+  # Restore to 0x13 (2560x1440@60, matching ROCK 4D) or 0x80000000 (NATIVE,
+  # follow the sink's EDID) once display bring-up stops depending on the
+  # capture card. A 2K monitor accepts a 1080p input fine, so this is only
+  # about the capture path, not about what the board can drive.
   gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x0F, 0x00, 0x00, 0x00 }
 
 ################################################################################
