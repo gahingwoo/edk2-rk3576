@@ -206,6 +206,18 @@ else
     warn "patches-edk2-core/apply.sh missing; building against an unpatched EDK2 core"
 fi
 
+# Keep the firmware's build stamp honest. RK3576Dxe.c prints __DATE__/__TIME__
+# unconditionally at DXE entry, which is the only reliable answer to "is the
+# board running the image I just flashed" — but those macros only move when
+# that file is recompiled. Touching it costs one small module per build and
+# makes the stamp mean what it says.
+STAMP_SRC="$WSDIR/edk2-rockchip/Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.c"
+if [ -f "$STAMP_SRC" ]; then
+    touch "$STAMP_SRC"
+else
+    warn "build stamp source not found at $STAMP_SRC; the firmware's reported build time will be stale"
+fi
+
 # ── STEP 6: Patch tools_def.txt ───────────────────────────────────────────────
 step "6/7  Patch tools_def.txt (GCC $GCC_MAJOR 兼容)"
 

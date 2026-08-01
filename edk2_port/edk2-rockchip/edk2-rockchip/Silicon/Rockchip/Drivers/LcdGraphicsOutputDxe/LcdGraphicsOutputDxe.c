@@ -845,6 +845,14 @@ LcdGraphicsQueryMode (
 //
 #define RK_VOP2_TEST_PATTERN  1
 
+//
+// Phase 1 writes the framebuffer while scanout is already running. That was
+// worth having when the framebuffer contents were in question; with an external
+// capture card supplying ground truth it is just one more thing touching the
+// hardware mid-flight, so it is off by default.
+//
+#define RK_VOP2_TEST_PATTERN_PHASE1  0
+
 #if RK_VOP2_TEST_PATTERN
 
 //
@@ -1241,7 +1249,7 @@ LcdGraphicsSetMode (
     }
   }
 
-#if RK_VOP2_TEST_PATTERN
+#if RK_VOP2_TEST_PATTERN && RK_VOP2_TEST_PATTERN_PHASE1
   //
   // Second marker, written while scanout is already running.
   //

@@ -197,7 +197,22 @@ RK3576EntryPoint (
 {
   EFI_STATUS  Status;
 
-  DEBUG ((DEBUG_INFO, "RK3576Dxe: Entry\n"));
+  //
+  // Build identity, unconditional and at DEBUG_ERROR so it survives any
+  // PcdDebugPrintErrorLevel setting.
+  //
+  // Two rounds of hardware work have been lost to "is the board even running
+  // the image we just flashed", answered by guessing from whether some new
+  // field appeared in the log -- circular, since that field was the thing in
+  // question. The stamp that used to answer it lived inside
+  // RK_DISPLAY_DIAG_VARIABLE, which is 0, so it has not actually been emitted.
+  //
+  // __DATE__/__TIME__ only move when THIS file is recompiled, so
+  // build_rock4d_uefi.sh touches it before every build. Do not rely on the
+  // "UEFI firmware (version ... built at ...)" banner: it comes from a module
+  // that has not been recompiled in months and reads the same in every image.
+  //
+  DEBUG ((DEBUG_ERROR, "RK3576Dxe: build %a %a\n", __DATE__, __TIME__));
 
   RK3576DumpEntryState ();
 
