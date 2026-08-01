@@ -217,17 +217,10 @@ ArmPlatformGetVirtualMemoryMap (
  #endif
       UINT64  FvBase  = FixedPcdGet64 (PcdFvBaseAddress);
       UINT64  FvSize  = FixedPcdGet32 (PcdFvSize);
-      UINT64  NvBase  = VariablesBase;
-      UINT64  NvSize  = VariablesSize;
 
       ASSERT (DramTop > RK3576_DRAM_SAFE_BASE);
-
-      // The carve-outs below assume FV and NV are disjoint, ordered, and both
-      // inside the DRAM window. That is what RK3576.fdf lays out; assert it
-      // rather than silently producing an overlapping map if the FDF changes.
       ASSERT (FvBase >= RK3576_DRAM_SAFE_BASE);
-      ASSERT (FvBase + FvSize <= NvBase);
-      ASSERT (NvBase + NvSize <= DramTop);
+      ASSERT (FvBase + FvSize <= DramTop);
 
       // System RAM below the FV
       VirtualMemoryTable[Index].PhysicalBase = RK3576_DRAM_SAFE_BASE;
@@ -237,7 +230,9 @@ ArmPlatformGetVirtualMemoryMap (
       VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
       VirtualMemoryInfo[Index++].Name        = L"System RAM (< FV)";
 
-      // Firmware Volume
+      // Firmware Volume — reserved, because nothing else claims it and the
+      // DXE allocator would otherwise be free to hand out the pages the
+      // running firmware volume lives in.
       VirtualMemoryTable[Index].PhysicalBase = FvBase;
       VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
       VirtualMemoryTable[Index].Length       = FvSize;
@@ -245,26 +240,32 @@ ArmPlatformGetVirtualMemoryMap (
       VirtualMemoryInfo[Index].Type          = RK3588_MEM_RESERVED_REGION;
       VirtualMemoryInfo[Index++].Name        = L"UEFI FV";
 
-      // System RAM between the FV and the variable store (FD padding)
+      //
+      // The NV variable store is deliberately NOT carved out here, even though
+      // it sits just above the FV and the RK3588 branch below does reserve it.
+      //
+      // On RK3576 the store has an owner already: RkFvbDxe allocates it with
+      // AllocatePages(AllocateAddress, EfiRuntimeServicesData) at exactly
+      // PcdFlashNvStorageVariableBase64, because VariableRuntimeDxe locates the
+      // FVB by matching that address. Reserving it here makes DxeCore consider
+      // the pages allocated before RkFvbDxe runs, that AllocateAddress fails,
+      // and RkFvbDxe falls back to AllocatePool at some heap address that no
+      // longer matches the PCD. VariableRuntimeDxe then finds no valid store
+      // and ASSERTs — and since PcdDebugPropertyMask has ASSERT_DEADLOOP set,
+      // the board hangs before the display path ever runs.
+      //
+      // Verified on hardware: reserving it produced
+      //   "Firmware Volume for Variable Store is corrupted"
+      //   ASSERT [VariableRuntimeDxe] VariableDxe.c(548)
+      // where the same firmware without the reservation boots through.
+      //
+      // So: leave it as ordinary System RAM and let RkFvbDxe claim it.
+      //
+
+      // System RAM above the FV — the bulk of it, including the NV store.
       VirtualMemoryTable[Index].PhysicalBase = FvBase + FvSize;
       VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-      VirtualMemoryTable[Index].Length       = NvBase - (FvBase + FvSize);
-      VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
-      VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
-      VirtualMemoryInfo[Index++].Name        = L"System RAM (FV..NV)";
-
-      // NV variable store + FTW working + FTW spare
-      VirtualMemoryTable[Index].PhysicalBase = NvBase;
-      VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-      VirtualMemoryTable[Index].Length       = NvSize;
-      VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
-      VirtualMemoryInfo[Index].Type          = RK3588_MEM_RUNTIME_REGION;
-      VirtualMemoryInfo[Index++].Name        = L"Variable Store";
-
-      // System RAM above the variable store — the bulk of it
-      VirtualMemoryTable[Index].PhysicalBase = NvBase + NvSize;
-      VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-      VirtualMemoryTable[Index].Length       = DramTop - (NvBase + NvSize);
+      VirtualMemoryTable[Index].Length       = DramTop - (FvBase + FvSize);
       VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
       VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
       VirtualMemoryInfo[Index++].Name        = L"System RAM";
