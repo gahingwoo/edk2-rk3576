@@ -52,6 +52,25 @@
 #define RK_HDMI_DIAG_READS  0
 #endif
 
+//
+// A small, targeted probe -- the opposite of the ~135 dumps this flag turns off.
+//
+// Those were sprayed through the whole bring-up and could not be ruled out as a
+// cause of what they were meant to diagnose. This reads eight registers, all of
+// them on the HDMI TX / link side, none on VOP2, and only after the lanes are
+// already up. Plus one SCDC read from the sink and a stopwatch on the EDID
+// transfer.
+//
+// The SCDC value is worth having now specifically because DDC works: the last
+// time these lock bits were read they came back 0x0F on boots with no picture,
+// but that was with several hundred I2C timeouts per boot, so the number meant
+// nothing. Now it is the sink reporting its own link state over a bus that
+// demonstrably works.
+//
+#ifndef RK_HDMI_LINK_PROBE
+#define RK_HDMI_LINK_PROBE  1
+#endif
+
 #if RK_HDMI_DIAG_READS
 #define HDMI_DUMP_REG(Tag, Addr) \
   HDMI_TRACE ("  %a [0x%08x] = 0x%08x\n", (Tag), (UINT32)(UINTN)(Addr), MmioRead32 (Addr))
@@ -949,32 +968,30 @@ DwHdmiI2cInit (
   DwHdmiQpRegWrite (Hdmi, 0, MAINUNIT_1_INT_MASK_N);
 
   /*
-   * TIMER_BASE_CONFIG0 tells the controller what its reference clock actually
-   * is; every DDC timing it derives comes from that number. On RK3576 the clock
-   * is 396 MHz, and step [0] of DwHdmiQpSetup already programs it as such.
+   * DDC bus timing for the EDID read.
    *
-   * This function used to write 24 MHz here, with SCL cycle counts chosen for
-   * 24 MHz. The comment in Setup step [0b] does the arithmetic on why that is
-   * wrong -- the same cycle counts at the real 396 MHz give 242 ns of SCL-high
-   * against a DDC minimum of 4 µs, i.e. roughly 1.9 MHz, about nineteen times
-   * over specification -- but it only fixed it inside Setup.
+   * I2CM_SM/FM_SCL_CONFIG0 holds raw counts of the controller's own clock, one
+   * half-period per 16-bit field. TIMER_BASE_CONFIG0 does not scale it -- that
+   * was assumed once and the assumption is wrong, which the hardware settled:
    *
-   * Setup runs after the EDID read. So every EDID transfer this firmware has
-   * ever done ran at ~1.9 MHz SCL. A tolerant monitor ACKs it often enough to
-   * look like it works; a stricter sink does not. With an HDMI capture stick
-   * attached the EDID read failed on 5 boots out of 5, several hundred I2C
-   * timeouts each, while the same stick captures a PC's output fine.
+   *   0x00600071   209 counts    EDID fails, hundreds of timeouts
+   *   0x085c085c  4280 counts    EDID succeeds, 261 ms for two blocks
+   *   0x00820082   260 counts    EDID fails again
    *
-   * Mainline programs the true rate once in dw_hdmi_qp_init_hw() and never
-   * revisits it. Do the same, and leave Setup's re-init in place as harmless
-   * belt and braces.
+   * The middle value is roughly twenty times slower than the original and is
+   * the only one this sink tolerates, so the original bus was far over what it
+   * would accept. 261 ms is slow, but it is once per boot and correctness beats
+   * it; picking a number between these is guesswork without a scope on SCL.
+   *
+   * This is what mainline writes too (dw_hdmi_qp_init_hw), and Setup step [0b]
+   * already writes the same pair later -- doing it here as well is what makes
+   * the EDID read, which happens before Setup, use it.
    */
-  DwHdmiQpRegWrite (Hdmi, 0x179A7B00, TIMER_BASE_CONFIG0);  /* 396 MHz, RK3576 */
+  DwHdmiQpRegWrite (Hdmi, 0x179A7B00, TIMER_BASE_CONFIG0);  /* 396 MHz, as Setup uses */
 
   /* Software reset */
   DwHdmiQpRegWrite (Hdmi, 0x01, I2CM_CONTROL0);
 
-  /* 0x085c = 2140 cycles = 5.4 µs at 396 MHz -> 92 kHz SCL, within spec */
   DwHdmiQpRegWrite (Hdmi, 0x085c085c, I2CM_SM_SCL_CONFIG0);
   DwHdmiQpRegWrite (Hdmi, 0x085c085c, I2CM_FM_SCL_CONFIG0);
 
@@ -1198,6 +1215,9 @@ DwHdmiQpConnectorGetEdid (
   OUT DISPLAY_STATE                *DisplayState
   )
 {
+#if RK_HDMI_LINK_PROBE
+  UINT64  EdidStartTicks = 0;
+#endif
   struct DwHdmiQpDevice  *Hdmi;
   CONNECTOR_STATE        *ConnectorState;
   EFI_STATUS             Status;
@@ -1222,6 +1242,10 @@ DwHdmiQpConnectorGetEdid (
   (void)0;  /* suppress empty-block warning on non-RK3576 builds */
 #else
   HDMI_TRACE ("GetEdid: RK3576 attempting DDC EDID read (I2C fix applied)\n");
+#endif
+
+#if RK_HDMI_LINK_PROBE
+  EdidStartTicks = GetPerformanceCounter ();
 #endif
 
   for (BlockIndex = 0, Extensions = 0; BlockIndex <= Extensions; BlockIndex++) {
@@ -1276,7 +1300,28 @@ DwHdmiQpConnectorGetEdid (
     }
   }
 
+#if RK_HDMI_LINK_PROBE
+  //
+  // How long the transfer actually took settles which of two readings of the
+  // DDC clock bug is right. Programming TIMER_BASE_CONFIG0 with 396 MHz gives
+  // ~92 kHz SCL if that is the real reference rate, but ~5.6 kHz if the clock
+  // is really 24 MHz at this point -- legal, but twenty times slower than it
+  // should be. Two EDID blocks is 256 bytes, so roughly 15 ms in the first case
+  // and 250 ms in the second. The commit that changed this asserted the first
+  // without measuring it.
+  //
+  {
+    UINT64  Elapsed = GetPerformanceCounter () - EdidStartTicks;
+
+    HDMI_TRACE (
+      "GetEdid: DDC EDID read succeeded in %lu us (%u block(s))\n",
+      (UINT64)GetTimeInNanoSecond (Elapsed) / 1000,
+      BlockIndex
+      );
+  }
+#else
   HDMI_TRACE ("GetEdid: DDC EDID read succeeded\n");
+#endif
   return EFI_SUCCESS;
 
 #ifdef SOC_RK3576
@@ -2152,6 +2197,55 @@ DwHdmiQpSetup (
   /* [11b] 500ms TMDS wait removed — mainline does not block here. */
 
   /* ── STEP 12: Final status dump ─────────────────────────────────────── */
+#if RK_HDMI_LINK_PROBE
+  /*
+   * Eight registers, read once, after everything is configured.
+   *
+   * Nothing here touches VOP2 -- that block has a standing warning about reads
+   * during and after Vop2Enable, and the last time the diagnostics ignored it
+   * they sat sixteen reads deep inside exactly that window for every
+   * measurement taken over several days.
+   *
+   * What each one answers, given a sink that reads its EDID perfectly and still
+   * receives nothing:
+   *
+   *   LINK_CONFIG0     is the link configured for HDMI TMDS or left in DP/FRL?
+   *   SCRAMB_CONFIG0   scrambling on when the sink is not expecting it, or off
+   *                    when it is, is enough on its own to stop a sink locking
+   *   TMDS_FIFO_CFG0   whether the serialiser is actually being fed
+   *   VID_IF_STATUS0   whether video is arriving at the TX at all
+   *   VID_MON_ST0      the TX's own measurement of the incoming timing
+   *   MAIN_STATUS0     main unit state
+   *   PKTSCHED_PKT_EN  which packets are being transmitted -- if AVI never goes
+   *                    out a sink has no format to decode
+   *   GRF_HDPTX_STATUS PHY lock as the GRF sees it, for cross-checking
+   */
+  MicroSecondDelay (200 * 1000);
+  HDMI_TRACE ("probe: post-setup link state\n");
+  HDMI_TRACE ("  LINK_CONFIG0     = 0x%08x\n", MmioRead32 (Hdmi->Base + LINK_CONFIG0));
+  HDMI_TRACE ("  SCRAMB_CONFIG0   = 0x%08x\n", MmioRead32 (Hdmi->Base + SCRAMB_CONFIG0));
+  HDMI_TRACE ("  TMDS_FIFO_CFG0   = 0x%08x\n", MmioRead32 (Hdmi->Base + TMDS_FIFO_CONFIG0));
+  HDMI_TRACE ("  VID_IF_STATUS0   = 0x%08x\n", MmioRead32 (Hdmi->Base + VIDEO_INTERFACE_STATUS0));
+  HDMI_TRACE ("  VID_MON_ST0      = 0x%08x\n", MmioRead32 (Hdmi->Base + VIDEO_MONITOR_STATUS0));
+  HDMI_TRACE ("  MAIN_STATUS0     = 0x%08x\n", MmioRead32 (Hdmi->Base + MAINUNIT_STATUS0));
+  HDMI_TRACE ("  PKTSCHED_PKT_EN  = 0x%08x\n", MmioRead32 (Hdmi->Base + PKTSCHED_PKT_EN));
+  HDMI_TRACE ("  GRF_HDPTX_STATUS = 0x%08x\n", MmioRead32 (0x26032080));
+
+  /*
+   * And the sink's own verdict. Bit 0 Clock_Detected, bits 1..3 Ch0/1/2_Locked.
+   */
+  {
+    UINT8       Flags  = 0;
+    EFI_STATUS  ScdcSt = DwHdmiScdcRead (Hdmi, 0x40, &Flags);
+
+    HDMI_TRACE (
+      "  SCDC 0x40        = 0x%02x (%r)  clk=%u ch0=%u ch1=%u ch2=%u\n",
+      Flags, ScdcSt,
+      (Flags >> 0) & 1, (Flags >> 1) & 1, (Flags >> 2) & 1, (Flags >> 3) & 1
+      );
+  }
+#endif
+
   HDMI_TRACE ("Setup: [12] SUCCESS — ConnectorEnable exit Success\n");
   HDMI_DUMP_REG ("VO0_GRF_SOC_CON1    ", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON1);
   HDMI_DUMP_REG ("VO0_GRF_SOC_CON8    ", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON8);
