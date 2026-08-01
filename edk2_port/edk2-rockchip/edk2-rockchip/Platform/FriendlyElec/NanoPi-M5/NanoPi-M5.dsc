@@ -101,10 +101,29 @@
   gEfiMdePkgTokenSpaceGuid.PcdFixedDebugPrintErrorLevel|0x80000042
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
 
-  # System memory layout (override RK3588Base 1GB default with 2GB)
-  # NanoPi M5 comes in 4GB/8GB/16GB variants; 2GB is safe boot minimum.
-  gArmTokenSpaceGuid.PcdSystemMemoryBase|0x00000000
+  # RK3576 DRAM starts at 0x40000000, not 0. These two only place the pre-MMU
+  # SEC stack and HOB heap: the SEC entry stub derives
+  #   UefiMemoryBase = (Base + Size) - PcdSystemMemoryUefiRegionSize (0x08000000)
+  # so with 0x40000000 + 0x80000000 that lands at 0xB8000000, inside the
+  # [0x40200000, 0xF0000000) window Rk3588Mem.c actually maps.
+  #
+  # The base used to be 0, which only worked because the size cap dragged the
+  # derived top back into real DRAM by accident. That made the cap load-bearing
+  # in a way nothing stated: raising it toward the true 4 GB would have put the
+  # UEFI region above the mapped top and hung the board before the first print.
+  # It is also why an earlier 1 GB size hung — 0x00000000 + 0x40000000 put the
+  # region at 0x38000000, below DRAM entirely.
+  #
+  # Constraint that remains: Base + Size must stay <= the mapped DRAM top
+  # (RK3576_LOW_DRAM_TOP, 0xF0000000). The real DRAM size is read at runtime by
+  # SdramLib when the MMU map is built; it is not these PCDs.
+  gArmTokenSpaceGuid.PcdSystemMemoryBase|0x40000000
   gArmTokenSpaceGuid.PcdSystemMemorySize|0x80000000
+
+  # I2C source clock. The RK3588 chain sets 198 MHz; on RK3576 clk_i2cN muxes
+  # from mux_200m_100m_50m_24m_p (mainline clk-rk3576.c) and comes out of reset
+  # on the 200 MHz parent, which is what the divider maths should use.
+  gRockchipTokenSpaceGuid.PcdI2cClockFrequency|200000000
 
   # SMBIOS
   gRockchipTokenSpaceGuid.PcdProcessorName|"Rockchip RK3576"
@@ -149,7 +168,7 @@
   gRK3576TokenSpaceGuid.PcdComboPhy0Switchable|TRUE
   gRK3576TokenSpaceGuid.PcdComboPhy1Switchable|TRUE
 
-  # ConfigTable / FDT defaults (RK3576Base.dsc.inc not in include chain)
+  # ConfigTable / FDT defaults
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|0x00000001
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|0
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|0x00000001
