@@ -173,12 +173,18 @@ STATIC GMAC_DEVICE_PATH  mGmacDevicePathTemplate = {
 };
 
 STATIC GMAC_DEVICE  mGmacDevices[] = {
-  GMAC_DEVICE_INIT (0, 0x2A220000),  /* gmac0: RTL8211F on ROCK 4D */
-  GMAC_DEVICE_INIT (1, 0x2A230000),  /* gmac1: not connected on ROCK 4D */
+  /*
+   * gmac0: RTL8211F on ROCK 4D, Motorcomm YT8531C on the CM5-IO carrier
+   * (the RK3576 devicetree claims RTL8211F there too; the schematic does not).
+   * PhyInit() dispatches on the ID it reads, so one table covers both.
+   */
+  GMAC_DEVICE_INIT (0, 0x2A220000),
+  GMAC_DEVICE_INIT (1, 0x2A230000),  /* gmac1: not wired on either board */
 };
 
 STATIC ETHERNET_PHY_INIT  mPhyInitList[] = {
   RealtekPhyInit,
+  MotorcommPhyInit,
 };
 
 VOID

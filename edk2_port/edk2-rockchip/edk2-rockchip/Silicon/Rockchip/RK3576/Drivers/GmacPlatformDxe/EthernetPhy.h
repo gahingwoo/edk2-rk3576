@@ -40,4 +40,11 @@ RealtekPhyInit (
   IN UINT32                PhyId
   );
 
+EFI_STATUS
+EFIAPI
+MotorcommPhyInit (
+  IN EFI_PHYSICAL_ADDRESS  GmacBase,
+  IN UINT32                PhyId
+  );
+
 #endif /* ETHERNETPHY_H__ */
