@@ -17,6 +17,7 @@
 #include <Library/PrintLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Protocol/RockchipCrtcProtocol.h>
 #include <Library/DwHdmiQpLib.h>
 
 //
@@ -25,8 +26,38 @@
 //
 #define HDMI_TRACE(Fmt, ...)  \
   DEBUG ((DEBUG_INFO, "[RK3576-HDMI] " Fmt, ##__VA_ARGS__))
+//
+// Every one of these is a live MmioRead32 of the block being brought up, and
+// there are ~135 of them spread through PHY power-up, PLL lock, lane training
+// and link bring-up. They were added to debug exactly the failure we are still
+// chasing, which makes them the last thing that has never been ruled out as a
+// cause of it.
+//
+// Two specific reasons to suspect them rather than merely tidy them away:
+//
+//   - IOC_HDMI_HPD_STATUS is read five times during setup, and SetIomux leaves
+//     IOC_MISC_CON0's HPD_INT_CLR asserted (readback 0x03). Every HPD-based
+//     detector tried so far was sampling a register the firmware itself holds
+//     in a cleared state -- which is why three rounds of them produced
+//     incoherent readings rather than a signal.
+//   - At least one register in this block is already known not to be
+//     side-effect free. Without the TRM there is no way to know from source
+//     which of the other 134 addresses share that property.
+//
+// So make it a switch and measure, rather than reason about it. RK3576 has no
+// public register documentation; the only honest way to answer "do our own
+// reads perturb the hardware" is to build it both ways and count.
+//
+#ifndef RK_HDMI_DIAG_READS
+#define RK_HDMI_DIAG_READS  0
+#endif
+
+#if RK_HDMI_DIAG_READS
 #define HDMI_DUMP_REG(Tag, Addr) \
   HDMI_TRACE ("  %a [0x%08x] = 0x%08x\n", (Tag), (UINT32)(UINTN)(Addr), MmioRead32 (Addr))
+#else
+#define HDMI_DUMP_REG(Tag, Addr)  do { (VOID)(Tag); (VOID)(Addr); } while (FALSE)
+#endif
 
 /*
  * VOP2 reads from inside this file, kept on the same switch as VOP2_DUMP_REG in
@@ -36,7 +67,7 @@
  * flag, which is what makes the A/B meaningful.
  */
 #ifndef RK_VOP2_DIAG_READS
-#define RK_VOP2_DIAG_READS  1
+#define RK_VOP2_DIAG_READS  0
 #endif
 
 //
@@ -81,7 +112,7 @@
 // attempts are independent, six of them reach ~82%.
 //
 #ifndef RK_HDMI_ENABLE_RETRIES
-#define RK_HDMI_ENABLE_RETRIES  6
+#define RK_HDMI_ENABLE_RETRIES  1
 #endif
 
 //
@@ -105,13 +136,13 @@
 // column without decoding anything.
 //
 #ifndef RK_DISPLAY_DIAG_VARIABLE
-#define RK_DISPLAY_DIAG_VARIABLE  1
+#define RK_DISPLAY_DIAG_VARIABLE  0
 #endif
 
 #define RK_DIAG_SLOTS     8
-#define RK_DIAG_LINE_MAX  112
+#define RK_DIAG_LINE_MAX  224
 #define RK_DIAG_SIG       SIGNATURE_32 ('R', 'K', 'D', 'G')
-#define RK_DIAG_VERSION   1
+#define RK_DIAG_VERSION   5
 
 typedef struct {
   UINT32    Signature;
@@ -124,16 +155,24 @@ typedef struct {
 //
 // {0f6d3f21-9c4e-4a17-9b28-6d7a1c05e3b4}
 //
+#if RK_DISPLAY_DIAG_VARIABLE
 STATIC EFI_GUID  mRkDisplayDiagGuid = {
   0x0f6d3f21, 0x9c4e, 0x4a17,
   { 0x9b, 0x28, 0x6d, 0x7a, 0x1c, 0x05, 0xe3, 0xb4 }
 };
+#endif
 
 //
 // How long to give the sink to notice a new signal before deciding it has not.
 //
 #ifndef RK_HDMI_SINK_SETTLE_MS
-#define RK_HDMI_SINK_SETTLE_MS  300
+//
+// Measured: the sink first raised bit 1 at 1850 ms on the boot that produced a
+// picture. The old 300 ms could not have observed that, and re-running Setup on
+// that cadence tore the link down roughly six times before the sink had any
+// chance to finish acquiring -- which is why the retry never once helped.
+//
+#define RK_HDMI_SINK_SETTLE_MS  3000
 #endif
 
 //
@@ -143,7 +182,20 @@ STATIC EFI_GUID  mRkDisplayDiagGuid = {
 // mainline; empirically they appear exactly in the boots that produce a
 // picture (0xFB) and not in the ones that do not (0xE9).
 //
-#define RK3576_HPD_SINK_ACQUIRED  (BIT (1) | BIT (4))
+//
+// Sampled over five annotated boots with the non-destructive sampler, the final
+// sample's bit 1 matched the screen 5/5:
+//
+//   FB  bit1=1  picture
+//   E9  bit1=0  no signal   (x3)
+//   FD  bit1=0  no signal   -- bit 4 set here, which is why the earlier
+//                              BIT(1)|BIT(4) test would have called it a success
+//
+// So bit 4 is noise; on the first boot after a flash the accumulator came back
+// 0xFF, i.e. every bit toggled at some point while HPD settled. Use the final
+// sample, not the accumulator, and test bit 1 alone.
+//
+#define RK3576_HPD_SINK_ACQUIRED  BIT (1)
 
 #if RK_VOP2_DIAG_READS
 #define HDMI_DUMP_VOP2_REG(Tag, Addr)  HDMI_DUMP_REG (Tag, Addr)
@@ -895,14 +947,36 @@ DwHdmiI2cInit (
    */
   DwHdmiQpRegWrite (Hdmi, 0, MAINUNIT_0_INT_MASK_N);
   DwHdmiQpRegWrite (Hdmi, 0, MAINUNIT_1_INT_MASK_N);
-  DwHdmiQpRegWrite (Hdmi, 24000000, TIMER_BASE_CONFIG0);  /* 24 MHz ref clk */
+
+  /*
+   * TIMER_BASE_CONFIG0 tells the controller what its reference clock actually
+   * is; every DDC timing it derives comes from that number. On RK3576 the clock
+   * is 396 MHz, and step [0] of DwHdmiQpSetup already programs it as such.
+   *
+   * This function used to write 24 MHz here, with SCL cycle counts chosen for
+   * 24 MHz. The comment in Setup step [0b] does the arithmetic on why that is
+   * wrong -- the same cycle counts at the real 396 MHz give 242 ns of SCL-high
+   * against a DDC minimum of 4 µs, i.e. roughly 1.9 MHz, about nineteen times
+   * over specification -- but it only fixed it inside Setup.
+   *
+   * Setup runs after the EDID read. So every EDID transfer this firmware has
+   * ever done ran at ~1.9 MHz SCL. A tolerant monitor ACKs it often enough to
+   * look like it works; a stricter sink does not. With an HDMI capture stick
+   * attached the EDID read failed on 5 boots out of 5, several hundred I2C
+   * timeouts each, while the same stick captures a PC's output fine.
+   *
+   * Mainline programs the true rate once in dw_hdmi_qp_init_hw() and never
+   * revisits it. Do the same, and leave Setup's re-init in place as harmless
+   * belt and braces.
+   */
+  DwHdmiQpRegWrite (Hdmi, 0x179A7B00, TIMER_BASE_CONFIG0);  /* 396 MHz, RK3576 */
 
   /* Software reset */
   DwHdmiQpRegWrite (Hdmi, 0x01, I2CM_CONTROL0);
 
-  /* ~100 kHz SCL at 24 MHz ref: high=0x60 (4.0 µs), low=0x71 (4.7 µs) */
-  DwHdmiQpRegWrite (Hdmi, 0x00600071, I2CM_SM_SCL_CONFIG0);
-  DwHdmiQpRegWrite (Hdmi, 0x00600071, I2CM_FM_SCL_CONFIG0);
+  /* 0x085c = 2140 cycles = 5.4 µs at 396 MHz -> 92 kHz SCL, within spec */
+  DwHdmiQpRegWrite (Hdmi, 0x085c085c, I2CM_SM_SCL_CONFIG0);
+  DwHdmiQpRegWrite (Hdmi, 0x085c085c, I2CM_FM_SCL_CONFIG0);
 
   /* Standard Mode (FM_EN=0) — required for FM_WRITE to function correctly */
   DwHdmiQpRegMod (Hdmi, 0, I2CM_FM_EN, I2CM_INTERFACE_CONTROL0);
@@ -2141,8 +2215,132 @@ STATIC EFI_EVENT  mRkDiagReadyToBootEvent       = NULL;
 // failure is latched somewhere a re-run does not reach, which is worth just as
 // much to know.
 //
+
+//
+// HPD sampling window.
+//
+// Bits 1 and 4 of IOC_HDMI_HPD_STATUS looked like a reliable success indicator
+// over six annotated boots, and then a boot that displayed a picture perfectly
+// recorded them clear. The likeliest reason is that they are read-to-clear edge
+// latches and the retry loop's own reads were consuming them: every build that
+// read the register once saw them set on a successful boot, and only the build
+// that read it six times did not.
+//
+// So sample rather than read once, and OR every sample together. A latch that
+// sets and self-clears between two samples still lands in the accumulator.
+// Nothing here writes the register or re-runs any part of the setup, so the
+// measurement cannot disturb what it is measuring -- which the retry could,
+// since re-running Setup tears the link down and a sink that needs longer than
+// one retry interval to acquire would never be given the chance.
+//
+// Recording when a bit first appears tests exactly that: if it shows up later
+// than the 300 ms the retry allowed, the retry was interrupting acquisition
+// rather than helping it.
+//
+#define RK_HPD_SAMPLE_MS  50
+#define RK_HPD_WINDOW_MS  3000
+
+STATIC UINT32     mRkHpdAccum                   = 0;    // OR of every sample
+STATIC UINT32     mRkHpdFirstMs                 = 0;    // when bits 1|4 first appeared, 0 = never
+STATIC UINT32     mRkHpdFinal                   = 0;    // last sample
+
+//
+// SCDC Status_Flags_0, the sink's own view of the link.
+//
+// Eight annotated boots killed the idea that IOC_HDMI_HPD_STATUS can tell us
+// whether the picture came up: bit 1 was set on four boots that showed nothing
+// and clear on one that showed a picture. It was never a link-status bit, and
+// fitting a detector to it was fitting noise.
+//
+// This is not a guess. HDMI 2.0 defines SCDC offset 0x40 and the sink fills it
+// in: bit 0 Clock_Detected, bits 1..3 Ch0/Ch1/Ch2_Locked. It is the receiver
+// reporting whether it locked, read back over the same DDC that reads EDID
+// successfully on every boot. The sink advertises SCDC support (scdc=1 in the
+// log) so the register is required to be there.
+//
+// A detector matters beyond diagnostics: without one, retrying is pointless.
+// Each retry tears down what the last built, so the outcome is decided by the
+// final attempt whether we run one or four -- which is exactly what the last
+// run showed, 2 successes in 8 either way. Retrying only pays if it can stop
+// when it has won.
+//
+#define SCDC_STATUS_FLAGS_0     0x40
+#define SCDC_CLOCK_DETECTED     BIT (0)
+#define SCDC_CH0_LOCKED         BIT (1)
+#define SCDC_CH1_LOCKED         BIT (2)
+#define SCDC_CH2_LOCKED         BIT (3)
+#define SCDC_ALL_LOCKED         (SCDC_CLOCK_DETECTED | SCDC_CH0_LOCKED | \
+                                 SCDC_CH1_LOCKED | SCDC_CH2_LOCKED)
+
+STATIC UINT32  mRkScdcStatus   = 0xFF00;   // 0xFF00 = never read
+STATIC UINT32  mRkScdcFirstMs  = 0;
+
+STATIC
+VOID
+DwHdmiQpSampleScdc (
+  IN struct DwHdmiQpDevice  *Hdmi
+  )
+{
+  UINT32      Elapsed;
+  UINT8       Val;
+  EFI_STATUS  Status;
+
+  mRkScdcStatus  = 0xFF00;
+  mRkScdcFirstMs = 0;
+
+  for (Elapsed = 0; Elapsed < RK_HPD_WINDOW_MS; Elapsed += 250) {
+    Val    = 0;
+    Status = DwHdmiScdcRead (Hdmi, SCDC_STATUS_FLAGS_0, &Val);
+
+    if (!EFI_ERROR (Status)) {
+      if (mRkScdcStatus == 0xFF00) {
+        mRkScdcStatus = 0;
+      }
+
+      mRkScdcStatus |= Val;
+
+      if ((mRkScdcFirstMs == 0) &&
+          ((mRkScdcStatus & SCDC_ALL_LOCKED) == SCDC_ALL_LOCKED))
+      {
+        mRkScdcFirstMs = Elapsed;
+      }
+    }
+
+    MicroSecondDelay (250 * 1000);
+  }
+}
+
+STATIC
+VOID
+DwHdmiQpSampleHpd (
+  VOID
+  )
+{
+  UINT32  Elapsed;
+  UINT32  Val;
+
+  mRkHpdAccum   = 0;
+  mRkHpdFirstMs = 0;
+
+  for (Elapsed = 0; Elapsed < RK_HPD_WINDOW_MS; Elapsed += RK_HPD_SAMPLE_MS) {
+    Val = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS) & 0xFF;
+
+    mRkHpdFinal  = Val;
+    mRkHpdAccum |= Val;
+
+    if ((mRkHpdFirstMs == 0) &&
+        ((mRkHpdAccum & RK3576_HPD_SINK_ACQUIRED) == RK3576_HPD_SINK_ACQUIRED))
+    {
+      mRkHpdFirstMs = Elapsed;
+    }
+
+    MicroSecondDelay (RK_HPD_SAMPLE_MS * 1000);
+  }
+}
 STATIC UINT32     mRkDiagAttempts               = 1;
+#if RK_HDMI_ENABLE_RETRIES > 1
 STATIC UINT32     mRkDiagHpdSeen[RK_HDMI_ENABLE_RETRIES];
+#endif
 
 /*
  * Re-print this boot's summary once the console has settled.
@@ -2190,6 +2388,17 @@ DwHdmiQpRecordDiag (
   UINT32                 Slot;
   EFI_STATUS             Status;
 
+  DwHdmiQpSampleScdc (Hdmi);
+
+#if RK_HDMI_ENABLE_RETRIES <= 1
+  //
+  // With retries on, the loop has already sampled a full window and the
+  // accumulator still holds it; sampling again would only add another window's
+  // delay to every boot.
+  //
+  DwHdmiQpSampleHpd ();
+#endif
+
   Store = AllocateZeroPool (sizeof (*Store));
   if (Store == NULL) {
     return;
@@ -2218,9 +2427,27 @@ DwHdmiQpRecordDiag (
   AsciiSPrint (
     Store->Line[Slot],
     RK_DIAG_LINE_MAX,
-    "b%02u try=%u hpd=%02x vis=%08x vms=%08x cmu=%04x phy=%02x vp=%08x ovl=%08x es=%u/%08x st=%c\n",
+    "b%02u img=%a try=%u scdc=%04x scdcms=%u hpdacc=%02x hpdms=%u hpdend=%02x hpd=%02x vis=%08x vms=%08x cmu=%04x phy=%02x vp=%08x ovl=%08x es=%u/%08x st=%c\n",
     Store->Count + 1,
+    //
+    // Which build is actually running. Every round so far has spent time on
+    // "is the board even running the image we just flashed", answered by
+    // guessing from whether some new field was present -- circular, since that
+    // field is the thing in question. __TIME__ of this file is a direct answer:
+    // it changes whenever this file is recompiled, which is every build that
+    // touches the diagnostics.
+    //
+    // The version string EDK2 prints at boot is useless for this: it comes from
+    // a module that has not been recompiled since May and reads the same in
+    // every build.
+    //
+    __TIME__,
     mRkDiagAttempts,
+    mRkScdcStatus,
+    mRkScdcFirstMs,
+    mRkHpdAccum,
+    mRkHpdFirstMs,
+    mRkHpdFinal,
     MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS) & 0xFF,
     MmioRead32 (Hdmi->Base + VIDEO_INTERFACE_STATUS0),
     MmioRead32 (Hdmi->Base + VIDEO_MONITOR_STATUS0),
@@ -2335,38 +2562,60 @@ DwHdmiQpConnectorEnable (
    * failing case. Its opinion of itself is not evidence.
    */
   {
-    UINT32  Attempt;
-    UINT32  Hpd;
+    UINT32                  Attempt;
+    ROCKCHIP_CRTC_PROTOCOL  *Crtc;
 
-    for (Attempt = 1; Attempt < RK_HDMI_ENABLE_RETRIES; Attempt++) {
-      //
-      // Give the sink time to notice the new signal and pulse HPD. A monitor
-      // re-acquiring a 1440p link takes well over a frame.
-      //
-      MicroSecondDelay (RK_HDMI_SINK_SETTLE_MS * 1000);
+    //
+    // Two things were wrong with the previous loop, and together they made a
+    // round of eight boots impossible to read.
+    //
+    // It re-ran Setup as its last action and then stopped, so the state that
+    // got recorded was the one BEFORE the final attempt. A boot whose picture
+    // appeared on that final attempt recorded the failure that preceded it.
+    //
+    // And it re-ran only the connector. The screen reports changed character
+    // the moment retries went in: failures stopped being "no signal" and became
+    // "signal present, picture black" on three boots out of four. A link that
+    // comes up carrying no pixels is what re-running the HDMI side while VOP2 is
+    // already running would produce -- so the video port gets re-enabled here
+    // too, ahead of each retry, rather than leaving it mid-flight.
+    //
+    Crtc = (ROCKCHIP_CRTC_PROTOCOL *)DisplayState->CrtcState.Crtc;
 
-      Hpd = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
-      mRkDiagHpdSeen[Attempt - 1] = Hpd & 0xFF;
+    for (Attempt = 1; ; Attempt++) {
+      mRkDiagAttempts = Attempt;
+
+      //
+      // Sample a full window after every attempt, including the last one.
+      //
+      DwHdmiQpSampleHpd ();
+      if (Attempt <= RK_HDMI_ENABLE_RETRIES) {
+        mRkDiagHpdSeen[Attempt - 1] = mRkHpdFinal;
+      }
+
       HDMI_TRACE (
-        "ConnectorEnable: attempt %u settled, HPD_STATUS=0x%08x (want bits 0x%02x set)\n",
-        Attempt, Hpd, RK3576_HPD_SINK_ACQUIRED
+        "ConnectorEnable: attempt %u settled, hpdacc=0x%02x first=%ums end=0x%02x\n",
+        Attempt, mRkHpdAccum, mRkHpdFirstMs, mRkHpdFinal
         );
 
-      if ((Hpd & RK3576_HPD_SINK_ACQUIRED) == RK3576_HPD_SINK_ACQUIRED) {
+      if ((mRkHpdFinal & RK3576_HPD_SINK_ACQUIRED) != 0) {
         HDMI_TRACE ("ConnectorEnable: sink acquired after %u attempt(s)\n", Attempt);
         break;
       }
 
-      HDMI_TRACE ("ConnectorEnable: sink did not acquire — redoing Setup (attempt %u)\n",
-                  Attempt + 1);
-      mRkDiagAttempts = Attempt + 1;
-      Status          = DwHdmiQpSetup (Hdmi, DisplayState);
-    }
+      if (Attempt >= RK_HDMI_ENABLE_RETRIES) {
+        HDMI_TRACE ("ConnectorEnable: gave up after %u attempts\n", Attempt);
+        break;
+      }
 
-    if (Attempt >= RK_HDMI_ENABLE_RETRIES) {
-      Hpd = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
-      HDMI_TRACE ("ConnectorEnable: gave up after %u attempts, HPD_STATUS=0x%08x\n",
-                  RK_HDMI_ENABLE_RETRIES, Hpd);
+      HDMI_TRACE ("ConnectorEnable: retrying, video port first (attempt %u)\n",
+                  Attempt + 1);
+
+      if ((Crtc != NULL) && (Crtc->Enable != NULL)) {
+        Crtc->Enable (Crtc, DisplayState);
+      }
+
+      Status = DwHdmiQpSetup (Hdmi, DisplayState);
     }
   }
 #endif
