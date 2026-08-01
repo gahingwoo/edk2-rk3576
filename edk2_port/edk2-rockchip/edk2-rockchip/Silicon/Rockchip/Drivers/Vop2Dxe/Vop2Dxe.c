@@ -1608,13 +1608,16 @@ Vop2IfConfig (
      */
     {
       UINT32  IfCtrl;
-      UINT32  PreVal;
 
       VOP2_TRACE ("IF_CTRL[HDMI0]: ENTRY VP=%u pin_pol_val=0x%x (want 3 for +H+V) IfDclkDiv=%u IfPixclkDiv=%u\n",
                   CrtcState->CrtcID, Val, IfDclkDiv, IfPixclkDiv);
-      PreVal = MmioRead32 (Vop2->BaseAddress + RK3576_HDMI0_IF_CTRL);
-      VOP2_TRACE ("IF_CTRL[HDMI0]: pre  HDMI0_IF_CTRL@0x%x = 0x%08x\n",
-                  RK3576_HDMI0_IF_CTRL, PreVal);
+ #if RK_VOP2_DIAG_READS
+      {
+        UINT32  PreVal = MmioRead32 (Vop2->BaseAddress + RK3576_HDMI0_IF_CTRL);
+        VOP2_TRACE ("IF_CTRL[HDMI0]: pre  HDMI0_IF_CTRL@0x%x = 0x%08x\n",
+                    RK3576_HDMI0_IF_CTRL, PreVal);
+      }
+ #endif
 
       IfCtrl  = (1U << RK3576_DSP_IF_EN_BIT) | (1U << RK3576_DSP_IF_CLK_OUT_EN_BIT);
       /* CFG_DONE_IMD must be set for the IF_CTRL update to latch immediately
@@ -1651,9 +1654,11 @@ Vop2IfConfig (
       VOP2_TRACE ("IF_CTRL[HDMI0]: write 0x%08x  (EN|CLKOUT|CFG_DONE_IMD|MUX=%u|PIN_POL=0x%x)\n",
                   IfCtrl, CrtcState->CrtcID, Val);
       MmioWrite32 (Vop2->BaseAddress + RK3576_HDMI0_IF_CTRL, IfCtrl);
+ #if RK_VOP2_DIAG_READS
       VOP2_TRACE ("IF_CTRL[HDMI0]: post HDMI0_IF_CTRL@0x%x = 0x%08x\n",
                   RK3576_HDMI0_IF_CTRL,
                   MmioRead32 (Vop2->BaseAddress + RK3576_HDMI0_IF_CTRL));
+ #endif
       VOP2_DUMP_REG ("VP0_DSP_CTRL        ", Vop2->BaseAddress + RK3568_VP0_DSP_CTRL);
       VOP2_DUMP_REG ("VP0_CLK_CTRL        ", Vop2->BaseAddress + RK3588_VP0_CLK_CTRL);
       VOP2_DUMP_REG ("REG_CFG_DONE        ", Vop2->BaseAddress + RK3568_REG_CFG_DONE);
@@ -3770,6 +3775,7 @@ Vop2Enable (
    * VP0 timing regs confirmed at VOP2_BASE+0xC00 (old/RK3568 layout).
    * Dump pre-commit state for verification.
    */
+ #if RK_VOP2_DIAG_READS
   {
     UINTN  VpBase = Vop2->BaseAddress + RK3568_VP0_DSP_CTRL + VPOffset;
     DEBUG ((DEBUG_ERROR,
@@ -3778,6 +3784,7 @@ Vop2Enable (
     VOP2_DUMP_REG ("  HTOTAL_HS_END pre ", Vop2->BaseAddress + RK3568_VP0_DSP_HTOTAL_HS_END + VPOffset);
     VOP2_DUMP_REG ("  REG_CFG_DONE pre  ", Vop2->BaseAddress + RK3568_REG_CFG_DONE);
   }
+ #endif
 #endif
 
   /* Clear STANDBY at RK3568-layout address (VP0 at VOP2_BASE + 0xC00) */
@@ -3804,7 +3811,15 @@ Vop2Enable (
    * Wait 20ms for shadow commit (CFG_DONE_IMD), then readback committed timing.
    * VP0 timing regs are at VOP2_BASE+0xC00 (confirmed by previous log).
    */
+  //
+  // The settle delay is deliberately NOT behind the diag flag.  It was added
+  // to let the shadow commit land before reading the timing back, but it has
+  // been in every image that ever produced a picture, so removing it is a
+  // behaviour change and belongs in its own experiment — not bundled with
+  // turning the reads off.
+  //
   MicroSecondDelay (20 * 1000);
+ #if RK_VOP2_DIAG_READS
   {
     UINTN  VpBase = Vop2->BaseAddress + RK3568_VP0_DSP_CTRL + VPOffset;
     DEBUG ((DEBUG_ERROR,
@@ -3819,6 +3834,7 @@ Vop2Enable (
     VOP2_DUMP_REG ("  VACT_ST_END post  ", Vop2->BaseAddress + RK3568_VP0_DSP_VACT_ST_END + VPOffset);
     VOP2_DUMP_REG ("  REG_CFG_DONE post ", Vop2->BaseAddress + RK3568_REG_CFG_DONE);
   }
+ #endif
 
 #if RK_VOP2_DIAG_READS
   //

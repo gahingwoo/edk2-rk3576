@@ -67,8 +67,15 @@
 // nothing. Now it is the sink reporting its own link state over a bus that
 // demonstrably works.
 //
+//
+// Off by default. The probe reads 8 HDMI-TX/link registers after setup and, more
+// importantly, drives real DDC traffic to the sink (SCDC + an EDID stopwatch).
+// None of the three success detectors built on it ever held up, so it buys no
+// discrimination while adding transactions on the very bus whose reliability is
+// in question. Turn it on to inspect a specific boot, not to measure a rate.
+//
 #ifndef RK_HDMI_LINK_PROBE
-#define RK_HDMI_LINK_PROBE  1
+#define RK_HDMI_LINK_PROBE  0
 #endif
 
 #if RK_HDMI_DIAG_READS
@@ -129,6 +136,10 @@
 //
 // Measured success rate is about 25% per attempt over eight cold boots. If
 // attempts are independent, six of them reach ~82%.
+//
+//
+// NOTE: an ATTEMPT COUNT, not a boolean, despite reading like one. 1 means a
+// single attempt, i.e. no retries; values > 1 enable the retry loop.
 //
 #ifndef RK_HDMI_ENABLE_RETRIES
 #define RK_HDMI_ENABLE_RETRIES  1
