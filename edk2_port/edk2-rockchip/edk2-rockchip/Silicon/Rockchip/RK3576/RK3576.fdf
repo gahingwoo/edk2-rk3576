@@ -130,17 +130,29 @@ READ_LOCK_STATUS   = TRUE
   INF Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.inf
 
   #
-  # Simple Framebuffer GOP (reads U-Boot VOP2 state, installs GOP early)
-  # XXX BRING-UP: disabled — re-enable once HDMI output is confirmed.
+  # Simple Framebuffer GOP — NOT BUILT.
+  #
+  # RK3576SimpleFbDxe adopts whatever framebuffer the SPL left configured and
+  # installs a GOP over it, instead of programming VOP2 ourselves. It was
+  # written before the Vop2Dxe/DwHdmiQpLib path worked and has never been
+  # built into an image; it is kept because it is the natural fallback if the
+  # native display path is abandoned, and because it is the only code here
+  # that reads the SPL's inherited VOP2 state.
+  #
+  # It compiles against nothing that is verified — treat it as unbuilt code,
+  # not as a working alternative, and re-check it against Vop2Regs.h before
+  # enabling.
   #
   #INF Silicon/Rockchip/RK3576/Drivers/RK3576SimpleFbDxe/RK3576SimpleFbDxe.inf
 
   #
   # PCI Support
-  # Force-disabled on RK3576: only Rk3588PciHostBridgeLib exists, which
-  # touches RK3588-specific PCIe MMIO (e.g. 0xFD8D_xxxx) that is not
-  # mapped on RK3576 -> data abort, translation fault L2 (ESR=0x96000046).
-  # Re-enable once an RK3576-native PciHostBridgeLib is available.
+  #
+  # This was force-disabled while the only host-bridge library was
+  # Rk3588PciHostBridgeLib, which touches RK3588 PCIe MMIO (0xFD8D_xxxx) that
+  # is unmapped on RK3576 -> data abort, translation fault L2 (ESR=0x96000046).
+  # Silicon/Rockchip/RK3576/Library/Rk3576PciHostBridgeLib now exists and is
+  # what the board DSCs resolve, so PCIe is enabled.
   DEFINE RK3576_PCIE_ENABLE = TRUE
 !if $(RK3576_PCIE_ENABLE) == TRUE
   INF ArmPkg/Drivers/ArmPciCpuIo2Dxe/ArmPciCpuIo2Dxe.inf

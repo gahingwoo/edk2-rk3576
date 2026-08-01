@@ -182,8 +182,20 @@ GpioPinSetFunction (
 }
 
 /* -----------------------------------------------------------------------
- * Pull / Drive / Schmitt — stubs (not needed for basic GMAC / USB / MMC
- * bring-up; add full tables when driver coverage requires them).
+ * Pull / Drive / Schmitt — NOT IMPLEMENTED for RK3576.
+ *
+ * The RK3588 GpioLib implements these; this one does not. Every caller so far
+ * (the ROCK 4D and CM5-IO RockchipPlatformLib) programs IOMUX directly via
+ * GpioPinSetFunction and never asks for a pull or a drive strength, so today
+ * nothing is lost. The moment someone adds a GPIO_IOMUX_CONFIG entry with a
+ * non-default Pull or Drive, GpioSetIomuxConfig will accept it and drop it.
+ *
+ * These therefore warn loudly rather than returning quietly, so the failure
+ * shows up as a log line and not as a pin that mysteriously floats. To
+ * implement: mainline pinctrl-rockchip.c has rk3576_calc_pull_reg_and_bit()
+ * (RK3576_PULL_* offsets) and rk3576_calc_drv_reg_and_bit()
+ * (RK3576_DRV_GPIO0_AL_OFFSET 0x10, GPIO1 0x6020, GPIO2 0x6040, GPIO3 0x6060,
+ * GPIO4_AL 0x6080), 4 bits per pin, 4 pins per register.
  * ----------------------------------------------------------------------- */
 VOID
 GpioPinSetPull (
@@ -198,7 +210,7 @@ GpioPinSetPull (
 
   DEBUG ((
     DEBUG_WARN,
-    "GpioPinSetPull Group:%d Pin:%d Pull:%d -- NOT YET IMPLEMENTED for RK3576\n",
+    "GpioPinSetPull: RK3576 has no pull-config support -- request for GPIO%d pin %d (pull=%d) SILENTLY DROPPED\n",
     Group, Pin, Pull
     ));
 }
@@ -216,7 +228,7 @@ GpioPinSetDrive (
 
   DEBUG ((
     DEBUG_WARN,
-    "GpioPinSetDrive Group:%d Pin:%d Drive:%d -- NOT YET IMPLEMENTED for RK3576\n",
+    "GpioPinSetDrive: RK3576 has no drive-strength support -- request for GPIO%d pin %d (drive=%d) SILENTLY DROPPED\n",
     Group, Pin, Drive
     ));
 }
@@ -234,7 +246,7 @@ GpioPinSetInput (
 
   DEBUG ((
     DEBUG_WARN,
-    "GpioPinSetInput Group:%d Pin:%d IE:%d -- NOT YET IMPLEMENTED for RK3576\n",
+    "GpioPinSetInput: RK3576 has no input-enable support -- request for GPIO%d pin %d (ie=%d) SILENTLY DROPPED\n",
     Group, Pin, InputEnable
     ));
 }
