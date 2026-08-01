@@ -18,6 +18,7 @@
 
 [Sources]
   Vop2Dxe.c
+  Vop2Rk3576.c
 
 [Packages]
   EmbeddedPkg/EmbeddedPkg.dec

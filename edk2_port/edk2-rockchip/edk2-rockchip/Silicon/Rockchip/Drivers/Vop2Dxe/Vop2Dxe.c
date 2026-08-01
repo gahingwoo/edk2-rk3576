@@ -23,6 +23,7 @@
 #include <Protocol/RockchipCrtcProtocol.h>
 
 #include "Vop2Dxe.h"
+#include "Vop2Rk3576.h"
 
 //
 // Heavy debug instrumentation tags for the RK3576 VOP2 bring-up.
@@ -531,6 +532,27 @@ STATIC UINT8  RK3568Vop2VpPrimaryPlaneOrder[VOP2_VP_MAX] = {
 
 STATIC UINT32  mRegsBackup[RK3568_MAX_REG] = { 0 };
 
+//
+// Deferred writes to VP_DSP_CTRL.
+//
+// Configuring a video port touches ten-odd fields of VP_DSP_CTRL -- out mode,
+// two dither enables, the channel swaps, interlace, field polarity, P2I, R2Y.
+// Each was a full 32-bit MmioWrite32 landing on a live register, so the port
+// was walked through a dozen configurations nobody designed on the way to the
+// one that was intended. Mainline builds the value in a local and writes it
+// once (rockchip_drm_vop2.c, vop2_crtc_atomic_enable).
+//
+// Rather than rewrite the field computation -- which is where the RK3588
+// rework went wrong before -- the writes are deferred: while armed, a write to
+// the deferred offset updates the shadow cache and skips the bus. Vop2Init
+// flushes it with a single write once every field is settled.
+//
+// mVpDeferOffset is the register offset being deferred, or the sentinel when
+// deferral is off. Offset 0 is REG_CFG_DONE, so it cannot be the sentinel.
+//
+#define VOP2_DEFER_NONE  0xFFFFFFFFU
+STATIC UINT32  mVpDeferOffset = VOP2_DEFER_NONE;
+
 STATIC VOP2  *RockchipVop2;
 
 INLINE
@@ -577,6 +599,14 @@ Vop2MaskWrite (
 
     Value                    = (CachedVal & ~(Mask << Shift)) | ((Value & Mask) << Shift);
     mRegsBackup[Offset >> 2] = Value;
+
+    if (Offset == mVpDeferOffset) {
+      //
+      // Field folded into the shadow copy; the bus write happens once, when
+      // Vop2Init flushes.
+      //
+      return;
+    }
   }
 
   MmioWrite32 (Address + Offset, Value);
@@ -590,8 +620,13 @@ Vop2Writel (
   IN UINT32  Value
   )
 {
-  MmioWrite32 (Address + Offset, Value);
   mRegsBackup[Offset >> 2] = Value;
+
+  if (Offset == mVpDeferOffset) {
+    return;
+  }
+
+  MmioWrite32 (Address + Offset, Value);
 }
 
 INLINE
@@ -2935,6 +2970,19 @@ Vop2Init (
     ConnectorState->OutputMode = ROCKCHIP_OUT_MODE_P888;
   }
 
+  //
+  // From here to the flush below, every VP_DSP_CTRL field write folds into the
+  // shadow copy instead of reaching the bus. See mVpDeferOffset.
+  //
+  // RK3576 only. Collapsing thirteen writes into one is what mainline does on
+  // every SoC and is very likely right for RK3588 too, but no RK3588 board is
+  // testable here and a silent change to platforms nobody can boot is not a
+  // trade worth making.
+  //
+ #ifdef SOC_RK3576
+  mVpDeferOffset = RK3568_VP0_DSP_CTRL + VPOffset;
+ #endif
+
   Vop2PostColorSwap (DisplayState, Vop2);
 
   Vop2MaskWrite (
@@ -3146,6 +3194,56 @@ Vop2Init (
     YUVOverlay,
     FALSE
     );
+
+  //
+  // Every field is settled: one write, and deferral off.
+  //
+ #ifdef SOC_RK3576
+  {
+    UINT32  DspCtrl = mRegsBackup[(RK3568_VP0_DSP_CTRL + VPOffset) >> 2];
+
+    mVpDeferOffset = VOP2_DEFER_NONE;
+    MmioWrite32 (Vop2->BaseAddress + RK3568_VP0_DSP_CTRL + VPOffset, DspCtrl);
+
+    //
+    // Cross-check against the native RK3576 computation, which derives the
+    // same register from the mode independently and without touching
+    // hardware. Agreement means Vop2Rk3576.c can take this path over; a
+    // mismatch names the field that differs instead of leaving it to be found
+    // on a screen.
+    //
+    // This is a comparison of two pure computations, so it costs nothing on
+    // the bus and is safe to leave enabled.
+    //
+    {
+      RK3576_VP_REGS  Native;
+      EFI_STATUS      NativeStatus;
+
+      NativeStatus = Rk3576VpComputeRegs (DisplayState, &Native);
+      if (EFI_ERROR (NativeStatus)) {
+        DEBUG ((
+          DEBUG_WARN,
+          "[RK3576-VOP2] native VP computation declined the mode: %r\n",
+          NativeStatus
+          ));
+      } else if (Native.DspCtrlStandby != DspCtrl) {
+        DEBUG ((
+          DEBUG_WARN,
+          "[RK3576-VOP2] VP_DSP_CTRL mismatch: legacy=0x%08x native=0x%08x diff=0x%08x\n",
+          DspCtrl,
+          Native.DspCtrlStandby,
+          DspCtrl ^ Native.DspCtrlStandby
+          ));
+      } else {
+        DEBUG ((
+          DEBUG_INFO,
+          "[RK3576-VOP2] VP_DSP_CTRL 0x%08x (legacy and native agree)\n",
+          DspCtrl
+          ));
+      }
+    }
+  }
+ #endif
 
   Vop2TVConfigUpdate (DisplayState, Vop2);
   Vop2PostConfig (DisplayState, Vop2);
