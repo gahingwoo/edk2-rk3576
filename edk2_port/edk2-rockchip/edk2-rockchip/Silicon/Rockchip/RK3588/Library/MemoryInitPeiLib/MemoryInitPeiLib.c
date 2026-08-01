@@ -18,8 +18,17 @@
 #include <Library/Rk3588Mem.h>
 #include <Library/SerialPortLib.h>
 
-// ROCK4D-DEBUG: in-line UART checkpoint, mirrors PeilessSec instrumentation.
-#define CHKPT(c) do { UINT8 _ck[3] = { '[', (c), ']' }; SerialPortWrite (_ck, 3); } while (0)
+//
+// In-line UART checkpoint, mirroring the PeilessSec instrumentation.  See
+// Rk3588Mem.c for why this is off by default.
+//
+#define RK_MEM_CHECKPOINTS  0
+
+#if RK_MEM_CHECKPOINTS
+#define CHKPT(c)  do { UINT8 _ck[3] = { '[', (c), ']' }; SerialPortWrite (_ck, 3); } while (0)
+#else
+#define CHKPT(c)  do { } while (0)
+#endif
 
 VOID
 BuildMemoryTypeInformationHob (

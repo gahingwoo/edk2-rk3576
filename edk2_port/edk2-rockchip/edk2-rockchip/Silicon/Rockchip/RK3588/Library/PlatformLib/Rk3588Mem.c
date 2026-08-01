@@ -18,8 +18,19 @@
 #include <Library/SdramLib.h>
 #include <Library/SerialPortLib.h>
 
-// ROCK4D-DEBUG
-#define CHKPT(c) do { UINT8 _ck[3] = { '[', (c), ']' }; SerialPortWrite (_ck, 3); } while (0)
+//
+// Single-letter UART checkpoints for locating a hang in the pre-MMU window,
+// where DEBUG() output is not yet available.  Unconditional SerialPortWrite,
+// so it costs bytes on the wire on every boot — off by default, and worth
+// leaving off for anything that measures boot behaviour.
+//
+#define RK_MEM_CHECKPOINTS  0
+
+#if RK_MEM_CHECKPOINTS
+#define CHKPT(c)  do { UINT8 _ck[3] = { '[', (c), ']' }; SerialPortWrite (_ck, 3); } while (0)
+#else
+#define CHKPT(c)  do { } while (0)
+#endif
 
 UINT64         mSystemMemoryBase = FixedPcdGet64 (PcdSystemMemoryBase);
 STATIC UINT64  mSystemMemorySize = FixedPcdGet64 (PcdSystemMemorySize);
@@ -186,9 +197,16 @@ ArmPlatformGetVirtualMemoryMap (
     VirtualMemoryInfo[Index].Type          = RK3588_MEM_UNMAPPED_REGION;
     VirtualMemoryInfo[Index++].Name        = L"RK3576 MMIO";
 
-    // The one and only DRAM region. Note mSystemMemorySize is a *size*, so the
-    // top has to be BASE + SIZE; the old code compared it against an address
-    // directly, which only worked because RK3588's DRAM base is 0.
+    // DRAM. Note mSystemMemorySize is a *size*, so the top has to be
+    // BASE + SIZE; the old code compared it against an address directly, which
+    // only worked because RK3588's DRAM base is 0.
+    //
+    // The FV and the NV variable store sit inside this DRAM range (TF-A loads
+    // the whole FD to 0x40600000), so — exactly as the RK3588 branch below
+    // does — they get their own descriptors and are carved out of the System
+    // RAM the allocator is allowed to hand out. Without that they are ordinary
+    // free Conventional Memory, and nothing stops DXE from allocating over the
+    // running firmware volume or the variable store.
     {
  #if RK3576_MAP_FULL_DRAM
       UINT64  DramTop = (RK3576_DRAM_BASE + mSystemMemorySize) -
@@ -197,12 +215,56 @@ ArmPlatformGetVirtualMemoryMap (
       UINT64  DramTop = MIN (RK3576_DRAM_BASE + mSystemMemorySize,
                              RK3576_LOW_DRAM_TOP);
  #endif
+      UINT64  FvBase  = FixedPcdGet64 (PcdFvBaseAddress);
+      UINT64  FvSize  = FixedPcdGet32 (PcdFvSize);
+      UINT64  NvBase  = VariablesBase;
+      UINT64  NvSize  = VariablesSize;
 
       ASSERT (DramTop > RK3576_DRAM_SAFE_BASE);
 
+      // The carve-outs below assume FV and NV are disjoint, ordered, and both
+      // inside the DRAM window. That is what RK3576.fdf lays out; assert it
+      // rather than silently producing an overlapping map if the FDF changes.
+      ASSERT (FvBase >= RK3576_DRAM_SAFE_BASE);
+      ASSERT (FvBase + FvSize <= NvBase);
+      ASSERT (NvBase + NvSize <= DramTop);
+
+      // System RAM below the FV
       VirtualMemoryTable[Index].PhysicalBase = RK3576_DRAM_SAFE_BASE;
       VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-      VirtualMemoryTable[Index].Length       = DramTop - RK3576_DRAM_SAFE_BASE;
+      VirtualMemoryTable[Index].Length       = FvBase - RK3576_DRAM_SAFE_BASE;
+      VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
+      VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
+      VirtualMemoryInfo[Index++].Name        = L"System RAM (< FV)";
+
+      // Firmware Volume
+      VirtualMemoryTable[Index].PhysicalBase = FvBase;
+      VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
+      VirtualMemoryTable[Index].Length       = FvSize;
+      VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
+      VirtualMemoryInfo[Index].Type          = RK3588_MEM_RESERVED_REGION;
+      VirtualMemoryInfo[Index++].Name        = L"UEFI FV";
+
+      // System RAM between the FV and the variable store (FD padding)
+      VirtualMemoryTable[Index].PhysicalBase = FvBase + FvSize;
+      VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
+      VirtualMemoryTable[Index].Length       = NvBase - (FvBase + FvSize);
+      VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
+      VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
+      VirtualMemoryInfo[Index++].Name        = L"System RAM (FV..NV)";
+
+      // NV variable store + FTW working + FTW spare
+      VirtualMemoryTable[Index].PhysicalBase = NvBase;
+      VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
+      VirtualMemoryTable[Index].Length       = NvSize;
+      VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
+      VirtualMemoryInfo[Index].Type          = RK3588_MEM_RUNTIME_REGION;
+      VirtualMemoryInfo[Index++].Name        = L"Variable Store";
+
+      // System RAM above the variable store — the bulk of it
+      VirtualMemoryTable[Index].PhysicalBase = NvBase + NvSize;
+      VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
+      VirtualMemoryTable[Index].Length       = DramTop - (NvBase + NvSize);
       VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
       VirtualMemoryInfo[Index].Type          = RK3588_MEM_BASIC_REGION;
       VirtualMemoryInfo[Index++].Name        = L"System RAM";
