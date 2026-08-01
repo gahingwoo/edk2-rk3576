@@ -52,7 +52,7 @@
 // this comment is wrong.  If it does not, we get our register dumps back.
 //
 #ifndef RK_VOP2_DIAG_READS
-#define RK_VOP2_DIAG_READS  1
+#define RK_VOP2_DIAG_READS  0
 #endif
 
 #if RK_VOP2_DIAG_READS
@@ -2254,7 +2254,17 @@ Vop2WaitPowerDomainOn (
   UINT32   Val      = 0;
   BOOLEAN  IsBisrEn = FALSE;
 
+ #ifndef SOC_RK3576
+  //
+  // The BISR (built-in self-repair) status path lives in SYS_PMU, whose base
+  // is RK3588-specific.  RK3576's PMU is at 0x27380000 and its BISR register
+  // layout has not been verified against anything, so on RK3576 this stays on
+  // the unconditional branch below — VOP2's own SYS_STATUS0, which is valid on
+  // both SoCs.  Reading Vop2->SysPmu here on RK3576 would be an access to
+  // 0xFD8D8000, outside the mapped MMIO aperture: a synchronous external abort.
+  //
   IsBisrEn = Vop2GrfRead (Vop2->SysPmu, RK3588_PMU_BISR_CON3, EN_MASK, PdData->BisrEnStatusShift);
+ #endif
   if (IsBisrEn) {
     return readl_poll_timeout (
              Vop2->SysPmu + RK3588_PMU_BISR_STATUS5,
@@ -2363,7 +2373,18 @@ Vop2PreInit (
     VOP2_TRACE ("Vop2PreInit: first-time init, allocating Vop2 ctx\n");
     RockchipVop2              = AllocatePool (sizeof (*RockchipVop2));
     RockchipVop2->BaseAddress = RK3588_VOP2_REG_BASE;
+#ifdef SOC_RK3576
+    //
+    // SYS_PMU_BASE comes from RK3588.h (0xFD8D8000) and is outside RK3576's
+    // MMIO aperture.  Nothing on RK3576 may dereference it — see
+    // Vop2WaitPowerDomainOn, which skips the BISR path entirely on this SoC.
+    // Left as 0 so a future accidental use faults at a recognisable address
+    // rather than at a plausible-looking RK3588 one.
+    //
+    RockchipVop2->SysPmu      = 0;
+#else
     RockchipVop2->SysPmu      = SYS_PMU_BASE;
+#endif
 #ifdef SOC_RK3576
     RockchipVop2->Version     = mVop2RK3576.Version;
     RockchipVop2->Data        = &mVop2RK3576;
@@ -3892,8 +3913,7 @@ Vop2DxeInitialize (
 
   Handle = NULL;
 
-  VOP2_TRACE ("Vop2DxeInitialize: ENTRY VOP2_BASE=0x%x SYS_PMU=0x%x\n",
-              RK3588_VOP2_REG_BASE, SYS_PMU_BASE);
+  VOP2_TRACE ("Vop2DxeInitialize: ENTRY VOP2_BASE=0x%x\n", RK3588_VOP2_REG_BASE);
 #ifdef SOC_RK3576
   VOP2_TRACE ("Vop2DxeInitialize: SOC=RK3576 NrVps=%u NrLayers=%u NrMixers=%u NrDscs=%u\n",
               mVop2RK3576.NrVps, mVop2RK3576.NrLayers,

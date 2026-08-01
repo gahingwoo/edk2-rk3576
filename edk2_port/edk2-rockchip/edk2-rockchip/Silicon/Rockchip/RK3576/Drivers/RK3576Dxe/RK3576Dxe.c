@@ -131,6 +131,63 @@ RK3576InitStatusLed (
           LedGpio, LedPolarity));
 }
 
+/*
+ * Boot-time register snapshot — OFF by default.  Read this before turning it on.
+ *
+ * This driver used to open with a dozen MmioRead32() calls inside
+ * DEBUG((DEBUG_INFO, ...)) argument lists, two of them against VOP2
+ * (REG_CFG_DONE and HDMI0_IF_CTRL).  DEBUG() does *not* compile its arguments
+ * away here: MDEPKG_NDEBUG is defined nowhere in the DSC tree, DebugLib is
+ * BaseDebugLibSerialPort in both DEBUG and RELEASE, and PcdDebugPropertyMask
+ * is 0x2F, so DebugPrintEnabled() is TRUE and every argument is evaluated.
+ * Those reads therefore ran on *every* boot of *every* image, including the
+ * ones built to measure the display with all instrumentation "compiled out".
+ *
+ * They land in a specific place: this driver installs
+ * gRockchipPlatformConfigAppliedProtocolGuid at the end of its entry point,
+ * and LcdGraphicsOutputDxe depexes on it.  So the reads happen after the SPL
+ * has left VOP2 in whatever state it left it in, and before we touch it —
+ * exactly the window the intermittent-HDMI work has never characterised.
+ *
+ * Keep this at 0 for any success-rate measurement, or the measurement is of
+ * the firmware plus its instrumentation.  See the memory notes
+ * project_rk3576_dump_breaks_hdmi and project_rk3576_hdmi_intermittent.
+ */
+#define RK3576_DXE_ENTRY_REG_DUMP  0
+
+STATIC
+VOID
+RK3576DumpEntryState (
+  VOID
+  )
+{
+ #if RK3576_DXE_ENTRY_REG_DUMP
+  DEBUG ((DEBUG_INFO, "================================================================\n"));
+  DEBUG ((DEBUG_INFO, "  RK3576 SoC DXE Init — entry register snapshot\n"));
+  DEBUG ((DEBUG_INFO, "    IOC_GRF     0x26040000  HDMI_HPD_STATUS@0xA440 = 0x%08x\n",
+          MmioRead32 (0x26040000 + 0xA440)));
+  DEBUG ((DEBUG_INFO, "    VO0_GRF     0x2601A000  SOC_CON14@0x0038       = 0x%08x\n",
+          MmioRead32 (0x2601A000 + 0x0038)));
+  DEBUG ((DEBUG_INFO, "    HDPTXPHYGRF 0x26032000  HDPTX_STATUS@0x80      = 0x%08x\n",
+          MmioRead32 (0x26032000 + 0x80)));
+  DEBUG ((DEBUG_INFO, "    PMU1CRU     0x27220000  SOFTRST_CON01@0xA04    = 0x%08x\n",
+          MmioRead32 (0x27220000 + 0xA04)));
+  DEBUG ((DEBUG_INFO, "    VOP2        0x27D00000  REG_CFG_DONE           = 0x%08x\n",
+          MmioRead32 (0x27D00000 + 0x0)));
+  DEBUG ((DEBUG_INFO, "    VOP2        0x27D00000  HDMI0_IF_CTRL@0x184    = 0x%08x\n",
+          MmioRead32 (0x27D00000 + 0x184)));
+  DEBUG ((DEBUG_INFO, "    IOC_GRF     0x26040000  GPIO4_PC_IOMUX@0xA390  = 0x%08x (want 0x9999 post-init)\n",
+          MmioRead32 (0x26040000 + 0xA390)));
+  DEBUG ((DEBUG_INFO, "    PMU1CRU     0x27220000  CLKGATE_CON0@0x800     = 0x%08x (bit1=PCLK_HDPTX_APB)\n",
+          MmioRead32 (0x27220000 + 0x800)));
+  DEBUG ((DEBUG_INFO, "    PMU1CRU     0x27220000  CLKGATE_CON5@0x814     = 0x%08x (bit0=PCLK_PMUPHY_ROOT)\n",
+          MmioRead32 (0x27220000 + 0x814)));
+  DEBUG ((DEBUG_INFO, "    CRU         0x27200000  CLKGATE_CON64@0x900    = 0x%08x (VOP/HDMI gates)\n",
+          MmioRead32 (0x27200000 + 0x900)));
+  DEBUG ((DEBUG_INFO, "================================================================\n"));
+ #endif
+}
+
 EFI_STATUS
 EFIAPI
 RK3576EntryPoint (
@@ -140,33 +197,9 @@ RK3576EntryPoint (
 {
   EFI_STATUS  Status;
 
-  DEBUG ((DEBUG_INFO, "\n"));
-  DEBUG ((DEBUG_INFO, "================================================================\n"));
-  DEBUG ((DEBUG_INFO, "  ROCK 4D / RK3576 SoC DXE Init\n"));
-  DEBUG ((DEBUG_INFO, "  GRF bases (remapped):\n"));
-  DEBUG ((DEBUG_INFO, "    SYS_GRF (IOC)  = 0x26040000  IOC_HDMI_HPD_STATUS@0xA440 = 0x%08x\n",
-          MmioRead32 (0x26040000 + 0xA440)));
-  DEBUG ((DEBUG_INFO, "    VO1_GRF (VO0)  = 0x2601A000  VO0_GRF_SOC_CON14@0x0038 = 0x%08x\n",
-          MmioRead32 (0x2601A000 + 0x0038)));
-  DEBUG ((DEBUG_INFO, "    HDPTXPHY GRF   = 0x26032000  GRF_HDPTX_STATUS@0x80    = 0x%08x\n",
-          MmioRead32 (0x26032000 + 0x80)));
-  DEBUG ((DEBUG_INFO, "    PMU1CRU        = 0x27220000  SOFTRST_CON01@0xA04      = 0x%08x\n",
-          MmioRead32 (0x27220000 + 0xA04)));
-  DEBUG ((DEBUG_INFO, "    BUSCRU         = 0x27200000\n"));
-  DEBUG ((DEBUG_INFO, "    VOP2 base      = 0x27D00000  REG_CFG_DONE             = 0x%08x\n",
-          MmioRead32 (0x27D00000 + 0x0)));
-  DEBUG ((DEBUG_INFO, "    VOP2 HDMI0_IF_CTRL@0x184                              = 0x%08x\n",
-          MmioRead32 (0x27D00000 + 0x184)));
-  DEBUG ((DEBUG_INFO, "    IOC GPIO4_PC_IOMUX@0xA390 (pre-init)                  = 0x%08x  (want 0x9999 post-init)\n",
-          MmioRead32 (0x26040000 + 0xA390)));
-  DEBUG ((DEBUG_INFO, "    PMU1CRU CLKGATE_CON0@0x800 (pre-init)                 = 0x%08x  (bit1=PCLK_HDPTX_APB gate)\n",
-          MmioRead32 (0x27220000 + 0x800)));
-  DEBUG ((DEBUG_INFO, "    PMU1CRU CLKGATE_CON5@0x814 (pre-init)                 = 0x%08x  (bit0=PCLK_PMUPHY_ROOT gate)\n",
-          MmioRead32 (0x27220000 + 0x814)));
-  DEBUG ((DEBUG_INFO, "    CRU CLKGATE_CON64@0x900    (pre-init)                 = 0x%08x  (VOP/HDMI clk gates)\n",
-          MmioRead32 (0x27200000 + 0x900)));
-  DEBUG ((DEBUG_INFO, "================================================================\n"));
-  DEBUG ((DEBUG_INFO, "RK3576Dxe: Entry (ROCK 4D, RK3576)\n"));
+  DEBUG ((DEBUG_INFO, "RK3576Dxe: Entry\n"));
+
+  RK3576DumpEntryState ();
 
   /* Register HII form (ACPI/DT mode switcher) in the UEFI setup browser */
   Status = RK3576InstallHiiPages ();
