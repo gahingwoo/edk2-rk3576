@@ -153,6 +153,15 @@ else
     [ "$FIT_SIZE" -le "$FIT_MAX" ] || die "FIT is $FIT_SIZE bytes, limit is $FIT_MAX"
 
     dd if=/dev/zero bs=1M count=16 of="$OUT_IMG" status=none
+
+    GPT="$ROOT/binaries/rk3576_spi_nor_gpt.img"
+    if [ -f "$GPT" ]; then
+        dd if="$GPT" of="$OUT_IMG" conv=notrunc status=none
+        ok "GPT at 0x000000"
+    else
+        warn "no GPT image in binaries/ -- the SPI image will have no partition table"
+    fi
+
     dd if="$IDBLOCK" of="$OUT_IMG" bs=1K seek=32 conv=notrunc status=none
     dd if="$FIT" of="$OUT_IMG" bs=1K seek=384 conv=notrunc status=none
 
