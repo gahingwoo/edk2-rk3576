@@ -109,6 +109,63 @@ The lead that has never been examined: `DCLK_VOP0` as the SPL leaves it.
 There is no RK3576 CRU programming in this firmware at all. See the CRU item
 below.
 
+### Why HDMI is intermittent: UEFI never powers or clocks the VOP itself
+
+Found 2026-08-04 by reverse-engineering a working reference image
+(`rock4d-sd-uefi（green hdmi）.img`, a Vendor-stack build that puts a stable
+green screen out on ROCK 4D). Its DXE volume decompresses to a small custom
+`Rk3576HdmiDxe`, and its trace strings are the whole recipe:
+
+```
+HDMI: init start (Build 16)
+HDMI: clocks enabled
+PD:VOP pwron  /  PD:VOP ok idle=%x       <- powers the VOP power domain
+HDMI: CLKGATE63=0x%x                     <- programs CRU clock gates
+HDMI: SOFTRST21=0x%x / SOFTRST22=0x%x    <- programs CRU soft resets
+HDMI: resets deasserted
+HDMI: VPLL locked in %d ms               <- configures V0PLL and waits for lock
+HDMI: VOP2 configured
+HDMI: PHY PLL ok  /  PHY lanes ok
+HDMI: DCLK->PHY pixel clk
+HDMI: VOP2 output enable
+...
+PD:VOP idle TO / PD:VOP ack TO / PD:VOP pwr TIMEOUT
+```
+
+This firmware does none of the first four.
+
+| Step | Reference build | This firmware |
+|---|---|---|
+| VOP power domain on | yes, with three distinct timeouts | **no** |
+| V0PLL configure + lock wait | yes | **no** |
+| CRU `CLKGATE_CON63` | yes | no (one debug read in RK3576Dxe.c) |
+| CRU `SOFTRST_CON21/22` | yes | **no** |
+| DCLK mux to PHY pixel clock | yes | yes |
+
+`Vop2PowerDomainOn()` in `Vop2Dxe.c:2103` begins `if (!PdData) return`, and
+`Vop2Rk3576.c` defines no `PdData` at all — so on RK3576 the VOP power domain
+is never touched. `V0PLL` exists only inside `Rk3576CruLib.c`, which nothing
+reaches. There is no clock-gate or soft-reset programming.
+
+**So the display comes up on whatever state U-Boot SPL happened to leave
+behind.** When SPL left the VOP powered and clocked, there is a picture; when
+it did not, there is not. That is the 2-in-8, and it explains why every
+register this firmware can read back looks identical on both outcomes — the
+difference was established before EDK2 started.
+
+It is also exactly what `Vop2Dxe.c` already warned about, in a comment nobody
+acted on:
+
+> KNOWN RISK: if the SPL leaves DCLK_VOP0 sourced from a non-HDMI PLL, pixel
+> clock accuracy at 4K@60 may suffer until CRU programming is implemented for
+> RK3576.
+
+The consequence is bigger than pixel-clock accuracy: without the power domain
+and the PLL, there is no output at all.
+
+**This is fixable, and there is a working reference on the same silicon.** The
+work is the four missing steps above. It is not a tuning problem.
+
 ### PCIe: the link trains, the endpoint's config space does not answer
 
 This entry used to say training fails and the bridge is never exposed. That is
