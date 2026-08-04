@@ -81,4 +81,30 @@ Rk3576VpComputeRegs (
   OUT RK3576_VP_REGS  *Regs
   );
 
+/**
+  Power on the VOP and VO0 power domains.
+
+  Until this existed, nothing in this firmware powered them: the shared
+  Vop2PowerDomainOn() returns immediately when a SoC supplies no PdData, and
+  RK3576 supplied none.  The display therefore ran on whatever U-Boot SPL
+  happened to leave behind, which is why output was intermittent and why every
+  register readable from DXE looked identical on a boot that produced a picture
+  and one that did not -- the difference was already decided.
+
+  VOP2 sits in PD_VOP; the DW-HDMI-QP controller and the HDPTX PHY GRF sit in
+  PD_VO0.  Both are needed before any of their registers mean anything.
+
+  Idempotent: a domain already powered is left alone.
+
+  @retval EFI_SUCCESS   Both domains are on (or already were).
+  @retval EFI_TIMEOUT   A domain did not report powered, or its NIU did not
+                        leave idle, within the timeout.  The caller may still
+                        continue -- on a board where the SPL already brought
+                        the domain up, the display can work regardless.
+**/
+EFI_STATUS
+Rk3576DisplayPowerDomainsOn (
+  VOID
+  );
+
 #endif /* VOP2_RK3576_H__ */

@@ -163,8 +163,35 @@ acted on:
 The consequence is bigger than pixel-clock accuracy: without the power domain
 and the PLL, there is no output at all.
 
-**This is fixable, and there is a working reference on the same silicon.** The
-work is the four missing steps above. It is not a tuning problem.
+**Three of those four were already present.** `HdmiTxIomux()` in each board's
+`RockchipPlatformLib.c` already ungates `CLKGATE_CON(61)/(62)/(63)/(64)` and the
+PMU1CRU HDPTX gates, and already deasserts `SOFTRST_CON(22)/(25)/(28)`. Both
+boards do it, with the same bits. The clocks and resets were never the gap.
+
+The gap was the power domain, and only that. Implemented 2026-08-04 as
+`Rk3576DisplayPowerDomainsOn()` in `Vop2Rk3576.c`, called from `Vop2PreInit()`
+before any VOP2, HDMI or HDPTX register is touched. It powers `PD_VOP` (the
+VOP2) and `PD_VO0` (the DW-HDMI-QP controller and the HDPTX PHY GRF), using
+the register map and sequence from mainline
+`drivers/pmdomain/rockchip/pm-domains.c` — PMU at `0x27380000`, ungate, release
+the power switch, poll `repair_status`, leave NIU idle, poll ack and idle,
+re-gate. Not from the vendor binary: that build proved the step is necessary,
+mainline is what says how to do it.
+
+It is idempotent — a domain the SPL already powered is left alone, because
+re-running the sequence would drop power under a VOP that may already be
+scanning out.
+
+V0PLL programming, which the reference build also does, was **not** added.
+DCLK_VP0 is switched to `clk_hdmiphy_pixel0` here, which is the same parent
+mainline selects for HDMI, so the video PLL is not in that path. Adding it
+without a reason would be guessing.
+
+**Untested on hardware.** The prediction is specific and falsifiable: HDMI
+output should stop depending on what the SPL left behind, so the cold-boot
+ratio should go from about 2-in-8 to consistent. If it does not, the power
+domains were not the whole story, and the serial log will now say whether they
+came up (`PD_VOP powering on` / `already on` / a timeout).
 
 ### PCIe: the link trains, the endpoint's config space does not answer
 

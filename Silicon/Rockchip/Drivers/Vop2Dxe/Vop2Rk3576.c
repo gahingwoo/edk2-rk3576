@@ -15,6 +15,8 @@
 
 #include <Uefi.h>
 #include <Library/BaseLib.h>
+#include <Library/IoLib.h>
+#include <Library/TimerLib.h>
 #include <Library/DebugLib.h>
 #include <Library/Vop2Regs.h>
 #include <Library/MediaBusFormat.h>
@@ -390,4 +392,187 @@ Rk3576VpComputeRegs (
     ));
 
   return EFI_SUCCESS;
+}
+
+/* ==========================================================================
+ *  RK3576 display power domains
+ *
+ *  Register layout and sequence taken from mainline Linux
+ *  drivers/pmdomain/rockchip/pm-domains.c (rk3576_pmu, rk3576_pm_domains) and
+ *  arch/arm64/boot/dts/rockchip/rk3576.dtsi.  Not from the vendor stack: the
+ *  vendor build proved these steps are necessary, mainline is what says how.
+ * ========================================================================== */
+
+#define RK3576_PMU_BASE  0x27380000UL
+
+/* Offsets within PMU, from rk3576_pmu in pm-domains.c. */
+#define RK3576_PMU_REQ           0x110   /* NIU idle request                   */
+#define RK3576_PMU_ACK           0x120   /* NIU idle acknowledge               */
+#define RK3576_PMU_IDLE          0x128   /* NIU idle status                    */
+#define RK3576_PMU_CLK_UNGATE    0x140   /* per-domain clock ungate            */
+#define RK3576_PMU_PWR           0x210   /* power switch: 0 = on, 1 = off      */
+#define RK3576_PMU_REPAIR_STATUS 0x570   /* 1 = powered                        */
+
+/*
+ * From rk3576_pm_domains[]:
+ *   [RK3576_PD_VOP] = DOMAIN_RK3576("vop", 0x0, BIT(11), 0, BIT(11), 0x0,
+ *                                    0x6000, 0x6000, 0x6000, 0, false)
+ *   [RK3576_PD_VO0] = DOMAIN_RK3576("vo0", 0x0, BIT(15), 0, BIT(15), 0x0,
+ *                                    BIT(11), BIT(11), 0x6800, 0, false)
+ * DOMAIN_RK3576 maps req -> req/idle/ack and g_mask -> clk_ungate.
+ */
+typedef struct {
+  CONST CHAR8    *Name;
+  UINT32         PwrMask;       /* bit in PMU_PWR, and its repair-status bit  */
+  UINT32         ReqMask;       /* bits in PMU_REQ / _ACK / _IDLE             */
+  UINT32         ClkUngateMask; /* bits in PMU_CLK_UNGATE                     */
+} RK3576_POWER_DOMAIN;
+
+STATIC CONST RK3576_POWER_DOMAIN  mRk3576DisplayDomains[] = {
+  { "PD_VOP", BIT11, 0x6000,  0x6000 },
+  { "PD_VO0", BIT15, BIT11,   0x6800 },
+};
+
+#define RK3576_PMU_POLL_US  10000
+#define RK3576_PMU_STEP_US  10
+
+STATIC
+UINT32
+PmuRead (
+  IN UINT32  Offset
+  )
+{
+  return MmioRead32 (RK3576_PMU_BASE + Offset);
+}
+
+/*
+ * Every writable PMU register here is HIWORD-masked: the upper 16 bits select
+ * which of the lower 16 may change.  Writing a bare value would clear every
+ * other domain's bits.
+ */
+STATIC
+VOID
+PmuHiwordWrite (
+  IN UINT32  Offset,
+  IN UINT32  Mask,
+  IN UINT32  Value
+  )
+{
+  MmioWrite32 (RK3576_PMU_BASE + Offset, (Mask << 16) | (Value & Mask));
+}
+
+STATIC
+BOOLEAN
+PmuPollMasked (
+  IN UINT32   Offset,
+  IN UINT32   Mask,
+  IN UINT32   Expected
+  )
+{
+  UINT32  Elapsed;
+
+  for (Elapsed = 0; Elapsed < RK3576_PMU_POLL_US; Elapsed += RK3576_PMU_STEP_US) {
+    if ((PmuRead (Offset) & Mask) == Expected) {
+      return TRUE;
+    }
+
+    MicroSecondDelay (RK3576_PMU_STEP_US);
+  }
+
+  return FALSE;
+}
+
+STATIC
+EFI_STATUS
+Rk3576PowerDomainOn (
+  IN CONST RK3576_POWER_DOMAIN  *Pd
+  )
+{
+  /*
+   * repair_status: 1 = powered.  Mainline checks this before doing anything,
+   * and so do we -- if the SPL already brought the domain up, re-running the
+   * sequence would drop and re-raise power under a VOP that may already be
+   * scanning out.
+   */
+  if ((PmuRead (RK3576_PMU_REPAIR_STATUS) & Pd->PwrMask) != 0) {
+    DEBUG ((DEBUG_INFO, "%a: %a already on\n", __func__, Pd->Name));
+    return EFI_SUCCESS;
+  }
+
+  DEBUG ((DEBUG_INFO, "%a: %a powering on\n", __func__, Pd->Name));
+
+  /* 1. Ungate the domain's clocks so the power-up handshake can run. */
+  PmuHiwordWrite (RK3576_PMU_CLK_UNGATE, Pd->ClkUngateMask, Pd->ClkUngateMask);
+
+  /* 2. Release the power switch.  0 = on. */
+  PmuHiwordWrite (RK3576_PMU_PWR, Pd->PwrMask, 0);
+
+  /* 3. Wait for the domain to report powered. */
+  if (!PmuPollMasked (RK3576_PMU_REPAIR_STATUS, Pd->PwrMask, Pd->PwrMask)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: %a power timeout, repair_status=0x%08x\n",
+      __func__, Pd->Name, PmuRead (RK3576_PMU_REPAIR_STATUS)
+      ));
+    PmuHiwordWrite (RK3576_PMU_CLK_UNGATE, Pd->ClkUngateMask, 0);
+    return EFI_TIMEOUT;
+  }
+
+  /* 4. Take the domain's NIU out of idle and wait for the acknowledge. */
+  PmuHiwordWrite (RK3576_PMU_REQ, Pd->ReqMask, 0);
+
+  if (!PmuPollMasked (RK3576_PMU_ACK, Pd->ReqMask, 0)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: %a idle-ack timeout, ack=0x%08x\n",
+      __func__, Pd->Name, PmuRead (RK3576_PMU_ACK)
+      ));
+    return EFI_TIMEOUT;
+  }
+
+  if (!PmuPollMasked (RK3576_PMU_IDLE, Pd->ReqMask, 0)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: %a idle timeout, idle=0x%08x\n",
+      __func__, Pd->Name, PmuRead (RK3576_PMU_IDLE)
+      ));
+    return EFI_TIMEOUT;
+  }
+
+  /*
+   * 5. Re-gate.  The ungate above is only for the handshake; the domain's
+   * functional clocks come from the CRU, not from here.  Mainline gates again
+   * on the way out and so do we, rather than leaving the PMU in a state no
+   * later owner expects.
+   */
+  PmuHiwordWrite (RK3576_PMU_CLK_UNGATE, Pd->ClkUngateMask, 0);
+
+  DEBUG ((DEBUG_INFO, "%a: %a on\n", __func__, Pd->Name));
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+Rk3576DisplayPowerDomainsOn (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  EFI_STATUS  First;
+  UINTN       Index;
+
+  First = EFI_SUCCESS;
+
+  for (Index = 0; Index < ARRAY_SIZE (mRk3576DisplayDomains); Index++) {
+    Status = Rk3576PowerDomainOn (&mRk3576DisplayDomains[Index]);
+    if (EFI_ERROR (Status) && !EFI_ERROR (First)) {
+      First = Status;
+    }
+  }
+
+  /*
+   * Both domains are attempted even if the first fails.  A board whose SPL
+   * left one of them up can still produce a picture, and reporting the first
+   * failure while having tried both is more useful than stopping early.
+   */
+  return First;
 }

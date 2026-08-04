@@ -2162,10 +2162,27 @@ Vop2PreInit (
   )
 {
   CRTC_STATE  *CrtcState = &DisplayState->CrtcState;
+  EFI_STATUS  PdStatus;
 
   VOP2_TRACE ("Vop2PreInit: ENTRY CrtcID=%u\n", CrtcState->CrtcID);
 
   if (!RockchipVop2) {
+    //
+    // Power the VOP and VO0 domains before anything reads or writes a VOP2,
+    // HDMI or HDPTX register.  Nothing did this before: the shared
+    // Vop2PowerDomainOn() below returns immediately when a SoC supplies no
+    // PdData, and RK3576 supplies none, so the display ran on whatever state
+    // U-Boot SPL left behind.  That is what made output intermittent.
+    //
+    // A failure here is reported but not fatal: on a boot where the SPL
+    // already brought the domains up, the rest of bring-up still works, and
+    // returning early would turn a working board into a dark one.
+    //
+    PdStatus = Rk3576DisplayPowerDomainsOn ();
+    if (EFI_ERROR (PdStatus)) {
+      VOP2_TRACE ("Vop2PreInit: display power domains: %r (continuing)\n", PdStatus);
+    }
+
     VOP2_TRACE ("Vop2PreInit: first-time init, allocating Vop2 ctx\n");
     RockchipVop2              = AllocatePool (sizeof (*RockchipVop2));
     RockchipVop2->BaseAddress = RK3588_VOP2_REG_BASE;
