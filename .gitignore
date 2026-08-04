@@ -22,3 +22,6 @@
 # Python
 __pycache__/
 *.pyc
+
+# Captured serial logs
+*.log

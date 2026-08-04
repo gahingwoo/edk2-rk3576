@@ -68,10 +68,31 @@ way about the restructure.
 VP_DSP_CTRL agreed with the incremental path — `VP_DSP_CTRL 0x8000000F (legacy
 and native agree)`. That cross-check had never been read on hardware before.
 
-Do not read anything into where that log appears to stop. It ends after the
+That boot was captured twice. Through a terminal, the log ends after the
 PLL-lock trace with **45 consecutive bare newlines** and then unrelated output,
-which is the console-clear window eating the text — see `scripts/serial-log.sh`
-and capture raw before concluding the bring-up aborted. Every register that can be read back was identical on
+which reads as if HDMI setup aborted at step [3]. It did not: a raw capture of
+the same boot (`scripts/serial-log.sh`) has all 22 `Setup: [N]` steps and no
+newline run longer than zero.
+
+So the entire bring-up completes on a boot that produces no picture:
+
+```
+Setup: [4]  VP0_DSP_CTRL post-mux = 0x0000000F  STANDBY=0
+Setup: [10] Lanes OK — PHY_RDY + PLL_LOCK_DONE
+Setup: [10e] Enable AVP video path (clear SWDISABLE) — PHY stable
+Setup: [11] Clear avmute (PKT_CTL0=2 vendor), enable GCP_TX
+Setup: [12] SUCCESS — ConnectorEnable exit Success
+Step12: GPIO4_EXT_PORT=0x000E0100 GPIO4_PC1_HPD_pad=1
+```
+
+HPD is still high at the end, VP0 is out of standby, the lanes trained, AVMUTE
+is cleared, and `RK_VOP2_DIAG_READS` is 0 so the suspected VOP2 read side
+effects are not in play. This is the first complete, un-eaten capture of a
+no-picture boot — the three earlier rounds of instrumentation were all lost to
+the console clear. Whatever is wrong is downstream of everything the firmware
+can report about itself, which is consistent with the DCLK_VOP0 lead: step [4]
+switches VP0's clock to `clk_hdmiphy_pixel0`, and nothing in this firmware can
+tell you what that clock is actually running at. Every register that can be read back was identical on
 the boots that produced output and the boots that did not.
 
 Ruled out, each with its own sample count, in the notes that came with the
