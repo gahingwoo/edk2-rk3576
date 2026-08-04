@@ -1,0 +1,65 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  firmware:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      # CM5-IO is the board most of the current work happens on and it had no
+      # CI at all before the restructure -- only ROCK 4D and a NanoPi target
+      # that is no longer in this tree.
+      matrix:
+        board: [cm5io, rock4d]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install host packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            build-essential uuid-dev nasm acpica-tools device-tree-compiler \
+            python3 python3-pyelftools python3-dev swig \
+            libssl-dev libgnutls28-dev u-boot-tools \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Fetch the device-tree include mirror
+        # Compiling the board DTS needs the upstream kernel dt-bindings
+        # headers; RockchipPkg.dec puts them on the include path.
+        run: |
+          git clone --depth=1 https://github.com/rockchip-linux/rockchip-devicetree \
+            devicetree/mainline/upstream 2>/dev/null \
+            || git clone --depth=1 --filter=blob:none --sparse \
+                 https://github.com/torvalds/linux /tmp/linux
+          if [ ! -d devicetree/mainline/upstream/include ]; then
+            cd /tmp/linux
+            git sparse-checkout set include/dt-bindings arch/arm64/boot/dts/rockchip
+            cd -
+            mkdir -p devicetree/mainline/upstream/src/arm64
+            ln -s /tmp/linux/include            devicetree/mainline/upstream/include
+            ln -s /tmp/linux/arch/arm64/boot/dts/rockchip \
+                  devicetree/mainline/upstream/src/arm64/rockchip
+          fi
+
+      - name: Set up host (EDK2, BaseTools, core patches)
+        run: yes | scripts/setup-host.sh
+
+      - name: Build ${{ matrix.board }}
+        run: scripts/build.sh ${{ matrix.board }}
+
+      - name: Package ${{ matrix.board }}
+        run: scripts/package.sh ${{ matrix.board }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.board }}-firmware
+          path: out/*/*.img
+          if-no-files-found: error

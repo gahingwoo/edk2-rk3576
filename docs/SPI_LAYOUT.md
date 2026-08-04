@@ -18,7 +18,7 @@ The FIT image at offset `0x100000` carries three payloads:
 | Board DTB        | (fdt)        | `rk3576-rock-4d.dtb`             |
 
 The descriptor is generated from
-[`edk2_port/misc/uefi_rk3576.its`](../edk2_port/misc/uefi_rk3576.its).
+[`scripts/lib/gen_fit_its.py`](../scripts/lib/gen_fit_its.py).
 
 ## Boot flow
 

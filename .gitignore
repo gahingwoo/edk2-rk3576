@@ -1,96 +1,24 @@
-# ==============================================================================
-# OS / editor junk
-# ==============================================================================
+# Build output
+/Build/
+/Conf/
+/out/
+
+# Upstream trees fetched by scripts/setup-host.sh
+/third_party/*
+!/third_party/edk2
+
+# The upstream kernel dt-bindings mirror used to compile the DTS (~90 MB).
+# scripts/setup-host.sh does not fetch it yet -- see docs/BUILDING.md.
+/devicetree/mainline/upstream/
+
+# Editor / OS junk
 .DS_Store
-Thumbs.db
 *.swp
-*.swo
 *~
 .vscode/
 .idea/
 .claude/
 
-# ==============================================================================
-# Backups
-# ==============================================================================
-*.tar.gz
-*.tar.xz
-*.tgz
-rock4d_package_backup_*
-
-# ==============================================================================
-# Upstream third-party trees (cloned at build time, see README)
-# ==============================================================================
-# top-level
-edk2_port/edk2/
-edk2_port/edk2-non-osi/
-edk2_port/edk2-platforms/
-edk2_port/edk2-rockchip-non-osi/
-edk2_port/misc/rkbin/
-
-# inside the edk2-rockchip wrapper
-edk2_port/edk2-rockchip/edk2/
-edk2_port/edk2-rockchip/edk2-non-osi/
-edk2_port/edk2-rockchip/edk2-platforms/
-edk2_port/edk2-rockchip/edk2-rockchip-non-osi/
-edk2_port/edk2-rockchip/edk2-non-osi-link
-edk2_port/edk2-rockchip/arm-trusted-firmware/
-
-# Device-tree vendor blobs and upstream mirror (cloned/built at build time;
-# gigabytes of Rockchip DTBs not worth tracking)
-edk2_port/edk2-rockchip/devicetree/vendor/
-edk2_port/edk2-rockchip/devicetree/mainline/upstream/
-# RK3588 community platform DTS overlays (not our target SoC)
-edk2_port/edk2-rockchip/devicetree/mainline/rk3588*
-# (rk3576-rock-4d.dts symlink and rk3576-rock-4d-uefi.dts ARE tracked)
-
-# uboot
-uboot/
-# ==============================================================================
-# Build output / logs
-# ==============================================================================
-**/Build/
-**/Conf/.cache/
-edk2_port/edk2-rockchip/Conf/
-edk2_port/edk2-rockchip/build_rock4d.log
-edk2_port/edk2-rockchip/idblock.bin
-edk2_port/edk2-rockchip/idblock-mainline.bin
-edk2_port/edk2-rockchip/images/
-
-# Per-platform firmware images produced by build_rock4d_uefi.sh
-output/
-
-# generated FIT image inputs / outputs left in edk2_port/
-edk2_port/BL33_AP_UEFI.Fv
-edk2_port/bl31_*.bin
-edk2_port/bl32.bin
-edk2_port/rk3576-rock-4d.dtb
-edk2_port/rk3576-rock-4d_EFI.its
-edk2_port/rk3576-rock-4d_EFI.itb
-log.txt
-
-# ==============================================================================
-# Generic build artifacts
-# ==============================================================================
-*.efi
-*.fd
-*.fv
-*.Fv
-*.pdb
-*.map
-*.obj
-*.o
-*.lib
-*.a
-*.so
-*.dll
-*.exe
-*.OBJ
-*.PDB
-*.MAP
-*.DEBUG
-
 # Python
 __pycache__/
 *.pyc
-*.pyo

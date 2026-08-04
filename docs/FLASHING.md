@@ -5,8 +5,8 @@ Two delivery paths are provided in this repo:
 | File                       | Use                                          |
 |----------------------------|----------------------------------------------|
 | `binaries/u-boot.itb`      | U-Boot only (BL31 + U-Boot proper + DTB)     |
-| `output/ROCK4D/ROCK4D-spi-edk2.img`      | Full UEFI image for 16 MB SPI NOR            |
-| `output/CM5IO/CM5IO-sdcard.img`          | Full UEFI image for CM5-IO SD card (SPI is 64 KB) |
+| `out/ROCK4D/ROCK4D-spi.img`      | Full UEFI image for 16 MB SPI NOR            |
+| `out/CM5IO/CM5IO-sdcard.img`          | Full UEFI image for CM5-IO SD card (SPI is 64 KB) |
 
 ## Option 0 — Browser flash (easiest, no tools required)
 
@@ -31,7 +31,7 @@ Source: [github.com/gahingwoo/edk2-webflash](https://github.com/gahingwoo/edk2-w
 
    ```bash
    rkdeveloptool db   binaries/rk3576_ddr.bin    # download DDR init blob
-   rkdeveloptool wl 0 output/ROCK4D/ROCK4D-spi-edk2.img        # write the 16 MB SPI image
+   rkdeveloptool wl 0 out/ROCK4D/ROCK4D-spi.img        # write the 16 MB SPI image
    rkdeveloptool rd                              # reboot
    ```
 
@@ -64,7 +64,7 @@ SD card image layout:
 2. Write the image (replace `/dev/sdX` with your SD card device):
 
    ```bash
-   dd if=output/CM5IO/CM5IO-sdcard.img of=/dev/sdX bs=1M status=progress
+   dd if=out/CM5IO/CM5IO-sdcard.img of=/dev/sdX bs=1M status=progress
    sync
    ```
 

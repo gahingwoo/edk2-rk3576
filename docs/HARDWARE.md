@@ -53,7 +53,8 @@ Tested on **Radxa ROCK 4D, 12 GB LPDDR5 SKU**.
 
 | Stage                    | Screenshot                                |
 |--------------------------|-------------------------------------------|
-| **UEFI front page (HDMI)**| ![monitor](imgs/monitor-4d.png)          |
+| **UEFI front page (HDMI), ROCK 4D**  | ![monitor](imgs/monitor-4d.png)     |
+| **UEFI front page (HDMI), CM5-IO**   | ![monitor](imgs/monitor-cm5io.jpeg) |
 | GRUB on Fedora 44 USB    | ![grub](imgs/grub.png)                    |
 | Fedora live console      | ![fedora](imgs/fedora.png)                |
 | Fedora 44 GNOME desktop  | ![desktop](imgs/desktop.png)              |

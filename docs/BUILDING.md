@@ -1,140 +1,77 @@
-# Building from source
-
-## 1. Toolchain
-
-* GCC AArch64 cross-compiler (`gcc-aarch64-linux-gnu`) — or build natively
-  on an AArch64 host
-* Python ≥ 3.10
-* `mkimage` (a vendored copy ships under `edk2_port/misc/tools/`)
-* Standard EDK2 build deps:
-
-  ```bash
-  sudo apt install build-essential nasm uuid-dev acpica-tools \
-                   gcc-aarch64-linux-gnu python3 python3-pip
-  ```
-
-## 2. Clone third-party sources
-
-These are **not** vendored in this repo and must be cloned next to the
-overlay:
+# Building
 
 ```bash
-cd edk2_port
+git clone --recurse-submodules https://github.com/gahingwoo/edk2-rk3576
+cd edk2-rk3576
 
-# EDK2 — pin to the version we tested against
-git clone https://github.com/tianocore/edk2.git edk2
-( cd edk2 && \
-  git checkout 46548b1adac82211d8d11da12dd914f41e7aa775 && \
-  git submodule update --init --depth=1 \
-      MdeModulePkg/Library/BrotliCustomDecompressLib/brotli \
-      MdePkg/Library/MipiSysTLib/mipisyst \
-      MdePkg/Library/BaseFdtLib/libfdt \
-      CryptoPkg/Library/OpensslLib/openssl \
-      CryptoPkg/Library/MbedTlsLib/mbedtls )
-
-git clone --depth=1 https://github.com/tianocore/edk2-non-osi.git
-git clone --depth=1 https://github.com/tianocore/edk2-platforms.git
+scripts/setup-host.sh          # once: packages, EDK2 checkout, BaseTools
+scripts/build.sh   cm5io       # compile
+scripts/package.sh cm5io       # -> out/CM5IO/CM5IO-sdcard.img
 ```
 
-## 3. One-shot build
+Boards live in [`boards/`](../boards/): `cm5io`, `rock4d`.
+
+`scripts/build.sh <board> clean` wipes `Build/` and `Conf/` first.
+
+## What each script does
+
+The three are deliberately separate. A compile should not install packages or
+create symlinks in `/`, which is what happened when all of this was one file.
+
+| Script | Does | Needs sudo |
+|---|---|---|
+| `setup-host.sh` | apt packages, EDK2 clone pinned to `46548b1`, core patches, BaseTools, `/Scripts/GccBase.lds` | yes, and it asks first |
+| `build.sh` | regenerates `Conf/`, patches `tools_def.txt`, runs `build` | no |
+| `package.sh` | extracts BL31 segments, builds the FIT, writes the flash image | no |
+
+## Dependencies
+
+Fetched by `setup-host.sh` into `third_party/` (gitignored):
+
+| Tree | Note |
+|---|---|
+| `edk2` | **Pinned to `46548b1adac82211d8d11da12dd914f41e7aa775`.** Newer cores change BaseTools and library interfaces the rockchip overlay does not follow. |
+| `edk2-non-osi` | Realtek UNDI and friends |
+| `edk2-platforms` | |
+| `edk2-rockchip-non-osi` | |
+
+Our three patches to the EDK2 core are versioned in [`patches/`](../patches/)
+and applied by `setup-host.sh`. Two are functional (FD cache flush before
+decompression; ESR/FAR on RELEASE faults); without them the build still
+produces an image, just a differently-behaving one. `apply.sh` fails loudly
+rather than leaving a checkout you cannot reason about.
+
+### The device-tree include mirror is not fetched automatically
+
+Compiling the board DTS needs the upstream kernel's `dt-bindings` headers at
+`devicetree/mainline/upstream/` (about 90 MB). `setup-host.sh` does not fetch
+this yet; point it at a kernel tree or a copy of the rockchip devicetree
+mirror:
 
 ```bash
-cd edk2_port
-# Build ROCK 4D (default)
-bash build_rock4d_uefi.sh
-# Output: ../output/ROCK4D/ROCK4D-spi-edk2.img
-
-# Build a different platform
-bash build_rock4d_uefi.sh --config configs/armsom-cm5-io.conf
-# Output: ../output/CM5IO/CM5IO-spi-edk2.img
-
-# Waveshare CM4-IO-BASE-A
-bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4a.conf
-# Output: ../output/CM5WaveshareA/CM5WaveshareA-spi-edk2.img
-
-# Waveshare CM4-IO-BASE-B
-bash build_rock4d_uefi.sh --config configs/armsom-cm5-waveshare-cm4b.conf
-# Output: ../output/CM5Waveshare/CM5Waveshare-spi-edk2.img
-
-# Raspberry Pi CM4 IO Board (with ArmSoM CM5 module)
-bash build_rock4d_uefi.sh --config configs/armsom-cm5-rpi-cm4-io.conf
-# Output: ../output/CM5RpiCM4IO/CM5RpiCM4IO-spi-edk2.img
+ln -s /path/to/rockchip-devicetree devicetree/mainline/upstream
 ```
 
-The script:
+`RockchipPkg.dec` lists `devicetree/mainline/upstream/include` and
+`.../src/arm64/rockchip` in `[Includes]`, so the build fails early and clearly
+if it is missing.
 
-* Loads the platform config (`--config`; defaults to `configs/rock-4d.conf`)
-* Detects host architecture (AArch64 / x86_64) and sets `GCC_AARCH64_PREFIX`
-* Rebuilds **BaseTools** locally (mandatory on AArch64 hosts — the prebuilt
-  `bin/` shipped in EDK2 is x86_64)
-* Applies GCC 10–13 compatibility patches
-  (`-Wimplicit-function-declaration`, LTO removal, stack-protector workaround)
-* Symlinks `/Scripts/GccBase.lds` (required by the EDK2 GCC linker script —
-  it is hard-coded as an absolute path)
-* Builds the platform DSC (~15–30 minutes)
-* Packs **BL31 + EDK2 + DTB** into a FIT image
-* Assembles the final 16 MB SPI NOR image into `../output/<PLATFORM_NAME>/`
+## Do not trust the exit code alone
 
-## 4. Flash the result
+`build.sh` greps its own log for compiler errors as well as checking the exit
+status. The script this replaced could exit 0 with a failed compile, which is
+how a stale image got flashed more than once. If you invoke `build` by hand,
+grep the log.
 
-See [FLASHING.md](FLASHING.md) (use the freshly built image from
-`output/<PLATFORM_NAME>/` in place of the prebuilt one).
+## Host notes
 
-## Manual build (if the script fails)
-
-```bash
-cd edk2_port
-
-# BinWrappers MUST be in front (Trim path resolution depends on it)
-export PATH=$PWD/edk2/BaseTools/BinWrappers/PosixLike:$PWD/edk2/BaseTools/Source/C/bin:$PATH
-export EDK_TOOLS_PATH=$PWD/edk2/BaseTools
-export WORKSPACE=$PWD/edk2-rockchip
-export CONF_PATH=$WORKSPACE/Conf
-export PACKAGES_PATH="$WORKSPACE:$PWD/devicetree:$PWD/edk2:$PWD/edk2-non-osi:$PWD/edk2-platforms:$PWD/edk2-rockchip-non-osi"
-export GCC5_AARCH64_PREFIX=""                              # AArch64 host
-# export GCC5_AARCH64_PREFIX="aarch64-linux-gnu-"          # x86_64 host
-export GCC_AARCH64_PREFIX="$GCC5_AARCH64_PREFIX"
-export PYTHONPATH=$PWD/edk2/BaseTools/Source/Python
-
-make -C edk2/BaseTools CC=gcc CXX=g++ -j$(nproc)
-
-sudo mkdir -p /Scripts
-sudo ln -sfn $PWD/edk2/BaseTools/Scripts/GccBase.lds /Scripts/GccBase.lds
-
-source edk2/edksetup.sh BaseTools
-
-build -s -n$(nproc) -a AARCH64 -t GCC \
-      -p Platform/Radxa/ROCK4D/ROCK4D.dsc \
-      -b RELEASE -D FIRMWARE_VER=rk3576-rock4d-v0.1
-```
-
-Outputs:
-
-* `edk2-rockchip/Build/ROCK4D/RELEASE_GCC/FV/BL33_AP_UEFI.Fv` — EDK2 UEFI body
-* `edk2-rockchip/Build/ROCK4D/RELEASE_GCC/FV/NOR_FLASH_IMAGE.fd` — full Flash image
-
-## Packaging the SPI image manually
-
-```bash
-cd edk2_port
-
-# 1. Extract BL31 PT_LOAD segments
-python3 misc/extractbl31.py ../binaries/bl31.elf
-
-# 2. Stage FIT inputs
-FV=edk2-rockchip/Build/ROCK4D/RELEASE_GCC/FV/BL33_AP_UEFI.Fv
-cp $FV BL33_AP_UEFI.Fv
-cp misc/rk3576_spl.dtb rk3576-rock-4d.dtb
-touch bl32.bin
-[ -f bl31_0x000f0000.bin ] || touch bl31_0x000f0000.bin
-
-# 3. Build the FIT
-sed 's,@DEVICE@,rk3576-rock-4d,g' misc/uefi_rk3576.its > rk3576-rock-4d_EFI.its
-misc/tools/$(uname -m)/mkimage -f rk3576-rock-4d_EFI.its -E rk3576-rock-4d_EFI.itb
-
-# 4. Assemble the SPI NOR image
-dd if=/dev/zero bs=1M count=16 of=output/ROCK4D/ROCK4D-spi-edk2.img
-dd if=misc/rk3576_spi_nor_gpt.img of=output/ROCK4D/ROCK4D-spi-edk2.img conv=notrunc
-dd if=../binaries/u-boot-spl.bin   of=output/ROCK4D/ROCK4D-spi-edk2.img bs=1K seek=32   conv=notrunc
-dd if=rk3576-rock-4d_EFI.itb       of=output/ROCK4D/ROCK4D-spi-edk2.img bs=1K seek=1024 conv=notrunc
-```
+* **AArch64 hosts**: the BaseTools binaries in upstream EDK2 are x86_64.
+  `setup-host.sh` detects the mismatch and rebuilds them with the host
+  compiler.
+* **GCC 10-13**: several warnings became errors, and `-flto` and
+  `-fstack-protector` both break a freestanding EDK2 link.
+  `scripts/lib/tools_def_patch.py` handles all three, regenerating
+  `Conf/tools_def.txt` from the template each build so it stays idempotent.
+* **`PATH`**: `BinWrappers/PosixLike` must come first. The wrappers find their
+  siblings through `BASH_SOURCE`-relative paths, so reaching them via a
+  symlink elsewhere breaks `Trim`.
