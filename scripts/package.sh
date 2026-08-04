@@ -101,15 +101,30 @@ FIT="$WORK/${DEVICE_TREE_NAME}_EFI.itb"
 FIT_SIZE="$(stat -c%s "$FIT")"
 ok "FIT image: $((FIT_SIZE / 1024)) KB"
 
-# The idbloader this board just built comes first.  Looking at binaries/ first
-# is how a CM5-IO image once shipped with a prebuilt SPL that had none of the
-# CM5-IO fixes in it.
+# SPL selection, in order: one just built for this board, then whatever the
+# board config pins, then the generic mainline one.
+#
+# The order matters and has bitten twice.  Looking at binaries/ first is how a
+# CM5-IO image once shipped with an SPL that had none of the CM5-IO fixes.  And
+# falling through to the generic SPL silently is how a post-restructure image
+# ended up with 2026.04 while every image it was being compared against used
+# 2026.07-rc3 -- an invalid comparison, and on the display path specifically,
+# because the SPL is what leaves DCLK_VOP0 set up.
 IDBLOCK=""
-for cand in "$OUTDIR/idbloader.img" "$ROOT/binaries/idblock_mainline.bin"; do
+for cand in "$OUTDIR/idbloader.img" \
+            ${IDBLOCK_OVERRIDE:+"$ROOT/$IDBLOCK_OVERRIDE"} \
+            "$ROOT/binaries/idblock_mainline.bin"; do
     [ -f "$cand" ] && IDBLOCK="$cand" && break
 done
-[ -n "$IDBLOCK" ] || die "no idblock (mainline SPL) found"
-info "idblock: ${IDBLOCK##*/}  ($(strings -n 20 "$IDBLOCK" | grep -o 'U-Boot SPL [0-9][^ ]*' | head -1 || echo 'no version string'))"
+[ -n "$IDBLOCK" ] || die "no idblock (SPL) found"
+
+SPL_VER="$(strings -n 20 "$IDBLOCK" | grep -o 'U-Boot SPL [0-9][^ ]*' | head -1 || true)"
+info "idblock: ${IDBLOCK##*/}  (${SPL_VER:-no version string})"
+if [ -n "${IDBLOCK_OVERRIDE:-}" ] && [ "$IDBLOCK" != "$ROOT/$IDBLOCK_OVERRIDE" ] \
+   && [ "$IDBLOCK" = "$ROOT/binaries/idblock_mainline.bin" ]; then
+    warn "$BOARD pins $IDBLOCK_OVERRIDE but it is missing -- falling back to the"
+    warn "generic SPL.  Anything you compare this image against is not a control."
+fi
 
 step "Writing $OUT_IMG"
 
