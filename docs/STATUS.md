@@ -54,7 +54,24 @@ their own supply, so it is not evidence that HDMI +5 V is reaching the sink.
 
 ### CM5-IO HDMI is intermittent — 2 of 8 cold boots produced a picture
 
-Measured with a capture card and a pixel verdict, not by eye. Every register that can be read back was identical on
+Measured with a capture card and a pixel verdict, not by eye.
+
+The 2026-08-04 run on the restructured firmware is one more sample of the
+no-picture case: HPD came up (`HPD_STATUS=0x000000E9`, `hw=HIGH`), EDID was
+read, VOP2 came up at 1920x1080, the GOP framebuffer and the VOP2 window
+agree on `0xED660000`, the test pattern was drawn there, and the HDPTX PLL
+locked on the first attempt. The monitor showed a signal and a black screen.
+That is 1 sample, consistent with the existing 6-in-8, and not evidence either
+way about the restructure.
+
+**A newly readable data point:** `Vop2Rk3576.c`'s native computation of
+VP_DSP_CTRL agreed with the incremental path — `VP_DSP_CTRL 0x8000000F (legacy
+and native agree)`. That cross-check had never been read on hardware before.
+
+Do not read anything into where that log appears to stop. It ends after the
+PLL-lock trace with **45 consecutive bare newlines** and then unrelated output,
+which is the console-clear window eating the text — see `scripts/serial-log.sh`
+and capture raw before concluding the bring-up aborted. Every register that can be read back was identical on
 the boots that produced output and the boots that did not.
 
 Ruled out, each with its own sample count, in the notes that came with the
