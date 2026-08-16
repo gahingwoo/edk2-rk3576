@@ -1378,10 +1378,27 @@ Rk3588SetColorFormat (
   // in VID_MON registers).  The Linux kernel uses bits[11:8]=6 for 8bpc output
   // regardless of U-Boot's constant naming convention.
   //
-  // Write mask=0x0FF0 to update both depth[11:8] and format[7:4] fields;
-  // value=0x0600 → depth=6, format=0(RGB) → matches Linux ground truth.
+  // depth[11:8], format[7:4].  Mainline's encoding, from
+  // dw_hdmi_qp-rockchip.c: RK3576_8BPC = 0x0, RK3576_10BPC = 0x6, and
+  //   val = FIELD_PREP_WM16(RK3576_COLOR_DEPTH_MASK,
+  //                         state->output_bpc == 10 ? RK3576_10BPC : RK3576_8BPC)
+  // so an 8 bpc link writes zero into that field.
   //
-  Val = HIWORD_UPDATE (0x0600U, 0x0FF0U);
+  // This used to write 0x0600 -- depth = 6, the *10 bpc* code -- justified as
+  // matching a devmem dump from a working Linux session.  That dump could not
+  // have been an 8 bpc link: the Rockchip glue sets plat_data.max_bpc = 10, so
+  // Linux negotiates 10 bpc against any deep-colour sink and 0x600 is exactly
+  // what it would show.
+  //
+  // Everything else in this pipeline is 8 bpc -- VOP2 emits RGB888, the PHY is
+  // programmed for a 1485000 kbps TMDS rate (148.5 MHz x 10, the 8 bpc figure;
+  // 10 bpc would be 1856250), and the AVI infoframe declares 8 bpc.  Only this
+  // field disagreed, telling the TX video packer to pack 10 bpc out of an 8 bpc
+  // stream.  That is a rate mismatch at the packer/serialiser boundary, and how
+  // a FIFO drains or fills from it depends on its phase when the datapath
+  // starts -- which is not the same on every boot.
+  //
+  Val = HIWORD_UPDATE (0x0000U, 0x0FF0U);
   MmioWrite32 (RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON8, Val);
   return;
 
@@ -2222,6 +2239,28 @@ DwHdmiQpSetup (
       );
   }
 #endif
+
+  /*
+   * VP0 post-buffer-empty status.
+   *
+   * RK3568_VP_INT_RAW_STATUS(0) = VOP2_BASE + 0xAC, VP_INT_POST_BUF_EMPTY =
+   * BIT(4) -- from rockchip_drm_vop2.h:432 and :768.  Mainline enables this
+   * interrupt on every crtc enable and logs it as an error
+   * (rockchip_drm_vop2.c:1798, :2364), because it means the display timing
+   * generator asked the post pipeline for pixels and got none.
+   *
+   * That is the one question the serial log has never been able to answer on a
+   * no-picture boot: whether VOP2 failed to fetch pixels, or whether VOP2 was
+   * fine and the HDMI side dropped them.  Every register we could read said
+   * the same thing on good boots and bad ones; this one does not.
+   *
+   * Read-only status, and not a read of the display datapath, so it is outside
+   * the "VOP2 reads can drop HDMI sync" constraint that keeps
+   * RK_VOP2_DIAG_READS at 0.
+   */
+  HDMI_TRACE ("Setup: [12b] VP0_INT_RAW_STATUS = 0x%08x  POST_BUF_EMPTY=%u\n",
+              MmioRead32 (0x27D00000UL + 0xACU),
+              (MmioRead32 (0x27D00000UL + 0xACU) & BIT (4)) ? 1 : 0);
 
   HDMI_TRACE ("Setup: [12] SUCCESS — ConnectorEnable exit Success\n");
   HDMI_DUMP_REG ("VO0_GRF_SOC_CON1    ", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON1);

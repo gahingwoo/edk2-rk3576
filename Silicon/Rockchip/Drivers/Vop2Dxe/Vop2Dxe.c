@@ -3610,6 +3610,13 @@ Vop2Enable (
   UINT32      VPOffset   = CrtcState->CrtcID * 0x100;
   UINT32      CfgDone    = CFG_DONE_EN | BIT (CrtcState->CrtcID) | (BIT (CrtcState->CrtcID) << 16);
 
+  //
+  // Only the diagnostic blocks below use VPOffset now that STANDBY is no
+  // longer cleared here; keep it referenced so the RELEASE build, where
+  // those blocks compile out, does not fail on -Werror=unused-variable.
+  //
+  (VOID)VPOffset;
+
   /*
    * VP0 timing regs confirmed at VOP2_BASE+0xC00 (old/RK3568 layout).
    * Dump pre-commit state for verification.
@@ -3625,18 +3632,66 @@ Vop2Enable (
   }
  #endif
 
-  /* Clear STANDBY at RK3568-layout address (VP0 at VOP2_BASE + 0xC00) */
-  Vop2MaskWrite (
-    Vop2->BaseAddress,
-    RK3568_VP0_DSP_CTRL + VPOffset,
-    EN_MASK,
-    STANDBY_EN_SHIFT,
-    0,
-    FALSE
+  /*
+   * Disable VOP2 auto clock gating.
+   *
+   * SYS_AUTO_GATING_CTRL bit31 resets to 1, and so do its sub-gates --
+   * port_dclk_gating_en, hdmi_pix_clk_gating_en, overlay_aclk_gating_en and
+   * the rest.  Mainline clears the top-level bit unconditionally for every
+   * VOP2 generation, RK3576 included, in vop2_enable():
+   *
+   *   "Disable auto gating, this is a workaround to avoid display image
+   *    shift when a window enabled."
+   *   -- drivers/gpu/drm/rockchip/rockchip_drm_vop2.c
+   *
+   * Nothing in this firmware ever wrote the register; Vop2Regs.h defined the
+   * offset and no .c file used it.  That matters more here than the mainline
+   * comment suggests: auto gating is an activity detector, not a config
+   * field, so a boot where it gates a clock at the wrong moment reads back
+   * bit-for-bit identical to a boot where it does not -- which is exactly the
+   * signature of the intermittent no-picture failure on this SoC.  The gates
+   * it controls include the port dclk and the HDMI pixel clock, the two that
+   * the dclk mux switch in DwHdmiQpLib stops and restarts.
+   *
+   * Written unmasked: this is a plain RW register, not a HIWORD one, and the
+   * other bits are the per-domain sub-gates which follow the top-level bit.
+   */
+  MmioWrite32 (
+    Vop2->BaseAddress + RK3568_AUTO_GATING_CTRL,
+    MmioRead32 (Vop2->BaseAddress + RK3568_AUTO_GATING_CTRL) & ~(UINT32)BIT31
     );
 
-  /* STANDBY clear at the correct VP0_DSP_CTRL (VOP2_BASE + 0xC00) handled via
-   * Vop2MaskWrite above. No additional writes to 0xC000 region. */
+  /*
+   * STANDBY is deliberately NOT cleared here.  It is cleared once, later, in
+   * DwHdmiQpSetup step [4c] -- after the DCLK_VP0 mux has been pointed at
+   * clk_hdmiphy_pixel0 and the PHY PLL has locked.
+   *
+   * Clearing it here is what this code used to do, and it opened a window
+   * that is the best available explanation for the intermittent no-picture
+   * failure.  In that window VP0 is out of standby and actively scanning --
+   * driving the AXI read DMA and the post pipeline -- while DCLK_VP0 is still
+   * on dclk_vp0_src, because CLKSEL_CON(147) bit 11 does not get written until
+   * step [4].  And nothing in the entire boot chain ever programs
+   * dclk_vp0_src: its mux and divider live in CLKSEL_CON(145), which appears
+   * in this tree only inside a compiled-out register dump, and the U-Boot we
+   * ship has no RK3576 VOP driver at all.  So VP0 ran at an unknown rate --
+   * plausibly gpll undivided, roughly twice VP0's 600 MHz ceiling.
+   *
+   * The window was also not a fixed length: it spanned the 20 ms settle below,
+   * the whole HDPTX PLL configure including its retry loop, and HDMI setup
+   * steps [0] through [3].  A variable amount of out-of-spec scanout, leaving
+   * state that no post-hoc register read can show -- which is exactly the
+   * shape of a fault where a good boot and a bad boot read back identically.
+   *
+   * Mainline orders it the other way round and never has this window:
+   * vop2_crtc_atomic_enable() calls clk_set_parent(), then clk_set_rate(),
+   * then vop2_post_config(), then vop2_cfg_done(), and writes VP_DSP_CTRL --
+   * the write that clears STANDBY -- as its final register access.
+   *
+   * The standby/switch/standby-clear dance in DwHdmiQpLib is now the single
+   * place VP0 leaves standby, rather than a correction applied to a VP that
+   * has already been running.
+   */
 
   Vop2Writel (Vop2->BaseAddress, RK3568_REG_CFG_DONE, CfgDone);
 
