@@ -559,17 +559,37 @@ DwHdmiReadHpd (
   UINT32  Val;
 
   //
-  // RK3576: HPD level is IOC_HDMI_HPD_STATUS BIT(3) or BIT(0).
-  // Return the real hardware value.  If the HPD wait loop in ConnectorPreInit
-  // timed out (HpdTimeoutFlag set), return TRUE anyway so that display
-  // initialisation continues for capture-card / no-HPD sinks.
+  // IOC_HDMI_HPD_STATUS, with the vendor's names for its bits
+  // (dw_hdmi-rockchip.c:102-108):
+  //
+  //   bit 7  HDMITX_LOW_MORETHAN100MS
+  //   bit 6  HDMITX_HPD_PORT_LEVEL    <- the actual HPD pin level
+  //   bit 5  HDMITX_IHPD_PORT
+  //   bit 4  HDMITX_OHPD_INT
+  //   bit 3  HDMITX_LEVEL_INT         <- a latched level interrupt
+  //   [2:0]  HDMITX_INTR_CHANGE_CNT   <- how many times HPD has toggled
+  //
+  // We read bit 6 as well as bit 3.  Bit 3 is what the vendor's *interrupt
+  // handler* uses, and it only tracks the pad here because SetIomux leaves
+  // HPD_INT_CLR asserted -- there is no interrupt handler in UEFI to service
+  // it.  Bit 6 needs no such assumption.
+  //
+  // These names also settle the 0xE9 / 0xFB values this file has been
+  // reasoning about: 0xE9 is CHANGE_CNT=1 and 0xFB is CHANGE_CNT=3, and both
+  // have PORT_LEVEL set.  HPD was asserted on both; the only difference is
+  // that the sink toggled HPD twice more on one of them.  The low bits are a
+  // counter, not a state -- which is why treating BIT(1) as a
+  // "sink acquired" flag read as 1 on some failures and 0 on a success.
+  //
+  // If the HPD wait loop in ConnectorPreInit timed out (HpdTimeoutFlag set),
+  // return TRUE anyway so display init continues for no-HPD sinks.
   //
   Val = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
   {
     UINT32  Gpio4Ext   = MmioRead32 (0x2AE40070U);
     UINT32  MiscCon1   = MmioRead32 (RK3588_SYS_GRF_BASE + 0xA404U);
     UINT32  PinLevel   = (Gpio4Ext >> 17) & 1;
-    BOOLEAN HwHpd      = (Val & RK3576_HDMI_LEVEL_INT) != 0;
+    BOOLEAN HwHpd      = (Val & (RK3576_HDMI_HPD_PORT_LEVEL | RK3576_HDMI_LEVEL_INT)) != 0;
 
     /* Throttle log spam: only emit on first call, state changes, or every 64th call */
     {
@@ -578,10 +598,11 @@ DwHdmiReadHpd (
 
       if (sHpdCallCount == 0 || (sHpdCallCount & 63) == 0 || (UINT8)HwHpd != (UINT8)sPrevHwHpd) {
         HDMI_TRACE (
-          "ReadHpd: HPD_STATUS=0x%08x bit3=%u bit0=%u GPIO4_PC1=%u MiscCon1=0x%08x hw=%a (call#%u)\n",
+          "ReadHpd: HPD_STATUS=0x%08x level6=%u int3=%u cnt=%u GPIO4_PC1=%u MiscCon1=0x%08x hw=%a (call#%u)\n",
           Val,
+          (Val >> 6) & 1,
           (Val >> 3) & 1,
-          (Val >> 0) & 1,
+          (Val >> 0) & 7,
           PinLevel,
           MiscCon1,
           HwHpd ? "HIGH" : "LOW",
@@ -1469,15 +1490,19 @@ HdmiConfigAviInfoframe (
    *   CONTENTS1..4 pack InfBuf[3..16] in groups of 4, with the checksum
    *   at CONTENTS1[7:0] and VIC (InfBuf[7]) at CONTENTS2[7:0].
    *
-   * Note: bits[7:0] of CONTENTS0 are NOT "managed by HW" — the hardware
-   * does NOT auto-fill the type byte.  Omitting InfBuf[0] leaves type=0x00
-   * in the transmitted InfoFrame, causing strict sinks to reject it.
-   * Linux writes buf[0] explicitly; we must do the same.
+   * bits[7:0] and [31:24] of CONTENTS0 are left zero, which is what both
+   * kernels do: dw_hdmi_qp_write_infoframe() writes only bytes 1 and 2 of the
+   * header (dw-hdmi-qp.c:914, via write_pkt(buffer, 1, 2, reg)), and the
+   * layout comment at :993 marks the other two slots RSV.  HB0 comes from the
+   * packet scheduler's slot, not from us.
    *
-   * Reference: drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c
-   *   regmap_write(hdmi->regm, reg, buf[0] | (buf[1]<<8) | (buf[2]<<16));
+   * This used to also write InfBuf[0] (0x82) into bits[7:0], justified by a
+   * mainline line that does not exist in this mainline.  It appears to be
+   * harmless either way -- the vendor UEFI build that produces a picture
+   * writes the type byte there too -- but "matches the reference" beats
+   * "matches a line nobody can find".
    */
-  val = ((UINT32)InfBuf[0]) | ((UINT32)InfBuf[1] << 8) | ((UINT32)InfBuf[2] << 16);
+  val = ((UINT32)InfBuf[1] << 8) | ((UINT32)InfBuf[2] << 16);
   DwHdmiQpRegWrite (Hdmi, val, PKT_AVI_CONTENTS0);
 
   for (i = 0; i < 4; i++) {
@@ -1741,13 +1766,28 @@ DwHdmiQpSetup (
    * un-gate the video/link QP clocks inside the HDMI TX controller.
    * Without this the serializer has no clock even if the PHY PLL is running.
    *
-   * AVP_DATAPATH_VIDEO_SWDISABLE is intentionally left SET here and cleared
-   * only after the PHY lanes are ready (step [10]).  This matches Linux
-   * behaviour where VOP2 is in standby (no video) during HDMI TX init;
-   * enabling the video path before the PHY is ready can latch garbage video
-   * data from the wrong clock domain and leave the HDMI TX in a bad state.
+   * AVP_DATAPATH_VIDEO_SWDISABLE is cleared here rather than after the PHY.
+   *
+   * It used to be deferred to step [10e], on the reasoning that the video
+   * path should not be connected until the PHY is stable.  That reasoning
+   * described something the code was not doing: nothing in this firmware ever
+   * *sets* the bit, mainline never touches it (dw-hdmi-qp.c:471 and :518 are
+   * the audio bit, not this one), and the vendor only toggles it during FRL
+   * link training -- never for TMDS.  So on a cold boot step [10e] was
+   * clearing a bit that was already clear.
+   *
+   * Where it stopped being harmless is if the bit were ever inherited set --
+   * a warm boot after a Linux FRL session, say.  Then the packet scheduler
+   * and the AVI InfoFrame RAM, written in steps [1b] and [9], would have been
+   * programmed while the AVP video sub-block was held in software disable,
+   * and on this IP a disabled sub-block does not necessarily latch register
+   * writes.  The AVMUTE GCP at step [11] comes after the old clear and would
+   * still land -- so the result is a link that comes up, unmutes, and carries
+   * no AVI InfoFrame.  Clearing it before anything is programmed removes the
+   * question.
    */
   DwHdmiQpRegMod (Hdmi, 0, VIDQPCLK_OFF | LINKQPCLK_OFF, CMU_CONFIG0);
+  DwHdmiQpRegMod (Hdmi, 0, AVP_DATAPATH_VIDEO_SWDISABLE, GLOBAL_SWDISABLE);
   HDMI_DUMP_REG ("  CMU_CONFIG0 post  ", Hdmi->Base + CMU_CONFIG0);
   HDMI_DUMP_REG ("  CMU_STATUS  post  ", Hdmi->Base + CMU_STATUS);
   HDMI_DUMP_REG ("  SWDISABLE   post  ", Hdmi->Base + GLOBAL_SWDISABLE);
@@ -2066,17 +2106,12 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  HDPTX_STATUS postLN", 0x26032000UL + 0x80);
   HDMI_DUMP_REG ("  CMU_STATUS  postLN ", Hdmi->Base + CMU_STATUS);
 
-  /* ── STEP 10e: Enable HDMI TX video path now that PHY is stable ──────── */
+  /* ── STEP 10e: settle after the lanes report ready ───────────────────── */
   /*
-   * Now that the PHY PLL is locked and data lanes are ready, clear
-   * AVP_DATAPATH_VIDEO_SWDISABLE to connect VOP2 pixel output to the HDMI TX.
-   * Delaying this until after PHY init mirrors Linux (where VOP2 is in
-   * standby during HDMI TX setup): the HDMI TX sees a clean, stable pixel
-   * stream for the first time rather than potentially corrupted data from the
-   * clock-mux transition at step [4].
+   * AVP_DATAPATH_VIDEO_SWDISABLE is cleared back in step [2], before anything
+   * is programmed -- see the note there.  What remains here is the settle.
    */
-  HDMI_TRACE ("Setup: [10e] Enable AVP video path (clear SWDISABLE) — PHY stable\n");
-  DwHdmiQpRegMod (Hdmi, 0, AVP_DATAPATH_VIDEO_SWDISABLE, GLOBAL_SWDISABLE);
+  HDMI_TRACE ("Setup: [10e] PHY stable; AVP video path already enabled in [2]\n");
   MicroSecondDelay (5000);  /* 5 ms: allow HDMI TX to sync to incoming video */
   HDMI_DUMP_REG ("  SWDISABLE   10e   ", Hdmi->Base + GLOBAL_SWDISABLE);
   HDMI_DUMP_REG ("  VID_MON_ST0 10e   ", Hdmi->Base + VIDEO_MONITOR_STATUS0);
@@ -2153,21 +2188,18 @@ DwHdmiQpSetup (
     HDMI_DUMP_REG ("  PKTSCHED_PKT_EN    ", Hdmi->Base + PKTSCHED_PKT_EN);
 
     /*
-     * Re-trigger the AVMUTE CLEAR GCP once more after a 50 ms delay.
+     * There used to be a second GCP "re-arm" here: a 50 ms delay, then
+     * PKT_EN GCP_TX toggled off and on, to force a retransmission in case the
+     * single AVMUTE-clear GCP was lost.
      *
-     * A single GCP transmission can be lost on the HDMI link if it happens
-     * to coincide with HPD bouncing, the sink's PLL re-locking, or its CEC
-     * controller wake-up.  When that single GCP-clear is missed the sink
-     * stays in AVMUTE (default after a sink-side reset) and presents as
-     * "no signal" even though our PHY/VOP2 are healthy.
-     *
-     * Toggling PKT_EN GCP_TX off→on forces the scheduler to re-transmit the
-     * packet now sitting in CONTROL0 (still = 2 = CLEAR_AVMUTE).
+     * GCP is a repeated packet.  While GCP_TX_EN is set the scheduler emits
+     * it every frame, so it cannot be missed, and there was nothing to force.
+     * The toggle was also off->on with no delay between the two APB writes --
+     * far less than a frame -- so what it could actually do is disable the
+     * packet mid-transmission and truncate a data island into a BCH error at
+     * a sink that is still acquiring the link.  Neither mainline
+     * (dw-hdmi-qp.c:932) nor the vendor (dw-hdmi-qp.c:3563) does this.
      */
-    MicroSecondDelay (50000);
-    DwHdmiQpRegMod (Hdmi, 0, PKTSCHED_GCP_TX_EN, PKTSCHED_PKT_EN);
-    DwHdmiQpRegMod (Hdmi, PKTSCHED_GCP_TX_EN, PKTSCHED_GCP_TX_EN, PKTSCHED_PKT_EN);
-    HDMI_TRACE ("Setup: [11b] Re-armed GCP_TX (second AVMUTE CLEAR transmission)\n");
 
     /* VIDEO_INTERFACE_CONFIG0: do NOT write BIT(21).
      *
