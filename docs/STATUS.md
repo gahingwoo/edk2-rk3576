@@ -7,8 +7,10 @@ intermittent" is not a status; "2 of 8 cold boots produced a picture" is.
 The predecessor of this file (`KNOWN_ISSUES.md`) drifted until four of its
 entries were false, which is what a status file without evidence turns into.
 
-Last updated: 2026-08-04, after the repository restructure and a ROCK 4D
-hardware run on the restructured firmware.
+Last updated: 2026-08-27, after a four-way source audit of the display path
+against mainline Linux 7.2-rc7, the 6.1.115 vendor BSP, and a disassembly of
+the vendor UEFI build in `dirty/`. **Nothing from that audit has been on
+hardware.** The last hardware run is still 2026-08-04.
 
 ---
 
@@ -310,15 +312,76 @@ lists in `RK3576Base.dsc.inc` (`{1,2}`, `{0x23,0x51}`) match the DTS, and both
 boards implement `I2cIomux` with RK3576 pin functions, but whether the I2C
 PCLKs are ungated at UEFI entry has never been tested.
 
-## Verify on the next hardware session
+## The 2026-08-27 audit: what changed, and what it is worth
 
-The restructure removed 41 dead `#else` arms from the display stack and
-changed which `Soc.h` those modules see. Most of their `.text` came out
-byte-identical, but the display path is the one subsystem with an open bug,
-so:
+Four agents read the display path against mainline 7.2-rc7 and the 6.1.115
+vendor BSP; a fourth disassembled `dirty/rock4d-sd-uefi（green hdmi）.img`,
+the vendor UEFI build that puts a stable picture out on ROCK 4D, and
+recovered its actual MMIO write sequence. Commits `66e8b49`, `e994d1d`,
+`0961057`.
 
-**Take the HDMI cold-boot ratio again, at least 8 boots, capture card and a
-pixel verdict.** It should still be about 2 in 8. If it is 0 in 8, the
-restructure broke something and `legacy/v0.1` is the comparison.
+**Every claim below is source-derived. The cold-boot ratio has not been
+re-measured since 2026-08-04, so nothing here is known to help.**
 
-Nothing else in the restructure changes runtime behaviour on either board.
+### Found wrong, with two independent references agreeing
+
+| What | Was | Is |
+|---|---|---|
+| Window -> video port routing | global `OVL_PORT_SEL` 0x608, which RK3576 does not map | per-window `<win>+0xF4[1:0]`, written on every enable |
+| `OVL_LAYER_SEL` | one global register at 0x604 | per VP, `0x604 + vp*0x100`, seeded 0xffff |
+| `BG_MIX_CTRL` | 0x6E0 + vp*4, value 38 | `0x670 + vp*0x100`, value 20 (win+layer_mix+hdr_mix) |
+| VP0's layers | Cluster0, Cluster1, Esmart0, Esmart1 | Esmart0 alone (Esmart1 cannot feed VP0 on RK3576) |
+| HDPTX INIT/CMN/LANE/APB resets | main CRU `SOFTRST_CON26`/`CON28` — the DDR and NPU reset registers | PMU1CRU `SOFTRST_CON00`/`CON01` |
+| `SRST_HDMITX0_REF`, `_HDMITXHDP`, `_LINKSYM_HDMITXPHY0` | CON22/CON28/CON25 — also DDR and NPU | CON64 b9, PMU1CRU CON01 b13, CON75 b1 |
+| `PLL_PCG_CLK_SEL` | 1 (the 10bpc value) | `(bpc-8)>>1` = 0 |
+| `CLKGATE_CON(63)` | VO0 roots only | plus ACLK/HCLK/PCLK_HDCP0, which are in PD_VO0's clock list |
+| `aclk_pre_auto_gating_en` | never cleared | cleared (RK3528/RK3562/RK3576-only, vendor-documented) |
+
+The reset mistake is worth remembering as a pattern: mainline's reset IDs are
+array indices, the vendor binding's are `(cru_sel<<16)|(reg*16+bit)`, and
+this tree took mainline's index and applied the vendor's formula to it.
+Anything else in this tree that derives a register from a reset ID is
+suspect.
+
+### What the working binary settles, and what it does not
+
+It writes `ESMART0_PORT_SEL_IMD`, `DLY_NUM`, `ALPHA_MAP`, the AXI read IDs
+and `LAYER_SEL = 0x0000FFF2` — confirming those registers are real and giving
+their values. It also writes `CLKGATE_CON(63) = 0x700B0000`, matching the
+HDCP0 finding.
+
+It does **not** validate the reset addresses: it writes the same wrong ones
+this tree had, plus three deasserts into DDR reset registers of its own. So
+it shares this tree's ancestry. What it does prove is that a stable picture
+is possible *without* the HDPTX resets ever firing — which means fixing them
+is a correctness fix, not a known cure.
+
+Two things it does that we deliberately do not: it programs V0PLL to 594 MHz
+and points `dclk_vp0_src` at it (148.5 MHz) so VP0 has a real clock through
+the whole configuration, switching to `clk_hdmiphy_pixel0` only at the end.
+We instead keep VP0 in standby until after the mux switch (`586af04`), which
+is mainline's shape. Both avoid scanning out on an unprogrammed clock; only
+theirs is proven.
+
+### Verify on the next hardware session
+
+1. **The inherited-state dump comes first.** `Vop2PreInit` now logs fourteen
+   words at `[RK3576-INHERIT]` before touching anything — PMU power/idle, the
+   CRU mux and gate state, the PMU1CRU resets, the PHY reference-clock
+   select. All outside the VOP2 window. Capture it on a boot that shows a
+   picture and one that does not. Everything readable *inside* VOP2 has been
+   identical on both outcomes for weeks; this is the state that can differ.
+2. **Then the ratio, at least 8 cold boots, monitor and a pixel verdict.**
+   Was 2 in 8. Three commits landed at once, so the ratio says whether the
+   group helped, not which member did.
+3. If it is **0 in 8**, this group made it worse and `586af04` is the
+   comparison. The likeliest culprit is the resets: they now genuinely fire,
+   and our release ordering is not mainline's byte for byte.
+
+### Still not established
+
+The **black vertical stripes** have no confirmed cause. The pre-dither
+question is still unmeasured in either direction. The `bg_dly` correction is
+the best candidate on file for the horizontal offset, and offsets and blank
+lines are the same defect at different severities — but that is an argument,
+not a measurement.
