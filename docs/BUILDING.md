@@ -26,14 +26,39 @@ create symlinks in `/`, which is what happened when all of this was one file.
 
 ## Dependencies
 
-Fetched by `setup-host.sh` into `third_party/` (gitignored):
+All four live in `third_party/` (gitignored). **`setup-host.sh` fetches only
+the first.**
 
 | Tree | Note |
 |---|---|
-| `edk2` | **Pinned to `46548b1adac82211d8d11da12dd914f41e7aa775`.** Newer cores change BaseTools and library interfaces the rockchip overlay does not follow. |
-| `edk2-non-osi` | Realtek UNDI and friends |
-| `edk2-platforms` | |
-| `edk2-rockchip-non-osi` | |
+| `edk2` | Submodule. Fetched and pinned by `setup-host.sh`. See the pin warning below. |
+| `edk2-non-osi` | Realtek UNDI, `Emulator/X86EmulatorDxe`. **Not fetched** — and not tianocore's: that one has neither of those, so this is a fork. |
+| `edk2-platforms` | **Not fetched.** |
+| `edk2-rockchip-non-osi` | **Not fetched.** |
+
+Without the last three, `build.sh` stops immediately with `error 000E: One
+Path in PACKAGES_PATH doesn't exist`, which names none of them. `setup-host.sh`
+now checks for them and says which are missing. Point `DEPS_DIR` at a
+directory holding all three, or symlink them into `third_party/`.
+
+### The pinned EDK2 commit cannot build this tree
+
+`EDK2_COMMIT` is `46548b1adac82211d8d11da12dd914f41e7aa775` (2025-11-14).
+`Silicon/Rockchip/RK3576/Drivers/FdtPlatformDxe` calls `FdtSetPropEmpty`,
+`FdtOverlayApply`, `FdtOffsetDtStrings` and `FdtSizeDtStrings`, added upstream
+in `74c508abe8` "MdePkg/BaseFdtLib: Add more wrappers" (2025-12-05) — newer
+than the pin. Linking fails with undefined references.
+
+Every image that has actually been tested was built against a local checkout
+newer than the pin, via the `EDK2_DIR` override:
+
+```bash
+EDK2_DIR=/path/to/newer/edk2 scripts/build.sh cm5io
+```
+
+Moving the pin forward changes the EDK2 core for every module in the image,
+so it needs its own hardware pass and should not ride along with a driver
+change. Until then the override is the supported path.
 
 Our three patches to the EDK2 core are versioned in [`patches/`](../patches/)
 and applied by `setup-host.sh`. Two are functional (FD cache flush before

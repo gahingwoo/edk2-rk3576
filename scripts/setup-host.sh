@@ -74,7 +74,31 @@ for sub in MdeModulePkg/Library/BrotliCustomDecompressLib/brotli \
     fi
 done
 
-step "3/5  EDK2 core patches"
+step "3/6  Upstream dependency trees"
+
+# These three are on PACKAGES_PATH (see deps_packages_path in lib/common.sh)
+# and the build cannot start without them -- EDK2 reports the whole thing as
+# "error 000E: One Path in PACKAGES_PATH doesn't exist", naming none of them.
+#
+# This script does not fetch them.  The exact upstreams the working build uses
+# are not recorded anywhere in this repository, and guessing wrong is worse
+# than saying so: our edk2-non-osi carries Drivers/Realtek and
+# Emulator/X86EmulatorDxe, which tianocore's does not, so it is a fork.
+# Point DEPS_DIR at a directory holding all three, or symlink them in.
+MISSING_DEPS=()
+for d in edk2-non-osi edk2-platforms edk2-rockchip-non-osi; do
+    [ -d "${DEPS_DIR:-$ROOT/third_party}/$d" ] || MISSING_DEPS+=("$d")
+done
+if [ "${#MISSING_DEPS[@]}" -gt 0 ]; then
+    warn "missing from ${DEPS_DIR:-$ROOT/third_party}/:"
+    printf '        %s\n' "${MISSING_DEPS[@]}"
+    warn "the build will fail at once with a PACKAGES_PATH error that names none of them."
+    warn "set DEPS_DIR to a directory that has all three, or symlink them into third_party/."
+else
+    ok "dependency trees present"
+fi
+
+step "4/6  EDK2 core patches"
 
 # edk2/ is an upstream checkout, so edits made inside it are invisible to this
 # repository and vanish on a re-clone.  Two of these are functional fixes (FD
@@ -91,7 +115,7 @@ else
     warn "patches/apply.sh missing; EDK2 core is unpatched"
 fi
 
-step "4/5  BaseTools"
+step "5/6  BaseTools"
 
 # The BaseTools binaries checked into upstream EDK2 are x86_64.  On an AArch64
 # host they have to be rebuilt, with the HOST compiler -- not the cross one.
@@ -109,7 +133,7 @@ if [ "$NEED_BUILD" = 1 ]; then
 fi
 ok "BaseTools ready ($(uname -m))"
 
-step "5/5  /Scripts/GccBase.lds"
+step "6/6  /Scripts/GccBase.lds"
 
 # The GNUmakefile EDK2 generates references this script by absolute path.
 if [ ! -e /Scripts/GccBase.lds ]; then
