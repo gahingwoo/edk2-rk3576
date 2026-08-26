@@ -18,6 +18,20 @@
 #define ALL_MASK             0xFFFFFFFF
 
 #define RK3568_AUTO_GATING_CTRL  0x008
+/*
+ * Bit 31 is the top-level auto-gating enable that mainline clears for every
+ * VOP2 generation.  Bit 7 is aclk_pre_auto_gating_en, which exists only on
+ * RK3528/RK3562/RK3576 -- mainline has no name for it at all.  The vendor BSP
+ * clears it for exactly those three parts and says why
+ * (rockchip_drm_vop2.c:4599, rockchip_vop2_reg.c:4741):
+ *
+ *   "The aclk pre auto gating function may disable the aclk in some
+ *    unexpected cases, which detected by hardware automatically.  For
+ *    example, if the above function is enabled, the post scale function will
+ *    be affected, resulting in abnormal display."
+ */
+#define RK3568_AUTO_GATING_EN            BIT31
+#define RK3576_ACLK_PRE_AUTO_GATING_EN   BIT7
 
 #define RK3568_SYS_AXI_LUT_CTRL  0x024
 #define LUT_DMA_EN_SHIFT         0
@@ -169,6 +183,73 @@
 #define RK3568_VP2_BG_MIX_CTRL              0x6E8
 #define RK3568_CLUSTER_DLY_NUM              0x6F0
 #define RK3568_SMART_DLY_NUM                0x6F8
+
+/*
+ * RK3576 overlay block.
+ *
+ * RK3568/RK3588 have ONE global overlay block: OVL_CTRL/OVL_LAYER_SEL at
+ * 0x600/0x604, a global OVL_PORT_SEL at 0x608, and the three VPs' BG_MIX_CTRL
+ * packed at 0x6E0/0x6E4/0x6E8.
+ *
+ * RK3576 gives each video port its own overlay block at 0x600 + vp * 0x100,
+ * and deletes OVL_PORT_SEL entirely -- a window picks its video port from a
+ * register inside the window (see RK3576_WIN_PORT_SEL_IMD below).  So on this
+ * part 0x608 is unmapped, 0x6E0 is inside VP0's mixer area rather than being
+ * VP0's BG_MIX_CTRL, and 0x704/0x708 are VP1's OVL_LAYER_SEL/mixers rather
+ * than more of a global block.
+ *
+ * mainline drivers/gpu/drm/rockchip/rockchip_drm_vop2.h:459-481.
+ */
+#define RK3576_OVL_CTRL                0x600   /* + Vp * 0x100 */
+#define RK3576_OVL_CTRL_YUV_MODE       BIT0
+#define RK3576_OVL_LAYER_SEL           0x604   /* + Vp * 0x100 */
+#define RK3576_OVL_HDR_SRC_COLOR_CTRL  0x660   /* + Vp * 0x100 */
+#define RK3576_OVL_BG_MIX_CTRL         0x670   /* + Vp * 0x100 */
+#define RK3576_OVL_VP_OFFSET           0x100
+
+/*
+ * RK3576 window -> video port routing, and the per-window delay.
+ *
+ * Both live in the window's own register block, at +0xF4 and +0xF8 from the
+ * window base.  mainline rockchip_vop2_reg.c:435 and :506 map them as
+ * VOP2_WIN_VP_SEL = REG_FIELD(RK3576_{CLUSTER,SMART}_PORT_SEL_IMD, 0, 1), and
+ * rockchip_drm_vop2.c:1358 writes the field on every window enable from
+ * VOP_VERSION_RK3576 up.  rk3576_vop2_setup_dly_for_windows()
+ * (rockchip_vop2_reg.c:2412) writes the delay as 0.
+ *
+ * "_IMD" is immediate: the field takes effect without a cfg_done.
+ */
+#define RK3576_CLUSTER0_PORT_SEL_IMD  0x10F4   /* + WinData->RegOffset */
+#define RK3576_CLUSTER0_DLY_NUM       0x10F8   /* + WinData->RegOffset */
+#define RK3576_ESMART0_PORT_SEL_IMD   0x18F4   /* + WinData->RegOffset */
+#define RK3576_ESMART0_DLY_NUM        0x18F8   /* + WinData->RegOffset */
+#define RK3576_WIN_PORT_SEL_MASK      0x3
+#define RK3576_WIN_PORT_SEL_SHIFT     0
+
+/*
+ * RK3576 window AXI read IDs.  mainline rockchip_drm_vop2.c:1352 programs
+ * these on every VOP2 newer than RK3568; the RK3576 values are in
+ * rk3576_vop_win_data (rockchip_vop2_reg.c:852).  The rid fields are five
+ * bits wide here because the Esmart IDs (0x10..0x13) do not fit in four.
+ */
+#define RK3576_WIN_AXI_BUS_ID_MASK    0x1
+#define RK3576_WIN_AXI_BUS_ID_SHIFT   1      /* <win>+0x08, SMART_AXI_CTRL */
+#define RK3576_WIN_AXI_YRGB_RID_MASK  0x1F
+#define RK3576_WIN_AXI_YRGB_RID_SHIFT 4      /* <win>+0x04, ESMART_CTRL1   */
+#define RK3576_WIN_AXI_UV_RID_MASK    0x1F
+#define RK3576_WIN_AXI_UV_RID_SHIFT   12
+#define RK3576_ESMART0_AXI_CTRL       0x1808 /* + WinData->RegOffset */
+
+/*
+ * RK3576 per-window alpha map, <win>+0xD8.  Named in mainline
+ * (rockchip_drm_vop2.h:619, RK3576_SMART_ALPHA_MAP) and given a full 32-bit
+ * field by the vendor (rockchip_vop2_reg.c:4845).  Neither kernel writes it
+ * on the plain-opaque path, but the vendor UEFI build that puts a stable
+ * picture out on ROCK 4D writes 0xFFFFFFFF here, and a window whose alpha
+ * map resolves to zero composites as fully transparent -- which on a single
+ * window over a black background is indistinguishable from "no picture".
+ */
+#define RK3576_ESMART0_ALPHA_MAP      0x18D8 /* + WinData->RegOffset */
 
 /* Video Port registers definition */
 #define RK3568_VP0_DSP_CTRL       0xC00

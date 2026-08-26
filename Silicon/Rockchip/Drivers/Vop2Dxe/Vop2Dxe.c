@@ -299,22 +299,35 @@ STATIC VOP2_DSC_DATA  mDscDataRK3588[] = {
 //
 
 /*
- * RK3576 plane mask. Only the 4 layers with PhysIDs present in
- * mWinDataRK3588[0..5] are used: Cluster0(0), Cluster1(1),
- * Esmart0(2), Esmart1(3). Esmart2/3 (PhysID 8/9) live at
- * mWinDataRK3588[6/7] and are beyond the NrLayers=6 search window,
- * so they are excluded here to prevent a NULL dereference in
- * Vop2GlobalInitial when Vop2FindWinByPhysID returns NULL.
+ * RK3576 plane mask.
+ *
+ * This firmware draws one image on one video port.  Attaching windows it
+ * never enables is not free: each attached layer takes a mixer layer, so
+ * listing four of them put the only window we do enable -- Esmart0 -- on
+ * mixer layer 2, blending over two mixers whose sources (Cluster0, Cluster1)
+ * are disabled, with whatever alpha configuration RK3576's per-VP mixers
+ * happen to reset to.  Mainline never produces that arrangement: with one
+ * plane, normalized_zpos is 0, only nibble 0 of OVL_LAYER_SEL is filled, and
+ * vop2_setup_alpha() skips zpos 0 entirely (rockchip_vop2_reg.c:1974).
+ *
+ * Esmart1 was also not a legal choice for VP0 in the first place.  mainline
+ * rk3576_vop_win_data gives Esmart1 possible_vp_mask = BIT(1) | BIT(2) and
+ * layer_sel_id[vp0] = 0xf (rockchip_vop2_reg.c:904-918) -- on RK3576 that
+ * window cannot feed VP0 at all.  The vendor BSP has an explicit quirk for
+ * exactly this request, forcing Esmart1/Esmart3 to VP1 (rockchip_drm_vop2.c
+ * :6747).
+ *
+ * So: one layer for the one display, and for the two-display policy the
+ * second port gets Esmart1, which is a port it is allowed to feed.
+ * Cluster0/Cluster1 stay out because nothing here configures a cluster
+ * window.
  */
 STATIC VOP2_VP_PLANE_MASK  mVpPlaneMaskRK3576[VOP2_VP_MAX][VOP2_VP_MAX] = {
   { /* one display policy */
     { /* main display */
       .PrimaryPlaneId   = ROCKCHIP_VOP2_ESMART0,
-      .AttachedLayersNr = 4,
-      .AttachedLayers   = {
-        ROCKCHIP_VOP2_CLUSTER0, ROCKCHIP_VOP2_CLUSTER1,
-        ROCKCHIP_VOP2_ESMART0,  ROCKCHIP_VOP2_ESMART1,
-      },
+      .AttachedLayersNr = 1,
+      .AttachedLayers   = { ROCKCHIP_VOP2_ESMART0 },
     },
     { /* second display */ },
     { /* third  display */ },
@@ -323,13 +336,13 @@ STATIC VOP2_VP_PLANE_MASK  mVpPlaneMaskRK3576[VOP2_VP_MAX][VOP2_VP_MAX] = {
   { /* two display policy */
     { /* main display */
       .PrimaryPlaneId   = ROCKCHIP_VOP2_ESMART0,
-      .AttachedLayersNr = 2,
-      .AttachedLayers   = { ROCKCHIP_VOP2_CLUSTER0, ROCKCHIP_VOP2_ESMART0 },
+      .AttachedLayersNr = 1,
+      .AttachedLayers   = { ROCKCHIP_VOP2_ESMART0 },
     },
     { /* second display */
       .PrimaryPlaneId   = ROCKCHIP_VOP2_ESMART1,
-      .AttachedLayersNr = 2,
-      .AttachedLayers   = { ROCKCHIP_VOP2_CLUSTER1, ROCKCHIP_VOP2_ESMART1 },
+      .AttachedLayersNr = 1,
+      .AttachedLayers   = { ROCKCHIP_VOP2_ESMART1 },
     },
     { /* third  display */ },
     { /* fourth display */ },
@@ -884,22 +897,42 @@ Vop2GlobalInitial (
     mRegsBackup[BakIndex] = MmioRead32 (Vop2->BaseAddress + 4 * BakIndex);
   }
 
-  Vop2MaskWrite (
-    Vop2->BaseAddress,
-    RK3568_OVL_CTRL,
-    EN_MASK,
-    OVL_PORT_MUX_REG_DONE_IMD_SHIFT,
-    1,
-    FALSE
-    );
-  Vop2MaskWrite (
-    Vop2->BaseAddress,
-    RK3568_DSP_IF_POL,
-    EN_MASK,
-    IF_CTRL_REG_DONE_IMD_SHIFT,
-    1,
-    FALSE
-    );
+  //
+  // Both of these are RK3588 "make this register class take effect
+  // immediately" bits, and neither register means the same thing on RK3576:
+  //
+  //   0x600 is RK3576_OVL_CTRL(0) -- VP0's own overlay control, whose only
+  //         defined bit is YUV_MODE (mainline rockchip_drm_vop2.h:776).
+  //         Bit 28 is reserved there.
+  //   0x030 is RK3576_SYS_CLUSTER_PD_CTRL_IMD, not DSP_IF_POL
+  //         (rockchip_drm_vop2.h:412-413) -- it holds the VOP-internal
+  //         cluster power domain.  The write happens to be inert, because
+  //         that register is HIWORD-masked and this is a plain
+  //         read-modify-write, so bit 28 lands in the mask half and rewrites
+  //         bit 12 with its own value.  Inert by accident is still a live
+  //         hazard sitting on a power-domain register.
+  //
+  // RK3576 needs neither: its OVL_LAYER_SEL and the per-window port select
+  // are already immediate (the "_IMD" in RK3576_SMART_PORT_SEL_IMD).
+  //
+  if (Vop2->Version != VOP_VERSION_RK3576) {
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_OVL_CTRL,
+      EN_MASK,
+      OVL_PORT_MUX_REG_DONE_IMD_SHIFT,
+      1,
+      FALSE
+      );
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_DSP_IF_POL,
+      EN_MASK,
+      IF_CTRL_REG_DONE_IMD_SHIFT,
+      1,
+      FALSE
+      );
+  }
 
   for (i = 0; i < Vop2->Data->NrVps; i++) {
     DEBUG ((DEBUG_INIT, "vp%d have layer nr:%d[", i, Vop2->VpPlaneMask[i].AttachedLayersNr));
@@ -910,82 +943,130 @@ Vop2GlobalInitial (
     DEBUG ((DEBUG_INIT, "], primary plane: %d\n", Vop2->VpPlaneMask[i].PrimaryPlaneId));
   }
 
-  Shift = 0;
-  /* layer sel win id */
-  for (i = 0; i < Vop2->Data->NrVps; i++) {
-    LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
-    for (j = 0; j < LayerNr; j++) {
-      LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
-      WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
-      if (WinData == NULL) {
-        /* Layer not found in this SoC's window table; skip to avoid NULL deref */
-        Shift += 4;
-        continue;
+  if (Vop2->Version == VOP_VERSION_RK3576) {
+    //
+    // RK3576 overlay routing is a different shape from RK3568/RK3588, not a
+    // variation on it.  Each video port owns an OVL_LAYER_SEL at
+    // 0x604 + vp * 0x100, there is no global OVL_PORT_SEL at 0x608 at all,
+    // and a window says which video port it feeds from a register inside the
+    // window (RK3576_*_PORT_SEL_IMD, written in Vop2SetSmartWin).
+    //
+    // So the RK3588 code below did three things here, and on this part all
+    // three were writes into thin air: the layer-sel nibbles went into VP0's
+    // register for every VP, and both the win->port and port-mux loops wrote
+    // 0x608, which RK3576 does not map.
+    //
+    // mainline rk3576_vop2_setup_layer_mixer() (rockchip_vop2_reg.c:2384)
+    // starts from 0xffff -- 0xf per nibble means "this mixer layer is
+    // disabled" -- and fills in only the layers actually attached, so a
+    // mixer layer is never left pointed at a window nobody configured.
+    //
+    for (i = 0; i < Vop2->Data->NrVps; i++) {
+      UINT32  LayerSel = 0x0000FFFFU;
+
+      LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
+      for (j = 0; j < LayerNr; j++) {
+        LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
+        WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
+        if (WinData == NULL) {
+          continue;
+        }
+
+        LayerSel &= ~(LAYER_SEL_MASK << (j * 4));
+        LayerSel |= (UINT32)WinData->LayerSelWinID << (j * 4);
       }
 
-      Vop2MaskWrite (
+      Vop2Writel (
         Vop2->BaseAddress,
-        RK3568_OVL_LAYER_SEL,
-        LAYER_SEL_MASK,
-        Shift,
-        WinData->LayerSelWinID,
-        FALSE
+        RK3576_OVL_LAYER_SEL + i * RK3576_OVL_VP_OFFSET,
+        LayerSel
         );
-      Shift += 4;
+
+      //
+      // bg_dly is a fixed per-VP pipeline constant on RK3576, not RK3588's
+      // "max delay minus port-mux depth", so nothing needs to be carried out
+      // of this loop.  See Vop2PostConfig.
+      //
+      Crtc->Vps[i].BgOvlDly = 0;
     }
-  }
+  } else {
+    Shift = 0;
+    /* layer sel win id */
+    for (i = 0; i < Vop2->Data->NrVps; i++) {
+      LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
+      for (j = 0; j < LayerNr; j++) {
+        LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
+        WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
+        if (WinData == NULL) {
+          /* Layer not found in this SoC's window table; skip to avoid NULL deref */
+          Shift += 4;
+          continue;
+        }
 
-  /* win sel port */
-  for (i = 0; i < Vop2->Data->NrVps; i++) {
-    LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
-    for (j = 0; j < LayerNr; j++) {
-      if (!Vop2->VpPlaneMask[i].AttachedLayers[j]) {
-        continue;
+        Vop2MaskWrite (
+          Vop2->BaseAddress,
+          RK3568_OVL_LAYER_SEL,
+          LAYER_SEL_MASK,
+          Shift,
+          WinData->LayerSelWinID,
+          FALSE
+          );
+        Shift += 4;
+      }
+    }
+
+    /* win sel port */
+    for (i = 0; i < Vop2->Data->NrVps; i++) {
+      LayerNr = Vop2->VpPlaneMask[i].AttachedLayersNr;
+      for (j = 0; j < LayerNr; j++) {
+        if (!Vop2->VpPlaneMask[i].AttachedLayers[j]) {
+          continue;
+        }
+
+        LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
+        WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
+        if (WinData == NULL) {
+          continue;
+        }
+
+        Shift      = WinData->WinSelPortOffset * 2;
+        Vop2MaskWrite (
+          Vop2->BaseAddress,
+          RK3568_OVL_PORT_SEL,
+          LAYER_SEL_PORT_MASK,
+          LAYER_SEL_PORT_SHIFT + Shift,
+          i,
+          FALSE
+          );
+      }
+    }
+
+    /*
+     * port mux config
+     */
+    for (i = 0; i < Vop2->Data->NrVps; i++) {
+      Shift = i * 4;
+      if (Vop2->VpPlaneMask[i].AttachedLayersNr) {
+        TotalUsedLayer += Vop2->VpPlaneMask[i].AttachedLayersNr;
+        PortMux         = TotalUsedLayer - 1;
+      } else {
+        PortMux = 8;
       }
 
-      LayerPhyID = Vop2->VpPlaneMask[i].AttachedLayers[j];
-      WinData    = Vop2FindWinByPhysID (Vop2, LayerPhyID);
-      if (WinData == NULL) {
-        continue;
+      if (i == (Vop2->Data->NrVps - 1)) {
+        PortMux = Vop2->Data->NrMixers;
       }
 
-      Shift      = WinData->WinSelPortOffset * 2;
+      Crtc->Vps[i].BgOvlDly = (Vop2->Data->NrMixers - PortMux) << 1;
       Vop2MaskWrite (
         Vop2->BaseAddress,
         RK3568_OVL_PORT_SEL,
-        LAYER_SEL_PORT_MASK,
-        LAYER_SEL_PORT_SHIFT + Shift,
-        i,
+        PORT_MUX_MASK,
+        PORT_MUX_SHIFT + Shift,
+        PortMux,
         FALSE
         );
     }
-  }
-
-  /*
-   * port mux config
-   */
-  for (i = 0; i < Vop2->Data->NrVps; i++) {
-    Shift = i * 4;
-    if (Vop2->VpPlaneMask[i].AttachedLayersNr) {
-      TotalUsedLayer += Vop2->VpPlaneMask[i].AttachedLayersNr;
-      PortMux         = TotalUsedLayer - 1;
-    } else {
-      PortMux = 8;
-    }
-
-    if (i == (Vop2->Data->NrVps - 1)) {
-      PortMux = Vop2->Data->NrMixers;
-    }
-
-    Crtc->Vps[i].BgOvlDly = (Vop2->Data->NrMixers - PortMux) << 1;
-    Vop2MaskWrite (
-      Vop2->BaseAddress,
-      RK3568_OVL_PORT_SEL,
-      PORT_MUX_MASK,
-      PORT_MUX_SHIFT + Shift,
-      PortMux,
-      FALSE
-      );
   }
 
   Vop2->GlobalInit = TRUE;
@@ -2050,25 +2131,74 @@ Vop2PostConfig (
     Vop2Writel (Vop2->BaseAddress, RK3568_VP0_POST_DSP_VACT_INFO_F1 + VPOffset, Val);
   }
 
-  BgOvlDly   = Crtc->Vps[CrtcState->CrtcID].BgOvlDly;
-  BgDly      = Vop2->Data->VpData[CrtcState->CrtcID].PreScanMaxDly;
-  BgDly     -= BgOvlDly;
-  PreScanDly = BgDly + (HDisplay >> 1) - 1;
-  if ((Vop2->Version == VOP_VERSION_RK3588) && (HSyncLen < 8)) {
+  //
+  // BG_DLY and PRE_SCAN_HTIMING are a matched pair: PRE_SCAN_HTIMING[28:16]
+  // says how many dclks before active video the window's line prefetch
+  // starts, and BG_DLY delays the mixer background by the same amount so the
+  // composited line and the timing generator's active window line up.  They
+  // have to come from one number.
+  //
+  if (Vop2->Version == VOP_VERSION_RK3576) {
+    //
+    // RK3576 derives that number differently and keeps it somewhere else.
+    //
+    // The value is a fixed per-VP pipeline depth -- the sum of the window,
+    // layer-mix and HDR-mix delays -- not RK3588's "max delay minus the
+    // port-mux depth".  mainline rk3576_vop2_setup_bg_dly()
+    // (rockchip_vop2_reg.c:2466) sums pre_scan_max_dly[] from
+    // rk3576_vop_video_ports[] (:770): VP0 = 10 + 8 + 2 = 20,
+    // VP1 = 10 + 6 + 0 = 16, VP2 = 10 + 6 + 0 = 16.
+    //
+    // The register moved too.  RK3576 gives each VP its own overlay block, so
+    // BG_MIX_CTRL is 0x670 + vp * 0x100 (rockchip_drm_vop2.h:481).  The
+    // address this code used, 0x6E0 + vp * 4, is RK3568/RK3588's packed
+    // layout; on RK3576 it lands inside VP0's mixer area for VP0 and on VP1's
+    // overlay block for the others.
+    //
+    // Net effect before this change: we wrote 38 into the pre-scan
+    // calculation instead of 20, and RK3576's real BG_DLY was left at reset.
+    //
+    STATIC CONST UINT8  Rk3576BgDly[] = { 20, 16, 16 };
+
+    BgDly = Rk3576BgDly[CrtcState->CrtcID];
+
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3576_OVL_BG_MIX_CTRL + CrtcState->CrtcID * RK3576_OVL_VP_OFFSET,
+      BG_MIX_CTRL_MASK,
+      BG_MIX_CTRL_SHIFT,
+      BgDly,
+      FALSE
+      );
+  } else {
+    BgOvlDly = Crtc->Vps[CrtcState->CrtcID].BgOvlDly;
+    BgDly    = Vop2->Data->VpData[CrtcState->CrtcID].PreScanMaxDly;
+    BgDly   -= BgOvlDly;
+
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_VP0_BG_MIX_CTRL + CrtcState->CrtcID * 4,
+      BG_MIX_CTRL_MASK,
+      BG_MIX_CTRL_SHIFT,
+      BgDly,
+      FALSE
+      );
+  }
+
+  //
+  // The vendor BSP applies this clamp on RK3576 as well as RK3588
+  // (rockchip_drm_vop2.c:9694): "pre_scan_hblank minimum value is 8,
+  // otherwise the win reset signal will lead to first line data be zero".
+  // It does not bite at 1080p (hsync is 44) but the reason it exists is not
+  // RK3588-specific.
+  //
+  if (HSyncLen < 8) {
     HSyncLen = 8;
   }
 
+  PreScanDly = BgDly + (HDisplay >> 1) - 1;
   PreScanDly = (PreScanDly << 16) | HSyncLen;
-  Vop2MaskWrite (
-    Vop2->BaseAddress,
-    RK3568_VP0_BG_MIX_CTRL + CrtcState->CrtcID * 4,
-    BG_MIX_CTRL_MASK,
-    BG_MIX_CTRL_SHIFT,
-    BgDly,
-    FALSE
-    );
   Vop2Writel (Vop2->BaseAddress, RK3568_VP0_PRE_SCAN_HTIMING + VPOffset, PreScanDly);
-
 }
 
 STATIC
@@ -2178,6 +2308,41 @@ Vop2PreInit (
     // already brought the domains up, the rest of bring-up still works, and
     // returning early would turn a working board into a dark one.
     //
+    //
+    // Before touching anything, say what state we inherited.
+    //
+    // This bug has resisted register inspection for weeks because everything
+    // readable *inside* VOP2 looks identical on a boot that shows a picture
+    // and one that does not -- and VOP2's own registers cannot be read
+    // speculatively here anyway (RK_VOP2_DIAG_READS is 0 for a reason).
+    // Every address below is outside the VOP2 window: PMU status, CRU
+    // mux/gate state, PMU1CRU resets, and the PHY reference-clock select.
+    // They are what the SPL left us, which is the one thing that plausibly
+    // differs between a good boot and a bad one.
+    //
+    // Collect this on a boot that produces a picture and one that does not,
+    // and the difference -- if there is one -- is in these fourteen words.
+    //
+    DEBUG ((
+      DEBUG_ERROR,
+      "[RK3576-INHERIT] PMU pwr=%08x repair=%08x req=%08x ack=%08x idle=%08x\n",
+      MmioRead32 (0x27380210), MmioRead32 (0x27380570), MmioRead32 (0x27380110),
+      MmioRead32 (0x27380120), MmioRead32 (0x27380128)
+      ));
+    DEBUG ((
+      DEBUG_ERROR,
+      "[RK3576-INHERIT] CRU sel144=%08x sel145=%08x sel147=%08x sel149=%08x\n",
+      MmioRead32 (0x27200540), MmioRead32 (0x27200544),
+      MmioRead32 (0x2720054C), MmioRead32 (0x27200554)
+      ));
+    DEBUG ((
+      DEBUG_ERROR,
+      "[RK3576-INHERIT] CRU gate61=%08x gate63=%08x  PMU1CRU rst00=%08x rst01=%08x  PHYREF=%08x\n",
+      MmioRead32 (0x272008F4), MmioRead32 (0x272008FC),
+      MmioRead32 (0x27220A00), MmioRead32 (0x27220A04),
+      MmioRead32 (0x26024018)
+      ));
+
     PdStatus = Rk3576DisplayPowerDomainsOn ();
     if (EFI_ERROR (PdStatus)) {
       VOP2_TRACE ("Vop2PreInit: display power domains: %r (continuing)\n", PdStatus);
@@ -3031,6 +3196,12 @@ Vop2Init (
    */
   Vop2SetClk (CrtcState->CrtcID, DclkRate * 1000);
 
+  //
+  // Both halves.  This used to write NUM0 twice, leaving NUM1 at reset;
+  // mainline writes (act_end << 16) | act_end in one go
+  // (rockchip_drm_vop2.c:1878).  Nothing here consumes the line-flag
+  // interrupt, so the duplicate was harmless -- but it read as intent.
+  //
   Vop2MaskWrite (
     Vop2->BaseAddress,
     RK3568_SYS_CTRL_LINE_FLAG0 + LineFlagOffset,
@@ -3043,7 +3214,7 @@ Vop2Init (
     Vop2->BaseAddress,
     RK3568_SYS_CTRL_LINE_FLAG0 + LineFlagOffset,
     LINE_FLAG_NUM_MASK,
-    RK3568_DSP_LINE_FLAG_NUM0_SHIFT,
+    RK3568_DSP_LINE_FLAG_NUM1_SHIFT,
     ActEnd,
     FALSE
     );
@@ -3448,6 +3619,96 @@ Vop2SetSmartWin (
 
   Vop2SetupScale (Vop2, WinData, SrcW, SrcH, CrtcW, CrtcH);
 
+  if (Vop2->Version == VOP_VERSION_RK3576) {
+    //
+    // On RK3576 a window says which video port it feeds; there is no global
+    // OVL_PORT_SEL to say it for them (see Vop2GlobalInitial).  mainline
+    // writes this field on every window enable from VOP_VERSION_RK3576 up --
+    // rockchip_drm_vop2.c:1358, mapped to <win>+0xF4 bits[1:0] at
+    // rockchip_vop2_reg.c:506.
+    //
+    // Left unwritten, the window keeps whatever port it was pointed at by
+    // reset or by whoever ran the display before us, and if that is not VP0
+    // then VP0 composites nothing but its background -- black, behind a
+    // perfectly correct sync.  Nothing this firmware reads back would say so.
+    //
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3576_ESMART0_PORT_SEL_IMD + WinOffset,
+      RK3576_WIN_PORT_SEL_MASK,
+      RK3576_WIN_PORT_SEL_SHIFT,
+      CrtcState->CrtcID,
+      FALSE
+      );
+
+    //
+    // Per-window delay, zeroed on every enable by mainline
+    // rk3576_vop2_setup_dly_for_windows() (rockchip_vop2_reg.c:2412).  A
+    // non-zero value here delays this window's data relative to the pre-scan
+    // that BG_DLY was matched to, which blanks leading lines.
+    //
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3576_ESMART0_DLY_NUM + WinOffset,
+      0xFF,
+      0,
+      0,
+      FALSE
+      );
+
+    //
+    // AXI read IDs.  mainline programs these for every VOP2 newer than
+    // RK3568 (rockchip_drm_vop2.c:1352); the RK3576 Esmart values come from
+    // rk3576_vop_win_data (rockchip_vop2_reg.c:888-940).  The ID picks which
+    // AXI outstanding-transaction slot the window's read DMA uses, and the
+    // table's own comment says 0x0 and 0xf are not legal choices.
+    //
+    // Esmart0..3 are 0x200 apart, so RegOffset indexes the table directly.
+    // (The PhysID enum cannot: ESMART0/1 are 2/3 but ESMART2/3 are 8/9.)
+    STATIC CONST UINT8  Rk3576EsmartBusId[]   = { 0,    0,    1,    1    };
+    STATIC CONST UINT8  Rk3576EsmartYrgbRid[] = { 0x10, 0x12, 0x0A, 0x0C };
+    STATIC CONST UINT8  Rk3576EsmartUvRid[]   = { 0x11, 0x13, 0x0B, 0x0D };
+    UINT32              WinIndex              = WinOffset / 0x200;
+
+    ASSERT (WinIndex < ARRAY_SIZE (Rk3576EsmartYrgbRid));
+
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3576_ESMART0_AXI_CTRL + WinOffset,
+      RK3576_WIN_AXI_BUS_ID_MASK,
+      RK3576_WIN_AXI_BUS_ID_SHIFT,
+      Rk3576EsmartBusId[WinIndex],
+      FALSE
+      );
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_ESMART0_CTRL1 + WinOffset,
+      RK3576_WIN_AXI_YRGB_RID_MASK,
+      RK3576_WIN_AXI_YRGB_RID_SHIFT,
+      Rk3576EsmartYrgbRid[WinIndex],
+      FALSE
+      );
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_ESMART0_CTRL1 + WinOffset,
+      RK3576_WIN_AXI_UV_RID_MASK,
+      RK3576_WIN_AXI_UV_RID_SHIFT,
+      Rk3576EsmartUvRid[WinIndex],
+      FALSE
+      );
+
+    //
+    // Alpha map: fully opaque.  Neither kernel writes this on the plain
+    // opaque path, so its reset value is presumably already opaque -- but
+    // "presumably" is the whole problem with this bug, the register is
+    // per-window state nobody here has ever read, and a window that
+    // composites transparent over a black background looks exactly like a
+    // window that is not reaching the port at all.  The vendor UEFI build
+    // that produces a stable picture writes 0xFFFFFFFF here.
+    //
+    Vop2Writel (Vop2->BaseAddress, RK3576_ESMART0_ALPHA_MAP + WinOffset, 0xFFFFFFFF);
+  }
+
   if (YMirror) {
     CrtcState->DMAAddress += (SrcH - 1) * XVirtual * 4;
   }
@@ -3655,11 +3916,37 @@ Vop2Enable (
    *
    * Written unmasked: this is a plain RW register, not a HIWORD one, and the
    * other bits are the per-domain sub-gates which follow the top-level bit.
+   *
+   * On RK3576 the top-level bit is not enough.  Bit 7 is a second, separate
+   * detector -- aclk_pre_auto_gating_en -- that exists only on RK3528, RK3562
+   * and RK3576, which is why mainline has no name for it: mainline's VOP2
+   * support covers RK3568/RK3576/RK3588 and its RK3576 path simply never
+   * learned about the bit.  The vendor BSP clears it for exactly those three
+   * parts and states the symptom (rockchip_drm_vop2.c:4599):
+   *
+   *   "The aclk pre auto gating function may disable the aclk in some
+   *    unexpected cases, which detected by hardware automatically.  For
+   *    example, if the above function is enabled, the post scale function
+   *    will be affected, resulting in abnormal display."
+   *
+   * This is the one difference found so far whose *nature* matches the
+   * intermittency: a hardware idle detector on the post pipeline's aclk fires
+   * or does not fire depending on when bus activity happens to start, the
+   * timing generator keeps running on dclk either way, and the register file
+   * reads back identically in both cases.
    */
-  MmioWrite32 (
-    Vop2->BaseAddress + RK3568_AUTO_GATING_CTRL,
-    MmioRead32 (Vop2->BaseAddress + RK3568_AUTO_GATING_CTRL) & ~(UINT32)BIT31
-    );
+  {
+    UINT32  GateMask = RK3568_AUTO_GATING_EN;
+
+    if (Vop2->Version == VOP_VERSION_RK3576) {
+      GateMask |= RK3576_ACLK_PRE_AUTO_GATING_EN;
+    }
+
+    MmioWrite32 (
+      Vop2->BaseAddress + RK3568_AUTO_GATING_CTRL,
+      MmioRead32 (Vop2->BaseAddress + RK3568_AUTO_GATING_CTRL) & ~GateMask
+      );
+  }
 
   /*
    * STANDBY is deliberately NOT cleared here.  It is cleared once, later, in
