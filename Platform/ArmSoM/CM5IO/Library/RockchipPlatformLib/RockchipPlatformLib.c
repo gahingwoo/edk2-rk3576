@@ -538,8 +538,20 @@ HdmiTxIomux (
       /* CLKGATE_CON(62): DCLK_VP1, DCLK_VP2 */
       MmioWrite32 (CRU_CLKGATE_CON(62), 0x00030000 | 0x0000);
 
-      /* CLKGATE_CON(63): VO0 root clocks */
-      MmioWrite32 (CRU_CLKGATE_CON(63), 0x000B0000 | 0x0000);
+      /*
+       * CLKGATE_CON(63): VO0 root clocks, plus ACLK/HCLK/PCLK_HDCP0.
+       *
+       * The HDCP0 clocks (bits 12/13/14) are not here for HDCP -- they are in
+       * PD_VO0's devicetree clock list (rk3576.dtsi:1247), and Rockchip's
+       * pm-domains driver enables a domain's clocks across the power-up
+       * handshake (pm-domains.c:666).  The HDCP0 bus interface sits inside
+       * PD_VO0, so with those clocks gated the interconnect has nothing to
+       * answer the NIU idle-exit handshake with.
+       *
+       * The vendor UEFI build that produces a stable picture on ROCK 4D
+       * writes exactly this value here.
+       */
+      MmioWrite32 (CRU_CLKGATE_CON(63), 0x700B0000 | 0x0000);
 
       /* CLKGATE_CON(64): HDMI TX clocks */
       MmioWrite32 (CRU_CLKGATE_CON(64), 0x03800000 | 0x0000);
@@ -554,10 +566,27 @@ HdmiTxIomux (
         ((BIT (6) | BIT (5)) << 16) | (BIT (6) | BIT (5)));
       MicroSecondDelay (100);
 
-      /* Deassert HDMI TX software resets */
-      MmioWrite32 (CRU_SOFTRST_CON (22), (0x0040U << 16) | 0U);
-      MmioWrite32 (CRU_SOFTRST_CON (28), (0x0020U << 16) | 0U);
-      MmioWrite32 (CRU_SOFTRST_CON (25), (0x0020U << 16) | 0U);
+      /*
+       * Deassert the HDMI TX software resets.
+       *
+       * These three used to be CRU SOFTRST_CON22 bit 6, CON28 bit 5 and
+       * CON25 bit 5, derived by taking mainline's reset *index* and applying
+       * the vendor binding's ID/16 encoding to it -- two incompatible
+       * numbering schemes (the same mistake the HDPTX PHY resets carried;
+       * see the note in DwHdmiQpLib.h).  Per rst-rk3576.c those addresses are
+       * DDR and NPU reset registers, and the resets meant here are:
+       *
+       *   SRST_HDMITX0_REF        CRU     SOFTRST_CON64 bit 9   (:476)
+       *   SRST_LINKSYM_HDMITXPHY0 CRU     SOFTRST_CON75 bit 1   (:537)
+       *   SRST_HDMITXHDP          PMU1CRU SOFTRST_CON01 bit 13  (:599)
+       *
+       * SRST_HDMITXHDP gates the hot-plug-detect block.  CLK_HDMITXHDP is
+       * ungated above; the reset was never released, which is a candidate
+       * for ROCK 4D reading HPD low while DDC -- a separate block -- works.
+       */
+      MmioWrite32 (CRU_SOFTRST_CON (64), (BIT (9) << 16) | 0U);
+      MmioWrite32 (CRU_SOFTRST_CON (75), (BIT (1) << 16) | 0U);
+      MmioWrite32 (PMU1CRU_BASE + 0xA04, (BIT (13) << 16) | 0U);
 
       MicroSecondDelay (5 * 1000);
       DEBUG ((DEBUG_INFO,

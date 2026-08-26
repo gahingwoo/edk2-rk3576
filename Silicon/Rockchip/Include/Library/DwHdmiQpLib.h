@@ -965,33 +965,67 @@
 #define RK3576_HDMI_HPD_INT_CLR   BIT1
 
 #define RK3576_IOC_HDMI_HPD_STATUS  0xA440
-#define RK3576_HDMI_LEVEL_INT       BIT3
+//
+// IOC_HDMI_HPD_STATUS bit names, from the vendor BSP
+// (dw_hdmi-rockchip.c:102-108).  Mainline names none of these.
+//
+#define RK3576_HDMI_LOW_MORETHAN100MS  BIT7
+#define RK3576_HDMI_HPD_PORT_LEVEL     BIT6   // the HPD pin level
+#define RK3576_HDMI_IHPD_PORT          BIT5
+#define RK3576_HDMI_OHPD_INT           BIT4
+#define RK3576_HDMI_LEVEL_INT          BIT3   // latched level interrupt
+#define RK3576_HDMI_INTR_CHANGE_CNT    0x7    // HPD toggle counter, not a state
 
 //
-// RK3576 main CRU HDPTX reset layout (from upstream Linux
-// dt-bindings/reset/rockchip,rk3576-cru.h and vendor DTB verification).
-// HDPTX resets are in &cru (main CRU @ 0x27200000), NOT in PMU1CRU.
-// Reset IDs: SRST_HDPTX_INIT=450, SRST_HDPTX_CMN=451, SRST_HDPTX_LANE=452
-// Formula: CON = ID/16 = 28, bit = ID%16 = 2/3/4
-// SOFTRST_CON28 = CRU_BASE + 0xA00 + 28*4 = CRU_BASE + 0xA70
-//   bit 2 = SRST_HDPTX_INIT
-//   bit 3 = SRST_HDPTX_CMN
-//   bit 4 = SRST_HDPTX_LANE
+// RK3576 HDPTX PHY resets live in PMU1CRU, not in the main CRU.
 //
+// This was wrong here for a long time, and the way it was wrong is worth
+// writing down because the same trap catches every reset in this SoC.
 //
-// RK3576 main BUS CRU base address (AHB/APB, NOT PMU1CRU).
-// The main CRU is at 0x27200000; HDPTX resets live here, not at
-// the RK3588 CRU address (0xFD7C0000). DwHdmiQpLib.inf currently only
-// includes RK3588.dec, so CRU_BASE resolves to 0xFD7C0000 via Soc.h.
-// Use this explicit constant everywhere MainCruWrite() is called for RK3576.
+// Mainline's reset *IDs* are plain array indices into
+// rk3576_register_offset[]; the register and bit come from the table entry,
+// not from the number:
 //
-#define RK3576_MAIN_CRU_BASE      0x27200000UL
+//   rst-rk3576.c:571  RK3576_PMU1CRU_RESET_OFFSET(SRST_P_HDPTX_APB, 0, 1)
+//   rst-rk3576.c:596  RK3576_PMU1CRU_RESET_OFFSET(SRST_HDPTX_INIT,  1, 9)
+//   rst-rk3576.c:597  RK3576_PMU1CRU_RESET_OFFSET(SRST_HDPTX_CMN,   1, 10)
+//   rst-rk3576.c:598  RK3576_PMU1CRU_RESET_OFFSET(SRST_HDPTX_LANE,  1, 11)
+//   rst-rk3576.c:599  RK3576_PMU1CRU_RESET_OFFSET(SRST_HDMITXHDP,   1, 13)
+//
+// The *vendor* binding encodes register and bit into the number instead --
+// (cru_sel << 16) | (reg * 16 + bit), cru_sel 8 meaning PMU1CRU:
+//
+//   SRST_P_HDPTX_APB = 524289 = 0x80001 -> PMU1CRU, reg 0, bit 1
+//   SRST_HDPTX_INIT  = 524313 = 0x80019 -> PMU1CRU, reg 1, bit 9   (25 = 1*16+9)
+//
+// Both sources agree exactly.  What this header used to do was take
+// mainline's index (450, 451, 452) and apply the vendor's ID/16 formula to
+// it, producing main-CRU SOFTRST_CON28 bits 2/3/4 -- which per rst-rk3576.c
+// is the RKNN0 (NPU) reset register, with those bits unassigned.  The APB
+// reset was aimed at SOFTRST_CON26, the DDR channel-1 controller's reset
+// register.
+//
+// So none of the HDPTX resets were ever driven: the PHY was configured on
+// top of whatever state the previous run left, and the release edges that
+// make the PLL and lane state machines latch their configuration never
+// happened.
+//
+#define RK3576_MAIN_CRU_BASE          0x27200000UL
+#define RK3576_PMU1CRU_BASE           0x27220000UL
 
-// SRST_P_HDPTX_APB = 428 → CON26 bit12 (0xA00 + 26*4 = 0xA68)
-#define RK3576_CRU_SOFTRST_CON26  0xA68
-#define RK3576_HDPTX_APB_RST      BIT(12)
+#define RK3576_PMU1CRU_SOFTRST_CON00  0xA00
+#define RK3576_PMU1CRU_SOFTRST_CON01  0xA04
 
-#define RK3576_CRU_SOFTRST_CON28  0xA70
+#define RK3576_HDPTX_GRF_RST          BIT (0)    // CON00: SRST_P_HDPTX_GRF
+#define RK3576_HDPTX_APB_RST          BIT (1)    // CON00: SRST_P_HDPTX_APB
+#define RK3576_HDMITXHDP_RST          BIT (13)   // CON01: SRST_HDMITXHDP
+
+//
+// SRST_LINKSYM_HDMITXPHY0 is in the MAIN CRU, unlike the PHY resets above:
+//   rst-rk3576.c:537  RK3576_CRU_RESET_OFFSET(SRST_LINKSYM_HDMITXPHY0, 75, 1)
+//
+#define RK3576_CRU_SOFTRST_CON75      0xB2C
+#define RK3576_LINKSYM_HDMITXPHY0_RST BIT (1)
 
 //
 // SOFTRST_CON(n) = 0xA00 + n*4, which the two defines above and below agree on.
@@ -1004,9 +1038,9 @@
 //
 #define RK3576_CRU_SOFTRST_CON64  0xB00
 #define RK3576_HDMITX0_REF_RST    BIT (9)
-#define RK3576_HDPTX_INIT_RST     BIT(2)
-#define RK3576_HDPTX_CMN_RST      BIT(3)
-#define RK3576_HDPTX_LANE_RST     BIT(4)
+#define RK3576_HDPTX_INIT_RST     BIT (9)    // PMU1CRU CON01: SRST_HDPTX_INIT
+#define RK3576_HDPTX_CMN_RST      BIT (10)   // PMU1CRU CON01: SRST_HDPTX_CMN
+#define RK3576_HDPTX_LANE_RST     BIT (11)   // PMU1CRU CON01: SRST_HDPTX_LANE
 #define RK3576_HDPTX_ALL_RST      (RK3576_HDPTX_INIT_RST | \
                                    RK3576_HDPTX_CMN_RST  | \
                                    RK3576_HDPTX_LANE_RST)

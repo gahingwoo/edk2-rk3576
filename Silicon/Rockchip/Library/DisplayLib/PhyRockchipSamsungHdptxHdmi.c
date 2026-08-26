@@ -55,12 +55,31 @@
 #define HDPTX_O_SB_RDY         BIT(0)
 
 //
-// Number of full PLL/lane bring-up attempts before giving up.  A single
-// marginal lock used to leave HDMI dark until the next cold boot ("sometimes
-// signal, sometimes not"); retrying with a reset in between makes bring-up
-// deterministic.
+// Bits per component on the HDMI link.  Everything in this firmware's path is
+// 8bpc: VOP2 emits RGB888, VO0_GRF_SOC_CON8 carries the 8bpc code, and the AVI
+// InfoFrame says 8bpc.  It exists as a name so the one place that has to
+// derive a register field from it (PLL_PCG_CLK_SEL) does so visibly rather
+// than through a literal.
 //
-#define HDPTX_LOCK_RETRIES     3
+#define HDPTX_HDMI_BPC  8
+
+//
+// Number of full PLL/lane bring-up attempts before giving up.
+//
+// This was 3, on the theory that retrying with a reset in between would
+// recover a marginal lock.  It could not have: every "reset" inside the retry
+// path wrote to the wrong register (see the reset-address note in
+// DwHdmiQpLib.h), so a retry was a bare re-poll of a status bit that was not
+// going to change.  The log has never once shown attempt > 0.
+//
+// Now that the resets go to the registers they name, a retry would genuinely
+// assert INIT|CMN or LANE and release them again *without* re-running the
+// register programming those blocks hold -- and whether a CMN or lane block
+// survives its own reset with its register bank intact is not documented in
+// either kernel.  Mainline never retries.  Neither do we, until there is a
+// reason to and a way to test it.
+//
+#define HDPTX_LOCK_RETRIES     1
 
 #define CMN_REG0000    0x0000
 #define CMN_REG0001    0x0004
@@ -839,17 +858,14 @@ GrfRead (
   return MmioRead32 (Shift + Reg);
 }
 
-/* MainCruWrite: HIWORD write to the main CRU (RK3576_MAIN_CRU_BASE = 0x27200000).
- * The RK3576 HDPTX PHY resets live in the main CRU, not in PMU1CRU.
+/* Pmu1CruWrite: HIWORD write to PMU1CRU (0x27220000).
  *
- * The address is spelled out rather than taken from Soc.h's CRU_BASE because
- * this module used to be compiled with RK3588's Soc.h on its include path --
- * DwHdmiQpLib.inf referenced RK3588.dec -- so CRU_BASE resolved to 0xFD7C0000.
- * That package reference is gone now, but the explicit constant stays: it says
- * which CRU is meant without the reader having to work out which Soc.h won. */
+ * The HDPTX PHY's own resets live here, not in the main CRU -- see the long
+ * note on the reset encoding in DwHdmiQpLib.h.  Two CRUs, two accessors, so
+ * a call site cannot silently mean the wrong one. */
 STATIC
 VOID
-MainCruWrite (
+Pmu1CruWrite (
   UINTN  Reg,
   UINTN  Mask,
   UINTN  Val
@@ -858,7 +874,7 @@ MainCruWrite (
   UINT32  TempVal = 0;
 
   TempVal = (Mask << 16) | (Val & Mask);
-  MmioWrite32 (RK3576_MAIN_CRU_BASE + Reg, TempVal);
+  MmioWrite32 (RK3576_PMU1CRU_BASE + Reg, TempVal);
 }
 
 STATIC
@@ -916,25 +932,26 @@ HdptxPrePowerUp (
   PhyWrite (Hdptx, LANE_REG0601, 0x80);
 #endif
 
-  /* APB reset cycle: resets PHY APB register bank to hardware defaults.
-   * This clears stale values (e.g. LANE_REG0301 EI override) left by previous
-   * power cycles or boot firmware.  Mirrors kernel rk_hdptx_pre_power_up().
-   * SRST_P_HDPTX_APB = 428 → SOFTRST_CON26 (0xA68) bit12. */
-  PHY_TRACE ("PrePowerUp: APB reset assert  (CRU+0xA68 bit12)\n");
-  MainCruWrite (RK3576_CRU_SOFTRST_CON26, RK3576_HDPTX_APB_RST, RK3576_HDPTX_APB_RST);
+  /* APB reset cycle: returns the PHY register bank to hardware defaults,
+   * clearing whatever a previous run left behind (nothing disables this PHY
+   * between our runs).  Mirrors mainline rk_hdptx_pre_power_up().
+   * SRST_P_HDPTX_APB: PMU1CRU SOFTRST_CON00 bit 1 (rst-rk3576.c:572). */
+  PHY_TRACE ("PrePowerUp: APB reset assert  (PMU1CRU+0xA00 bit1)\n");
+  Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON00, RK3576_HDPTX_APB_RST, RK3576_HDPTX_APB_RST);
   NanoSecondDelay (20000);  /* 20 us — matches kernel usleep_range(20,25) */
-  PHY_TRACE ("PrePowerUp: APB reset deassert (CRU+0xA68 bit12)\n");
-  MainCruWrite (RK3576_CRU_SOFTRST_CON26, RK3576_HDPTX_APB_RST, 0);
+  PHY_TRACE ("PrePowerUp: APB reset deassert (PMU1CRU+0xA00 bit1)\n");
+  Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON00, RK3576_HDPTX_APB_RST, 0);
 
-  /* assert lane/cmn/init reset */
-  /* RK3576: single PHY, main CRU SOFTRST_CON28 (0xA70) bits 4/3/2.
-   * SRST_HDPTX_INIT=450(bit2), SRST_HDPTX_CMN=451(bit3), SRST_HDPTX_LANE=452(bit4)
-   * Verified from dt-bindings/reset/rockchip,rk3576-cru.h + vendor DTB. */
-  PHY_TRACE ("PrePowerUp: assert ALL_RST (init|cmn|lane) -> CRU+0xA70 mask=0x%x\n",
+  /* Assert lane/cmn/init.  Mainline holds all three across the whole ROPLL,
+   * LNTOP and lane programming and releases them one at a time, interleaved
+   * with the GRF enables -- that release edge is what makes each block latch
+   * what was written to it (phy-rockchip-samsung-hdptx.c:947).
+   * PMU1CRU SOFTRST_CON01 bits 9/10/11 (rst-rk3576.c:596). */
+  PHY_TRACE ("PrePowerUp: assert ALL_RST (init|cmn|lane) -> PMU1CRU+0xA04 mask=0x%x\n",
              RK3576_HDPTX_ALL_RST);
-  MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_ALL_RST, RK3576_HDPTX_ALL_RST);
-  PHY_TRACE ("PrePowerUp: CRU_SOFTRST_CON28=0x%08x\n",
-             MmioRead32 (RK3576_MAIN_CRU_BASE + RK3576_CRU_SOFTRST_CON28));
+  Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_ALL_RST, RK3576_HDPTX_ALL_RST);
+  PHY_TRACE ("PrePowerUp: PMU1CRU_SOFTRST_CON01=0x%08x\n",
+             MmioRead32 (RK3576_PMU1CRU_BASE + RK3576_PMU1CRU_SOFTRST_CON01));
 
   Val = HDPTX_I_PLL_EN | HDPTX_I_BIAS_EN | HDPTX_I_BGR_EN;
   GrfWrite (Hdptx, GRF_HDPTX_CON0, Val, 0);
@@ -960,8 +977,8 @@ HdptxPostEnablePll (
   for (Attempt = 0; Attempt < HDPTX_LOCK_RETRIES; Attempt++) {
     if (Attempt > 0) {
       PHY_TRACE ("PostEnablePll: retry %u — re-assert INIT+CMN reset\n", Attempt);
-      MainCruWrite (
-        RK3576_CRU_SOFTRST_CON28,
+      Pmu1CruWrite (
+        RK3576_PMU1CRU_SOFTRST_CON01,
         RK3576_HDPTX_INIT_RST | RK3576_HDPTX_CMN_RST,
         RK3576_HDPTX_INIT_RST | RK3576_HDPTX_CMN_RST
         );
@@ -973,7 +990,7 @@ HdptxPostEnablePll (
     NanoSecondDelay (10000);
     /* deassert init reset */
     PHY_TRACE ("PostEnablePll: deassert INIT_RST (CRU+0xA70 bit2)\n");
-    MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_INIT_RST, 0);
+    Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_INIT_RST, 0);
 
     NanoSecondDelay (10000);
     Val = HDPTX_I_PLL_EN;
@@ -981,7 +998,7 @@ HdptxPostEnablePll (
     NanoSecondDelay (10000);
     /* deassert cmn reset */
     PHY_TRACE ("PostEnablePll: deassert CMN_RST (CRU+0xA70 bit3)\n");
-    MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_CMN_RST, 0);
+    Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_CMN_RST, 0);
 
     /*
      * Settling delay before status polling — avoids reading stale GRF status
@@ -1385,13 +1402,36 @@ HdptxRopllCmnConfig (
     PLL_PCG_POSTDIV_SEL (Cfg->Pms_Sdiv)
     );
 
+  //
+  // PLL_PCG_CLK_SEL is the deep-colour divider on the pixel-clock generator:
+  // mainline computes it as (bpc - 8) >> 1, so 8bpc -> 0, 10bpc -> 1, 12bpc ->
+  // 2 (phy-rockchip-samsung-hdptx.c:1265).  The vendor agrees, and its
+  // companion line shows what the field means: for deep colour the ROPLL is
+  // programmed 10/8 higher and CLK_SEL divides it back down
+  // (phy-rockchip-samsung-hdptx-hdmi.c:1172, :1325).
+  //
+  // This path is 8bpc from end to end -- VOP2 emits RGB888, VO0_GRF_SOC_CON8
+  // carries the 8bpc code, the AVI InfoFrame says 8bpc, and the ROPLL is
+  // programmed from the 1485000 table entry, which is the 8bpc character
+  // rate.  So the field is 0.
+  //
+  // It was 1 because a devmem dump from a working Linux session showed
+  // CMN_REG0086 = 0x13.  That session was 2560x1440, and the Rockchip glue
+  // sets plat_data.max_bpc = 10, so Linux had negotiated 10bpc -- where 1 is
+  // the right answer.  This is the same misreading of the same dump that
+  // 586af04 corrected for VO0_GRF_SOC_CON8; two registers were calibrated
+  // against that session and only one was fixed.
+  //
+  // With CLK_SEL = 1 on an 8bpc ROPLL, clk_hdmiphy_pixel0 comes out at
+  // 148.5 * 8/10 = 118.8 MHz.  That clock is DCLK_VP0's parent after the mux
+  // switch, so VOP2's timing generator runs 20% slow against a 148.5 Mchar/s
+  // link and the frame composer is starved.
+  //
   PhyUpdateBits (
     Hdptx,
     CMN_REG0086,
     PLL_PCG_CLK_SEL_MASK,
-    PLL_PCG_CLK_SEL (1)    /* Bug#9: Linux measures CMN_R0086=0x13 (CLK_SEL=1) at 2560x1440@60Hz;
-                            *         match Linux even for 8bpc — CLK_SEL may select a high-freq
-                            *         pixel-clock path rather than bpc encoding depth. */
+    PLL_PCG_CLK_SEL ((HDPTX_HDMI_BPC - 8) >> 1)
     );
 
   PhyUpdateBits (Hdptx, CMN_REG0086, PLL_PCG_CLK_EN, PLL_PCG_CLK_EN);
@@ -1435,12 +1475,12 @@ HdptxPostEnableLane (
     /* (re-)deassert lane reset */
     if (Attempt > 0) {
       PHY_TRACE ("PostEnableLane: retry %u — re-assert LANE_RST\n", Attempt);
-      MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_LANE_RST, RK3576_HDPTX_LANE_RST);
+      Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_LANE_RST, RK3576_HDPTX_LANE_RST);
       NanoSecondDelay (20000);
     }
 
     PHY_TRACE ("PostEnableLane: deassert LANE_RST (CRU+0xA70 bit4)\n");
-    MainCruWrite (RK3576_CRU_SOFTRST_CON28, RK3576_HDPTX_LANE_RST, 0);
+    Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_LANE_RST, 0);
 
     Val = HDPTX_I_BIAS_EN | HDPTX_I_BGR_EN;
     GrfWrite (Hdptx, GRF_HDPTX_CON0, Val, Val);

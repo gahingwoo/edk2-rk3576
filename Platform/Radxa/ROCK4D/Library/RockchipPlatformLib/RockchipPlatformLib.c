@@ -682,13 +682,22 @@ HdmiTxIomux (
       MmioWrite32 (CRU_CLKGATE_CON(62),
         0x00030000 | 0x0000);
 
-      /* CLKGATE_CON(63): VO0 Root Clocks
+      /* CLKGATE_CON(63): VO0 Root Clocks + HDCP0
        * BIT[0]: ACLK_VO0_ROOT
        * BIT[1]: HCLK_VO0_ROOT
        * BIT[3]: PCLK_VO0_ROOT
+       * BIT[12]: ACLK_HDCP0   BIT[13]: HCLK_HDCP0   BIT[14]: PCLK_HDCP0
+       *
+       * The HDCP0 clocks are not here for HDCP.  They are in PD_VO0's
+       * devicetree clock list (rk3576.dtsi:1247), and Rockchip's pm-domains
+       * driver enables a domain's clocks across the power-up handshake
+       * (pm-domains.c:666) -- the HDCP0 bus interface is inside PD_VO0, and
+       * with its clocks gated the interconnect cannot complete the NIU
+       * idle-exit handshake.  The vendor UEFI build that puts a stable
+       * picture out on this board writes exactly this value.
        */
       MmioWrite32 (CRU_CLKGATE_CON(63),
-        0x000B0000 | 0x0000);
+        0x700B0000 | 0x0000);
 
       /* CLKGATE_CON(64): HDMI TX Clocks
        * BIT[7]: PCLK_HDMITX0
@@ -766,21 +775,31 @@ HdmiTxIomux (
        * CRU SOFTRST uses HIWORD-mask format: top 16 bits = write-enable mask,
        * low 16 bits = value.  Writing 0 (deassert) to the bit position:
        *
-       *   SRST_HDMITX0_REF = reset ID 358 → SOFTRST_CON22 bit 6
-       *     address = CRU_BASE + 0xA00 + 22*4 = 0x27200000 + 0xA58
-       *   SRST_HDMITXHDP   = reset ID 453 → SOFTRST_CON28 bit 5
-       *     address = CRU_BASE + 0xA00 + 28*4 = 0x27200000 + 0xA70
+       * These three used to be derived by taking mainline's reset *index*
+       * (358, 453, 405) and applying the vendor binding's ID/16 encoding to
+       * it.  Those are two incompatible numbering schemes: mainline's IDs are
+       * plain array indices into rk3576_register_offset[], and the register
+       * and bit come from the table entry.  (The HDPTX PHY resets carried the
+       * same mistake -- see the note in DwHdmiQpLib.h.)
+       *
+       * Per rst-rk3576.c the addresses being written were SOFTRST_CON22 and
+       * CON25, which are DDR controller reset registers, and CON28, which is
+       * the NPU's.  The real ones:
+       *
+       *   SRST_HDMITX0_REF        CRU     SOFTRST_CON64 bit 9   (:476)
+       *   SRST_LINKSYM_HDMITXPHY0 CRU     SOFTRST_CON75 bit 1   (:537)
+       *   SRST_HDMITXHDP          PMU1CRU SOFTRST_CON01 bit 13  (:599)
+       *
+       * SRST_HDMITXHDP is the one to watch on this board: it gates the
+       * hot-plug-detect block, CLK_HDMITXHDP is ungated above, and the reset
+       * was never actually released.  That fits the symptom recorded in
+       * docs/STATUS.md -- IOC_HDMI_HPD_STATUS stuck at 0 while DDC, which is
+       * a different block on a different pair, works fine.  It is a cheaper
+       * thing to rule out than a cable with a broken pin 19.
        */
-      MmioWrite32 (CRU_SOFTRST_CON (22), (0x0040U << 16) | 0U);  /* SRST_HDMITX0_REF deassert */
-      MmioWrite32 (CRU_SOFTRST_CON (28), (0x0020U << 16) | 0U);  /* SRST_HDMITXHDP   deassert */
-      /*
-       * SRST_LINKSYM_HDMITXPHY0 = reset ID 405 → SOFTRST_CON25 bit5
-       *   address = CRU_BASE + 0xA00 + 25*4 = 0x27200000 + 0xA64
-       * Pre-deassert here so the link-symbol clock domain is released before
-       * the HDPTX PHY is initialised.  DwHdmiQpSetup() will do an explicit
-       * assert+deassert pulse just before HdptxRopllCmnConfig().
-       */
-      MmioWrite32 (CRU_SOFTRST_CON (25), (0x0020U << 16) | 0U);  /* SRST_LINKSYM_HDMITXPHY0 deassert */
+      MmioWrite32 (CRU_SOFTRST_CON (64), (BIT (9) << 16) | 0U);   /* SRST_HDMITX0_REF        */
+      MmioWrite32 (CRU_SOFTRST_CON (75), (BIT (1) << 16) | 0U);   /* SRST_LINKSYM_HDMITXPHY0 */
+      MmioWrite32 (PMU1CRU_BASE + 0xA04, (BIT (13) << 16) | 0U);  /* SRST_HDMITXHDP          */
       DEBUG ((DEBUG_INFO, "HdmiTxIomux: HDMI TX resets deasserted (SRST_HDMITX0_REF, SRST_HDMITXHDP, SRST_LINKSYM_HDMITXPHY0)\n"));
 
       /* Brief delay for HPD circuit to stabilize after clock+reset release */
