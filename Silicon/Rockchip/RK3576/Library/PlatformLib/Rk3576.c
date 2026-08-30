@@ -14,7 +14,6 @@
 #include <Library/DebugLib.h>
 #include <Library/BaseVariableLib.h>
 #include <Library/ResetUtilityLib.h>
-#include <Library/SaradcLib.h>
 #include <Library/SerialPortLib.h>
 #include <Pi/PiBootMode.h>
 
@@ -75,14 +74,18 @@ ArmPlatformInitialize (
   //     ResetPlatformSpecificGuid (gRockchipResetTypeMaskromGuid) -- a silent
   //     reboot into USB download mode, decided by uninitialised memory.
   //
-  // SaradcLibConstructor in the same library was already emptied for exactly
-  // this reason, with the note "Touching them in SEC hangs the SoC ... SARADC
-  // is not used during SEC/PEI on this port".  That was true of the
-  // constructor and false of this call site, which was left behind.
+  // SaradcLibConstructor in the same library had already been emptied for
+  // exactly this reason, with the note "Touching them in SEC hangs the SoC ...
+  // SARADC is not used during SEC/PEI on this port".  That was true of the
+  // constructor and false of this call site, which was left behind -- disabling
+  // one entry point into a library built for the wrong SoC, and not checking
+  // for others.
   //
-  // To bring the recovery key back, port SaradcLib first: SARADC_BASE
+  // The library itself is gone now, so there is no second entry point to miss.
+  // To bring the recovery key back, write an RK3576 one: SARADC_BASE
   // 0x2AE00000, and the APB reset at CRU_SOFTRST_CON13 bit 6 (0x27200A34,
-  // assert 0x00400040, deassert 0x00400000).  Then call it after the MMU is
+  // assert 0x00400040, deassert 0x00400000) -- not the RK3588 reset ID, which
+  // is what aimed the old one at the interconnect.  Call it after the MMU is
   // up, not from here.
   //
 

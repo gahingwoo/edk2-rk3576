@@ -279,9 +279,11 @@ extern "C" {
  * live here because <Soc.h> is where CruLib.h expects to find them and
  * RK3576's is now the only Soc.h in the tree.
  *
- * SaradcLib is the only consumer that matters today (CLK_SARADC and
- * RESET_SRST_P_SARADC).  Replacing this with the real RK3576 clock tree
- * is the open item tracked in docs/STATUS.md.
+ * CLK_SARADC and RESET_SRST_P_SARADC have no consumer any more -- SaradcLib
+ * was deleted rather than left as a trap -- but the entries stay because the
+ * Clocks[]/Resets[] tables in Rk3576CruLib.c are indexed by these enumerators
+ * and removing one shifts every index after it.  Replacing this with the real
+ * RK3576 clock tree is the open item tracked in docs/STATUS.md.
  * --------------------------------------------------------------- */
 typedef enum {
   PLL_LPLL = 0,

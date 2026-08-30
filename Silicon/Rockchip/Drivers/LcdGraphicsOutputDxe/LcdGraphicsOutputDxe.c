@@ -838,7 +838,13 @@ LcdGraphicsQueryMode (
 //                 which would point at the write-combining mapping rather than
 //                 at VOP2.
 //
-#define RK_VOP2_TEST_PATTERN  1
+//
+// Off.  With the pattern on, the GOP paints colour bars over the black fill
+// the UEFI spec asks for on mode set, so the shipping firmware showed bars
+// instead of the console.  That was the right trade while a picture at all was
+// in question; it is not something to ship.  Flip to 1 for a bring-up build.
+//
+#define RK_VOP2_TEST_PATTERN  0
 
 //
 // Phase 1 writes the framebuffer while scanout is already running. That was
@@ -1103,7 +1109,7 @@ LcdGraphicsSetMode (
   This->Mode->FrameBufferBase = VramBaseAddress;
   This->Mode->FrameBufferSize = VramSize;
 
-  DEBUG ((DEBUG_ERROR,
+  DEBUG ((DEBUG_INFO,
     "[RK3576-GOP] FB installed: %ux%u PPSL=%u stride=%u bytes "
     "FbBase=0x%lx FbSize=%u (mode HxV = %ux%u)\n",
     This->Mode->Info->HorizontalResolution,
@@ -1184,23 +1190,20 @@ LcdGraphicsSetMode (
       ConnectorState->BusFormat
       ));
 
-    DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] DisplaySetCrtcInfo enter\n", (UINT32)Index));
     Status = DisplaySetCrtcInfo (DrmMode, CRTC_INTERLACE_HALVE_V);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] DisplaySetCrtcInfo FAILED %r\n", (UINT32)Index, Status));
+      DEBUG ((DEBUG_ERROR, "%a: DisplaySetCrtcInfo failed: %r\n", __func__, Status));
       goto EXIT;
     }
-    DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] DisplaySetCrtcInfo OK\n", (UINT32)Index));
 
     if (Crtc->Init != NULL) {
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Init enter\n", (UINT32)Index));
       Status = Crtc->Init (Crtc, DisplayState);
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Init exit %r\n", (UINT32)Index, Status));
       if (EFI_ERROR (Status)) {
+        DEBUG ((DEBUG_ERROR, "%a: Crtc->Init failed: %r\n", __func__, Status));
         goto EXIT;
       }
     } else {
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Init is NULL\n", (UINT32)Index));
+      DEBUG ((DEBUG_WARN, "%a: CRTC has no Init; display will not come up\n", __func__));
     }
 
     /* adapt to uefi display architecture */
@@ -1220,27 +1223,21 @@ LcdGraphicsSetMode (
     CrtcState->DMAAddress = (UINT32)VramBaseAddress;
 
     if (Crtc->SetPlane != NULL) {
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->SetPlane enter\n", (UINT32)Index));
       Crtc->SetPlane (Crtc, DisplayState);
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->SetPlane exit\n", (UINT32)Index));
     } else {
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->SetPlane is NULL\n", (UINT32)Index));
+      DEBUG ((DEBUG_WARN, "%a: CRTC has no SetPlane; nothing will be composited\n", __func__));
     }
 
     if (Crtc->Enable != NULL) {
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Enable enter\n", (UINT32)Index));
       Crtc->Enable (Crtc, DisplayState);
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Enable exit\n", (UINT32)Index));
     } else {
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Crtc->Enable is NULL\n", (UINT32)Index));
+      DEBUG ((DEBUG_WARN, "%a: CRTC has no Enable; scanout will not start\n", __func__));
     }
 
     if (Connector->Enable != NULL) {
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Connector->Enable enter\n", (UINT32)Index));
       Connector->Enable (Connector, DisplayState);
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Connector->Enable exit\n", (UINT32)Index));
     } else {
-      DEBUG ((DEBUG_ERROR, "[LCD-STEP] [%u] Connector->Enable is NULL\n", (UINT32)Index));
+      DEBUG ((DEBUG_WARN, "%a: connector has no Enable; no link will be brought up\n", __func__));
     }
   }
 

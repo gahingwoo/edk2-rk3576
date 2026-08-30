@@ -2864,14 +2864,6 @@ Vop2Init (
 
   Vop2ModeFixup (DisplayState);
 
-  DEBUG ((DEBUG_ERROR,
-    "[RK3576-VOP2] Vop2Init ENTRY: VP%u"
-    " CrtcH=%u/%u/%u/%u CrtcV=%u/%u/%u/%u Clock=%u KHz\n",
-    CrtcState->CrtcID,
-    Mode->CrtcHDisplay, Mode->CrtcHSyncStart, Mode->CrtcHSyncEnd, Mode->CrtcHTotal,
-    Mode->CrtcVDisplay, Mode->CrtcVSyncStart, Mode->CrtcVSyncEnd, Mode->CrtcVTotal,
-    Mode->CrtcClock));
-
   HSyncLen  = Mode->CrtcHSyncEnd - Mode->CrtcHSyncStart;
   HDisplay  = Mode->CrtcHDisplay;
   HTotal    = Mode->CrtcHTotal;
@@ -3280,30 +3272,6 @@ Vop2Init (
     ActEnd,
     FALSE
     );
-
-  {
-    UINT32  ExpHtotal = ((UINT32)HTotal    << 16) | (UINT32)HSyncLen;
-    UINT32  ExpHact   = ((UINT32)HActStart << 16) | (UINT32)HActEnd;
-    UINT32  ExpVtotal = ((UINT32)VTotal    << 16) | (UINT32)VSyncLen;
-    UINT32  ExpVact   = ((UINT32)VActStart << 16) | (UINT32)VActEnd;
-
-    DEBUG ((DEBUG_ERROR,
-      "[RK3576-VOP2] VP%u shadow writes:"
-      " HTotal=0x%08x HActSE=0x%08x VTotal=0x%08x VActSE=0x%08x\n",
-      CrtcState->CrtcID, ExpHtotal, ExpHact, ExpVtotal, ExpVact));
-
-    /* VP0 regs confirmed at VOP2_BASE+0xC00 (old/RK3568 layout). */
-    {
-      UINTN  A = Vop2->BaseAddress + 0xC00 + (UINTN)VPOffset;
-      DEBUG ((DEBUG_ERROR, "[RK3576-VOP2] VP0 post-write snapshot (0xC00 region):\n"));
-      VOP2_DUMP_REG ("  VP0_DSP_CTRL      ", A);
-      VOP2_DUMP_REG ("  VP0_CLK_CTRL      ", A + 0x0C);
-      VOP2_DUMP_REG ("  HTOTAL_HS_END     ", A + 0x48);
-      VOP2_DUMP_REG ("  HACT_ST_END       ", A + 0x4C);
-      VOP2_DUMP_REG ("  VTOTAL_VS_END     ", A + 0x50);
-      VOP2_DUMP_REG ("  VACT_ST_END       ", A + 0x54);
-    }
-  }
 
   return EFI_SUCCESS;
 }
@@ -3930,20 +3898,16 @@ Vop2Enable (
 {
   CRTC_STATE  *CrtcState = &DisplayState->CrtcState;
   VOP2        *Vop2      = CrtcState->Private;
-  UINT32      VPOffset   = CrtcState->CrtcID * 0x100;
   UINT32      CfgDone    = CFG_DONE_EN | BIT (CrtcState->CrtcID) | (BIT (CrtcState->CrtcID) << 16);
-
+ #if RK_VOP2_DIAG_READS
   //
-  // Only the diagnostic blocks below use VPOffset now that STANDBY is no
-  // longer cleared here; keep it referenced so the RELEASE build, where
-  // those blocks compile out, does not fail on -Werror=unused-variable.
+  // The diagnostic blocks are the only users left, now that STANDBY is not
+  // cleared here.  Declared under the same flag rather than kept alive with a
+  // (VOID) cast, so the RELEASE build has nothing to silence.
   //
-  (VOID)VPOffset;
+  UINT32      VPOffset = CrtcState->CrtcID * 0x100;
+ #endif
 
-  /*
-   * VP0 timing regs confirmed at VOP2_BASE+0xC00 (old/RK3568 layout).
-   * Dump pre-commit state for verification.
-   */
  #if RK_VOP2_DIAG_READS
   {
     UINTN  VpBase = Vop2->BaseAddress + RK3568_VP0_DSP_CTRL + VPOffset;

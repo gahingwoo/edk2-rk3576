@@ -87,6 +87,43 @@
 !endif
 
   #
+  # DisplayPort and MIPI DSI2.  Both were dispatched unconditionally, and both
+  # are RK3588 drivers: DwDpLib carries 0xFDE50000/0xFDE60000 and DwMipiDsi2Lib
+  # 0xFDE20000/0xFDE30000, addresses that are ordinary DRAM on RK3576 (DRAM is
+  # [0x40000000, 0x140000000) here).  Nothing fired, because each entry point
+  # only registers a protocol notify -- gDpPhyProtocolGuid and
+  # gRockchipDsiPanelProtocolGuid -- and neither board installs either protocol.
+  # So 88 KB of dead RK3588 code sat in FVMAIN with a loaded gun pointed at
+  # DRAM, waiting for the first DSI panel driver.  Off until they are ported.
+  #
+!ifndef RK_DW_DP_ENABLE
+  DEFINE RK_DW_DP_ENABLE            = FALSE
+!endif
+!ifndef RK_DW_MIPI_DSI2_ENABLE
+  DEFINE RK_DW_MIPI_DSI2_ENABLE     = FALSE
+!endif
+
+  #
+  # Referenced by !if blocks in Rockchip.dsc.inc and FvMainModules.fdf.inc but
+  # defined nowhere, so EDK2 evaluated them as the empty string and the blocks
+  # were unreachable.  Stated explicitly: the intent is visible, and turning one
+  # on is a one-line edit rather than an archaeology exercise.
+  #
+  #   I2cDxe/Rk860xRegulatorDxe: never built for either board.
+  #   Pca9555Dxe:                neither carrier has the expander.
+  #   ArmScmiDxe:                no SCMI firmware on this SoC.
+  #
+!ifndef RK_I2C_ENABLE
+  DEFINE RK_I2C_ENABLE              = FALSE
+!endif
+!ifndef RK_PCA9555_ENABLE
+  DEFINE RK_PCA9555_ENABLE          = FALSE
+!endif
+!ifndef RK_SCMI_ENABLE
+  DEFINE RK_SCMI_ENABLE             = FALSE
+!endif
+
+  #
   # RK3576 has no SATA controller.
   #
 !ifndef RK_AHCI_ENABLE
@@ -157,7 +194,6 @@
   PlatformCruLib|Silicon/Rockchip/RK3576/Library/Rk3576CruLib/Rk3576CruLib.inf
   OtpLib|Silicon/Rockchip/RK3576/Library/OtpLib/OtpLib.inf
   GpioLib|Silicon/Rockchip/RK3576/Library/GpioLib/GpioLib.inf
-  SaradcLib|Silicon/Rockchip/RK3576/Library/SaradcLib/SaradcLib.inf
 
 [LibraryClasses.common.SEC]
   MemoryInitPeiLib|Silicon/Rockchip/RK3576/Library/MemoryInitPeiLib/MemoryInitPeiLib.inf

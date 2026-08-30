@@ -639,8 +639,12 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
 !if $(RK_DW_HDMI_QP_ENABLE) == TRUE
   Silicon/Rockchip/Library/DisplayLib/DwHdmiQpLib.inf
 !endif
+!if $(RK_DW_DP_ENABLE) == TRUE
   Silicon/Rockchip/Library/DisplayLib/DwDpLib.inf
+!endif
+!if $(RK_DW_MIPI_DSI2_ENABLE) == TRUE
   Silicon/Rockchip/Library/DisplayLib/DwMipiDsi2Lib.inf
+!endif
   Silicon/Rockchip/Drivers/LcdGraphicsOutputDxe/LcdGraphicsOutputDxe.inf
 
 !if $(RK_AMD_GOP_ENABLE) == TRUE

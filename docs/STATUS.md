@@ -7,10 +7,30 @@ intermittent" is not a status; "2 of 8 cold boots produced a picture" is.
 The predecessor of this file (`KNOWN_ISSUES.md`) drifted until four of its
 entries were false, which is what a status file without evidence turns into.
 
-Last updated: 2026-08-27, after a four-way source audit of the display path
-against mainline Linux 7.2-rc7, the 6.1.115 vendor BSP, and a disassembly of
-the vendor UEFI build in `dirty/`. **Nothing from that audit has been on
-hardware.** The last hardware run is still 2026-08-04.
+Last updated: 2026-08-30. **Nothing since 2026-08-04 has been on hardware.**
+
+---
+
+## Read this before the next board session
+
+**The colour-bar test pattern is off.** `RK_VOP2_TEST_PATTERN` in
+`LcdGraphicsOutputDxe.c` is now `0`. It was `1`, which meant the GOP painted
+SMPTE bars over the black fill the UEFI spec asks for on mode set, in every
+image this project has ever shipped. Every "picture / no picture" verdict below
+was a verdict about *bars*.
+
+A working boot now shows the UEFI console instead. The capture-card pixel
+verdict has to change with it: the test is "the frame is not uniformly black",
+not "the frame matches the bar pattern". If bars are wanted for a particular
+session, flip that one line back — but do not flip it and then compare the
+result against a number measured with it the other way.
+
+Two RK3588 drivers left the image: `DwDpLib` and `DwMipiDsi2Lib` were
+dispatched unconditionally on both boards and are gated off now. Neither ever
+ran (their entry points only register a protocol notify, and nothing installs
+either protocol), so no measurement below is affected — but 88 KB of code
+holding RK3588 addresses that are DRAM on RK3576 is no longer one DSI panel
+driver away from firing.
 
 ---
 
