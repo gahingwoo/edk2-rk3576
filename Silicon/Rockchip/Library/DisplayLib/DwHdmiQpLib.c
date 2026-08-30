@@ -1363,71 +1363,50 @@ Rk3588SetColorFormat (
   IN UINT32                  Depth
   )
 {
-  UINT32  Val = 0;
+  UINT32  Format;
+  UINT32  Val;
 
+  //
+  // RK3576 VO0_GRF_SOC_CON8, bits[11:8] depth and bits[7:4] format, written as
+  // one hiword-masked word.  Encodings from mainline
+  // dw_hdmi_qp-rockchip.c:44-46 and :85-88 (RGB 0, YUV422 1, YUV444 2,
+  // YUV420 3), which the vendor BSP matches.
+  //
+  // This function used to compute a value into a local, then discard it and
+  // write a hardcoded 0x0600 -- the *10 bpc* depth code -- followed by an
+  // unreachable RK3588 block.  On an 8 bpc link that told the TX video packer
+  // to pack 10 bpc out of an 8 bpc stream: a rate mismatch at the
+  // packer/serialiser boundary, whose FIFO behaviour depends on the phase the
+  // datapath happened to start in, and therefore differs from boot to boot.
+  //
   switch (BusFormat) {
     case MEDIA_BUS_FMT_RGB888_1X24:
     case MEDIA_BUS_FMT_RGB101010_1X30:
-      Val = HIWORD_UPDATE (0, RK3588_COLOR_FORMAT_MASK);
+      Format = RK3576_RGB;
       break;
-    case MEDIA_BUS_FMT_UYYVYY8_0_5X24:
-    case MEDIA_BUS_FMT_UYYVYY10_0_5X30:
-      Val = HIWORD_UPDATE (RK3588_YUV420, RK3588_COLOR_FORMAT_MASK);
+    case MEDIA_BUS_FMT_UYVY8_1X16:
+    case MEDIA_BUS_FMT_UYVY10_1X20:
+      Format = RK3576_YUV422;
       break;
     case MEDIA_BUS_FMT_YUV8_1X24:
     case MEDIA_BUS_FMT_YUV10_1X30:
-      Val = HIWORD_UPDATE (RK3588_YUV444, RK3588_COLOR_FORMAT_MASK);
+      Format = RK3576_YUV444;
+      break;
+    case MEDIA_BUS_FMT_UYYVYY8_0_5X24:
+    case MEDIA_BUS_FMT_UYYVYY10_0_5X30:
+      Format = RK3576_YUV420;
       break;
     default:
-      DEBUG ((DEBUG_INFO, "%a can't set correct color format\n", __func__));
+      DEBUG ((DEBUG_ERROR, "%a: unsupported bus format 0x%lx\n", __func__, BusFormat));
       return;
   }
 
-  if (Depth == 8) {
-    Val |= HIWORD_UPDATE (RK3588_8BPC, RK3588_COLOR_DEPTH_MASK);
-  } else {
-    Val |= HIWORD_UPDATE (RK3588_10BPC, RK3588_COLOR_DEPTH_MASK);
-  }
+  Val = Format | ((Depth == 10) ? RK3576_10BPC : RK3576_8BPC);
 
-  //
-  // RK3576 VO0_GRF_SOC_CON8: Linux ground-truth dump (working 8bpc HDMI) shows
-  // 0x00000600 — bits[11:8]=6 (depth), bits[7:4]=0 (RGB format).
-  //
-  // U-Boot defines RK3576_8BPC=(0x0<<8)=0, but using 0 leaves the register at
-  // reset value 0x0000 and the DW HDMI QP VIF block does not activate video
-  // (VID_IF_STATUS lower bits stay zero even with correct VOP2 timing visible
-  // in VID_MON registers).  The Linux kernel uses bits[11:8]=6 for 8bpc output
-  // regardless of U-Boot's constant naming convention.
-  //
-  // depth[11:8], format[7:4].  Mainline's encoding, from
-  // dw_hdmi_qp-rockchip.c: RK3576_8BPC = 0x0, RK3576_10BPC = 0x6, and
-  //   val = FIELD_PREP_WM16(RK3576_COLOR_DEPTH_MASK,
-  //                         state->output_bpc == 10 ? RK3576_10BPC : RK3576_8BPC)
-  // so an 8 bpc link writes zero into that field.
-  //
-  // This used to write 0x0600 -- depth = 6, the *10 bpc* code -- justified as
-  // matching a devmem dump from a working Linux session.  That dump could not
-  // have been an 8 bpc link: the Rockchip glue sets plat_data.max_bpc = 10, so
-  // Linux negotiates 10 bpc against any deep-colour sink and 0x600 is exactly
-  // what it would show.
-  //
-  // Everything else in this pipeline is 8 bpc -- VOP2 emits RGB888, the PHY is
-  // programmed for a 1485000 kbps TMDS rate (148.5 MHz x 10, the 8 bpc figure;
-  // 10 bpc would be 1856250), and the AVI infoframe declares 8 bpc.  Only this
-  // field disagreed, telling the TX video packer to pack 10 bpc out of an 8 bpc
-  // stream.  That is a rate mismatch at the packer/serialiser boundary, and how
-  // a FIFO drains or fills from it depends on its phase when the datapath
-  // starts -- which is not the same on every boot.
-  //
-  Val = HIWORD_UPDATE (0x0000U, 0x0FF0U);
-  MmioWrite32 (RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON8, Val);
-  return;
-
-  if (!Hdmi->Id) {
-    MmioWrite32 (RK3588_VO1_GRF_BASE + RK3588_GRF_VO1_CON3, Val);
-  } else {
-    MmioWrite32 (RK3588_VO1_GRF_BASE + RK3588_GRF_VO1_CON6, Val);
-  }
+  MmioWrite32 (
+    RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON8,
+    HIWORD_UPDATE (Val, RK3576_COLOR_DEPTH_MASK | RK3576_COLOR_FORMAT_MASK)
+    );
 }
 
 STATIC
@@ -1458,11 +1437,13 @@ HdmiConfigAviInfoframe (
 {
   CONNECTOR_STATE    *ConnectorState;
   DISPLAY_SINK_INFO  *SinkInfo;
+  DRM_DISPLAY_MODE   *Mode;
   UINT8              InfBuf[17];
   UINT32             val, i, j;
 
   ConnectorState = &DisplayState->ConnectorState;
   SinkInfo       = &ConnectorState->SinkInfo;
+  Mode           = &ConnectorState->DisplayMode;
 
   ZeroMem (InfBuf, sizeof (InfBuf));
 
@@ -1470,10 +1451,59 @@ HdmiConfigAviInfoframe (
   InfBuf[1] = 2;    /* Version */
   InfBuf[2] = 13;   /* Length */
 
-  InfBuf[4] = 0x0;        /* Scan Information = no info (matches vendor) */
-  InfBuf[5] = 0x20;       /* Picture Aspect Ratio = 16:9 (matches vendor) */
+  //
+  // PB1: [1:0] S = 0 (no scan information -- the vendor overrides the DRM
+  // default of UNDERSCAN to NONE, dw_hdmi_qp.c:706), [4] A0, [6:5] Y = 0 (RGB).
+  //
+  // A0 must be set whenever a non-zero active-format aspect ratio is sent
+  // (drivers/video/hdmi.c:141-142).  It was clear here while PB2's R field was
+  // also zero, so the pair was self-consistent -- but it meant the sink was
+  // told "no active format information", and a sink that letterboxes on that
+  // basis had nothing to go on.
+  //
+  InfBuf[4] = 0x10;
+
+  //
+  // PB2: [3:0] R, [5:4] M, [7:6] C = 0 (colorimetry: no data, correct for RGB
+  // without BT.2020).
+  //
+  // R = 8 "same as picture aspect ratio", which is what
+  // drm_hdmi_avi_infoframe_from_display_mode sets unconditionally
+  // (u-boot common/edid.c, HDMI_ACTIVE_ASPECT_PICTURE) and what mainline packs.
+  //
+  // M was hardcoded to 16:9.  That is right for every mode this port has
+  // actually driven, and wrong the moment a 4:3 or 16:10 sink appears -- both
+  // references derive it from the mode.  Deriving it from the active
+  // resolution gives the same answer as the CEA table for the ratios CEA
+  // defines, and PICTURE_ASPECT_NONE for the ones it does not (5:4, 16:10),
+  // which is also what the CEA path produces.
+  //
+  InfBuf[5] = 0x08;
+  if ((UINT32)Mode->HDisplay * 9 == (UINT32)Mode->VDisplay * 16) {
+    InfBuf[5] |= 0x2 << 4;             /* HDMI_PICTURE_ASPECT_16_9 */
+  } else if ((UINT32)Mode->HDisplay * 3 == (UINT32)Mode->VDisplay * 4) {
+    InfBuf[5] |= 0x1 << 4;             /* HDMI_PICTURE_ASPECT_4_3  */
+  }
+
   InfBuf[7] = Vic & 0xff; /* VIC */
 
+  //
+  // PB3 [3:2] Q.  Kept conditional on the sink's QS bit, deliberately.
+  //
+  // The 2026-08-30 audit called for setting Q = Full unconditionally, "to
+  // match the vendor".  Reading both references end to end, that is wrong:
+  // vendor and mainline share one rule (u-boot common/edid.c:5851-5855,
+  // mainline drm_edid.c:7511-7515) -- send the requested range only if the
+  // sink advertises QS in its Video Capability Data Block, or if the range
+  // already equals the mode's default.  For a CEA mode above VIC 1 the default
+  // is Limited (drm_edid.c:6034-6040), so on a QS=0 sink both references send
+  // Q = 0, exactly as this code already does.
+  //
+  // The real defect underneath is elsewhere and is not an InfoFrame problem:
+  // VOP2 emits full-range RGB, so a QS=0 sink decodes it as limited range and
+  // crushes both ends.  Fixing that means range-compressing at the source, not
+  // asserting a Q the sink is entitled to ignore.
+  //
   if (SinkInfo->SelectableRgbRange) {
     InfBuf[6] = 0x2 << 2; /* RGB Quantization Range = Full */
   }
@@ -2003,8 +2033,16 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  VO0_GRF_CON1 post ", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON1);
 
   /* ── STEP 5: Color format ────────────────────────────────────────────── */
-  HDMI_TRACE ("Setup: [5] SetColorFormat RGB888 8bpc -> VO0_GRF_SOC_CON8\n");
-  Rk3588SetColorFormat (Hdmi, MEDIA_BUS_FMT_RGB888_1X24, 8);
+  //
+  // 8 is a literal, not a negotiation: nothing in this stack tracks an output
+  // bpc, and the PHY is programmed for a 1485000 kbps TMDS rate, which is the
+  // 8 bpc figure for 1080p60 (10 bpc would be 1856250).  BusFormat does come
+  // from the connector, so a future YUV path reaches the right encoding here
+  // without a second edit.
+  //
+  HDMI_TRACE ("Setup: [5] SetColorFormat bus=0x%lx 8bpc -> VO0_GRF_SOC_CON8\n",
+    (UINT64)ConnectorState->BusFormat);
+  Rk3588SetColorFormat (Hdmi, ConnectorState->BusFormat, 8);
   HDMI_DUMP_REG ("  VO0_GRF_SOC_CON8 post", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON8);
 
   /* ── STEP 6: HDCP2 bypass ───────────────────────────────────────────── */
@@ -2077,6 +2115,18 @@ DwHdmiQpSetup (
     UINT8       ScdcReadback = 0xFF;
     UINT32      ScdcRetry;
     BOOLEAN     ScdcWriteOk = FALSE;
+
+    /*
+     * SCDC 0x31 is SCDC_CONFIG_0; bit 0 is RR_Enable, the sink's read-request
+     * mechanism.  We have no SCDC interrupt handling, so a sink left with read
+     * requests armed by a previous OS session would be signalling into a void.
+     * The vendor BSP clears it unconditionally on every HDMI-mode enable
+     * (dw_hdmi_qp.c:1152-1153).  Non-fatal: a sink that NAKs it is no worse off
+     * than before.
+     */
+    if (EFI_ERROR (DwHdmiScdcWrite (Hdmi, 0x31 /* SCDC_CONFIG_0 */, 0x00))) {
+      HDMI_TRACE ("Setup: [7c] SCDC CONFIG_0=0 failed (ignored)\n");
+    }
 
     HDMI_TRACE ("Setup: [7c] SCDC TMDS_CONFIG=0 (disable scrambling at sink)\n");
 

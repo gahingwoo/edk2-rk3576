@@ -2110,8 +2110,14 @@ Vop2PostConfig (
   Val       |= VActEnd;
   Vop2Writel (Vop2->BaseAddress, RK3568_VP0_POST_DSP_VACT_INFO + VPOffset, Val);
 
+  //
+  // High half is the vertical factor, low half the horizontal one
+  // (mainline vop2_post_config, rockchip_drm_vop2.c:1721-1723).  Both halves
+  // held the vertical factor here, which is inert only while HDisplay ==
+  // HSize -- i.e. until someone sets a left/right margin or an overscan.
+  //
   Val  = SclCalScale2 (VDisplay, VSize) << 16;
-  Val |= SclCalScale2 (VDisplay, VSize);
+  Val |= SclCalScale2 (HDisplay, HSize);
   Vop2Writel (Vop2->BaseAddress, RK3568_VP0_POST_SCL_FACTOR_YRGB + VPOffset, Val);
 
   #define POST_HORIZONTAL_SCALEDOWN_EN(x)  ((x) << 0)
@@ -2888,6 +2894,62 @@ Vop2Init (
     GetVopOutputIfName (ConnectorState->OutputInterface),
     CrtcState->CrtcID
     ));
+
+  //
+  // Let VP0 tell the DDR scheduler when it is running out of pixels.
+  //
+  // Without this the VOP2 issues every AXI read at the same priority as the
+  // rest of the system, so a burst of DDR contention drains the post line
+  // buffer with nothing to raise the display's claim on bandwidth.  TRM 11.6.2
+  // recommends enabling it; the vendor BSP does, for RK3576 VP0 only
+  // (rockchip_vop2.c:4988-5002).  Mainline has no equivalent at all, which is
+  // why this port never inherited it.
+  //
+  // These are plain registers with no write-enable half, so WriteMask is
+  // FALSE and the read side comes from the shadow seeded in Vop2Prepare.
+  //
+  if ((Vop2->Version == VOP_VERSION_RK3576) && (CrtcState->CrtcID == 0)) {
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3576_SYS_AXI_HURRY_CTRL0_IMD,
+      EN_MASK,
+      AXI_PORT_URGENCY_EN_SHIFT + CrtcState->CrtcID,
+      1,
+      FALSE
+      );
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3576_SYS_AXI_HURRY_CTRL1_IMD,
+      EN_MASK,
+      AXI_PORT_URGENCY_EN_SHIFT + CrtcState->CrtcID,
+      1,
+      FALSE
+      );
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_VP0_COLOR_BAR_CTRL + VPOffset,
+      EN_MASK,
+      POST_URGENCY_EN_SHIFT,
+      1,
+      FALSE
+      );
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_VP0_COLOR_BAR_CTRL + VPOffset,
+      POST_URGENCY_THL_MASK,
+      POST_URGENCY_THL_SHIFT,
+      RK3576_VP0_URGENCY_THL,
+      FALSE
+      );
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3568_VP0_COLOR_BAR_CTRL + VPOffset,
+      POST_URGENCY_THH_MASK,
+      POST_URGENCY_THH_SHIFT,
+      RK3576_VP0_URGENCY_THH,
+      FALSE
+      );
+  }
 
   DclkRate = Vop2IfConfig (DisplayState, Vop2);
 

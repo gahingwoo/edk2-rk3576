@@ -17,6 +17,20 @@
 #define EN_MASK              1
 #define ALL_MASK             0xFFFFFFFF
 
+/*
+ * RK3576 AXI port urgency.  VOP2 raises an "urgent" qualifier on its AXI read
+ * requests when the post line buffer is running dry, so the DDR scheduler
+ * promotes display traffic ahead of everything else.  Both AXI ports carry one
+ * enable bit per video port at bit 24 + VP index; VP0 is bit 24.
+ *
+ * TRM 11.6.2 recommends enabling this; the vendor BSP does it for RK3576 VP0
+ * only (rockchip_vop2.c:4988-5002, urgency data at :7460).  Mainline has no
+ * equivalent, which is why we never inherited it.
+ */
+#define RK3576_SYS_AXI_HURRY_CTRL0_IMD  0x014
+#define RK3576_SYS_AXI_HURRY_CTRL1_IMD  0x018
+#define AXI_PORT_URGENCY_EN_SHIFT       24      /* + VP index */
+
 #define RK3568_AUTO_GATING_CTRL  0x008
 /*
  * Bit 31 is the top-level auto-gating enable that mainline clears for every
@@ -282,6 +296,19 @@
 #define EDPI_WMS_FS              31
 
 #define RK3568_VP0_COLOR_BAR_CTRL  0xC08
+/*
+ * The same register also holds VP0's post-line-buffer urgency thresholds.
+ * RK3576 VP0 has an 8-line post line buffer: urgency asserts below THL lines
+ * and de-asserts above THH (vendor rockchip_vop2.c:7455-7463).
+ */
+#define POST_URGENCY_EN_SHIFT   8
+#define POST_URGENCY_THL_SHIFT  16
+#define POST_URGENCY_THL_MASK   0xF
+#define POST_URGENCY_THH_SHIFT  20
+#define POST_URGENCY_THH_MASK   0xF
+#define RK3576_VP0_URGENCY_THL  4
+#define RK3576_VP0_URGENCY_THH  6
+
 #define RK3568_VP0_3D_LUT_CTRL     0xC10
 #define VP0_3D_LUT_EN_SHIFT        0
 #define VP0_3D_LUT_UPDATE_SHIFT    2
