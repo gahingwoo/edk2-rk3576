@@ -1786,7 +1786,24 @@ DwHdmiQpSetup (
    * no AVI InfoFrame.  Clearing it before anything is programmed removes the
    * question.
    */
-  DwHdmiQpRegMod (Hdmi, 0, VIDQPCLK_OFF | LINKQPCLK_OFF, CMU_CONFIG0);
+  //
+  // The CMU_CONFIG0 write that was here is removed.  VIDQPCLK_OFF and
+  // LINKQPCLK_OFF are CMU_STATUS fields -- mainline, the vendor BSP and
+  // vendor U-Boot all define them that way, and across all three the only
+  // CMU access is a *read* of CMU_STATUS.  Nobody writes CMU_CONFIG0, and
+  // the RK3576 TRM does not document offset 0x00A0 at all (the summary goes
+  // from TIMER_BASE_STATUS0 0x0084 straight to I2CM_SM_SCL_CONFIG0 0x00E0).
+  // The upstream edk2-rk3588 file this was forked from has no CMU access
+  // either; this write was invented locally with the wrong register's bits.
+  //
+  // It is not harmless territory: RESET_MANAGER_CONFIG0 bits 0-4 select, at
+  // their reset value, "value of cmu_status.linkqpclk_off_st used" and the
+  // vidqpclk equivalent -- the Reset Manager decides reset overlap across
+  // those clock domains from what the CMU reports.
+  //
+  // For a clock-presence gate, read CMU_STATUS (0x27DA00B0) and test
+  // (val & 0x3f) == 0x15, which is what these constants were named for.
+  //
   DwHdmiQpRegMod (Hdmi, 0, AVP_DATAPATH_VIDEO_SWDISABLE, GLOBAL_SWDISABLE);
   HDMI_DUMP_REG ("  CMU_CONFIG0 post  ", Hdmi->Base + CMU_CONFIG0);
   HDMI_DUMP_REG ("  CMU_STATUS  post  ", Hdmi->Base + CMU_STATUS);
@@ -1855,7 +1872,24 @@ DwHdmiQpSetup (
   // The reset returns CMU_CONFIG0 to its default, so the clock ungate from
   // step [2] has to be redone.
   //
-  DwHdmiQpRegMod (Hdmi, 0, VIDQPCLK_OFF | LINKQPCLK_OFF, CMU_CONFIG0);
+  //
+  // The CMU_CONFIG0 write that was here is removed.  VIDQPCLK_OFF and
+  // LINKQPCLK_OFF are CMU_STATUS fields -- mainline, the vendor BSP and
+  // vendor U-Boot all define them that way, and across all three the only
+  // CMU access is a *read* of CMU_STATUS.  Nobody writes CMU_CONFIG0, and
+  // the RK3576 TRM does not document offset 0x00A0 at all (the summary goes
+  // from TIMER_BASE_STATUS0 0x0084 straight to I2CM_SM_SCL_CONFIG0 0x00E0).
+  // The upstream edk2-rk3588 file this was forked from has no CMU access
+  // either; this write was invented locally with the wrong register's bits.
+  //
+  // It is not harmless territory: RESET_MANAGER_CONFIG0 bits 0-4 select, at
+  // their reset value, "value of cmu_status.linkqpclk_off_st used" and the
+  // vidqpclk equivalent -- the Reset Manager decides reset overlap across
+  // those clock domains from what the CMU reports.
+  //
+  // For a clock-presence gate, read CMU_STATUS (0x27DA00B0) and test
+  // (val & 0x3f) == 0x15, which is what these constants were named for.
+  //
   HDMI_DUMP_REG ("  CMU_CONFIG0 re-post ", Hdmi->Base + CMU_CONFIG0);
 #endif
 
