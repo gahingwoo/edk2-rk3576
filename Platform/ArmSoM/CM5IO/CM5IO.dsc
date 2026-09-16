@@ -187,11 +187,16 @@
   # intermittent-no-signal work only accepts 1080p. The comment here used to
   # claim 2560x1440@60 while the value said otherwise.
   #
-  # Restore to 0x13 (2560x1440@60, matching ROCK 4D) or 0x80000000 (NATIVE,
-  # follow the sink's EDID) once display bring-up stops depending on the
-  # capture card. A 2K monitor accepts a 1080p input fine, so this is only
-  # about the capture path, not about what the board can drive.
-  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x0F, 0x00, 0x00, 0x00 }
+  # 0x80000000 = NATIVE: follow the sink's EDID.
+  #
+  # This was 0x0F (1920x1080) as a bring-up override, because the HDMI capture
+  # card used as the objective instrument only accepted 1080p.  That card was
+  # retired in favour of a monitor, so the override outlived its reason.
+  #
+  # Verified 2026-09-16: the board takes the EDID preferred mode, comes up at
+  # 2560x1440, completes all 22 HDMI setup steps, and shows a picture.
+  #
+gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
 
 ################################################################################
 [Components.common]
