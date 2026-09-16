@@ -3967,6 +3967,39 @@ Vop2Enable (
       );
   }
 
+  if (Vop2->Version == VOP_VERSION_RK3576) {
+    //
+    // Take ACM out of bypass before the port is released.
+    //
+    // mainline's VOP2 driver never touches ACM.  The vendor BSP does it for
+    // RK3576 VP0 on every crtc enable, and names the consequence of not doing
+    // it (rockchip_drm_vop2.c:10270):
+    //
+    //   "For RK3576 VP0 enable ACM[bypass = 0] will lead to timing error,
+    //    so enable ACM by default."
+    //
+    // Left at reset, ACM is an unconfigured post-processing block sitting in
+    // the pixel path.  That fits the black vertical stripes this board has
+    // shown for months -- 1 px wide, evenly spaced, full screen, independent
+    // of content, and unchanged when the mode goes from 1920x1080 to
+    // 2560x1440 -- after every VP, window, clock and HDMI register had
+    // already been matched against both mainline and the working vendor
+    // firmware without finding a difference.
+    //
+    // ACM has its own register window, far outside the RK3568_MAX_REG shadow,
+    // so it must not go through Vop2Writel.
+    //
+    MmioWrite32 (RK3576_VOP2_ACM_BASE + RK3576_ACM_CTRL, 0);
+    Vop2MaskWrite (
+      Vop2->BaseAddress,
+      RK3576_VP0_ACM_CTRL + VPOffset,
+      EN_MASK,
+      ACM_BYPASS_EN_SHIFT,
+      0,
+      FALSE
+      );
+  }
+
   /*
    * Clear STANDBY here, before HDMI setup runs.
    *

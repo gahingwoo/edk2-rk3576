@@ -32,6 +32,34 @@
 #define AXI_PORT_URGENCY_EN_SHIFT       24      /* + VP index */
 
 #define RK3568_AUTO_GATING_CTRL  0x008
+
+/*
+ * RK3576 post-processing register windows.
+ *
+ * The VOP on RK3576 has three windows past the main one.  The vendor
+ * devicetree names them (rk3576.dtsi, vop@27d00000):
+ *
+ *   "regs"        0x27D00000  0x3000
+ *   "gamma_lut"   0x27D05000  0x1000
+ *   "acm_regs"    0x27D06400  0x0800
+ *   "sharp_regs"  0x27D06C00  0x0300
+ *
+ * mainline's VOP2 driver touches neither ACM nor SHARP.  The vendor BSP takes
+ * ACM out of bypass on every RK3576 VP0 enable and states the consequence of
+ * not doing so (rockchip_drm_vop2.c:10270):
+ *
+ *   "For RK3576 VP0 enable ACM[bypass = 0] will lead to timing error,
+ *    so enable ACM by default."
+ *
+ * ACM_CTRL sits at offset 0 of its own window, far outside the
+ * RK3568_MAX_REG shadow that Vop2Writel indexes -- write it with MmioWrite32,
+ * never through the cached helpers.
+ */
+#define RK3576_VOP2_ACM_BASE    0x27D06400UL
+#define RK3576_VOP2_SHARP_BASE  0x27D06C00UL
+#define RK3576_ACM_CTRL         0x0000
+#define RK3576_VP0_ACM_CTRL     0xCD0    /* + Vp * 0x100, inside "regs" */
+#define ACM_BYPASS_EN_SHIFT     0
 /*
  * Bit 31 is the top-level auto-gating enable that mainline clears for every
  * VOP2 generation.  Bit 7 is aclk_pre_auto_gating_en, which exists only on
