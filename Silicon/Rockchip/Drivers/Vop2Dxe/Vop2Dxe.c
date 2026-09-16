@@ -3899,14 +3899,7 @@ Vop2Enable (
   CRTC_STATE  *CrtcState = &DisplayState->CrtcState;
   VOP2        *Vop2      = CrtcState->Private;
   UINT32      CfgDone    = CFG_DONE_EN | BIT (CrtcState->CrtcID) | (BIT (CrtcState->CrtcID) << 16);
- #if RK_VOP2_DIAG_READS
-  //
-  // The diagnostic blocks are the only users left, now that STANDBY is not
-  // cleared here.  Declared under the same flag rather than kept alive with a
-  // (VOID) cast, so the RELEASE build has nothing to silence.
-  //
   UINT32      VPOffset = CrtcState->CrtcID * 0x100;
- #endif
 
  #if RK_VOP2_DIAG_READS
   {
@@ -3975,36 +3968,50 @@ Vop2Enable (
   }
 
   /*
-   * STANDBY is deliberately NOT cleared here.  It is cleared once, later, in
-   * DwHdmiQpSetup step [4c] -- after the DCLK_VP0 mux has been pointed at
-   * clk_hdmiphy_pixel0 and the PHY PLL has locked.
+   * Clear STANDBY here, before HDMI setup runs.
    *
-   * Clearing it here is what this code used to do, and it opened a window
-   * that is the best available explanation for the intermittent no-picture
-   * failure.  In that window VP0 is out of standby and actively scanning --
-   * driving the AXI read DMA and the post pipeline -- while DCLK_VP0 is still
-   * on dclk_vp0_src, because CLKSEL_CON(147) bit 11 does not get written until
-   * step [4].  And nothing in the entire boot chain ever programs
-   * dclk_vp0_src: its mux and divider live in CLKSEL_CON(145), which appears
-   * in this tree only inside a compiled-out register dump, and the U-Boot we
-   * ship has no RK3576 VOP driver at all.  So VP0 ran at an unknown rate --
-   * plausibly gpll undivided, roughly twice VP0's 600 MHz ceiling.
+   * 586af04 moved this to DwHdmiQpSetup step [4c], after the DCLK_VP0 mux and
+   * the PHY PLL lock, to close a window where VP0 scanned out on the
+   * unprogrammed dclk_vp0_src.  That window is real.  Deferring the clear is
+   * not a way to close it: a bisect on 2026-09-16 landed on 586af04 as the
+   * commit that makes every boot die with
    *
-   * The window was also not a fixed length: it spanned the 20 ms settle below,
-   * the whole HDPTX PLL configure including its retry loop, and HDMI setup
-   * steps [0] through [3].  A variable amount of out-of-spec scanout, leaving
-   * state that no post-hoc register read can show -- which is exactly the
-   * shape of a fault where a good boot and a bad boot read back identically.
+   *   SError Exception  ESR=0xBF000002  EC=0x2F  ISS=0x01000002
    *
-   * Mainline orders it the other way round and never has this window:
-   * vop2_crtc_atomic_enable() calls clk_set_parent(), then clk_set_rate(),
-   * then vop2_post_config(), then vop2_cfg_done(), and writes VP_DSP_CTRL --
-   * the write that clears STANDBY -- as its final register access.
+   * between HDMI setup steps [1b] and [2] -- four boots, same place every
+   * time, and the three commits after it inherited the failure.  e2a9d52,
+   * one commit earlier, completes all 22 steps.
    *
-   * The standby/switch/standby-clear dance in DwHdmiQpLib is now the single
-   * place VP0 leaves standby, rather than a correction applied to a VP that
-   * has already been running.
+   * The mechanism: with VP0 held in standby, it does not scan, so dclk_vp0
+   * and the HDMI TX video clock domain it feeds are not running.  Step [1b]
+   * writes PKTSCHED_PKT_EN and PKT_CONTROL0, which live in that domain, and
+   * the access lands on an unclocked sub-block -- an implementation-defined
+   * bus error, delivered asynchronously a moment later as an SError.  The
+   * crash is at the first touch of a video-domain HDMI register after VP0 was
+   * left quiet, which is exactly where it appears.
+   *
+   * So the ordering constraint runs the other way: the HDMI controller needs
+   * the pixel clock during its own setup.
+   *
+   * This restores the previous behaviour and leaves 586af04's other three
+   * changes in place.  It does NOT fix the scanning-on-an-unprogrammed-clock
+   * window -- that needs dclk_vp0_src to be given a real rate, which is what
+   * docs/STATUS.md records as the VPLL plan and what the vendor firmware in
+   * dirty/ actually does (VPLL 594 MHz, CLKSEL_CON145 = 0x07FF0203). Until
+   * that lands, a boot with a correct clock is worth more than a boot that
+   * cannot reach the display code at all.
+   *
+   * Step [4c] still clears STANDBY after the mux switch; clearing it twice is
+   * harmless.
    */
+  Vop2MaskWrite (
+    Vop2->BaseAddress,
+    RK3568_VP0_DSP_CTRL + VPOffset,
+    EN_MASK,
+    STANDBY_EN_SHIFT,
+    0,
+    FALSE
+    );
 
   Vop2Writel (Vop2->BaseAddress, RK3568_REG_CFG_DONE, CfgDone);
 
