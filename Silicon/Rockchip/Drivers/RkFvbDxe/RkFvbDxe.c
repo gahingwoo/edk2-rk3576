@@ -1559,8 +1559,28 @@ FvbProcessBootDiskDeviceHandle (
 
   Status = FvbDiskDumpNvData (Device, BlkIo->Media->MediaId);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: [%s] Couldn't update NV data!\n", __FUNCTION__, DevicePathText));
-    ASSERT_EFI_ERROR (Status);
+    //
+    // Not fatal.  Failing to seed the NV store on the boot medium costs
+    // variable persistence, which docs/FLASHING.md already documents as this
+    // board's behaviour ("EFI variables are volatile on SD card boot").
+    // Asserting here instead loses the entire boot, which is a much worse
+    // outcome than a variable that does not survive a power cycle.
+    //
+    // It fires on CM5-IO's eMMC every time, and the cause is not the amount
+    // of data: writing the store one 4 KB block at a time fails identically,
+    // with the SD/MMC pass-thru packet reporting TransactionStatus Success
+    // while DiskIo->WriteDisk returns Device Error.  So the fault is in the
+    // block-I/O layer for this medium, not here.  Reads of the same eMMC are
+    // fine -- the firmware boots from it -- and the identical path on SD
+    // works.  That board caps eMMC at 26 MHz legacy SDR deliberately
+    // (PcdDwcSdhciForceDefaultSpeed) and everything ever verified about this
+    // eMMC has been a read.
+    //
+    DEBUG ((
+      DEBUG_WARN,
+      "%a: [%s] Couldn't update NV data (%r) -- variables will not persist\n",
+      __FUNCTION__, DevicePathText, Status
+      ));
     goto Exit;
   }
 
