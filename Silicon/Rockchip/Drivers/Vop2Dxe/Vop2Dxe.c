@@ -3969,6 +3969,45 @@ Vop2Enable (
 
   if (Vop2->Version == VOP_VERSION_RK3576) {
     //
+    // Configure the three per-VP mixers, and clear SYS_PD_CTRL.
+    //
+    // mainline's vop2_setup_alpha() only touches a mixer from normalized_zpos
+    // 1 upward, so a single-plane setup like ours leaves MIX0/MIX1/MIX2 at
+    // whatever they reset to -- values neither kernel documents.  The vendor
+    // UEFI build that drives a clean picture on this silicon writes all three
+    // explicitly, with the same four values each, and also writes SYS_PD_CTRL
+    // as a plain zero (PD_ESMART powered, esmart_lb_mode 0).
+    //
+    // Recovered from that firmware's own MMIO trace, so these are the values
+    // a working configuration uses, not a guess:
+    //
+    //   0x620/0x630/0x640  SRC_COLOR_CTRL  0x00FF01A1
+    //   0x624/0x634/0x644  DST_COLOR_CTRL  0x00FF0060
+    //   0x628/0x638/0x648  SRC_ALPHA_CTRL  0x00000020
+    //   0x62C/0x63C/0x64C  DST_ALPHA_CTRL  0x00000074
+    //   0x034              SYS_PD_CTRL     0x00000000
+    //
+    // Tried as a candidate for the black vertical stripes: it is the largest
+    // block where we write nothing and the working firmware writes something.
+    //
+    {
+      UINT32  Mix;
+
+      for (Mix = 0; Mix < RK3576_OVL_MIX_NR; Mix++) {
+        UINT32  Base = RK3576_OVL_MIX0_SRC_COLOR_CTRL
+                       + CrtcState->CrtcID * RK3576_OVL_VP_OFFSET
+                       + Mix * RK3576_OVL_MIX_STRIDE;
+
+        Vop2Writel (Vop2->BaseAddress, Base + 0x0, 0x00FF01A1);
+        Vop2Writel (Vop2->BaseAddress, Base + 0x4, 0x00FF0060);
+        Vop2Writel (Vop2->BaseAddress, Base + 0x8, 0x00000020);
+        Vop2Writel (Vop2->BaseAddress, Base + 0xC, 0x00000074);
+      }
+
+      Vop2Writel (Vop2->BaseAddress, RK3568_SYS_PD_CTRL, 0x00000000);
+    }
+
+    //
     // Take ACM out of bypass before the port is released.
     //
     // mainline's VOP2 driver never touches ACM.  The vendor BSP does it for

@@ -247,6 +247,18 @@
 #define RK3576_OVL_LAYER_SEL           0x604   /* + Vp * 0x100 */
 #define RK3576_OVL_HDR_SRC_COLOR_CTRL  0x660   /* + Vp * 0x100 */
 #define RK3576_OVL_BG_MIX_CTRL         0x670   /* + Vp * 0x100 */
+
+/*
+ * RK3576 per-VP mixers.  Three MIX stages per video port, each with a colour
+ * and an alpha control for source and destination:
+ *   MIX0 0x620..0x62C, MIX1 0x630..0x63C, MIX2 0x640..0x64C  (+ Vp * 0x100)
+ * mainline's rockchip_drm_vop2.h:461-472 names the offsets; vop2_setup_alpha()
+ * only programs them from zpos 1 upward, so a single-plane configuration
+ * leaves all three at reset -- which is what this driver did.
+ */
+#define RK3576_OVL_MIX0_SRC_COLOR_CTRL  0x620   /* + Vp * 0x100 */
+#define RK3576_OVL_MIX_STRIDE           0x010   /* MIX0 -> MIX1 -> MIX2 */
+#define RK3576_OVL_MIX_NR               3
 #define RK3576_OVL_VP_OFFSET           0x100
 
 /*
