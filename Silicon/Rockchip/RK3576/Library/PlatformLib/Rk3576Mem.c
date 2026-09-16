@@ -173,20 +173,30 @@ ArmPlatformGetVirtualMemoryMap (
      * `> 0x100000000` test never reached. Both exclusions were reasoned from
      * the RK3588 layout, where 0xF0000000 really is an MMIO hole.
      *
-     * This is left OFF by default because it has not been probed on hardware
-     * yet, and because turning it on changes the memory map — which must not
-     * be bundled with any other display/boot experiment. To test:
+     * The `dmem` probe this comment used to prescribe cannot answer the
+     * question, and was tried on 2026-09-16 to make sure:
      *
-     *   1. `dmem 0xF0000000 0x20` and `dmem 0x100000000 0x20` from the UEFI
-     *      Shell. A synchronous abort (EC 0x25) with a matching FAR means the
-     *      region really is unusable; clean output means it is fine.
-     *   2. Flip this to 1, rebuild, confirm `memmap` shows ~4 GB and the board
-     *      still boots.
+     *   dmem 0xF0000000 0x20
+     *   -> Data abort: Translation fault, second level
+     *      ESR=0x96000006  FAR=0x00000000F0000000
+     *
+     * DFSC 0b000110 is a *translation* fault: the address is not in the page
+     * tables. It could not have been, because this flag is what keeps it out
+     * of them. The access never reached the bus, so it says nothing about
+     * whether DRAM answers there. The distinguishing code would have been
+     * DFSC 0b010000, a synchronous external abort -- access issued, nobody
+     * home. Probing an unmapped region to decide whether it is backed is
+     * circular.
+     *
+     * So the only real test is to map it and use it: flip this to 1, boot,
+     * and read `memmap`. Usable DRAM shows up as ~3838 MB of conventional
+     * memory and the board runs; unbacked space shows up as an external
+     * abort the moment anything touches it.
      *
      * Keep the top 256 MB reserved either way: Rockchip BL31 carves out a
      * secure pool (OP-TEE TA memory, SCMI mailbox) at the top of DRAM.
      */
-    #define RK3576_MAP_FULL_DRAM      0
+    #define RK3576_MAP_FULL_DRAM      1
     #define RK3576_SECURE_TOP_RESERVE 0x10000000ULL  /* top 256 MB, BL31 */
 
     // RK3576 MMIO aperture (UART, GIC, SDHCI, SFC, CRU, USB, ...)
