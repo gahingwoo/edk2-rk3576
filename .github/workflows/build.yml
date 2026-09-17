@@ -8,7 +8,9 @@ on:
 
 jobs:
   firmware:
-    runs-on: ubuntu-24.04
+    # aarch64: scripts/build.sh uses the native toolchain there, and the rescue
+    # UKI is built by running Alpine's own apk, which needs the target arch.
+    runs-on: ubuntu-24.04-arm
     strategy:
       fail-fast: false
       # CM5-IO is the board most of the current work happens on and it had no
@@ -29,7 +31,8 @@ jobs:
             build-essential uuid-dev nasm acpica-tools device-tree-compiler \
             python3 python3-pyelftools python3-dev swig \
             libssl-dev libgnutls28-dev u-boot-tools \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            mtools gdisk zstd cpio kmod \
+            systemd-boot-efi systemd-ukify
 
       - name: Fetch the device-tree include mirror
         # Compiling the board DTS needs the upstream kernel dt-bindings
@@ -58,11 +61,22 @@ jobs:
       - name: Build ${{ matrix.board }}
         run: scripts/build.sh ${{ matrix.board }}
 
+      - name: Rescue system for ${{ matrix.board }}
+        # Only CM5-IO pins a kernel release; the script says so and exits.
+        run: |
+          if grep -q '^RESCUE_KERNEL_RELEASE=' boards/${{ matrix.board }}.conf; then
+            scripts/mkrescue.sh ${{ matrix.board }}
+          else
+            echo "no rescue system configured for ${{ matrix.board }}"
+          fi
+
       - name: Package ${{ matrix.board }}
         run: scripts/package.sh ${{ matrix.board }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.board }}-firmware
-          path: out/*/*.img
+          path: |
+            out/*/*.img
+            out/*/*.sfdisk
           if-no-files-found: error

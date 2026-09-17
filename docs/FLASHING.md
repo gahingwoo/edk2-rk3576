@@ -82,30 +82,42 @@ If a flash leaves the board unbootable, re-enter MaskROM mode and re-flash
 with Option A. The SPI NOR can always be recovered this way; nothing in the
 boot ROM is touched.
 
-## Option D — CM5-IO eMMC partitions
+## Option D — CM5-IO eMMC (firmware + rescue system + data)
 
-The firmware uses the first 33 MB of the 29 GiB eMMC. The rest is partitioned
-from `boards/cm5io-emmc.sfdisk`:
+`out/CM5IO/CM5IO-emmc.img` carries a partition table, so flashing it leaves the
+whole 29 GiB eMMC usable instead of only the 33 MB the firmware occupies.
 
 | Partition | Start | Size | Contents |
 |---|---|---|---|
 | p1 `firmware` | sector 64 | 64 MiB | idblock, FIT, NV variable store. No filesystem. |
-| p2 `rescue-esp` | 64 MiB | 512 MiB | ESP, holds `\EFI\rescue\rescue.efi` |
-| p3 `rescue-root` | 576 MiB | 8 GiB | rescue system |
-| p4 `data` | 8768 MiB | ~20.5 GiB | storage |
-
-Flashing wipes the table. `rkdeveloptool wl 0` writes from LBA 0 and the image
-starts with 32 KB of zeros, taking the protective MBR and primary GPT with it;
-Linux will not read a GPT without a valid protective MBR. The data survives, so
-just write the table again:
+| p2 `rescue-esp` | 64 MiB | sized to the UKI | ESP, holds `\EFI\rescue\rescue.efi` |
+| p3 `data` | after the ESP | rest of the eMMC | unformatted; `mkfs.ext4 /dev/mmcblk0p3` once |
 
 ```bash
-sudo sfdisk --wipe always /dev/mmcblk0 < boards/cm5io-emmc.sfdisk
+rkdeveloptool db   binaries/rk3576_ddr.bin
+rkdeveloptool wl 0 out/CM5IO/CM5IO-emmc.img
+rkdeveloptool rd
 ```
 
-The rescue UKI is deliberately **not** at `\EFI\BOOT\BOOTAA64.EFI`. UEFI
-enumerates the eMMC before the NVMe, so a bootloader there becomes the default,
-and the order cannot be pinned: `PlatformBootManagerLib` calls
+The image stops after the ESP, so it carries the primary GPT but not the backup
+copy at the end of the device. Linux reads the table and warns about the missing
+alternate; `sgdisk -e /dev/mmcblk0` writes it and silences that.
+
+`CM5IO-sdcard.img` is still produced and is still just the firmware. Flashing it
+over a partitioned eMMC wipes the table, because it starts with 32 KB of zeros
+and Linux will not read a GPT without a valid protective MBR. The data survives;
+`CM5IO-emmc.sfdisk` next to the image writes the table back.
+
+### The rescue system
+
+`scripts/mkrescue.sh` builds it: a unified kernel image holding the kernel from
+a pinned release of the kernel repo, an Alpine userland, and the modules a
+rescue session needs that are not built in (NVMe, btrfs). It runs entirely from
+RAM, so there is no rootfs to corrupt and no state to drift.
+
+It is deliberately **not** at `\EFI\BOOT\BOOTAA64.EFI`. UEFI enumerates the
+eMMC before the NVMe, so a bootloader there becomes the default, and the order
+cannot be pinned: `PlatformBootManagerLib` calls
 `EfiBootManagerRefreshAllBootOption()` on every boot, which rebuilds `BootOrder`
 and drops anything set in the setup menu. Boot it from **Boot Maintenance
 Manager → Boot From File** instead. The setup UI is on the serial console as
