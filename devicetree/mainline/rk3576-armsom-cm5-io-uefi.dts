@@ -80,10 +80,20 @@
 };
 
 /*
- * Disable eMMC (SDHCI) in UEFI — the DwcSdhci driver hangs during HS400
- * enumeration on CM5-IO. The SD card (SDMMC0 via RkSdmmcDxe) is used for
- * UEFI boot instead. Linux reinitialises eMMC from scratch via its own driver.
+ * eMMC (SDHCI) stays enabled.
+ *
+ * It used to be disabled here, with the note that "the DwcSdhci driver hangs
+ * during HS400 enumeration" and that "Linux reinitialises eMMC from scratch via
+ * its own driver".  Both halves were wrong by 2026-09-17:
+ *
+ *   - HS400 is not used.  CM5IO.dsc sets PcdDwcSdhciForceHighSpeed, which
+ *     clears the HS400 and HS200 capabilities; the controller runs at 52 MHz
+ *     HighSpeed and reads and writes reliably (see 54f46cc).
+ *   - status = "disabled" does not mean "Linux sets it up itself", it means
+ *     Linux never probes the node.  A DTB handed to the OS with this in it
+ *     leaves the board with no eMMC at all -- confirmed by decompiling the
+ *     shipped DTB, where mmc@2a330000 read status = "disabled".
+ *
+ * So the line cost the OS its onboard storage to work around a firmware bug
+ * that no longer exists.
  */
-&sdhci {
-	status = "disabled";
-};
