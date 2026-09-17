@@ -338,22 +338,12 @@
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|$(ACPI_PCIE_ECAM_COMPAT_MODE_AUTO)
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|$(FDT_COMPAT_MODE_MAINLINE)
   #
-  # Force GOP hands the OS the UEFI framebuffer and disables the VOP, HDMI,
-  # HDPTX PHY and /display-subsystem nodes in the DTB so that no OS driver
-  # touches the display hardware.  It was inherited from the RK3588 tree, where
-  # it exists for kernels with no native display support.
-  #
-  # It defaults to FALSE because that premise no longer holds on RK3576: the
-  # mainline VOP2, DW HDMI QP and Samsung HDPTX drivers all support this SoC.
-  # With it on, an OS that *does* have those drivers gets a DTB with every
-  # display node disabled, so rockchipdrm never probes and there is no KMS
-  # device at all -- only an fbdev, and only if the kernel builds efifb or
-  # simpledrm.  Fedora 45 on kernel 7.3 has DRM_ROCKCHIP=m and no
-  # DRM_SIMPLEDRM, which left the board with a live HDMI signal (still driven
-  # by UEFI), no connectors, and a GNOME session that could not start.
-  #
-  # Turning it on is still the right answer for a kernel without the drivers;
-  # it stays available in the setup menu under Device Tree.
+  # Force GOP disables the VOP, HDMI, HDPTX and /display-subsystem nodes in the
+  # DTB so the OS keeps the framebuffer UEFI left running.  It defaults off
+  # because mainline has all three drivers for RK3576: with it on, a kernel that
+  # has them gets a DTB where they cannot probe, and is left with an fbdev at
+  # best.  Turn it on for a kernel without them; it is in the setup menu under
+  # Device Tree.
   #
   gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|FALSE
   gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault|FALSE

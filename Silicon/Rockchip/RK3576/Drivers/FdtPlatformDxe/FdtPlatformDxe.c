@@ -629,36 +629,20 @@ FdtFixupUsbDrd0 (
   //
 
   //
-  // Remove power-domains from usb@23000000 -- but only in force-GOP mode.
+  // Remove power-domains from usb@23000000, but only in force-GOP mode.
   //
-  // PD_USB is a hardware child of PD_VOP in the RK3576 PMU.  In force-GOP mode
-  // the VOP, HDMI and PD_VOP nodes are all disabled, so nothing in the OS ever
-  // claims PD_VOP; genpd powers it off at "PM: genpd: Disabling unused power
-  // domains" and the hardware cuts the whole subtree, PD_USB included.  DWC3's
-  // own genpd reference cannot save it, because the domain it names is a child
-  // of one that is already gone -- and the DT node it points at is disabled.
-  // So there the reference is removed and the kernel is left to treat DWC3 as
-  // always powered, which UEFI has in fact left it.
+  // PD_USB is a hardware child of PD_VOP.  In force-GOP mode the VOP, HDMI and
+  // PD_VOP nodes are all disabled, so nothing claims PD_VOP, genpd powers it
+  // off, and the hardware cuts the whole subtree.  DWC3's genpd reference
+  // cannot help there: it names a domain whose DT node is disabled.  Dropping
+  // it leaves the kernel treating DWC3 as always powered, which UEFI has left
+  // it.
   //
-  // Outside force-GOP mode the reference is exactly what keeps DWC3 alive, and
-  // removing it is what kills it.  Measured on CM5-IO with force GOP off:
-  //
-  //   [1.658615] PM: genpd: Disabling unused power domains
-  //   [1.781634] Internal error: synchronous external abort ... [#1] SMP
-  //              pc : dwc3_core_probe+0xa7c/0x17b4
-  //              Workqueue: events_unbound deferred_probe_work_func
-  //
-  // PD_VOP had no consumer yet -- rockchipdrm is a module and loads from udev,
-  // long after the late_initcall that powers unused domains off -- so PD_VOP
-  // went down at 1.66 s and took PD_USB with it, and DWC3, stripped of its
-  // reference, walked into dead MMIO 120 ms later.  The abort landed in the
-  // deferred-probe worker and killed it, so every later probe died with it,
-  // NVMe included: the board never found its root filesystem.
-  //
-  // With the property left in place, DWC3 holds PD_USB, PD_USB holds its
-  // parent PD_VOP, and genpd_power_off_unused() skips a domain whose child is
-  // in use.  The domain is then handed over to the VOP driver when rockchipdrm
-  // finally loads.
+  // Outside force-GOP mode that reference is the only thing keeping PD_VOP up
+  // until rockchipdrm loads from udev, well after genpd_power_off_unused().
+  // Removing it there cost the board its root filesystem: PD_VOP went down at
+  // 1.66 s, DWC3 hit dead MMIO, and the abort killed the deferred-probe worker,
+  // taking NVMe with it.
   //
   if (!PcdGet8 (PcdFdtForceGop)) {
     return;
