@@ -80,23 +80,49 @@ step "3/6  Upstream dependency trees"
 # and the build cannot start without them -- EDK2 reports the whole thing as
 # "error 000E: One Path in PACKAGES_PATH doesn't exist", naming none of them.
 #
-# This script does not fetch them.  The exact upstreams the working build uses
-# are not recorded anywhere in this repository, and guessing wrong is worse
-# than saying so: our edk2-non-osi carries Drivers/Realtek and
-# Emulator/X86EmulatorDxe, which tianocore's does not, so it is a fork.
-# Point DEPS_DIR at a directory holding all three, or symlink them in.
-MISSING_DEPS=()
-for d in edk2-non-osi edk2-platforms edk2-rockchip-non-osi; do
-    [ -d "${DEPS_DIR:-$ROOT/third_party}/$d" ] || MISSING_DEPS+=("$d")
-done
-if [ "${#MISSING_DEPS[@]}" -gt 0 ]; then
-    warn "missing from ${DEPS_DIR:-$ROOT/third_party}/:"
-    printf '        %s\n' "${MISSING_DEPS[@]}"
-    warn "the build will fail at once with a PACKAGES_PATH error that names none of them."
-    warn "set DEPS_DIR to a directory that has all three, or symlink them into third_party/."
+# This script used to only warn, on the grounds that "our edk2-non-osi carries
+# Drivers/Realtek and Emulator/X86EmulatorDxe, which tianocore's does not, so
+# it is a fork".  That was never checked and is wrong: tianocore/edk2-non-osi
+# has both.  The upstreams are the ones edk2-porting/edk2-rk3588 uses in its
+# .gitmodules, except edk2-rockchip-non-osi, which that project keeps as a
+# plain in-tree directory rather than a submodule -- hence the sparse checkout.
+DEPS_ROOT="${DEPS_DIR:-$ROOT/third_party}"
+mkdir -p "$DEPS_ROOT"
+
+fetch_dep() {
+    local name="$1" url="$2"
+    if [ -e "$DEPS_ROOT/$name" ]; then
+        ok "$name present"
+        return
+    fi
+    info "cloning $name"
+    git clone --depth=1 "$url" "$DEPS_ROOT/$name"
+}
+
+fetch_dep edk2-non-osi   https://github.com/tianocore/edk2-non-osi.git
+fetch_dep edk2-platforms https://github.com/tianocore/edk2-platforms.git
+
+# edk2-rockchip-non-osi is a directory inside edk2-porting/edk2-rk3588, not a
+# repository of its own -- github.com/edk2-porting/edk2-rockchip-non-osi is a
+# 404.  Take just that directory.  Its AMD GOP drivers are referenced by
+# Silicon/Rockchip/Rockchip.dsc.inc and FvMainModules.fdf.inc, so they really
+# do end up in the image; this is not an optional tree.
+if [ -e "$DEPS_ROOT/edk2-rockchip-non-osi" ]; then
+    ok "edk2-rockchip-non-osi present"
 else
-    ok "dependency trees present"
+    info "sparse-checking out edk2-rockchip-non-osi from edk2-porting/edk2-rk3588"
+    rm -rf "$DEPS_ROOT/.rk3588-sparse"
+    git clone --depth=1 --filter=blob:none --sparse \
+        https://github.com/edk2-porting/edk2-rk3588.git "$DEPS_ROOT/.rk3588-sparse"
+    git -C "$DEPS_ROOT/.rk3588-sparse" sparse-checkout set edk2-rockchip-non-osi
+    mv "$DEPS_ROOT/.rk3588-sparse/edk2-rockchip-non-osi" "$DEPS_ROOT/edk2-rockchip-non-osi"
+    rm -rf "$DEPS_ROOT/.rk3588-sparse"
 fi
+
+for d in edk2-non-osi edk2-platforms edk2-rockchip-non-osi; do
+    [ -d "$DEPS_ROOT/$d" ] || die "dependency tree still missing: $DEPS_ROOT/$d"
+done
+ok "dependency trees present"
 
 step "4/6  EDK2 core patches"
 
