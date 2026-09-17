@@ -498,7 +498,25 @@ PciePeReset (
 {
   switch (Segment) {
     case 0:  /* GPIO2 PB1 — pcie0 reset (active-high) */
-      GpioPinWrite (2, GPIO_PIN_PB1, Enable);
+      //
+      // PERST# is active low: the pin is driven LOW to hold the endpoint in
+      // reset and HIGH to release it, so Enable ("assert reset") maps to LOW.
+      // This used to write Enable straight through, which inverted the signal:
+      // "assert" released the device and "release" drove it back into reset.
+      // Every other reset line in this file already uses !Enable.
+      //
+      // Mainline is unambiguous -- pcie-dw-rockchip requests the GPIO as
+      // GPIOD_OUT_HIGH and rockchip_pcie_start_link() writes 0 under the
+      // comment "Reset device", then 1 to release.
+      //
+      // Measured on CM5-IO 2026-09-17: with the inversion the link trained to
+      // Recovery (LTSSM 0x0013000D) then collapsed to Polling.Compliance
+      // (0x00000003) within 50 ms -- exactly when the code believed it was
+      // releasing PERST# and was in fact asserting it.  The endpoint's config
+      // space read 0xFFFFFFFF at the instant of link-up, so the link was never
+      // usable.
+      //
+      GpioPinWrite (2, GPIO_PIN_PB1, !Enable);
       break;
     default:
       break;
