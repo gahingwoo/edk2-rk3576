@@ -69,33 +69,48 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // I2C buses (SoC-level; CM5-IO carrier has no I2C5 devices)
     include ("I2c.asl")
 
-    // CM5-IO board: RK806 PMIC on I2C1 @ 0x23
+    // CM5-IO board: RK806 PMIC on I2C1 @ 0x23 (rk3576-armsom-cm5.dtsi pmic@23)
     // rockchip,rk806 driver uses i2c_device_id; PRP0001 allows ACPI enumeration
     // if the MFD driver supports OF-compatible probing via ACPI bus.
+    //
+    // The slave address belongs in an I2cSerialBusV2 descriptor in _CRS, not in
+    // _ADR: _ADR is for a device the OS finds by enumerating its parent bus, and
+    // a device that names itself with _HID must describe its resources instead.
+    // Declaring both made iasl warn 3073 and left the device with no _CRS at
+    // all.  The bus speed is 100 kHz because neither i2c1 nor i2c2 sets
+    // clock-frequency in the DT, which is the Linux default.
     Scope (I2C1) {
       Device (PMC0) {
-        Name (_ADR, 0x23)
         Name (_HID, "PRP0001")
         Name (_UID, 0)
+        Name (_CRS, ResourceTemplate () {
+          I2cSerialBusV2 (0x0023, ControllerInitiated, 100000,
+                          AddressingMode7Bit, "\\_SB.I2C1",
+                          0x00, ResourceConsumer, , Exclusive,)
+        })
         Name (_DSD, Package () {
           ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
           Package () {
             Package () { "compatible", Package () { "rockchip,rk806" } },
-            Package () { "spi-max-frequency", 1000000 },
           }
         })
         Method (_STA) { Return (0xf) }
       }
     }
 
-    // CM5-IO board: HYM8563 RTC on I2C2 @ 0x51
+    // CM5-IO board: HYM8563 RTC on I2C2 @ 0x51 (rk3576-armsom-cm5.dtsi rtc@51)
     // Linux rtc-hym8563.c has built-in ACPI support for HID HYMB0001.
     // No GPIO interrupt declared here; driver polls if IRQ not present.
+    // _CRS rather than _ADR, for the reason given above PMC0.
     Scope (I2C2) {
       Device (RTC0) {
-        Name (_ADR, 0x51)
         Name (_HID, "HYMB0001")
         Name (_UID, 0)
+        Name (_CRS, ResourceTemplate () {
+          I2cSerialBusV2 (0x0051, ControllerInitiated, 100000,
+                          AddressingMode7Bit, "\\_SB.I2C2",
+                          0x00, ResourceConsumer, , Exclusive,)
+        })
         Method (_STA) { Return (0xf) }
       }
     }
