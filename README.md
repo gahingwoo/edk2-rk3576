@@ -22,7 +22,7 @@ See the note below the images and [docs/STATUS.md](docs/STATUS.md).
 | Radxa ROCK 4D | ArmSoM CM5-IO |
 |---|---|
 | ![UEFI front page — ROCK 4D](docs/imgs/monitor-4d.png) | ![UEFI front page — CM5-IO](docs/imgs/monitor-cm5io.jpeg) |
-| TianoCore front page, 2560×1440@60 over HDMI | TianoCore on CM5-IO over HDMI — capture predates the 2026-09-17 fixes, the horizontal offset and the stripes in it are gone |
+| TianoCore front page, 2560×1440@60 over HDMI | TianoCore on CM5-IO, 2560×1440@60 over HDMI |
 
 | | |
 |---|---|
