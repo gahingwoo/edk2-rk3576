@@ -21,6 +21,7 @@
   {
     Name (_HID, "ARMH0330")
     Name (_UID, 0)
+    Name (_CCA, 0)
     Method (_CRS, 0, Serialized)
     {
       Name (RBUF, ResourceTemplate ()
@@ -52,6 +53,7 @@
   {
     Name (_HID, "ARMH0330")
     Name (_UID, 1)
+    Name (_CCA, 0)
     Method (_CRS, 0, Serialized)
     {
       Name (RBUF, ResourceTemplate ()
@@ -83,6 +85,7 @@
   {
     Name (_HID, "ARMH0330")
     Name (_UID, 2)
+    Name (_CCA, 0)
     Method (_CRS, 0, Serialized)
     {
       Name (RBUF, ResourceTemplate ()
