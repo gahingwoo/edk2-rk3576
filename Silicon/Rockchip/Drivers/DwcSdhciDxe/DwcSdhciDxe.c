@@ -24,6 +24,7 @@
 #define EMMC_FORCE_HIGH_SPEED      FixedPcdGetBool(PcdDwcSdhciForceHighSpeed)
 #define EMMC_FORCE_DEFAULT_SPEED   FixedPcdGetBool(PcdDwcSdhciForceDefaultSpeed)
 #define EMMC_DISABLE_HS400         FixedPcdGetBool(PcdDwcSdhciDisableHs400)
+#define EMMC_DISABLE_SDMA          FixedPcdGetBool(PcdDwcSdhciDisableSdma)
 #define EMMC_NONDLL_STRBIN_DELAY   FixedPcdGet32(PcdDwcSdhciNonDllStrbinDelay)
 
 STATIC EFI_HANDLE  mSdMmcControllerHandle;
@@ -70,6 +71,16 @@ EmmcSdMmcCapability (
   // fine for the time being.
   //
   Capability->Adma2 = 0;
+
+  if (EMMC_DISABLE_SDMA) {
+    //
+    // Diagnostic: with ADMA2 already off, clearing Sdma makes SdMmcCreateTrb()
+    // pick SdMmcPioMode.  Answered 2026-09-17: PIO writes fail the same way as
+    // SDMA ones, so the eMMC write fault is not in the DMA path.  Kept because
+    // the question is cheap to re-ask and expensive to re-plumb.
+    //
+    Capability->Sdma = 0;
+  }
 
   //
   // Override slot type to Embedded Slot (0x1) so EmmcDxe binds

@@ -47,6 +47,7 @@
   gRockchipTokenSpaceGuid.PcdDwcSdhciForceDefaultSpeed
   gRockchipTokenSpaceGuid.PcdDwcSdhciDisableHs400
   gRockchipTokenSpaceGuid.PcdDwcSdhciNonDllStrbinDelay
+  gRockchipTokenSpaceGuid.PcdDwcSdhciDisableSdma
 
 [Depex]
   TRUE

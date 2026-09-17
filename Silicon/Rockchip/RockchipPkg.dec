@@ -107,6 +107,14 @@
   # STRBIN delay count for non-DLL (<=52 MHz) mode.
   # RK3576: 0xa  RK3588: 0x10 (DLL_STRBIN_DELAY_NUM_DEFAULT)
   gRockchipTokenSpaceGuid.PcdDwcSdhciNonDllStrbinDelay|0x10|UINT32|0x40000038
+  # Force PIO instead of SDMA for eMMC data transfers.  Diagnostic switch:
+  # eMMC reads succeed but every write fails with an SDHCI Data Timeout
+  # (Error Interrupt Status bit 4), after which the card stops answering
+  # commands entirely.  ADMA2 is already disabled on this controller, so
+  # clearing Sdma too makes SdMmcCreateTrb() fall back to SdMmcPioMode,
+  # which tells apart a fault in the DMA write path from one in the card,
+  # the clock or the timeout counter.
+  gRockchipTokenSpaceGuid.PcdDwcSdhciDisableSdma|FALSE|BOOLEAN|0x4000003A
 
   gRockchipTokenSpaceGuid.SpiRK806BaseAddr|0|UINT32|0x21200002
 
