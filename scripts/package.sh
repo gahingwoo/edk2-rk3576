@@ -219,8 +219,18 @@ EOF
 
         dd if="$WORK/full.img" of="$EMMC_IMG" bs=1M count=$(( FW_MB + ESP_MB )) status=none
         [ "$(stat -c %s "$EMMC_IMG")" -eq "$IMG_BYTES" ] || die "eMMC image came out the wrong size"
-        sfdisk -l "$EMMC_IMG" 2>/dev/null | tail -4
         ok "$EMMC_IMG  ($(du -h "$EMMC_IMG" | cut -f1)), ESP ${ESP_MB} MiB"
+
+        LAYOUT="$LAYOUT
+  --- $PLATFORM_NAME-emmc.img only, on top of the above ---
+  LBA 0..33                protective MBR + GPT
+  sector 64                p1 firmware (${FW_MB} MiB)
+  sector $ESP_START            p2 rescue-esp (${ESP_MB} MiB, EFI/rescue/rescue.efi)
+  sector $DATA_START           p3 data (rest of the eMMC, unformatted)"
+        FLASH="  rkdeveloptool db   binaries/rk3576_ddr.bin
+  rkdeveloptool wl 0 out/$PLATFORM_NAME/$PLATFORM_NAME-emmc.img
+  rkdeveloptool rd
+  # then once, on the board:  sudo mkfs.ext4 /dev/mmcblk0p3 && sudo sgdisk -e /dev/mmcblk0"
     fi
 else
     FIT_MAX=$((0xFC0000 - 0x60000))
