@@ -766,11 +766,23 @@ InitializePciHost (
    * NVMe to a stable Gen2 link.  Two things differ from what we were doing, and
    * both matter:
    *
-   *   1. Release PERST# *before* enabling the LTSSM (we had it backwards).  The
-   *      endpoint must be out of reset with its receiver terminations live before
-   *      the root port begins Detect; otherwise the link trains half-formed,
-   *      reaches L0, then collapses out of Recovery (the 0x..000D -> 0x..0003 we
-   *      kept seeing).
+   *   1. Enable the LTSSM *first*, hold PERST# asserted for T_PVPERL, and
+   *      release PERST# last.  This is what mainline does -- see
+   *      rockchip_pcie_start_link() in drivers/pci/controller/dwc/
+   *      pcie-dw-rockchip.c, whose comment gives the reason: the reference
+   *      clock may be driven by the root complex's own PHY, in which case
+   *      enabling the LTSSM is the moment the refclk becomes stable, and
+   *      PCIe requires 100 ms of stable refclk before PERST# is released.
+   *
+   *      This file previously said the opposite -- "release PERST# before
+   *      enabling the LTSSM (we had it backwards)" -- and that ordering is
+   *      what was actually backwards.  With it, the endpoint left reset with
+   *      no refclk running and never trained: measured on CM5-IO 2026-09-17,
+   *      attempt 1 ended at LTSSM state 0x03 (POLL.COMPLIANCE) and attempt 2
+   *      latched the link-up bits at state 0x05, then dropped both bits and
+   *      fell back to 0x03 during the settle, leaving the endpoint's config
+   *      space reading 0xFFFFFFFF.  Linux trains the same board and the same
+   *      drive on the first try.
    *   2. Once the link-up bits latch, simply wait 1 s ("link maybe in Gen switch
    *      recovery") and accept it — do NOT require the LTSSM state to read a
    *      stable L0 (0x11), and do NOT power-cycle/retry.
@@ -787,14 +799,18 @@ InitializePciHost (
     DEBUG ((DEBUG_WARN,
             "PCIe%u: train attempt %u/%u — assert PERST#, settle 200ms, release...\n",
             Segment, (UINT32)(Attempt + 1), (UINT32)PCIE_LINK_TRAIN_RETRIES));
-    PciePeReset (Segment, TRUE);
-    gBS->Stall (200000);            /* T_PVPERL: PERST# asserted >= 200 ms */
-    PciePeReset (Segment, FALSE);   /* release the endpoint BEFORE LTSSM */
-    gBS->Stall (20000);
+    PciePeReset (Segment, TRUE);    /* hold the endpoint in reset */
 
-    DEBUG ((DEBUG_WARN, "PCIe%u: Enable LTSSM (PERST# already released)...\n", Segment));
+    DEBUG ((DEBUG_WARN, "PCIe%u: Enable LTSSM (PERST# still asserted)...\n", Segment));
     PciEnableLtssm (ApbBase, FALSE);
     PciEnableLtssm (ApbBase, TRUE);
+
+    /*
+     * T_PVPERL: >= 100 ms of stable reference clock before PERST# is released.
+     * The clock only becomes stable once the LTSSM is enabled, above.
+     */
+    gBS->Stall (100000);
+    PciePeReset (Segment, FALSE);   /* release the endpoint LAST */
 
     DEBUG ((DEBUG_WARN, "PCIe%u: Waiting for link up (up to 500ms)...\n", Segment));
     for (Retry = 50; Retry != 0; Retry--) {
@@ -839,7 +855,7 @@ InitializePciHost (
   Ltssm = MmioRead32 (ApbBase + PCIE_CLIENT_LTSSM_STATUS);
   DEBUG ((DEBUG_WARN, "PCIe%u: link up (LTSSM_STATUS=0x%08X) — waiting 1s for Gen switch...\n",
           Segment, Ltssm));
-  gBS->Stall (1000000);
+
   Ltssm = MmioRead32 (ApbBase + PCIE_CLIENT_LTSSM_STATUS);
   DEBUG ((DEBUG_WARN, "PCIe%u: post-settle LTSSM_STATUS=0x%08X\n", Segment, Ltssm));
 
