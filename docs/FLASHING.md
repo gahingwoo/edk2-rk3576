@@ -81,3 +81,43 @@ SD card image layout:
 If a flash leaves the board unbootable, re-enter MaskROM mode and re-flash
 with Option A. The SPI NOR can always be recovered this way; nothing in the
 boot ROM is touched.
+
+## CM5-IO eMMC partitions (rescue system + data)
+
+Beyond the firmware, the CM5-IO eMMC carries a partition table.  The layout
+lives in `boards/cm5io-emmc.sfdisk`:
+
+| Partition | Start | Size | Contents |
+|---|---|---|---|
+| (none) | 0 | 32 KiB | protective MBR + primary GPT |
+| p1 `firmware` | 64 MiB region from sector 64 | 64 MiB | idblock, FIT, NV variable store -- **never put a filesystem here** |
+| p2 `rescue-esp` | 64 MiB | 512 MiB | ESP holding the rescue UKI |
+| p3 `rescue-root` | 576 MiB | 8 GiB | minimal Fedora rescue system |
+| p4 `data` | 8768 MiB | ~20.5 GiB | general storage |
+
+**Flashing the firmware wipes the partition table.**  `rkdeveloptool wl 0` writes
+the whole image starting at LBA 0, and the image's first 32 KiB are zeros, so the
+protective MBR and primary GPT go with it.  Linux will not look for a GPT without
+a valid protective MBR, so the partitions disappear from the OS.  No data is lost
+-- everything lives past 64 MiB and the image is only 33 MB.  Put the table back:
+
+```bash
+sudo sfdisk --wipe always /dev/mmcblk0 < boards/cm5io-emmc.sfdisk
+```
+
+### Booting the rescue system
+
+The rescue UKI is at `\EFI\rescue\rescue.efi` on p2, deliberately **not** at the
+`\EFI\BOOT\BOOTAA64.EFI` fallback path.  UEFI enumerates the eMMC before the
+NVMe, so a bootloader at the fallback path would make the rescue system the
+default, and the boot order cannot be pinned: `PlatformBootManagerLib` calls
+`EfiBootManagerRefreshAllBootOption()` on every boot, which regenerates
+`BootOrder` and discards any manual ordering made in the setup menu.
+
+To boot it, enter the UEFI menu (the setup UI is on the serial console as well as
+HDMI) and use **Boot Maintenance Manager -> Boot From File**, then pick the eMMC
+volume and `EFI/rescue/rescue.efi`.
+
+It runs the same kernel as the main install, has sshd and NetworkManager
+enabled, and mounts p4 at `/data`.  Set its `root` and user passwords yourself
+when you build it -- do not record them here.

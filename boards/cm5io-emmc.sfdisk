@@ -1,0 +1,24 @@
+# eMMC partition layout for ArmSoM CM5-IO (31272730624 bytes / 61079552 sectors).
+#
+# The firmware is written to the eMMC as a raw image at LBA 0
+# (`rkdeveloptool wl 0 out/CM5IO/CM5IO-sdcard.img`), and the first 32 KiB of
+# that image are zeros -- so every reflash wipes the protective MBR and the
+# primary GPT.  Linux will not even look for a GPT without a valid protective
+# MBR, so the partitions vanish from the OS until the table is written again.
+# Nothing is lost: the data starts at 64 MiB and the image is only 33 MB.
+#
+# Re-apply after flashing:
+#
+#     sudo sfdisk --wipe always /dev/mmcblk0 < boards/cm5io-emmc.sfdisk
+#
+# p1 covers the firmware itself so that nothing else is ever allocated there:
+# idblock at sector 64, FIT at 0x800000, NV variable store at 0x1600000.
+# Do not put a filesystem on it.
+label: gpt
+unit: sectors
+first-lba: 34
+
+start=64,       size=131008,   type=8DA63339-0007-60C0-C436-083AC8230908, name="firmware"
+start=131072,   size=1048576,  type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name="rescue-esp"
+start=1179648,  size=16777216, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="rescue-root"
+start=17956864,                type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="data"
