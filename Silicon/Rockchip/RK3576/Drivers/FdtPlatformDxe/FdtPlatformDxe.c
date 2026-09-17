@@ -568,68 +568,6 @@ FdtFixupVopDevices (
 STATIC
 VOID
 EFIAPI
-FdtFixupPowerDomains (
-  IN VOID  *Fdt
-  )
-{
-  INT32  Node;
-  INT32  Ret;
-
-  //
-  // PD_USB (RK3576_PD_USB = 7) is a child of PD_VOP (RK3576_PD_VOP = 18) in
-  // the hardware PMU hierarchy.  When PD_VOP is powered off (it has no VOP/HDMI
-  // consumers because we disabled those nodes for force-GOP mode), the RK3576
-  // PMU physically cuts power to the entire PD_VOP subtree — including PD_USB.
-  //
-  // Even though DWC3 (usb@23000000) holds a software genpd reference to
-  // PD_USB, the hardware-level power gate on PD_VOP makes the DWC3 MMIO
-  // inaccessible.  Any register read (e.g. xhci_portsc_readl during
-  // hub_suspend) causes an AXI slave error (ESR 0xbf000002) → kernel panic.
-  //
-  // Fix: mark both PD_VOP and PD_USB as "always-on" in the FDT.  The
-  // rockchip-pm-domain driver respects this DT property by setting
-  // GENPD_FLAG_ALWAYS_ON on the genpd object, preventing genpd from ever
-  // powering off these domains.  PD_VOP stays powered (keeping PD_USB
-  // accessible), and DWC3 operates without hardware power being cut under it.
-  //
-
-  DEBUG ((DEBUG_INFO, "FdtPlatform: Marking PD_VOP and PD_USB as always-on\n"));
-
-  //
-  // PD_VOP: /soc/power-management@27380000/power-controller/power-domain@18
-  //
-  Node = FdtPathOffset (Fdt,
-           "/soc/power-management@27380000/power-controller"
-           "/power-domain@" XS (RK3576_PD_VOP));
-  if (Node < 0) {
-    DEBUG ((DEBUG_ERROR, "FdtPlatform: PD_VOP node not found: %a\n", FdtStrerror (Node)));
-  } else {
-    Ret = FdtSetPropEmpty (Fdt, Node, "always-on");
-    if (Ret < 0) {
-      DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to set PD_VOP always-on: %a\n", FdtStrerror (Ret)));
-    }
-  }
-
-  //
-  // PD_USB: .../power-domain@18/power-domain@7
-  //
-  Node = FdtPathOffset (Fdt,
-           "/soc/power-management@27380000/power-controller"
-           "/power-domain@" XS (RK3576_PD_VOP)
-           "/power-domain@" XS (RK3576_PD_USB));
-  if (Node < 0) {
-    DEBUG ((DEBUG_ERROR, "FdtPlatform: PD_USB node not found: %a\n", FdtStrerror (Node)));
-  } else {
-    Ret = FdtSetPropEmpty (Fdt, Node, "always-on");
-    if (Ret < 0) {
-      DEBUG ((DEBUG_ERROR, "FdtPlatform: Failed to set PD_USB always-on: %a\n", FdtStrerror (Ret)));
-    }
-  }
-}
-
-STATIC
-VOID
-EFIAPI
 FdtFixupUfsDevices (
   IN VOID  *Fdt
   )
@@ -691,21 +629,41 @@ FdtFixupUsbDrd0 (
   //
 
   //
-  // Remove power-domains from usb@23000000.
+  // Remove power-domains from usb@23000000 -- but only in force-GOP mode.
   //
-  // PD_USB is a hardware child of PD_VOP in the RK3576 PMU.  With VOP/HDMI DT
-  // nodes disabled (force-GOP mode), genpd has no consumers for PD_VOP and
-  // powers it off via "PM: genpd: Disabling unused power domains" at ~2s.
-  // This takes PD_USB down at the hardware level regardless of genpd's view of
-  // PD_USB.  Even after DWC3 probes and re-requests PD_USB, the power can be
-  // cut again between probe completion and the first hub_event workqueue run,
-  // causing an AXI slave SError (0xbf000002) in xhci_portsc_readl.
+  // PD_USB is a hardware child of PD_VOP in the RK3576 PMU.  In force-GOP mode
+  // the VOP, HDMI and PD_VOP nodes are all disabled, so nothing in the OS ever
+  // claims PD_VOP; genpd powers it off at "PM: genpd: Disabling unused power
+  // domains" and the hardware cuts the whole subtree, PD_USB included.  DWC3's
+  // own genpd reference cannot save it, because the domain it names is a child
+  // of one that is already gone -- and the DT node it points at is disabled.
+  // So there the reference is removed and the kernel is left to treat DWC3 as
+  // always powered, which UEFI has in fact left it.
   //
-  // Fix: remove the power-domains property from usb@23000000 entirely.
-  // UEFI has already powered and configured DWC3.  Without a power-domains
-  // reference, the kernel treats the hardware as always-on and never attempts
-  // to gate the DWC3 MMIO through genpd.
+  // Outside force-GOP mode the reference is exactly what keeps DWC3 alive, and
+  // removing it is what kills it.  Measured on CM5-IO with force GOP off:
   //
+  //   [1.658615] PM: genpd: Disabling unused power domains
+  //   [1.781634] Internal error: synchronous external abort ... [#1] SMP
+  //              pc : dwc3_core_probe+0xa7c/0x17b4
+  //              Workqueue: events_unbound deferred_probe_work_func
+  //
+  // PD_VOP had no consumer yet -- rockchipdrm is a module and loads from udev,
+  // long after the late_initcall that powers unused domains off -- so PD_VOP
+  // went down at 1.66 s and took PD_USB with it, and DWC3, stripped of its
+  // reference, walked into dead MMIO 120 ms later.  The abort landed in the
+  // deferred-probe worker and killed it, so every later probe died with it,
+  // NVMe included: the board never found its root filesystem.
+  //
+  // With the property left in place, DWC3 holds PD_USB, PD_USB holds its
+  // parent PD_VOP, and genpd_power_off_unused() skips a domain whose child is
+  // in use.  The domain is then handed over to the VOP driver when rockchipdrm
+  // finally loads.
+  //
+  if (!PcdGet8 (PcdFdtForceGop)) {
+    return;
+  }
+
   Node = FdtPathOffset (Fdt, "/soc/usb@23000000");
   if (Node >= 0) {
     Ret = FdtDelProp (Fdt, Node, "power-domains");
@@ -736,7 +694,6 @@ ApplyPlatformFdtFixups (
   FdtFixupPcieResources (*Fdt);
   FdtFixupVopDevices (*Fdt);
   FdtFixupNorFlashDevices (*Fdt);
-  FdtFixupPowerDomains (*Fdt);
   FdtFixupUfsDevices (*Fdt);
   FdtFixupUsbDrd0 (*Fdt);
   FdtFixupChosen (*Fdt);
