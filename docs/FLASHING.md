@@ -30,7 +30,7 @@ Source: [github.com/gahingwoo/edk2-webflash](https://github.com/gahingwoo/edk2-w
 3. Run:
 
    ```bash
-   rkdeveloptool db   binaries/rk3576_ddr.bin    # download DDR init blob
+   rkdeveloptool db   rk3576_spl_loader.bin      # an RKLD loader, see the note below
    rkdeveloptool wl 0 out/ROCK4D/ROCK4D-spi.img        # write the 16 MB SPI image
    rkdeveloptool rd                              # reboot
    ```
@@ -94,7 +94,7 @@ firmware occupies. Still 32 MB; the data partition is declared, not populated.
 | p2 `data` | 64 MiB | rest of the eMMC | unformatted |
 
 ```bash
-rkdeveloptool db   binaries/rk3576_ddr.bin
+rkdeveloptool db   rk3576_spl_loader.bin
 rkdeveloptool wl 0 out/CM5IO/CM5IO-emmc.img
 rkdeveloptool rd
 # then once, on the board:
@@ -110,3 +110,22 @@ alternate; `sgdisk -e` writes it and silences that.
 over a partitioned eMMC wipes the table, because it starts with 32 KB of zeros
 and Linux will not read a GPT without a valid protective MBR. The data survives;
 `CM5IO-emmc.sfdisk` next to the image writes the table back.
+
+## The loader `rkdeveloptool db` wants
+
+`db` takes a Rockchip **loader**, a container whose first four bytes are `LDR `,
+such as rkbin's `rk3576_spl_loader_*.bin`. It is not in this repo.
+
+`binaries/rk3576_ddr.bin` is the raw DDR init blob: it starts with an AArch64
+instruction, and handing it to `db` fails with
+
+    Opening loader failed, exiting download boot!
+
+which is easy to read as a USB or permissions problem. It is neither.
+
+Two more things about `rkdeveloptool` worth knowing before you script it:
+after `db`, the board takes several seconds to come back on USB, and `ld` keeps
+reporting `Maskrom` the whole time, so there is nothing to poll for. And `wl`
+failing does not stop `rd` from rebooting the board into whatever was already on
+it, so check that `wl` reached 100% before resetting.
+

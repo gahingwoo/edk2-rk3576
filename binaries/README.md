@@ -7,7 +7,7 @@ here is produced by `scripts/build.sh`.
 |---|---|
 | `bl31.elf` | TF-A BL31 v2.14.0, open source. Preferred. |
 | `rk3576_bl31_vendor.elf` | Rockchip's BL31, used if `bl31.elf` is absent. |
-| `rk3576_ddr.bin` | LPDDR5 init blob v1.09. Needed by `rkdeveloptool db` when flashing over USB. |
+| `rk3576_ddr.bin` | LPDDR5 init blob v1.09, consumed by the SPL. **Not** what `rkdeveloptool db` takes: that wants an RKLD loader (first four bytes `LDR `), which is not in this repo. |
 | `idblock_mainline.bin` | U-Boot SPL (idbloader). `package.sh` prefers a freshly built `out/<BOARD>/idbloader.img` over this one. |
 | `rk3576_spi_nor_gpt.img` | GPT written at offset 0 of the 16 MB SPI NOR image (ROCK 4D). |
 

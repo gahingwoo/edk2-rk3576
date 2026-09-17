@@ -207,7 +207,7 @@ EOF
   LBA 0..33                protective MBR + GPT
   sector 64                p1 firmware ($FW_MB MiB, no filesystem)
   sector $DATA_START           p2 data (rest of the eMMC, unformatted)"
-        FLASH="  rkdeveloptool db   binaries/rk3576_ddr.bin
+        FLASH="  rkdeveloptool db   rk3576_spl_loader.bin   # an RKLD loader, not binaries/rk3576_ddr.bin
   rkdeveloptool wl 0 out/$PLATFORM_NAME/$PLATFORM_NAME-emmc.img
   rkdeveloptool rd
   # then once, on the board:  sudo mkfs.ext4 -L data /dev/mmcblk0p2 && sudo sgdisk -e /dev/mmcblk0"
@@ -245,7 +245,7 @@ else
   0x008000  idblock (DDR init + SPL)
   0x060000  FIT (BL31 + EDK2 + DTB)
   0xFC0000  NV store / 0xFD0000 FTW Working / 0xFE0000 FTW Spare"
-    FLASH="  rkdeveloptool db binaries/rk3576_ddr.bin
+    FLASH="  rkdeveloptool db rk3576_spl_loader.bin   # an RKLD loader, not binaries/rk3576_ddr.bin
   rkdeveloptool wl 0 out/$PLATFORM_NAME/$PLATFORM_NAME-spi.img
   rkdeveloptool rd"
 fi
