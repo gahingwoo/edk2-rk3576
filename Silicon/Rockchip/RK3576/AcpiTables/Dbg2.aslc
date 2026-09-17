@@ -16,13 +16,28 @@
 
 #pragma pack(1)
 
-#define UART_STR  { '\\', '_', 'S', 'B', '.', 'U', 'A', 'R', '2', 0x00 }
+//
+// "." is the ACPI-defined namespace string for "this port has no device object".
+//
+// It used to name \_SB.UAR2, which is wrong and was wrong in a way that is easy
+// to miss: the GAS below is PcdSerialRegisterBase, 0x2AD40000, which mainline
+// calls uart0 and which is the console.  UAR2 in Uart.asl is a correct
+// description of uart2 at 0x2AD50000 -- a different port.  So the table named
+// one device and addressed another, and no device exists for uart0 at all.
+//
+// winload does not care: it drives the port straight from the GAS, which is why
+// its boot debugger works.  The kernel resolves the name, and on CM5-IO with
+// Win10 21H2 IoT no exception was ever reported over KD across several complete
+// boots -- 810 file notifications and 22 symbol loads came through, and zero
+// bugcheck packets.
+//
+#define UART_STR  { '.', 0x00 }
 
 typedef struct {
   EFI_ACPI_DBG2_DEBUG_DEVICE_INFORMATION_STRUCT    Dbg2Device;
   EFI_ACPI_6_3_GENERIC_ADDRESS_STRUCTURE           BaseAddressRegister;
   UINT32                                           AddressSize;
-  UINT8                                            NameSpaceString[10];
+  UINT8                                            NameSpaceString[2];
 } DBG2_DEBUG_DEVICE_INFORMATION;
 
 typedef struct {
@@ -45,7 +60,7 @@ STATIC DBG2_TABLE  Dbg2 = {
       EFI_ACPI_DBG2_DEBUG_DEVICE_INFORMATION_STRUCT_REVISION,
       sizeof (DBG2_DEBUG_DEVICE_INFORMATION),
       1,                                   /* NumberofGenericAddressRegisters */
-      10,                                  /* NameSpaceStringLength */
+      2,                                   /* NameSpaceStringLength */
       OFFSET_OF (DBG2_DEBUG_DEVICE_INFORMATION, NameSpaceString),
       0,                                   /* OemDataLength */
       0,                                   /* OemDataOffset */
