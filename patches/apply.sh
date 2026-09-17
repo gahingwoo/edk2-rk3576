@@ -33,7 +33,7 @@ CHECK_ONLY=0
 # The upstream tianocore/edk2 commit these patches were generated against; it
 # is the submodule pointer of edk2-porting/edk2-rk3588 at the time of writing.
 # Recorded so a future context mismatch has an obvious first thing to check.
-EXPECT_EDK2_SHA="46548b1adac82211d8d11da12dd914f41e7aa775"
+EXPECT_EDK2_SHA="b7a715f7c03c45c6b4575bf88596bfd79658b8ce"   # edk2-stable202602
 
 while [ $# -gt 0 ]; do
   case "$1" in

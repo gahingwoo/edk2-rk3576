@@ -13,7 +13,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$ROOT/scripts/lib/common.sh"
 
-EDK2_COMMIT=46548b1adac82211d8d11da12dd914f41e7aa775
+EDK2_COMMIT=b7a715f7c03c45c6b4575bf88596bfd79658b8ce   # edk2-stable202602
 
 step "1/5  Host packages"
 
@@ -59,8 +59,17 @@ else
     warn "EDK2 at $EDK2 is not a git checkout -- cannot verify it is $EDK2_COMMIT"
 fi
 
-# Newer EDK2 cores change BaseTools and library interfaces in ways the rockchip
-# overlay does not follow, which is why the commit is pinned rather than tracked.
+# The commit is pinned rather than tracked, because a newer EDK2 core changes
+# BaseTools and library interfaces under every module at once.
+#
+# It was 46548b1a (2025-11-14) until 2026-09-17, and that commit could not build
+# this tree at all: FdtPlatformDxe uses FdtSetPropEmpty, FdtOverlayApply,
+# FdtOffsetDtStrings and FdtSizeDtStrings, all added upstream in 74c508abe8
+# (2025-12-05), so the link failed on four undefined references.  Local builds
+# hid this by pointing EDK2_DIR at a different checkout; CI had no such escape
+# and had never once compiled a line.  edk2-stable202602 is the first stable tag
+# that carries the four, and is closest to the out-of-tree checkout that every
+# hardware-tested image was actually built from.
 
 info "initialising the submodules EDK2 itself needs"
 for sub in MdeModulePkg/Library/BrotliCustomDecompressLib/brotli \
@@ -146,8 +155,13 @@ step "5/6  BaseTools"
 # The BaseTools binaries checked into upstream EDK2 are x86_64.  On an AArch64
 # host they have to be rebuilt, with the HOST compiler -- not the cross one.
 BT_GENSEC="$EDK2/BaseTools/Source/C/bin/GenSec"
+BT_LIBCOMMON="$EDK2/BaseTools/Source/C/libs/libCommon.a"
 NEED_BUILD=1
-if [ -f "$BT_GENSEC" ]; then
+# Check the static library too, not just one binary: after the pin moves, a
+# stale bin/GenSec of the right architecture is left behind while libs/ is gone,
+# and the build then dies much later with "cannot find -lCommon" out of
+# PcdValueInit, which does not look like a BaseTools problem at all.
+if [ -f "$BT_GENSEC" ] && [ -f "$BT_LIBCOMMON" ]; then
     HAVE_ARCH="$(file -b "$BT_GENSEC" | grep -oE 'x86-64|ARM aarch64' | sed 's/ARM aarch64/aarch64/')"
     WANT_ARCH="$(uname -m | sed 's/x86_64/x86-64/')"
     [ "$HAVE_ARCH" = "$WANT_ARCH" ] && NEED_BUILD=0
