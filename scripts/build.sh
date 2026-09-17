@@ -75,6 +75,16 @@ step "Building $PLATFORM_NAME"
 LOG="$ROOT/Build/build-$BOARD.log"
 mkdir -p "$ROOT/Build"
 
+# RK3576Dxe.c prints __DATE__ __TIME__ as "RK3576Dxe: build ...", which is the
+# only stamp in the image that says which build is running -- the
+# "UEFI firmware (version ...)" banner comes from a module that is almost never
+# recompiled and reads the same in every image.  __DATE__ only moves when this
+# file is compiled, so touch it every build.  The predecessor script did this
+# and the restructure dropped it: on 2026-09-18 both stamps read identically
+# before and after a flash, and there was no way to tell whether the image on
+# the board was the one just built.
+touch "$ROOT/Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.c"
+
 set +e
 build -s -n "$(nproc)" -a AARCH64 -t GCC \
       -p "$DSC_FILE" \
