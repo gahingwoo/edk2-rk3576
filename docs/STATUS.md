@@ -2,12 +2,16 @@
 
 What actually works, what does not, and how confidently we know.
 
-**Rule for this file: every claim carries its sample count.** "HDMI is
-intermittent" is not a status; "2 of 8 cold boots produced a picture" is.
+**Rule for this file: every claim carries its sample count.** "Display works"
+is not a status; "15 of 15 cold boots reached the front page with
+`POST_BUF_EMPTY=0`" is.
 The predecessor of this file (`KNOWN_ISSUES.md`) drifted until four of its
 entries were false, which is what a status file without evidence turns into.
 
-Last updated: 2026-08-30. **Nothing since 2026-08-04 has been on hardware.**
+Last updated: 2026-09-17, after a long hardware session on CM5-IO. Everything
+claimed for CM5-IO below was measured that day unless it says otherwise.
+**ROCK 4D has not been on a bench since 2026-08-04**, so every ROCK 4D entry
+predates the display fixes and none of them has been rechecked against it.
 
 ---
 
@@ -40,11 +44,13 @@ driver away from firing.
 |---|---|
 | Boot chain to UEFI Shell | BootROM → SPL → BL31 → EDK2, serial 1500000 8N1. Reproduced on every boot of both boards. |
 | **The restructured firmware itself** | ROCK 4D booted `rk3576-ROCK4D-legacy-v0.1-1-g652670d` to the front page with no ASSERT, no exception and no abort anywhere in the log. 1 boot. |
-| eMMC (CM5-IO) | Enumerates and boots at 26 MHz legacy SDR. Capped there deliberately — see `PcdDwcSdhciForceDefaultSpeed` in `Platform/ArmSoM/CM5IO/CM5IO.dsc`. |
+| **Display (CM5-IO)** | 2560x1440@60 over HDMI, clean picture, no stripes and no horizontal offset. 15 of 15 cold boots of the fixed code reached the UEFI front page with `POST_BUF_EMPTY=0`; the picture was confirmed by eye on the runs that were checked. Two fixes: `085b8a4` (an SError that killed every boot before the display path ran) and `255f867` (RK3576's three per-VP mixers left at reset — the stripes). |
+| **eMMC (CM5-IO)** | HighSpeed, 52 MHz, 8-bit. Reads *and* writes: 512 B through 192 KB each written, read back and compared byte-identical, and `Found boot disk for NV storage!`. One SDHCI error event per boot, the benign CMD7 deselect. Was capped at 26 MHz legacy SDR until `54f46cc`; that cap is what broke every multi-block write. |
+| **DRAM (CM5-IO)** | All 4 GB mapped — 4096 MB detected, 3838 MB usable on the front page, no external abort. `0003936`. 3 boots. |
 | USB-A (CM5-IO) | Devices enumerate through the onboard 4-port hub. |
 | GbE (CM5-IO) | Link and DHCP, after the crystal-less YT8531 fix (SoC 25 MHz via `clk_mac_refout`). |
 | ACPI tables | `acpiview` in the UEFI Shell shows the expected tables. |
-| NVRAM persistence (CM5-IO) | A variable set from the menu survives a reboot. |
+| NVRAM persistence (CM5-IO) | A variable set from the menu survives a reboot. Note this was measured when the NV store lived on SD; eMMC-backed NV only started working on 2026-09-17 (`54f46cc`). |
 | `\EFI\BOOT` fallback boot | Reaches the OS loader. |
 
 ## Not working
@@ -74,7 +80,22 @@ a `legacy/v0.1` image.
 Note what DDC working does *not* prove: many sinks power their EDID EEPROM from
 their own supply, so it is not evidence that HDMI +5 V is reaching the sink.
 
-### CM5-IO HDMI is intermittent — 2 of 8 cold boots produced a picture
+### ~~CM5-IO HDMI is intermittent — 2 of 8 cold boots produced a picture~~ — SOLVED 2026-09-17
+
+> **This is history, kept for the record of what was measured.** The 2-in-8
+> figure is void twice over: the SARADC fix invalidated the sampling, and the
+> two real bugs were found afterwards. See the display row in *Verified on
+> hardware* above.
+>
+> The causes were not intermittency at all. `586af04` had deferred the VP0
+> STANDBY clear, so every boot died with an SError *before* the display path
+> ran — which also means the whole 2026-08-27 and 2026-08-30 audit had never
+> executed on hardware. With that fixed the picture came up with black vertical
+> stripes, which were RK3576's three per-VP mixers left at their reset values.
+> `vop2_setup_alpha()` only programs mixers from `normalized_zpos >= 1`, so
+> with a single plane mainline writes none of them and **no source comparison
+> could have found it**; diffing the MMIO writes of a vendor binary that
+> produced a clean picture did.
 
 Measured with a capture card and a pixel verdict, not by eye.
 
@@ -131,7 +152,13 @@ The lead that has never been examined: `DCLK_VOP0` as the SPL leaves it.
 There is no RK3576 CRU programming in this firmware at all. See the CRU item
 below.
 
-### Why HDMI is intermittent: UEFI never powers or clocks the VOP itself
+### What the vendor's HDMI driver does that ours did not
+
+> **The title of this section used to read "Why HDMI is intermittent".** That
+> framing is superseded — CM5-IO's display was not intermittent, it was two
+> deterministic bugs (see above). What follows is still the most useful thing
+> in this file: a working vendor binary's own account of the bring-up order,
+> and it is what the mixer fix was eventually found by diffing against.
 
 Found 2026-08-04 by reverse-engineering a working reference image
 (`rock4d-sd-uefi（green hdmi）.img`, a Vendor-stack build that puts a stable

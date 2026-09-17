@@ -15,38 +15,44 @@ Fedora 44 aarch64 through to a GNOME desktop.
 
 ## Screenshots
 
-These are real captures from these boards, not mock-ups. **HDMI output is not
-reliable** — see the caveat below the images and
-[docs/STATUS.md](docs/STATUS.md).
+These are real captures from these boards, not mock-ups. Display on CM5-IO
+works as of 2026-09-17; ROCK 4D's HDMI has not been retested since those fixes.
+See the note below the images and [docs/STATUS.md](docs/STATUS.md).
 
 | Radxa ROCK 4D | ArmSoM CM5-IO |
 |---|---|
 | ![UEFI front page — ROCK 4D](docs/imgs/monitor-4d.png) | ![UEFI front page — CM5-IO](docs/imgs/monitor-cm5io.jpeg) |
-| TianoCore front page, 2560×1440@60 over HDMI | TianoCore on CM5-IO over HDMI (slight horizontal offset) |
+| TianoCore front page, 2560×1440@60 over HDMI | TianoCore on CM5-IO over HDMI — capture predates the 2026-09-17 fixes, the horizontal offset and the stripes in it are gone |
 
 | | |
 |---|---|
 | ![GRUB on USB](docs/imgs/grub.png) | ![Fedora 44 GNOME](docs/imgs/desktop.png) |
 | GRUB from a Fedora 44 USB stick | GNOME *About* — ROCK 4D, 11.5 GiB RAM |
 
-> **These pictures are the good case, not the usual one.** HDMI comes up
-> intermittently: on CM5-IO, 2 of 8 cold boots produced an image. Everything
-> the firmware can report about the display path succeeds on the boots that
-> produce nothing, so a serial log that looks clean is not a guarantee of a
-> picture. Do not take these screenshots as "HDMI works".
+> **CM5-IO: 15 of 15 cold boots.** Two fixes on 2026-09-17 closed this out —
+> an SError that killed every boot before the display path ran, and RK3576's
+> three per-VP mixers left at their reset values, which is what the black
+> vertical stripes were. Across 15 cold boots of the fixed code every one
+> reached the UEFI front page with `POST_BUF_EMPTY=0`, and the picture was
+> confirmed clean by eye on the runs that were checked. The earlier "2 of 8"
+> figure predates these fixes and is void; so is the sampling that produced it.
+>
+> **ROCK 4D is a different failure and is not covered by any of this**: its
+> HPD reads low, so the sink is never detected. It has not been on a bench
+> since the CM5-IO fixes landed.
 
 ## Boards
 
 | Board | Boot medium | Serial console | HDMI | eMMC | USB 3.0 | Ethernet |
 |---|---|---|---|---|---|---|
-| Radxa ROCK 4D | SPI NOR | Reliable | Intermittent | — (no onboard eMMC) | Working | Working |
-| ArmSoM CM5-IO | SD / eMMC | Reliable | Intermittent | Working (26 MHz, capped) | Working | Working |
+| Radxa ROCK 4D | SPI NOR | Reliable | Not working (HPD low; untested since 2026-09-17) | — (no onboard eMMC) | Working | Working |
+| ArmSoM CM5-IO | SD / eMMC | Reliable | Working (15/15 cold boots) | Working (52 MHz HS, reads and writes; UEFI variables persist) | Working | Working |
 
 Read [docs/STATUS.md](docs/STATUS.md) before anything else. It is the account
 of what works, what does not, and with what sample size — every claim in it
 carries its evidence. The short version: the serial console and the boot chain
-are solid, HDMI is the open problem, and PCIe trains but its endpoint's config
-space does not answer.
+are solid, CM5-IO's display and eMMC both work, ROCK 4D's HDMI does not, and
+PCIe trains but its endpoint's config space does not answer.
 
 ## Build
 
