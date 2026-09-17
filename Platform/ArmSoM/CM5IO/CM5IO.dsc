@@ -140,14 +140,39 @@
   #
   # HS200 and HS400 both require SDR104/DDR clock at 200 MHz which depends on
   # the DWC DLL and a CRU-frequency hand-off that the UEFI SDHCI stack cannot
-  # synchronise correctly.  Even plain HighSpeed (~50 MHz, non-DLL sampling)
-  # turned out marginal when the controller is brought up cold from an SD/SPI
-  # boot (no from-eMMC stage tuned its phase): the command line works but 8-bit
-  # data reads CRC and enumeration stalls.  ForceDefaultSpeed caps at 26 MHz
-  # legacy SDR -- widest sampling window, no DLL, no tuning, reliable.  eMMC is
-  # secondary storage here; this trades throughput for a board that always boots.
-  gRockchipTokenSpaceGuid.PcdDwcSdhciForceDefaultSpeed|TRUE
+  # synchronise correctly, so neither is used.
+  #
+  # HighSpeed (52 MHz, non-DLL sampling) vs legacy (26 MHz SDR): legacy was
+  # chosen when HighSpeed looked marginal on a cold controller -- booted from
+  # SD/SPI, with no from-eMMC stage having tuned its phase, the command line
+  # worked but 8-bit data reads CRC'd and enumeration stalled.
+  #
+  # That trade was worse than it looked.  Legacy fixed reads and left *every
+  # multi-block write broken*: CMD25 died with an SDHCI Data Timeout and took
+  # the card with it -- 221 error events in a boot -- so UEFI variables never
+  # persisted.  Measured 2026-09-17, booting from eMMC, with HighSpeed back on:
+  #
+  #   [NVWR]    512 B ( 1 blk)  W=Success  R=Success  match=YES
+  #   [NVWR]   1024 B ( 2 blk)  W=Success  R=Success  match=YES
+  #   [NVWR]   2048 B ( 4 blk)  W=Success  R=Success  match=YES
+  #   [NVWR]   4096 B ( 8 blk)  W=Success  R=Success  match=YES
+  #   [NVWR]   8192 B (16 blk)  W=Success  R=Success  match=YES
+  #   [NVWR] 196608 B           W=Success   -> "Found boot disk for NV storage!"
+  #
+  # every size written and read back byte-identical, SDHCI errors down from 224
+  # to one (the benign CMD7 deselect), and reads did not regress -- enumeration
+  # reached timing = 8, width = 8, 52 MHz normally.
+  #
+  # NOT YET TESTED: the cold case the legacy workaround was originally for, ie.
+  # booting from SD with the eMMC controller untouched by any earlier stage.
+  # If 8-bit read CRC errors come back there, that is this pair of lines.
+  gRockchipTokenSpaceGuid.PcdDwcSdhciForceDefaultSpeed|FALSE
+  gRockchipTokenSpaceGuid.PcdDwcSdhciForceHighSpeed|TRUE
   gRockchipTokenSpaceGuid.PcdDwcSdhciNonDllStrbinDelay|0xa   # per U-Boot rk3576_data.ddr50_strbin_delay_num
+  # Answered 2026-09-17: PIO writes fail exactly like SDMA ones (the transfer
+  # dies at PioBlockIndex 2), so the eMMC write fault is NOT in the DMA path.
+  # The switch stays available for the next time that question comes up.
+  gRockchipTokenSpaceGuid.PcdDwcSdhciDisableSdma|FALSE
 
   # FVB / NV variable store.
   #
