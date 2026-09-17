@@ -57,11 +57,26 @@ Tested on **Radxa ROCK 4D, 12 GB LPDDR5 SKU**.
 | **UEFI front page (HDMI), CM5-IO**   | ![monitor](imgs/monitor-cm5io.jpeg) |
 | GRUB on Fedora 44 USB    | ![grub](imgs/grub.png)                    |
 | Fedora live console      | ![fedora](imgs/fedora.png)                |
-| Fedora 44 GNOME desktop  | ![desktop](imgs/desktop.png)              |
+| Fedora 44 GNOME desktop, ROCK 4D | ![rock4d-desktop](imgs/rock4d-desktop.png) |
+| Fedora 45 Workstation desktop, CM5-IO | ![cm5io-desktop](imgs/cm5io-desktop.png) |
 
 The Fedora *About → System Details* panel correctly reports the SMBIOS data
-written by `PlatformSmbiosDxe`:
+written by `PlatformSmbiosDxe`.
+
+ROCK 4D:
 
 * **Model:** Radxa ROCK 4D
 * **Firmware Version:** rk3576-rock4d-v0.1
 * **Memory:** 11.5 GiB
+
+CM5-IO, read off the Fedora 45 Workstation live session above:
+
+* **Model:** ArmSoM CM5-IO
+* **Firmware Version:** rk3576-CM5IO-legacy-v0.1-31-g684d985-dirty
+* **Memory:** 3.7 GiB — this is the 2026-09-17 map fix showing up in the OS.
+  Before it the board reported 2814 MB (2.7 GiB); the firmware now maps all
+  4 GB and hands 3838 MB to the OS.
+* **Disk Capacity:** 128.0 GB — the NVMe, which the OS drives even though UEFI
+  cannot enumerate it (see `docs/STATUS.md`).
+* **Graphics:** Mali-G52 r1 MC3, Panfrost
+* Kernel 7.2.0-61.fc45.aarch64, GNOME Shell 51.beta

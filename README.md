@@ -24,10 +24,15 @@ See the note below the images and [docs/STATUS.md](docs/STATUS.md).
 | ![UEFI front page — ROCK 4D](docs/imgs/monitor-4d.png) | ![UEFI front page — CM5-IO](docs/imgs/monitor-cm5io.jpeg) |
 | TianoCore front page, 2560×1440@60 over HDMI | TianoCore on CM5-IO, 2560×1440@60 over HDMI |
 
+| Radxa ROCK 4D | ArmSoM CM5-IO |
+|---|---|
+| ![GNOME on ROCK 4D](docs/imgs/rock4d-desktop.png) | ![GNOME on CM5-IO](docs/imgs/cm5io-desktop.png) |
+| GNOME *About* — Fedora 44, 11.5 GiB RAM | GNOME *About* — Fedora 45 Workstation, kernel 7.2, 3.7 GiB RAM, Mali-G52 via Panfrost |
+
 | | |
 |---|---|
-| ![GRUB on USB](docs/imgs/grub.png) | ![Fedora 44 GNOME](docs/imgs/desktop.png) |
-| GRUB from a Fedora 44 USB stick | GNOME *About* — ROCK 4D, 11.5 GiB RAM |
+| ![GRUB on USB](docs/imgs/grub.png) | ![Fedora live console](docs/imgs/fedora.png) |
+| GRUB from a Fedora USB stick | Fedora live console |
 
 > **CM5-IO: 15 of 15 cold boots.** Two fixes on 2026-09-17 closed this out —
 > an SError that killed every boot before the display path ran, and RK3576's
