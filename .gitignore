@@ -9,7 +9,12 @@
 
 # The upstream kernel dt-bindings mirror used to compile the DTS (~90 MB).
 # scripts/setup-host.sh does not fetch it yet -- see docs/BUILDING.md.
-/devicetree/mainline/upstream/
+# It is a symlink on the maintainer's machine, so ignore the path itself and
+# not just a directory at that path -- a trailing slash matches only a
+# directory, which is how the symlink came to be committed and why CI could
+# not build: checkout produced a dangling absolute symlink into /home/... and
+# `mkdir -p` under it failed with "File exists".
+/devicetree/mainline/upstream
 
 # Editor / OS junk
 .DS_Store

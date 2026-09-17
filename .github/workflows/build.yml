@@ -34,20 +34,23 @@ jobs:
       - name: Fetch the device-tree include mirror
         # Compiling the board DTS needs the upstream kernel dt-bindings
         # headers; RockchipPkg.dec puts them on the include path.
+        #
+        # This used to try github.com/rockchip-linux/rockchip-devicetree first
+        # and fall back to a sparse checkout of torvalds/linux.  That repo does
+        # not exist (404), and the attempt was silenced with 2>/dev/null, so the
+        # "fallback" was always the only path -- and it looked like a safety net
+        # that had never once run.  Only the sparse checkout is left.
         run: |
-          git clone --depth=1 https://github.com/rockchip-linux/rockchip-devicetree \
-            devicetree/mainline/upstream 2>/dev/null \
-            || git clone --depth=1 --filter=blob:none --sparse \
-                 https://github.com/torvalds/linux /tmp/linux
-          if [ ! -d devicetree/mainline/upstream/include ]; then
-            cd /tmp/linux
-            git sparse-checkout set include/dt-bindings arch/arm64/boot/dts/rockchip
-            cd -
-            mkdir -p devicetree/mainline/upstream/src/arm64
-            ln -s /tmp/linux/include            devicetree/mainline/upstream/include
-            ln -s /tmp/linux/arch/arm64/boot/dts/rockchip \
+          set -eux
+          git clone --depth=1 --filter=blob:none --sparse \
+            https://github.com/torvalds/linux /tmp/linux
+          git -C /tmp/linux sparse-checkout set \
+            include/dt-bindings arch/arm64/boot/dts/rockchip
+          mkdir -p devicetree/mainline/upstream/src/arm64
+          ln -sfn /tmp/linux/include devicetree/mainline/upstream/include
+          ln -sfn /tmp/linux/arch/arm64/boot/dts/rockchip \
                   devicetree/mainline/upstream/src/arm64/rockchip
-          fi
+          test -d devicetree/mainline/upstream/include/dt-bindings
 
       - name: Set up host (EDK2, BaseTools, core patches)
         run: yes | scripts/setup-host.sh
