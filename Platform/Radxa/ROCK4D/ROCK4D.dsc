@@ -138,8 +138,21 @@
   # FDT only -- no ACPI tables are built into this image.
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_FDT)
 
-  # Default display mode: 0x13 = 2560x1440@60.
-  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x13, 0x00, 0x00, 0x00 }
+  # Default display mode.  0x80000000 = NATIVE: follow the sink's EDID.
+  #
+  # This was 0x13, the predefined 2560x1440@60 entry, fixed regardless of what
+  # is plugged in.  That dated from when ROCK 4D produced no HDMI signal at all
+  # (HPD read low) and a mode had to be asserted blind.  The board drives HDMI
+  # now, and a fixed 2K is wrong on any sink that cannot take it: on a 1080p
+  # monitor it reports the resolution as too large and shows nothing.
+  #
+  # NATIVE degrades safely.  If the EDID cannot be read, LcdGraphicsOutputDxe
+  # finds no usable mode and falls back to predefined mode 0, 640x480, which
+  # every monitor displays -- a worse picture, not a blank one.
+  #
+  # CM5-IO went through the same thing for a different reason and is already
+  # NATIVE; see the matching block in CM5IO.dsc.
+  gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
 
 ################################################################################
 [Components.common]
