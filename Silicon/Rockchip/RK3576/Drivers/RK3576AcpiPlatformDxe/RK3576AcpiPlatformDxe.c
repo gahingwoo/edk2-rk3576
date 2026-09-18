@@ -331,12 +331,28 @@ AcpiFixupPcieEcam (
 
   for (Index = 0; Index < NUM_PCIE_CONTROLLER; Index++) {
     McfgTable->ConfigSpaces[0][Index].PciSegmentGroupNumber = Index;
-    McfgTable->ConfigSpaces[0][Index].BaseAddress           = PCIE_CFG_BASE (Index) + PCIE_BUS_BASE_OFFSET (Index);
+    //
+    // The ECAM address of a bus is BaseAddress + ((Bus - StartBusNumber) << 20),
+    // so the segment's bus-number allocation is already expressed by
+    // StartBusNumber and must not be folded into the base as well.  This used
+    // to add PCIE_BUS_BASE_OFFSET here and subtract it again only when
+    // PcieBusOffset was set, which left the base 32 MB high for segment 1
+    // whenever it was not.
+    //
+    // Measured on CM5-IO 2026-09-18 on the Windows (NXPMX6) path:
+    //
+    //   AcpiPlatform:   seg1 [0] base=0x23000000 bus 1..15
+    //
+    // 0x23000000 is not PCIe config space on this SoC -- it is the first DWC3
+    // USB controller, which XHC0 claims in the DSDT.  MCFG reserving it as
+    // ECAM is why `ACPI\PNP0D10\0` came up CM_PROB_FAILED_START with no
+    // resources granted at all, while XHC1 next to it started fine.
+    //
+    McfgTable->ConfigSpaces[0][Index].BaseAddress           = PCIE_CFG_BASE (Index);
     McfgTable->ConfigSpaces[0][Index].StartBusNumber        = PcieBusMin;
     McfgTable->ConfigSpaces[0][Index].EndBusNumber          = PcieBusMax;
 
     if (PcieBusOffset) {
-      McfgTable->ConfigSpaces[0][Index].BaseAddress    -= PCIE_BUS_BASE_OFFSET (Index);
       McfgTable->ConfigSpaces[0][Index].StartBusNumber += PCIE_BUS_BASE (Index);
       McfgTable->ConfigSpaces[0][Index].EndBusNumber   += PCIE_BUS_BASE (Index);
     }
