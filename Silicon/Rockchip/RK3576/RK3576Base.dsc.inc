@@ -343,6 +343,32 @@
   # PcdConfigTableModeDefault is board-level: CM5-IO ships ACPI+FDT for
   # Windows on Arm, ROCK 4D is FDT-only.
   #
+  # ECAM compat mode.  AUTO picks NXPMX6 for Windows, which claims
+  # PCIE_BUS_COUNT buses of ECAM from PCIE_CFG_BASE -- measured on CM5-IO
+  # 2026-09-18 as `seg0 [0] base=0x20000000 bus 1..15`, i.e. 15 MB from
+  # 0x20000000.  The root bridge's _CRS puts its 32-bit memory window at
+  # 0x20200000..0x20FFFFFF, so 13 MB of the two overlap.
+  #
+  # That window is the only place a *non-prefetchable* BAR behind the root
+  # port can go: a PCI-to-PCI bridge forwards non-prefetchable memory through
+  # 32-bit Base/Limit registers, so the 2 GB window at 0x900000000 is out of
+  # reach for it.  The NVMe's BAR0 is 64-bit non-prefetchable, and Linux
+  # places it at 0x20200000 -- the first address in the overlap.  Windows
+  # enumerates the device, matches stornvme, and then fails arbitration with
+  # CM_PROB_NORMAL_CONFLICT.
+  #
+  # SINGLE_DEV claims one bus instead, at PCIE_CFG_BASE + 0x8000, which does
+  # not reach 0x20200000 -- and it was tried, 2026-09-18, and hangs Windows in
+  # the kernel just after ExitBootServices.  AcpiFixupPcieEcam says why in its
+  # own comment: that mode turns McfgDeviceFiltering off, which "will hide the
+  # root port and may cause the system to lock-up with certain endpoints that
+  # have broken CFG0 filtering".  This SSSTC NVMe is such an endpoint.
+  #
+  # So the filtering has to stay on, which pins the mode to NXPMX6, and the
+  # overlap has to be dealt with inside that mode by claiming fewer buses.
+  #
+  # Linux is unaffected either way: it boots from FDT here and never reads
+  # MCFG.
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|$(ACPI_PCIE_ECAM_COMPAT_MODE_AUTO)
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|$(FDT_COMPAT_MODE_MAINLINE)
   #
