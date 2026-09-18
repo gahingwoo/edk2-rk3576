@@ -235,6 +235,14 @@
   gArmTokenSpaceGuid.PcdSystemMemoryBase|0x40000000
   gArmTokenSpaceGuid.PcdSystemMemorySize|0x80000000
 
+  # SCMI shared memory.  Same inheritance as the DRAM base above: RockchipPkg.dec
+  # defaults this to 0x0010f000, which is where it sits on RK3588 because RK3588
+  # DRAM starts at 0.  On RK3576 the same buffer is at 0x4010f000 --
+  # rk3576.dtsi has `scmi_shmem: scmi-shmem@4010f000, reg = <0x0 0x4010f000
+  # 0x0 0x100>`.  The old value is not DRAM and not a peripheral here, so a read
+  # of it is a synchronous external abort.
+  gRockchipTokenSpaceGuid.PcdRkMtlMailBoxBase|0x4010f000
+
   # RK3576 CPU profile: 4x Cortex-A72 + 4x Cortex-A53
   gArmPlatformTokenSpaceGuid.PcdCoreCount|8
   gArmPlatformTokenSpaceGuid.PcdClusterCount|1
