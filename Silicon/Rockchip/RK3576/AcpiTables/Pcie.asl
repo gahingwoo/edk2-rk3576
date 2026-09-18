@@ -8,6 +8,23 @@
 
 #include "AcpiTables.h"
 
+//
+// _CRS window bases.  These are what rk3576.dtsi publishes, per segment:
+//
+//   0x01000000 0x0 0x20100000 0x0 0x20100000 0x0 0x00100000   io
+//   0x02000000 0x0 0x20200000 0x0 0x20200000 0x0 0x00e00000   mem32
+//
+// Both identity-mapped, so the translation offsets are zero.
+//
+// The I/O entry used to read PCIE_IO_BUS_BASE, which is 0, so _CRS advertised
+// the I/O window at CPU 0x0 -- not PCIe I/O on this SoC, and below DRAM, which
+// starts at 0x40000000.  The mem32 entry used PCIE_MEM32_BUS_BASE, pinned to
+// segment 0, so PCI1 would have advertised PCI0's window.
+//
+// Those two macros are deliberately left as they are: Rk3576PciHostBridgeLib
+// uses them for UEFI's own PCI enumeration, which works today and boots the
+// NVMe.  Only the ACPI view of the windows changes here.
+//
 #define PCIE_ROOT_COMPLEX(Segment, LegacyIrq)                                  \
   Device (PCI ## Segment) {                                                    \
     Name (_HID, "PNP0A08")                                                     \
@@ -46,7 +63,7 @@
       )                                                                        \
       QWORD_SET (                                                              \
         01,                                                                    \
-        PCIE_MEM32_BUS_BASE,                                                   \
+        PCIE_MEM32_BASE (Segment),                                             \
         PCIE_MEM32_SIZE,                                                       \
         PCIE_MEM32_TRANSLATION (Segment)                                       \
       )                                                                        \
@@ -58,7 +75,7 @@
       )                                                                        \
       QWORD_SET (                                                              \
         03,                                                                    \
-        PCIE_IO_BUS_BASE,                                                      \
+        PCIE_IO_BASE (Segment),                                                \
         PCIE_IO_SIZE,                                                          \
         PCIE_IO_TRANSLATION (Segment)                                          \
       )                                                                        \
