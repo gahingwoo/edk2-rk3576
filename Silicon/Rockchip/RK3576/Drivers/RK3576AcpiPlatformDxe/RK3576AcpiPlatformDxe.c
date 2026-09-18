@@ -375,6 +375,7 @@ AcpiFixupPcieEcam (
     {
       McfgTable->ConfigSpaces[0][Index].BaseAddress += 0x8000;
     }
+
   }
 
   if (!McfgSplitConfigSpaces) {
@@ -382,6 +383,42 @@ AcpiFixupPcieEcam (
   }
 
   AcpiUpdateChecksum ((UINT8 *)McfgTable, McfgTable->Header.Header.Length);
+
+  //
+  // Print what was actually handed to the OS.  Reading this code got the
+  // severity of the ECAM/_CRS overlap wrong twice in one session, so the
+  // tables say what they contain rather than being inferred from the source.
+  //
+  DEBUG ((
+    DEBUG_ERROR,
+    "AcpiPlatform: ECAM mode=%u filter=%u split=%u offset=%u bus=%u..%u\n",
+    PcieEcamMode,
+    McfgDeviceFiltering,
+    McfgSplitConfigSpaces,
+    PcieBusOffset,
+    PcieBusMin,
+    PcieBusMax
+    ));
+  for (Index = 0; Index < NUM_PCIE_CONTROLLER; Index++) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "AcpiPlatform:   seg%u [0] base=0x%lx bus %u..%u\n",
+      Index,
+      McfgTable->ConfigSpaces[0][Index].BaseAddress,
+      McfgTable->ConfigSpaces[0][Index].StartBusNumber,
+      McfgTable->ConfigSpaces[0][Index].EndBusNumber
+      ));
+    if (McfgSplitConfigSpaces) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "AcpiPlatform:   seg%u [1] base=0x%lx bus %u..%u\n",
+        Index,
+        McfgTable->ConfigSpaces[1][Index].BaseAddress,
+        McfgTable->ConfigSpaces[1][Index].StartBusNumber,
+        McfgTable->ConfigSpaces[1][Index].EndBusNumber
+        ));
+    }
+  }
 
   AcpiUpdateSdtNameInteger (mDsdtTable, "PBMI", PcieBusMin);
   AcpiUpdateSdtNameInteger (mDsdtTable, "PBMA", PcieBusMax);
