@@ -281,11 +281,70 @@ SATA controllers RK3576 does not have. So the ComboPHY and PCIe fixups have
 never run on this SoC, and the DT handed to Linux goes out unmodified. This
 predates the restructure.
 
-### Windows on Arm stops at ExitBootServices
+### ~~Windows on Arm stops at ExitBootServices~~ — Setup boots, 2026-09-18
 
-Reaches ExitBootServices and hangs. Display output is the blocker for
-diagnosing further. Separately: RK3576 is ARMv8.0, so Windows 11 24H2 and
-later cannot boot on it regardless — target 23H2 or Windows 10.
+Windows 10 21H2 ARM64 Setup runs on CM5-IO:
+
+![Windows Setup on CM5-IO](imgs/cm5io-windows.png)
+
+Getting there took removing **one ACPI device**. Setup had been bugchecking
+`ACPI_BIOS_ERROR`, and the cause was `Scmi.asl`, inherited whole from RK3588:
+it drives SCMI by writing a doorbell register at a hardcoded `0xfec60030` and
+polling a shared-memory mailbox. RK3576 has neither. `rk3576.dtsi` declares
+
+    scmi: scmi { compatible = "arm,scmi-smc"; arm,smc-id = <0x82000010>; ... }
+
+with no mailbox node anywhere — the transport is an SMC call, which ASL cannot
+issue, and `0xfec60030` decodes to nothing on this SoC. The shared-memory base
+was wrong too: `PcdRkMtlMailBoxBase` defaulted to RK3588's `0x0010f000`, where
+RK3576 puts it at `0x4010f000` (`scmi-shmem@4010f000`). Nothing in the tree
+called the device's methods either. Fixed by df974cb and c5b836b.
+
+The shared-memory PCD matters beyond Windows: `ArmMtlLib` reads the same one,
+so every RK3576 image before df974cb pointed it at an address that is neither
+DRAM nor a peripheral.
+
+**How it was found, since reading did not find it.** Every static table was
+disassembled offline (`iasl -d` on the `.acpi` files the build drops) and read
+field by field: FADT, MADT, GTDT, SPCR, DBG2, MCFG, PPTT all check out, and
+three real defects fixed along the way — missing `_CCA` on the PL330s and the
+UART (5f978a3), `_HID` **and** `_ADR` on PMC0/RTC0 with no `_CRS` at all
+(91a1b2a), and an IORT declaring two ITS groups on a SoC whose MADT correctly
+says GICv2 with no ITS (bc1a28b). **None of those three was the bugcheck.**
+SCMI was invisible to that audit because its addresses are well-formed; they
+just belong to another SoC. It took bisecting the DSDT down to 473 bytes.
+
+### Windows sees no NVMe and no eMMC
+
+`diskpart` → `list disk` in Setup shows only the 14 GB USB stick it booted
+from. Diagnosed so far, from the log rather than by assumption:
+
+* **PCI0 is enabled.** `AcpiDsdtFixupStatus` disables a root only when its
+  ComboPHY is not in PCIe mode, and logs when the patch fails. Across the
+  whole capture the failures are 10× `Failed to patch \_SB.PCI1._STA` and
+  **zero** for PCI0 — PCI1 correctly disabled (ComboPhy1 defaults to USB3),
+  PCI0 never touched.
+* **The OS is identified correctly.** 56× `ExitBootServices: Booting Windows
+  OS`, so `AcpiFixupPcieEcam` takes the `NXPMX6` path and rewrites the FADT
+  OEM ID for the Windows ECAM quirk.
+* **Every PCIe address matches the DT**: dbi `0x22000000`, apb `0x2a200000`,
+  config `0x20000000`, `bus-range = <0x0 0xf>`, io `0x20100000`, mem32
+  `0x20200000`.
+
+One defect found while reading, not yet fixed: `PCIE_CFG_SIZE` is 1 MiB, which
+is exactly **one** bus of ECAM, but MCFG declares buses 1..15 against that
+window — bus 2 would be computed at `0x20100000`, which is the I/O window. A
+single endpoint on bus 1 never reaches it, so this is wrong rather than fatal.
+
+Next step is measurement, not more reading: print what `AcpiFixupPcieEcam`
+actually writes into MCFG and into the `_CRS` template, and compare.
+
+The eMMC is a separate and smaller question: `SDC3` has **no `_STA` at all**
+(so ACPI considers it present) and carries `_CID PNP0D40` for the Windows
+inbox SDHCI driver, so it is not being hidden either.
+
+Separately: RK3576 is ARMv8.0, so Windows 11 24H2 and later cannot boot on it
+regardless — target 23H2 or Windows 10.
 
 ---
 
@@ -294,6 +353,36 @@ later cannot boot on it regardless — target 23H2 or Windows 10.
 These are defects that were found during the restructure and **not** fixed in
 it, because fixing them changes runtime behaviour and needs a hardware pass.
 Each is isolated and commented at the point where it lives.
+
+### The HDMI driver switches the VP0 pixel clock and stands VP0 down to do it
+
+`Silicon/Rockchip/Library/DisplayLib/DwHdmiQpLib.c` reads `VP_DSP_CTRL`, sets
+its STANDBY bit, gates `DCLK_VP0`, writes `CLKSEL_CON147` bit 11 to re-source
+the clock, ungates, then writes `VP_DSP_CTRL` back. Three things are wrong
+with that and none of them stop it working today:
+
+* it is a VOP2 **read** after `Vop2Enable`, which this board has a recorded
+  hardware result against (adding register dumps there killed the signal);
+* it writes `VP_DSP_CTRL` twice from a value it read back, quietly undoing
+  f780ef7's compute-once-write-once discipline for any field whose read-back
+  differs from what `Vop2Rk3576.c` computed;
+* the vendor firmware never writes `CLKSEL_CON147` at all — it sources
+  `dclk_vp0_src` from the CRU and has no mux switch to get wrong.
+
+The alternative — take the clock from VPLL through the CRU and delete the
+mux/standby block outright — was specified on 2026-08-30 and **not
+implemented**, because the display started working without it. It is the
+right shape; it is not urgent.
+
+### `CMU_CONFIG0` is written with bit positions that belong to `CMU_STATUS`
+
+`DwHdmiQpLib.c` does `DwHdmiQpRegMod (Hdmi, 0, VIDQPCLK_OFF | LINKQPCLK_OFF,
+CMU_CONFIG0)`. Those two names are `CMU_STATUS` fields in mainline, in the
+vendor BSP header and in vendor U-Boot, and **no reference writes
+`CMU_CONFIG0` at any point** — the only CMU access any of them makes is a
+single read of `CMU_STATUS`. The upstream edk2-rk3588 file this was forked
+from has no CMU access either; the write was invented locally. The RK3576 TRM
+does not document the register.
 
 ### PlatformCruLib is still RK3588's clock tree
 

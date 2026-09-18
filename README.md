@@ -34,6 +34,11 @@ See the note below the images and [docs/STATUS.md](docs/STATUS.md).
 | ![GRUB on USB](docs/imgs/grub.png) | ![Fedora live console](docs/imgs/fedora.png) |
 | GRUB from a Fedora USB stick | Fedora live console |
 
+| ArmSoM CM5-IO |
+|---|
+| ![Windows Setup on CM5-IO](docs/imgs/cm5io-windows.png) |
+| Windows 10 21H2 ARM64 Setup, 2026-09-18. It had been bugchecking `ACPI_BIOS_ERROR`; the cause was an ACPI SCMI device carried over from RK3588 that drives a doorbell register this SoC does not have. Setup runs, but sees no storage yet — see [docs/STATUS.md](docs/STATUS.md). |
+
 > **CM5-IO: 15 of 15 cold boots.** Two fixes on 2026-09-17 closed this out —
 > an SError that killed every boot before the display path ran, and RK3576's
 > three per-VP mixers left at their reset values, which is what the black

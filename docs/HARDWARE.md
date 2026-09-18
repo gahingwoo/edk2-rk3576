@@ -59,6 +59,7 @@ Tested on **Radxa ROCK 4D, 12 GB LPDDR5 SKU**.
 | Fedora live console      | ![fedora](imgs/fedora.png)                |
 | Fedora 44 GNOME desktop, ROCK 4D | ![rock4d-desktop](imgs/rock4d-desktop.png) |
 | Fedora 45 Workstation desktop, CM5-IO | ![cm5io-desktop](imgs/cm5io-desktop.png) |
+| Windows 10 21H2 ARM64 Setup, CM5-IO | ![cm5io-windows](imgs/cm5io-windows.png) |
 
 The Fedora *About → System Details* panel correctly reports the SMBIOS data
 written by `PlatformSmbiosDxe`.
