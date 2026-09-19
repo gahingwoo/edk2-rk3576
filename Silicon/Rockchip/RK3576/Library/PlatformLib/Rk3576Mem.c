@@ -199,6 +199,37 @@ ArmPlatformGetVirtualMemoryMap (
     #define RK3576_MAP_FULL_DRAM      1
     #define RK3576_SECURE_TOP_RESERVE 0x10000000ULL  /* top 256 MB, BL31 */
 
+    //
+    // SCMI shared memory, one page.
+    //
+    // This sits inside [0x40000000 .. 0x40200000), which is otherwise left
+    // unmapped above as "TF-A: TZRAM (BL31) + DDR_SHARE_MEM".  TZRAM is
+    // secure and must stay unmapped, but the share-memory half exists
+    // precisely so the non-secure world can use it: rk3576.dtsi has
+    //
+    //     scmi_shmem: scmi-shmem@4010f000 { reg = <0x0 0x4010f000 0x0 0x100>; };
+    //
+    // and RkMtlLib writes the SCMI message there before ringing the SMC
+    // doorbell.  Without this entry the first access faults:
+    //
+    //     Synchronous Exception at 0x12ECD3C3C   [ArmScmiDxe]
+    //     ESR=0x96000006 FAR=0x4010F004        EC 0x25, ISS 0x06
+    //
+    // -- EC 0x25 data abort, DFSC 0b000110, a level-2 translation fault, at
+    // the shared memory + 4.  Measured on CM5-IO 2026-09-19, the first boot
+    // with ArmScmiDxe enabled.
+    //
+    // Non-cacheable on purpose: BL31 reads and writes the same buffer, and
+    // nothing here invalidates a cache line before looking at it.  The page
+    // granularity is the MMU's, not the DT's 0x100.
+    //
+    VirtualMemoryTable[Index].PhysicalBase = FixedPcdGet64 (PcdRkMtlMailBoxBase) & ~(UINT64)EFI_PAGE_MASK;
+    VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
+    VirtualMemoryTable[Index].Length       = EFI_PAGE_SIZE;
+    VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_UNCACHED_UNBUFFERED;
+    VirtualMemoryInfo[Index].Type          = RK3576_MEM_RESERVED_REGION;
+    VirtualMemoryInfo[Index++].Name        = L"SCMI Shared Memory";
+
     // RK3576 MMIO aperture (UART, GIC, SDHCI, SFC, CRU, USB, ...)
     VirtualMemoryTable[Index].PhysicalBase = 0x20000000;
     VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
