@@ -15,6 +15,7 @@
 #include <Library/HiiLib.h>
 #include <Library/IoLib.h>
 #include <Library/PcdLib.h>
+#include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UefiLib.h>
@@ -79,6 +80,8 @@ RK3576InstallHiiPages (
   EFI_STATUS      Status;
   EFI_HII_HANDLE  HiiHandle;
   EFI_HANDLE      DriverHandle;
+  CHAR8           *PlatformName;
+  CHAR16          Title[128];
 
   DriverHandle = NULL;
   Status       = gBS->InstallMultipleProtocolInterfaces (
@@ -106,6 +109,28 @@ RK3576InstallHiiPages (
            NULL
            );
     return EFI_OUT_OF_RESOURCES;
+  }
+
+  //
+  // Name the form after the board that is actually running.  This driver is
+  // shared by every RK3576 board, and the static title in RK3576DxeHii.uni
+  // said "ROCK 4D / RK3576 Platform Configuration" on all of them -- so a
+  // CM5-IO owner opening Setup was told they had a ROCK 4D.
+  //
+  // A failure here costs nothing but the fallback string, so it is not
+  // propagated.
+  //
+  PlatformName = (CHAR8 *)PcdGetPtr (PcdPlatformName);
+  if ((PlatformName != NULL) && (PlatformName[0] != '\0')) {
+    UnicodeSPrintAsciiFormat (
+      Title,
+      sizeof (Title),
+      "%a Platform Configuration",
+      PlatformName
+      );
+    if (HiiSetString (HiiHandle, STRING_TOKEN (STR_FORM_SET_TITLE), Title, NULL) == 0) {
+      DEBUG ((DEBUG_WARN, "RK3576Dxe: could not set the form title (keeping the default)\n"));
+    }
   }
 
   return EFI_SUCCESS;

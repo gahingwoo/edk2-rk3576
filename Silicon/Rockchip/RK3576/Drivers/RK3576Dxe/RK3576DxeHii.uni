@@ -15,7 +15,10 @@
 
 #string STR_NULL_STRING                                    #language en-US ""
 
-#string STR_FORM_SET_TITLE                                 #language en-US "ROCK 4D / RK3576 Platform Configuration"
+// Fallback only.  RK3576InstallHiiPages overwrites this at runtime with the
+// board's own PcdPlatformName, because this driver is shared by every
+// RK3576 board and the title used to read "ROCK 4D" on all of them.
+#string STR_FORM_SET_TITLE                                 #language en-US "RK3576 Platform Configuration"
 #string STR_FORM_SET_TITLE_HELP                            #language en-US "Configure ACPI and Device Tree system table support."
 #string STR_FORM_SET_TITLE_SUBTITLE                        #language en-US "Configuration Options"
 

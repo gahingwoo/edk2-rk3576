@@ -43,6 +43,7 @@
   UefiLib
   UefiDriverEntryPoint
   HiiLib
+  PrintLib
   DevicePathLib
   DxeServicesTableLib
   RK806
@@ -60,6 +61,7 @@
 
 [FixedPcd]
   gRockchipTokenSpaceGuid.CruBaseAddr
+  gRockchipTokenSpaceGuid.PcdPlatformName
   gRK3576TokenSpaceGuid.PcdCPULClusterClockPresetDefault
   gRK3576TokenSpaceGuid.PcdCPUBClusterClockPresetDefault
   gRK3576TokenSpaceGuid.PcdComboPhy0Switchable
