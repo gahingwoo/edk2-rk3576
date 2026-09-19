@@ -221,6 +221,7 @@ AcpiFixupPcieEcam (
   BOOLEAN                      PcieBusOffset;
   BOOLEAN                      McfgDeviceFiltering;
   BOOLEAN                      McfgSplitConfigSpaces;
+  UINT8                        PcieBusSpan;
 
   Index  = 0;
   Status = AcpiLocateTableBySignature (
@@ -384,6 +385,33 @@ AcpiFixupPcieEcam (
 
         McfgTable->ConfigSpaces[0][Index].EndBusNumber = McfgTable->ConfigSpaces[0][Index].StartBusNumber;
       }
+    }
+
+    //
+    // Clamp the entry to the config aperture that actually exists.  Each
+    // controller's is PCIE_CFG_SIZE, and mainline's rk3576.dtsi agrees:
+    //
+    //   pcie0: reg = <...>, <...>, <0x0 0x20000000 0x0 0x00100000>;
+    //   pcie1: reg = <...>, <...>, <0x0 0x21000000 0x0 0x00100000>;
+    //
+    // 1 MB is one bus.  Everything past the first bus is not config space at
+    // all -- for segment 0, bus+1 lands on PCIE0_IO_BASE (0x20100000) and the
+    // buses after it on PCIE0_MEM32_BASE (0x20200000), which are the very
+    // windows _CRS hands the root bridge.  An OS is entitled to treat an MCFG
+    // range as reserved, so advertising 15 buses here claimed 0x20000000..
+    // 0x20F00000 and took 13 of the root bridge's 14 MB of MEM32 away before
+    // it could allocate a single BAR.
+    //
+    // The in-tree comment above already says a segment cannot span more than
+    // one bus, but it only applied that clamp when device filtering and split
+    // config spaces were both off.  The aperture is 1 MB regardless.
+    //
+    PcieBusSpan = PCIE_CFG_SIZE / SIZE_1MB;
+    if (McfgTable->ConfigSpaces[0][Index].EndBusNumber >
+        McfgTable->ConfigSpaces[0][Index].StartBusNumber + (PcieBusSpan - 1))
+    {
+      McfgTable->ConfigSpaces[0][Index].EndBusNumber =
+        McfgTable->ConfigSpaces[0][Index].StartBusNumber + (PcieBusSpan - 1);
     }
 
     if (!McfgDeviceFiltering &&
