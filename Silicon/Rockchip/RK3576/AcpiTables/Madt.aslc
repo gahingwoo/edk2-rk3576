@@ -58,6 +58,18 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
     // Note: The GIC Structure of the primary CPU must be the first entry
     // (see note in 5.2.12.14 GICC Structure of ACPI v6.0).
     //
+    // The first field is the GIC CPU Interface Number, and on GICv2 it is not
+    // decorative: ACPI says it "matches the bit index of the associated
+    // processor in the GIC distributor's GICD_ITARGETSR register", which is
+    // how an OS targets an SGI at one core.  It is only required to be zero on
+    // GICv3/4, where the interface is addressed by affinity instead.
+    //
+    // Every entry here used to be 0, inherited from RK3588 -- which is GICv3,
+    // so zero was right there.  RK3576 is GIC-400, GICv2 (the GICD structure
+    // below says so), and eight cores all claiming interface 0 cannot be told
+    // apart.
+    //
+    //
     // RK3576 GIC-400 (GICv2):
     //   GicBase  = GICC @ 0x2A702000
     //   GicVBase = GICV @ 0x2A706000
@@ -90,7 +102,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       ),
     EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
       // A53-1 (cluster 0, core 1)
-      0,
+      1,
       1,
       GET_MPID (0, 0x001),
       EFI_ACPI_6_0_GIC_ENABLED,
@@ -104,7 +116,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       ),
     EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
       // A53-2 (cluster 0, core 2)
-      0,
+      2,
       2,
       GET_MPID (0, 0x002),
       EFI_ACPI_6_0_GIC_ENABLED,
@@ -118,7 +130,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       ),
     EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
       // A53-3 (cluster 0, core 3)
-      0,
+      3,
       3,
       GET_MPID (0, 0x003),
       EFI_ACPI_6_0_GIC_ENABLED,
@@ -132,7 +144,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       ),
     EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
       // A72-0 (cluster 1, core 0)
-      0,
+      4,
       4,
       GET_MPID (0, 0x100),
       EFI_ACPI_6_0_GIC_ENABLED,
@@ -146,7 +158,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       ),
     EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
       // A72-1 (cluster 1, core 1)
-      0,
+      5,
       5,
       GET_MPID (0, 0x101),
       EFI_ACPI_6_0_GIC_ENABLED,
@@ -160,7 +172,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       ),
     EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
       // A72-2 (cluster 1, core 2)
-      0,
+      6,
       6,
       GET_MPID (0, 0x102),
       EFI_ACPI_6_0_GIC_ENABLED,
@@ -174,7 +186,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       ),
     EFI_ACPI_6_0_GICC_STRUCTURE_INIT (
       // A72-3 (cluster 1, core 3)
-      0,
+      7,
       7,
       GET_MPID (0, 0x103),
       EFI_ACPI_6_0_GIC_ENABLED,

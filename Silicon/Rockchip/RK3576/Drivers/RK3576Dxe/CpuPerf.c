@@ -13,6 +13,8 @@
 #include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/ArmSmcLib.h>
 #include <Protocol/ArmScmiClock2Protocol.h>
 
 #include <ScmiDefinitions.h>
@@ -159,12 +161,93 @@ OnScmiClockAvailable (
     );
 }
 
+
+//
+// PSCI, as the firmware itself can see it.
+//
+// Windows starts 1 of 8 CPUs on this board while Linux starts all 8 on the
+// same BL31, and five separate tables have been checked against each other
+// and against mainline without finding a discrepancy: MADT MPIDRs and flags,
+// FADT ArmBootArchFlags, the PPTT topology, the DSDT processor devices, and
+// TF-A's own plat_core_pos_by_mpidr (rk3576 uses PLAT_RK_CLST_TO_CPUID_SHIFT
+// 6, so 0x100..0x103 map to positions 4..7, exactly what the MADT publishes).
+//
+// Reading has stopped paying.  This asks PSCI directly, on the BL31 actually
+// flashed rather than the source that was read.
+//
+// AFFINITY_INFO only queries -- it starts nothing, needs no entry point and
+// leaks no core, so it is safe to call for every CPU on every boot.
+//
+#define PSCI_VERSION_FID        0x84000000
+#define PSCI_AFFINITY_INFO_FID  0xC4000004
+
+STATIC CONST UINT64  mCpuMpidr[] = {
+  0x000, 0x001, 0x002, 0x003,   // cluster 0, Cortex-A53
+  0x100, 0x101, 0x102, 0x103    // cluster 1, Cortex-A72
+};
+
+STATIC
+CONST CHAR8 *
+AffinityStateName (
+  IN INT64  State
+  )
+{
+  switch (State) {
+    case 0:  return "ON";
+    case 1:  return "OFF";
+    case 2:  return "ON_PENDING";
+    case -1: return "NOT_SUPPORTED";
+    case -2: return "INVALID_PARAMETERS";
+    case -3: return "DENIED";
+    default: return "?";
+  }
+}
+
+STATIC
+VOID
+ProbePsci (
+  VOID
+  )
+{
+  ARM_SMC_ARGS  Args;
+  UINTN         Index;
+  INT64         Result;
+
+  ZeroMem (&Args, sizeof (Args));
+  Args.Arg0 = PSCI_VERSION_FID;
+  ArmCallSmc (&Args);
+  DEBUG ((
+    DEBUG_ERROR,
+    "CpuPerf: PSCI version %u.%u\n",
+    (UINT32)((Args.Arg0 >> 16) & 0xFFFF),
+    (UINT32)(Args.Arg0 & 0xFFFF)
+    ));
+
+  for (Index = 0; Index < ARRAY_SIZE (mCpuMpidr); Index++) {
+    ZeroMem (&Args, sizeof (Args));
+    Args.Arg0 = PSCI_AFFINITY_INFO_FID;
+    Args.Arg1 = mCpuMpidr[Index];
+    Args.Arg2 = 0;                    // lowest affinity level = core
+    ArmCallSmc (&Args);
+    Result = (INT64)Args.Arg0;
+    DEBUG ((
+      DEBUG_ERROR,
+      "CpuPerf: MPIDR 0x%03lx -> %a (%ld)\n",
+      mCpuMpidr[Index],
+      AffinityStateName (Result),
+      Result
+      ));
+  }
+}
+
 VOID
 EFIAPI
 RK3576SetupCpuPerf (
   VOID
   )
 {
+  ProbePsci ();
+
   //
   // ArmScmiDxe is another DXE driver, so it may or may not have run yet.
   // Register for the protocol instead of depending on the dispatch order; the

@@ -50,6 +50,7 @@
   RK806
   CruLib
   ArmLib
+  ArmSmcLib
   PcdLib
   RockchipPlatformLib
   TimerLib
