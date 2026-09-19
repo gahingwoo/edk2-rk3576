@@ -45,11 +45,14 @@ MANIPULATE_SIZE   = 56          # sizeof(DBGKD_MANIPULATE_STATE64); not verified
                                 # the first thing to doubt.
 out_id = INITIAL_PACKET_ID
 
+last_sent = None          # for RESEND; see the control handler
+
 def send_data(ptype, payload):
-    global out_id
+    global out_id, last_sent
     csum = sum(payload) & 0xFFFFFFFF
     hdr = PACKET_LEADER + struct.pack("<HHII", ptype, len(payload), out_id, csum)
-    os.write(fd, hdr + payload + bytes([TRAILER]))
+    last_sent = hdr + payload + bytes([TRAILER])
+    os.write(fd, last_sent)
     out_id ^= 1
 
 def send_continue(processor):
@@ -166,5 +169,13 @@ while True:
                 if n == 1:
                     show(f"  -> CONTINUE (proc={proc})")
         else:
-            if ptype not in (4,):
+            if ptype == 5 and last_sent is not None:
+                # RESEND: the target did not get our last packet and will not
+                # move until it does. Without this the boot stops right after
+                # the first CONTINUE -- seen on CM5-IO 2026-09-19, where the
+                # exchange ended on `KD<ctrl RESEND>` and Windows never drew a
+                # frame.
+                os.write(fd, last_sent)
+                show(f"KD<ctrl {name}> id=0x{pid:08x} -> resent {len(last_sent)}B")
+            elif ptype not in (4,):
                 show(f"KD<ctrl {name}> id=0x{pid:08x}")
