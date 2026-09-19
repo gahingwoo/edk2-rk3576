@@ -1289,15 +1289,30 @@ FvbDiskNvDumpHandler (
     CHAR16  *DevicePathText = ConvertDevicePathToText (mFvbDevice->DiskDevice, FALSE, FALSE);
     DEBUG ((
       DEBUG_ERROR,
-      "%a: Couldn't dump NV data to disk [%s]\n",
+      "%a: Couldn't dump NV data to disk [%s]: %r. Variables changed this boot "
+      "will not persist; continuing.\n",
       __FUNCTION__,
-      DevicePathText
+      DevicePathText,
+      Status
       ));
     if (DevicePathText != NULL) {
       gBS->FreePool (DevicePathText);
     }
 
-    ASSERT_EFI_ERROR (Status);
+    //
+    // Deliberately no ASSERT_EFI_ERROR here.
+    //
+    // This is a device condition, not a broken invariant: the eMMC on RK3576
+    // does not answer reliably on the first boot after a flash
+    // (project_rk3576_rkfvb_intermittent_cmd25), and with
+    // PcdDebugPropertyMask 0x2F an assert is a deadloop.  So a failed NV dump
+    // used to leave the board hung with a blank screen, needing a power cycle,
+    // every time -- while the code right here has always treated the failure
+    // as recoverable and simply returned.  The assert was the only thing
+    // stopping the boot.
+    //
+    // Losing this boot's variable writes is worth strictly less than booting.
+    //
     return;
   }
 
