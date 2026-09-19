@@ -2,8 +2,7 @@
  *
  *  RK3576 SCMI Clock Definitions
  *
- *  Clock IDs from TF-A: plat/rockchip/rk3576/include/platform_def.h
- *  These are the SCMI clock indices used by BL31 for clock management.
+ *  Clock IDs as mainline's dt-bindings publishes them; see below.
  *
  *  Copyright (c) 2024, Mario Bălănică <mariobalanica02@gmail.com>
  *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
@@ -16,26 +15,24 @@
 #define __RK3576_SCMI_DEFINITIONS_H__
 
 /*
- * RK3576 SCMI clock IDs
- * From TF-A plat/rockchip/rk3576/include/platform_def.h
+ * RK3576 SCMI clock IDs.
  *
- * Note: These differ from RK3588. RK3576 has only 2 CPU clusters
- * (ARMCLK_L for A53, ARMCLK_B for A72) instead of RK3588's 3.
+ * These are the numbers passed to the SCMI clock protocol, and they come from
+ * mainline's include/dt-bindings/clock/rockchip,rk3576-cru.h, where they sit
+ * under the comment "SCMI clocks, use these when changing clocks through
+ * SCMI".  rk3576.dtsi uses them directly:
+ *
+ *     cpu_l0: cpu@0   { clocks = <&scmi_clk SCMI_ARMCLK_L>; ... };
+ *     cpu_b0: cpu@100 { clocks = <&scmi_clk SCMI_ARMCLK_B>; ... };
+ *
+ * They are NOT a dense 0,1,2,... table.  This header previously carried
+ * RK3588's numbering (CPUL=0, CPUB=1, DDR=2, GPU=3, ...) while claiming to
+ * come from RK3576's TF-A platform_def.h.  Nothing consumed it, so nothing
+ * broke, but sending clock id 1 to this SoC would not have set the big
+ * cluster.
  */
-#define SCMI_CLK_CPUL        0   /* A53 little cluster */
-#define SCMI_CLK_CPUB        1   /* A72 big cluster */
-#define SCMI_CLK_DDR         2
-#define SCMI_CLK_GPU         3
-#define SCMI_CLK_NPU         4
-#define SCMI_CLK_SBUS        5
-#define SCMI_PCLK_SBUS       6
-#define SCMI_CCLK_SD         7
-#define SCMI_DCLK_SD         8
-#define SCMI_ACLK_SECURE_NS  9
-#define SCMI_HCLK_SECURE_NS  10
-#define SCMI_TCLK_WDT        11
-#define SCMI_CCLK_EMMC       12
-#define SCMI_HCLK_SD         13
-#define SCMI_SPLL            14
+#define SCMI_ARMCLK_L  10   /* A53 little cluster */
+#define SCMI_ARMCLK_B  11   /* A72 big cluster */
+#define SCMI_CLK_GPU   456
 
 #endif // __RK3576_SCMI_DEFINITIONS_H__

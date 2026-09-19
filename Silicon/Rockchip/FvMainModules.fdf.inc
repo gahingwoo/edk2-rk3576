@@ -98,7 +98,8 @@
   INF MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
 
   #
-  # SCMI Support — RK3576 has no SCP/MHU mailbox, skip
+  # SCMI Support.  RK3576 reaches it over SMC, not an MHU mailbox -- see the
+  # note on RK_SCMI_ENABLE in RK3576Base.dsc.inc.
   #
 !if $(RK_SCMI_ENABLE) == TRUE
   INF ArmPkg/Drivers/ArmScmiDxe/ArmScmiDxe.inf

@@ -32,6 +32,7 @@
 #include "../../Include/Soc.h"
 #include "RK3576DxeFormSetGuid.h"
 #include "ConfigTable.h"
+#include "CpuPerf.h"
 #include "Display.h"
 #include "ComboPhy.h"
 
@@ -259,6 +260,9 @@ RK3576EntryPoint (
   /* Seed ComboPHY mode PCDs from NVRAM, then initialize hardware */
   SetupComboPhyVariables ();
   ApplyComboPhyVariables ();
+
+  /* Read the cluster clocks we were handed, and apply the configured rates */
+  RK3576SetupCpuPerf ();
 
   /* Initialize status LED */
   RK3576InitStatusLed ();

@@ -70,8 +70,29 @@
  */
 static struct regulator_init_data rk806_init_data[] = {
   /* DCDC rails */
-  RK8XX_VOLTAGE_INIT (MASTER_BUCK1,   750000),   /* vdd_cpu_big_s0 initial */
-  RK8XX_VOLTAGE_INIT (MASTER_BUCK3,   750000),   /* vdd_cpu_lit_s0 initial */
+  /*
+   * The CPU rails carry the cluster clocks RK3576Dxe sets over SCMI, so they
+   * are what bounds those.  mainline's OPP tables in rk3576.dtsi give the
+   * minimum for each rate:
+   *
+   *           A53                       A72
+   *   1416 MHz  725.0 mV        1416 MHz  712.5 mV
+   *   1608 MHz  750.0 mV        1608 MHz  737.5 mV
+   *   1800 MHz  825.0 mV        1800 MHz  800.0 mV
+   *   2016 MHz  900.0 mV        2016 MHz  862.5 mV
+   *                             2208 MHz  925.0 mV
+   *
+   * 800 mV clears the configured 1608 MHz on both clusters with 50 mV of
+   * margin on the A53, which is the tighter of the two.  These were 750 mV,
+   * which meets the A53's 1608 MHz figure exactly and leaves nothing for PMIC
+   * tolerance or IR drop.  Rail range is 550-950 mV, and the same rail runs at
+   * 800 mV for the A72's 1800 MHz operating point, so this is ordinary use.
+   *
+   * Raising PcdCPU[LB]ClusterClockHz past 1608 MHz means raising these in the
+   * same change.
+   */
+  RK8XX_VOLTAGE_INIT (MASTER_BUCK1,   800000),   /* vdd_cpu_big_s0 (A72) */
+  RK8XX_VOLTAGE_INIT (MASTER_BUCK3,   800000),   /* vdd_cpu_lit_s0 (A53) */
   RK8XX_VOLTAGE_INIT (MASTER_BUCK4,  3300000),   /* vcc_3v3_s3 */
   RK8XX_VOLTAGE_INIT (MASTER_BUCK7,   750000),   /* vdd_logic_s0 */
   RK8XX_VOLTAGE_INIT (MASTER_BUCK8,  1800000),   /* vcc_1v8_s3 */

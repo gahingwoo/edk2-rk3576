@@ -31,6 +31,19 @@
   gRK3576TokenSpaceGuid.PcdCPULClusterClockPresetDefault|0|UINT32|0x00010001
   gRK3576TokenSpaceGuid.PcdCPUBClusterClockPresetDefault|0|UINT32|0x00010002
 
+  #
+  # CPU cluster clock applied before boot, in Hz.  0 leaves the rate the
+  # firmware was handed.
+  #
+  # These are bounded by the voltage the board's RK806 init table puts on
+  # vdd_cpu_lit_s0 / vdd_cpu_big_s0, not by the silicon.  mainline's OPP
+  # tables in rk3576.dtsi pair each rate with a minimum voltage, and going
+  # above the configured rate without raising the rail first is an undervolt.
+  # Change the two together or not at all.
+  #
+  gRK3576TokenSpaceGuid.PcdCPULClusterClockHz|0|UINT64|0x00010003
+  gRK3576TokenSpaceGuid.PcdCPUBClusterClockHz|0|UINT64|0x00010004
+
   # ComboPHY (RK3576 has 2 combo PHYs: combphy0_ps, combphy1_psu)
   gRK3576TokenSpaceGuid.PcdComboPhy0Switchable|FALSE|BOOLEAN|0x00010101
   gRK3576TokenSpaceGuid.PcdComboPhy1Switchable|FALSE|BOOLEAN|0x00010102

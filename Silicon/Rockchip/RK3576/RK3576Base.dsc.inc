@@ -111,7 +111,19 @@
   #
   #   I2cDxe/Rk860xRegulatorDxe: never built for either board.
   #   Pca9555Dxe:                neither carrier has the expander.
-  #   ArmScmiDxe:                no SCMI firmware on this SoC.
+  #
+  # ArmScmiDxe is ON.  The note that used to sit here -- "no SCMI firmware on
+  # this SoC" -- was wrong.  mainline's rk3576.dtsi has:
+  #
+  #     scmi: scmi { compatible = "arm,scmi-smc";
+  #                  arm,smc-id = <0x82000010>;
+  #                  shmem = <&scmi_shmem>;      /* @0x4010f000 */ };
+  #     cpu_l0 { clocks = <&scmi_clk SCMI_ARMCLK_L>; };
+  #     cpu_b0 { clocks = <&scmi_clk SCMI_ARMCLK_B>; };
+  #
+  # so the CPU clocks are reached only through SCMI, and RkMtlLib already
+  # speaks the SMC doorbell this SoC uses.  PcdRkMtlMailBoxSmcId and
+  # PcdRkMtlMailBoxBase below already match the DT.
   #
 !ifndef RK_I2C_ENABLE
   DEFINE RK_I2C_ENABLE              = FALSE
@@ -120,7 +132,7 @@
   DEFINE RK_PCA9555_ENABLE          = FALSE
 !endif
 !ifndef RK_SCMI_ENABLE
-  DEFINE RK_SCMI_ENABLE             = FALSE
+  DEFINE RK_SCMI_ENABLE             = TRUE
 !endif
 
   #
@@ -242,6 +254,33 @@
   # 0x0 0x100>`.  The old value is not DRAM and not a peripheral here, so a read
   # of it is a synchronous external abort.
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxBase|0x4010f000
+
+  #
+  # CPU cluster clocks applied over SCMI just before boot.
+  #
+  # The firmware is handed a low operating point and never used to change it,
+  # so an OS without a cpufreq driver stayed there: Windows reported 816 MHz
+  # and had no way to do better.  RK3576Dxe now logs the rate it was given and
+  # sets these.
+  #
+  # 1608 MHz is not the silicon limit (A53 reaches 2016, A72 2208).  It is the
+  # fastest operating point the rails are set for.  mainline's OPP tables pair
+  # each rate with a minimum voltage:
+  #
+  #           A53                       A72
+  #   1416 MHz  725.0 mV        1416 MHz  712.5 mV
+  #   1608 MHz  750.0 mV        1608 MHz  737.5 mV
+  #   1800 MHz  825.0 mV        1800 MHz  800.0 mV
+  #   2016 MHz  900.0 mV        2016 MHz  862.5 mV
+  #                             2208 MHz  925.0 mV
+  #
+  # The board's RK806 init table puts 800 mV on vdd_cpu_lit_s0 and
+  # vdd_cpu_big_s0, which clears 1608 MHz on both clusters with margin.  Going
+  # higher means raising those rails in the same change -- an undervolted core
+  # does not fail politely, and the failure would look like anything but this.
+  #
+  gRK3576TokenSpaceGuid.PcdCPULClusterClockHz|1608000000
+  gRK3576TokenSpaceGuid.PcdCPUBClusterClockHz|1608000000
 
   # RK3576 CPU profile: 4x Cortex-A72 + 4x Cortex-A53
   gArmPlatformTokenSpaceGuid.PcdCoreCount|8

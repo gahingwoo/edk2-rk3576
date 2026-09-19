@@ -18,6 +18,7 @@
 
 [Sources]
   RK3576Dxe.c
+  CpuPerf.c
   Display.c
   ComboPhy.c
   ConfigTable.c
@@ -58,12 +59,15 @@
   gEfiDevicePathProtocolGuid                     ## CONSUMES
   gEfiSimpleTextInputExProtocolGuid              ## SOMETIMES_CONSUMES
   gRockchipPlatformConfigAppliedProtocolGuid     ## PRODUCES
+  gArmScmiClock2ProtocolGuid                     ## CONSUMES
 
 [FixedPcd]
   gRockchipTokenSpaceGuid.CruBaseAddr
   gRockchipTokenSpaceGuid.PcdPlatformName
   gRK3576TokenSpaceGuid.PcdCPULClusterClockPresetDefault
   gRK3576TokenSpaceGuid.PcdCPUBClusterClockPresetDefault
+  gRK3576TokenSpaceGuid.PcdCPULClusterClockHz
+  gRK3576TokenSpaceGuid.PcdCPUBClusterClockHz
   gRK3576TokenSpaceGuid.PcdComboPhy0Switchable
   gRK3576TokenSpaceGuid.PcdComboPhy1Switchable
   gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault
