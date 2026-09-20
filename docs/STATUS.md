@@ -8,14 +8,31 @@ is not a status; "15 of 15 cold boots reached the front page with
 The predecessor of this file (`KNOWN_ISSUES.md`) drifted until four of its
 entries were false, which is what a status file without evidence turns into.
 
-Last updated: 2026-09-17, after a long hardware session on CM5-IO. Everything
-claimed for CM5-IO below was measured that day unless it says otherwise.
+Last updated: 2026-09-20, after a long hardware session on CM5-IO. Everything
+claimed for CM5-IO below was measured on 2026-09-17 or later unless it says
+otherwise; entries carrying an earlier date have not been rechecked.
 **ROCK 4D has not been on a bench since 2026-08-04**, so every ROCK 4D entry
 predates the display fixes and none of them has been rechecked against it.
 
 ---
 
 ## Read this before the next board session
+
+**Record whether an SD card is in the slot, every time.** It changes the
+outcome: 6 of 6 WinPE boots clean with the slot empty, every freeze on record
+with a card in, and two boots where the firmware alone took three and a half
+minutes instead of 31 seconds. Two conclusions drawn on 2026-09-20 — "the
+driver-free image is 5 of 5 clean, so it is the drivers" and "that slow boot is
+the deaf KD listener" — were both wrong for this reason, and both looked solid
+when they were made. `75c0f32` is the fix; 4 card-present boots clean since,
+which is not yet enough.
+
+**A KD-enabled image is not a neutral instrument.** With `bootdebug on` and
+nothing answering, the target retransmits every packet and the boot crawls —
+3m26s to ExitBootServices against 31 s with a listener attached. Before
+trusting any run made with such an image, confirm bytes are arriving: UEFI
+console text appears within about ten seconds of power-on, well before Windows
+starts.
 
 **The colour-bar test pattern is off.** `RK_VOP2_TEST_PATTERN` in
 `LcdGraphicsOutputDxe.c` is now `0`. It was `1`, which meant the GOP painted
@@ -52,6 +69,11 @@ driver away from firing.
 | ACPI tables | `acpiview` in the UEFI Shell shows the expected tables. |
 | NVRAM persistence (CM5-IO) | A variable set from the menu survives a reboot. Note this was measured when the NV store lived on SD; eMMC-backed NV only started working on 2026-09-17 (`54f46cc`). |
 | `\EFI\BOOT` fallback boot | Reaches the OS loader. |
+| **PCIe + NVMe (CM5-IO)** | The endpoint answers and the disk works. `PciBus: Discovered PPB @ [00\|00\|00] [1D87:3576]` then `Discovered PCI @ [01\|00\|00] [1E95:9100]`, and Fedora boots from the NVMe. Two fixes: PERST# was driven inverted and the LTSSM was enabled after PERST# was released instead of before (2026-09-17), then two MCFG bugs for Windows (2026-09-19). Seen on every boot since. |
+| **NVMe under Windows** | `stornvme` and `disk` both Started, in a stock Microsoft ADK WinPE with no third-party drivers. The MCFG had folded the bus offset into the base — segment 1 landed on the USB controller — and declared 15 buses over a 1 MB aperture, eating the root bridge's own MEM32. `2026-09-19`. |
+| **8 CPUs under Windows** | `wmic cpu get NumberOfCores,NumberOfLogicalProcessors` → `8 8`. Every MADT GICC carried CPU Interface Number 0, which is right for RK3588's GICv3 and wrong for RK3576's GICv2, where that field is the `GICD_ITARGETSR` bit index. `7b093e7`, 2026-09-19. |
+| **CPU at 1608 MHz** | Up from 816 MHz, over SCMI, with the PMIC rails raised to 800 mV. The DSC said this SoC had no SCMI (mainline's DT says otherwise), the SCMI shared-memory page was not mapped — a synchronous abort at `FAR=0x4010F004` — and the clock IDs were RK3588's. 2026-09-19. |
+| **eMMC probe, one round, no errors (CM5-IO)** | Was 8 SDHCI errors over 4 probe rounds and about five minutes per boot; now one round inside a single second with zero errors. The CRU rate was being changed underneath a running card clock with no relock afterwards. `cb31cb4`, verified 2026-09-20. |
 
 ## Not working
 
@@ -242,10 +264,25 @@ ratio should go from about 2-in-8 to consistent. If it does not, the power
 domains were not the whole story, and the serial log will now say whether they
 came up (`PD_VOP powering on` / `already on` / a timeout).
 
-### PCIe: the link trains, the endpoint's config space does not answer
+### ~~PCIe: the link trains, the endpoint's config space does not answer~~ — SOLVED 2026-09-17
 
-This entry used to say training fails and the bridge is never exposed. That is
-no longer what happens. On the 2026-08-04 ROCK 4D run:
+**This entry is obsolete and is kept only because it was wrong for a month.**
+The endpoint answers. `PciBus: Discovered PPB @ [00|00|00] [1D87:3576]`
+followed by `Discovered PCI @ [01|00|00] [1E95:9100]`, on every boot since, and
+Fedora boots from the NVMe behind it.
+
+Two defects, neither of them the ATU theory this entry ended on:
+
+* **PERST# was driven inverted.** The reset the endpoint needs to see was
+  being asserted when it should have been released.
+* **The LTSSM was enabled after PERST# was released**, rather than before. An
+  endpoint brought out of reset with nothing training against it has nothing
+  to answer.
+
+Fixed 2026-09-17. The all-ones config read below was the endpoint being held
+in reset, not a config-access problem.
+
+The ROCK 4D capture that produced it, from 2026-08-04:
 
 ```
 PCIe: LTSSM_STATUS=0x00030005
@@ -262,11 +299,12 @@ root port itself (`PPB @ [00|00|00]`, `1D87:3576`) and allocates its resources,
 but finds nothing behind it, because config reads to the endpoint return all
 ones.
 
-Reaching LTSSM 0x00030005 needs a link partner, so a device is present and the
-lanes do train. What is not working is config access to it. Worth looking at
-next: whether the ATU is programmed for CFG space before that read, and whether
-the endpoint is simply not ready that early — the read happens immediately
-after the settle, before bus numbers are assigned.
+Reaching LTSSM 0x00030005 needs a link partner, so a device was present and
+the lanes did train — that part was read correctly. The conclusion drawn from
+it, that config access was the fault, was not.
+
+**ROCK 4D has not been on a bench since 2026-08-04, so it has never been
+checked against either fix.**
 
 Separately, `FdtPlatformDxe` cannot find the nodes it wants to fix up:
 
@@ -314,10 +352,38 @@ says GICv2 with no ITS (bc1a28b). **None of those three was the bugcheck.**
 SCMI was invisible to that audit because its addresses are well-formed; they
 just belong to another SoC. It took bisecting the DSDT down to 473 bytes.
 
-### Windows sees no NVMe and no eMMC
+### ~~Windows sees no NVMe and no eMMC~~ — NVMe solved 2026-09-19; eMMC is now a driver problem
 
-`diskpart` → `list disk` in Setup shows only the 14 GB USB stick it booted
-from. Diagnosed so far, from the log rather than by assumption:
+**NVMe works.** `stornvme` and `disk` both reach Started, in a stock Microsoft
+ADK WinPE carrying no third-party drivers at all. Two bugs in the MCFG this
+firmware hands Windows:
+
+* **The bus offset was folded into the base address.** `ConfigSpaces[].BaseAddress`
+  had `PCIE_BUS_BASE_OFFSET` added to it, so segment 1 was pointed at the USB
+  controller.
+* **Each entry declared 15 buses over a 1 MB aperture.** `EndBusNumber` is now
+  clamped to `PCIE_CFG_SIZE / SIZE_1MB`, one bus. The old range swallowed the
+  root bridge's own MEM32 window.
+
+The `PCIE_CFG_SIZE` note below turned out to be half of that second bug and is
+kept for the record.
+
+**The eMMC is no longer an ACPI question.** The inbox SDHCI driver binds via
+`_CID PNP0D40`, starts, and never finds a card, because an SDHCI `SW_RST_ALL`
+clears `EMMC_CTRL[0]` `CARD_IS_EMMC` and nothing inbox restores it. A miniport
+lives in the `woa-rk3576` repo as `drivers/storage/rkemmc`; as of 2026-09-20 it
+runs eMMC identification to CMD6 SWITCH and the card node appears, so this has
+moved out of this repository. See `docs/STORAGE.md` there.
+
+Two ACPI defects were found while checking whether RK3588 upstream had anything
+to copy, both fixed here: the eMMC `_DSD` `compatible` property was a
+three-element package where `_DSD` requires `{name, value}` (`b178307`), and
+the `_DSM` clock table was still RK3588's — that SoC's parent is 1200 MHz and
+RK3576's is 400 MHz, so the four fast entries were programming 66.7, 33.3, 50
+and 16.7 MHz while reporting 200, 150, 100 and 50 (`63508ba`).
+
+The original diagnosis, kept because the reasoning in it was sound and only the
+conclusion was incomplete:
 
 * **PCI0 is enabled.** `AcpiDsdtFixupStatus` disables a root only when its
   ComboPHY is not in PCIe mode, and logs when the patch fails. Across the
@@ -336,15 +402,35 @@ is exactly **one** bus of ECAM, but MCFG declares buses 1..15 against that
 window — bus 2 would be computed at `0x20100000`, which is the I/O window. A
 single endpoint on bus 1 never reaches it, so this is wrong rather than fatal.
 
-Next step is measurement, not more reading: print what `AcpiFixupPcieEcam`
-actually writes into MCFG and into the `_CRS` template, and compare.
-
-The eMMC is a separate and smaller question: `SDC3` has **no `_STA` at all**
-(so ACPI considers it present) and carries `_CID PNP0D40` for the Windows
-inbox SDHCI driver, so it is not being hidden either.
+That last paragraph was right and the measurement it asked for is what found
+the two MCFG bugs. `SDC3` has no `_STA` and carries `_CID PNP0D40`, so it was
+never being hidden.
 
 Separately: RK3576 is ARMv8.0, so Windows 11 24H2 and later cannot boot on it
 regardless — target 23H2 or Windows 10.
+
+### An SD card in the slot makes Windows crawl or bugcheck
+
+Found 2026-09-20, and it had been poisoning every intermittent result for days.
+With the slot empty, **6 of 6** WinPE boots were clean. With a card in it,
+every freeze on record, and two boots where BL31 to ExitBootServices alone took
+three and a half minutes instead of the usual 31 seconds.
+
+The mechanism, and the reason it is a firmware bug: with a card present the
+firmware initialises the SD controller, and `DwMmcHcEnableInterrupt` leaves
+`IDINTEN = ~0` while the controller runs with `DW_MMC_CTRL_INT_EN`, so its
+interrupt output is live. **No SD or eMMC driver registered an ExitBootServices
+callback** — only `StatusLedDxe`, `OhciDxe`, `FdtPlatformDxe` and
+`DwcEqosSnpDxe` did — so the controller went to the OS still armed. The GSIV in
+`Sdhc.asl` is level triggered and an IDMAC interrupt is reported in `IDSTS`
+rather than `RINTSTS`, so an OS host driver servicing `MINTSTS` sees nothing to
+do, declines the interrupt, and nothing clears the line. Starvation rather than
+a hang, which is what "the spinner turns very slowly" had looked like all
+along, and it fits the `DRIVER_PNP_WATCHDOG` bugchecks.
+
+`75c0f32` quiesces both controllers at ExitBootServices. **4 clean card-present
+boots since**, against roughly none before. That is not yet a sample worth
+calling it solved on.
 
 ---
 
