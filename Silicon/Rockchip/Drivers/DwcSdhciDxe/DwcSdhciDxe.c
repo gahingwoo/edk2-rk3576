@@ -30,6 +30,56 @@
 STATIC EFI_HANDLE  mSdMmcControllerHandle;
 
 /**
+  Stop the card clock, wait for the controller's internal clock to relock,
+  then start the card clock again.
+
+  SdMmcPciHcDxe has already programmed CLOCK_CTRL, waited for Internal Clock
+  Stable and enabled SDCLK by the time EdkiiSdMmcSwitchClockFreqPost runs.
+  The hook then calls DwcSdhciSetClockRate(), which reprograms the CRU mux and
+  divider that actually feed this controller -- so the source clock changes
+  underneath a card clock that is already running, and nothing re-runs the
+  stable handshake afterwards.  The first command issued after the switch then
+  fails: CMD7 comes back with a Command Timeout and the CMD8 that follows with
+  a data CRC error, on every probe round, after which the retries succeed.
+
+  Linux performs the same two operations in the opposite order.
+  dwcmshc_rk35xx_set_clock() calls clk_set_rate(), programs the DLL, and only
+  then falls through to sdhci_enable_clk(host, 0), which stops SDCLK, waits
+  for Internal Clock Stable and re-enables SDCLK.  Do the same here.
+
+**/
+STATIC
+VOID
+DwcSdhciRestartCardClock (
+  VOID
+  )
+{
+  UINT16  ClockCtrl;
+  UINTN   Retry;
+
+  MmioAnd16 ((UINT32)SD_MMC_HC_CLOCK_CTRL, (UINT16) ~CLOCK_CTRL_SDCLK_ENABLE);
+  MmioOr16 ((UINT32)SD_MMC_HC_CLOCK_CTRL, CLOCK_CTRL_INT_CLK_ENABLE);
+
+  //
+  // Linux allows the internal clock 150 ms to relock.
+  //
+  for (Retry = 0; Retry < 15000; Retry++) {
+    ClockCtrl = MmioRead16 ((UINT32)SD_MMC_HC_CLOCK_CTRL);
+    if ((ClockCtrl & CLOCK_CTRL_INT_CLK_STABLE) != 0) {
+      break;
+    }
+
+    gBS->Stall (10);
+  }
+
+  if (Retry == 15000) {
+    DEBUG ((DEBUG_ERROR, "DwcSdhci: internal clock never reported stable\n"));
+  }
+
+  MmioOr16 ((UINT32)SD_MMC_HC_CLOCK_CTRL, CLOCK_CTRL_SDCLK_ENABLE);
+}
+
+/**
   Override function for SDHCI capability bits
 
   @param[in]      ControllerHandle      The EFI_HANDLE of the controller.
@@ -231,59 +281,64 @@ EmmcSdMmcNotifyPhase (
           EMMC_DLL_STRBIN_DELAY_NUM_SEL |
           EMMC_NONDLL_STRBIN_DELAY << EMMC_DLL_STRBIN_DELAY_NUM_OFFSET
           );
-        break;
-      }
-
-      MmioWrite32 (EMMC_DLL_CTRL, EMMC_DLL_CTRL_SRST);
-      gBS->Stall (1);
-      MmioWrite32 (EMMC_DLL_CTRL, 0);
-
-      MmioWrite32 (
-        EMMC_DLL_CTRL,
-        EMMC_DLL_CTRL_START_POINT_DEFAULT |
-        EMMC_DLL_CTRL_INCREMENT_DEFAULT | EMMC_DLL_CTRL_START
-        );
-
-      for (i = 0; i < 500; i++) {
-        Value = MmioRead32 (EMMC_DLL_STATUS0);
-        if (Value & EMMC_DLL_STATUS0_DLL_LOCK &&
-            !(Value & EMMC_DLL_STATUS0_DLL_TIMEOUT))
-        {
-          break;
-        }
-
+      } else {
+        MmioWrite32 (EMMC_DLL_CTRL, EMMC_DLL_CTRL_SRST);
         gBS->Stall (1);
-      }
-
-      TxClkTapNum = EMMC_DLL_TXCLK_TAPNUM_DEFAULT;
-
-      if (*Timing == SdMmcMmcHs400) {
-        TxClkTapNum = EMMC_DLL_TXCLK_TAPNUM_90_DEGREES;
+        MmioWrite32 (EMMC_DLL_CTRL, 0);
 
         MmioWrite32 (
-          EMMC_DLL_CMDOUT,
-          EMMC_DLL_CMDOUT_SRC_CLK_NEG |
-          EMMC_DLL_CMDOUT_EN_SRC_CLK_NEG |
+          EMMC_DLL_CTRL,
+          EMMC_DLL_CTRL_START_POINT_DEFAULT |
+          EMMC_DLL_CTRL_INCREMENT_DEFAULT | EMMC_DLL_CTRL_START
+          );
+
+        for (i = 0; i < 500; i++) {
+          Value = MmioRead32 (EMMC_DLL_STATUS0);
+          if (Value & EMMC_DLL_STATUS0_DLL_LOCK &&
+              !(Value & EMMC_DLL_STATUS0_DLL_TIMEOUT))
+          {
+            break;
+          }
+
+          gBS->Stall (1);
+        }
+
+        TxClkTapNum = EMMC_DLL_TXCLK_TAPNUM_DEFAULT;
+
+        if (*Timing == SdMmcMmcHs400) {
+          TxClkTapNum = EMMC_DLL_TXCLK_TAPNUM_90_DEGREES;
+
+          MmioWrite32 (
+            EMMC_DLL_CMDOUT,
+            EMMC_DLL_CMDOUT_SRC_CLK_NEG |
+            EMMC_DLL_CMDOUT_EN_SRC_CLK_NEG |
+            EMMC_DLL_DLYENA |
+            EMMC_DLL_CMDOUT_TAPNUM_90_DEGREES |
+            EMMC_DLL_TAPNUM_FROM_SW
+            );
+        }
+
+        MmioWrite32 (EMMC_DLL_RXCLK, EMMC_DLL_DLYENA);
+
+        MmioWrite32 (
+          EMMC_DLL_TXCLK,
           EMMC_DLL_DLYENA |
-          EMMC_DLL_CMDOUT_TAPNUM_90_DEGREES |
-          EMMC_DLL_TAPNUM_FROM_SW
+          TxClkTapNum | EMMC_DLL_TAPNUM_FROM_SW |
+          EMMC_DLL_NO_INVERTER
+          );
+
+        MmioWrite32 (
+          EMMC_DLL_STRBIN,
+          EMMC_DLL_DLYENA |
+          EMMC_DLL_STRBIN_TAPNUM_DEFAULT | EMMC_DLL_TAPNUM_FROM_SW
           );
       }
 
-      MmioWrite32 (EMMC_DLL_RXCLK, EMMC_DLL_DLYENA);
-
-      MmioWrite32 (
-        EMMC_DLL_TXCLK,
-        EMMC_DLL_DLYENA |
-        TxClkTapNum | EMMC_DLL_TAPNUM_FROM_SW |
-        EMMC_DLL_NO_INVERTER
-        );
-
-      MmioWrite32 (
-        EMMC_DLL_STRBIN,
-        EMMC_DLL_DLYENA |
-        EMMC_DLL_STRBIN_TAPNUM_DEFAULT | EMMC_DLL_TAPNUM_FROM_SW
-        );
+      //
+      // The CRU rate changed underneath a running card clock; restart it
+      // so the controller relocks before the next command goes out.
+      //
+      DwcSdhciRestartCardClock ();
       break;
 
     default:
