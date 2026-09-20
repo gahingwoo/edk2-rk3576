@@ -40,7 +40,18 @@
       }
     })
 
-    OperationRegion(EMMC, SystemMemory, 0x27200464, 0x4)  // RK3576 CRU_CLKSEL_CON(89): CCLK_SRC_EMMC
+    //
+    // RK3576 CRU_CLKSEL_CON(89): CCLK_SRC_EMMC.
+    //
+    //   bits [15:14]  mux   00 = gpll_400m, 01 = cpll_400m, 10 = xin_24m
+    //   bits [13:8]   divider - 1
+    //   bits [31:16]  write mask for the bits being changed
+    //
+    // Both mux settings used below are confirmed from the firmware's own
+    // clock calls on hardware: mux 0 with parent 400000000 and mux 2 with
+    // parent 24000000.
+    //
+    OperationRegion(EMMC, SystemMemory, 0x27200464, 0x4)
       Field(EMMC, DWordAcc, NoLock, WriteAsZeros) {
       PLLE, 32,
     }
@@ -52,29 +63,37 @@
             Return (0x3)
           }
           Case (1) {
+            //
+            // This table was RK3588's, where the parent is 1200 MHz, so its
+            // dividers read 1200/6, /8, /12 and /24 for 200, 150, 100 and
+            // 50 MHz.  On RK3576 the parent is 400 MHz: the same dividers
+            // give 66.7, 50, 33.3 and 16.7 MHz while this method reported
+            // the RK3588 numbers back to the caller.  Recomputed for 400 MHz,
+            // and each Return is the rate actually programmed.
+            //
             Local0 = DerefOf (Arg3 [0])
             If (Local0 >= 200000000) {
-              Store (0xFF000500, PLLE)
+              Store (0xFF000100, PLLE)      // gpll_400m / 2
               Return (200000000)
             }
-            If (Local0 >= 150000000) {
-              Store (0xFF000700, PLLE)
-              Return (150000000)
+            If (Local0 >= 133333333) {
+              Store (0xFF000200, PLLE)      // gpll_400m / 3
+              Return (133333333)
             }
             If (Local0 >= 100000000) {
-              Store (0xFF000B00, PLLE)
+              Store (0xFF000300, PLLE)      // gpll_400m / 4
               Return (100000000)
             }
             If (Local0 >= 50000000) {
-              Store (0xFF001700, PLLE)
+              Store (0xFF000700, PLLE)      // gpll_400m / 8
               Return (50000000)
             }
             If (Local0 >= 24000000) {
-              Store (0xFF008000, PLLE)
+              Store (0xFF008000, PLLE)      // xin_24m / 1
               Return (24000000)
             }
             if (Local0 >= 375000) {
-              Store (0xFF00BF00, PLLE)
+              Store (0xFF00BF00, PLLE)      // xin_24m / 64
               Return (375000)
             }
             Return (0)
@@ -96,7 +115,7 @@
       }
       Else
       {
-        Store (0xFF000600, PLLE)
+        Store (0xFF000700, PLLE)      // gpll_400m / 8 = 50 MHz
       }
     }
 
