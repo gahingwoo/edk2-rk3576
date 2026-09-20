@@ -79,6 +79,10 @@ typedef struct {
   // For Sd removable device enumeration.
   //
   EFI_EVENT                        ConnectEvent;
+  //
+  // Quiesce the controller before handing the machine to the OS.
+  //
+  EFI_EVENT                        ExitBootServicesEvent;
   LIST_ENTRY                       Queue;
 
   DW_MMC_HC_SLOT                   Slot[DW_MMC_HC_MAX_SLOT];

@@ -55,6 +55,7 @@ DW_MMC_HC_PRIVATE_DATA  gDwMmcHcTemplate = {
   0,                                                     // PreviousSlot
   NULL,                                                  // TimerEvent
   NULL,                                                  // ConnectEvent
+  NULL,                                                  // ExitBootServicesEvent
                                                          // Queue
   INITIALIZE_LIST_HEAD_VARIABLE (gDwMmcHcTemplate.Queue),
   {                                 // Slot
@@ -548,6 +549,67 @@ DwMmcHcDriverBindingSupported (
 }
 
 /**
+  Put the controller back to sleep before the OS takes over.
+
+  ExitBootServices notification.  This runs at TPL_NOTIFY with no memory
+  allocation and no protocol use, which is all that is allowed here -- MMIO
+  writes only.
+
+  What it undoes: DwMmcHcEnableInterrupt leaves IDINTEN = ~0, and the
+  controller is started with DW_MMC_CTRL_INT_EN, so the interrupt output to
+  the GIC is live.  The SD GSIV is level triggered.  An IDMAC interrupt is
+  reported in IDSTS, not in RINTSTS, so an OS host driver that services
+  MINTSTS sees nothing to do, declines the interrupt, and the line stays
+  asserted -- with no handler willing to clear it.
+
+  @param[in] Event    The event.
+  @param[in] Context  The DW_MMC_HC_PRIVATE_DATA for this controller.
+
+**/
+VOID
+EFIAPI
+DwMmcHcNotifyExitBootServices (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  DW_MMC_HC_PRIVATE_DATA  *Private;
+  UINTN                   DevBase;
+  UINT32                  Ctrl;
+
+  Private = (DW_MMC_HC_PRIVATE_DATA *)Context;
+  if (Private == NULL) {
+    return;
+  }
+
+  DevBase = Private->DevBase;
+
+  //
+  // Order matters.  Stop the sources first, then take the output away, then
+  // acknowledge what is already latched, so nothing can re-assert the line
+  // between the steps.
+  //
+  MmioWrite32 (DevBase + DW_MMC_INTMASK, 0);
+  MmioWrite32 (DevBase + DW_MMC_IDINTEN, 0);
+
+  Ctrl  = MmioRead32 (DevBase + DW_MMC_CTRL);
+  Ctrl &= ~(UINT32)(DW_MMC_CTRL_INT_EN | DW_MMC_CTRL_IDMAC_EN);
+  MmioWrite32 (DevBase + DW_MMC_CTRL, Ctrl);
+
+  //
+  // IDMAC off at the bus-mode register too; clearing IDMAC_EN in CTRL alone
+  // leaves the descriptor engine armed.
+  //
+  MmioWrite32 (DevBase + DW_MMC_BMOD, 0);
+
+  //
+  // Both status registers are write-1-to-clear.
+  //
+  MmioWrite32 (DevBase + DW_MMC_RINTSTS, MAX_UINT32);
+  MmioWrite32 (DevBase + DW_MMC_IDSTS, MAX_UINT32);
+}
+
+/**
   Starts a device controller or a bus controller.
 
   The Start() function is designed to be invoked from the EFI boot service
@@ -695,6 +757,36 @@ DwMmcHcDriverBindingStart (
   }
 
   //
+  // Quiesce the controller at ExitBootServices.
+  //
+  // Nothing did this before, and with a card in the slot the controller is
+  // handed to the OS with its interrupt output enabled (DW_MMC_CTRL_INT_EN)
+  // and every IDMAC interrupt unmasked (IDINTEN = ~0, set by
+  // DwMmcHcEnableInterrupt).  The GSIV in Sdhc.asl is level triggered, and an
+  // IDMAC interrupt is reported in IDSTS rather than in RINTSTS -- so an OS
+  // driver that reads MINTSTS sees nothing, declines the interrupt, and the
+  // line stays asserted with no one to clear it.
+  //
+  // Registered on the controller's own handle so it is created once per
+  // controller and torn down with it.
+  //
+  Status = gBS->CreateEvent (
+                  EVT_SIGNAL_EXIT_BOOT_SERVICES,
+                  TPL_NOTIFY,
+                  DwMmcHcNotifyExitBootServices,
+                  Private,
+                  &Private->ExitBootServicesEvent
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "DwMmcHcDriverBindingStart: no ExitBootServices event: %r\n",
+      Status
+      ));
+    goto Done;
+  }
+
+  //
   // Start the asynchronous I/O monitor
   //
   Status = gBS->CreateEvent (
@@ -743,6 +835,10 @@ DwMmcHcDriverBindingStart (
 
 Done:
   if (EFI_ERROR (Status)) {
+    if ((Private != NULL) && (Private->ExitBootServicesEvent != NULL)) {
+      gBS->CloseEvent (Private->ExitBootServicesEvent);
+    }
+
     if ((Private != NULL) && (Private->TimerEvent != NULL)) {
       gBS->CloseEvent (Private->TimerEvent);
     }
@@ -825,6 +921,11 @@ DwMmcHcDriverBindingStop (
   //
   // Close Non-Blocking timer and free Task list.
   //
+  if (Private->ExitBootServicesEvent != NULL) {
+    gBS->CloseEvent (Private->ExitBootServicesEvent);
+    Private->ExitBootServicesEvent = NULL;
+  }
+
   if (Private->TimerEvent != NULL) {
     gBS->CloseEvent (Private->TimerEvent);
     Private->TimerEvent = NULL;

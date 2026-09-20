@@ -28,6 +28,7 @@
 #define EMMC_NONDLL_STRBIN_DELAY   FixedPcdGet32(PcdDwcSdhciNonDllStrbinDelay)
 
 STATIC EFI_HANDLE  mSdMmcControllerHandle;
+STATIC EFI_EVENT   mExitBootServicesEvent;
 
 /**
   Stop the card clock, wait for the controller's internal clock to relock,
@@ -348,6 +349,43 @@ EmmcSdMmcNotifyPhase (
   return EFI_SUCCESS;
 }
 
+/**
+  Stop the controller signalling interrupts before the OS takes over.
+
+  SdMmcPciHcDxe enables the SDHCI interrupt *signal* registers, and nothing
+  turns them off again -- this driver registers the only ExitBootServices
+  callback anywhere near this controller.  An interrupt still asserted on a
+  level-triggered GSIV that the incoming OS has no handler for is never
+  cleared, and the line stays up.
+
+  The sibling defect on the SD controller is the one with evidence behind it:
+  with a card in the slot, every Windows boot on this board either crawled or
+  bugchecked, and with the slot empty six boots in a row were clean.  Nothing
+  here is claimed to be a second cause -- the eMMC controller is initialised on
+  every boot, card or no card, so it cannot explain a fault that tracks the SD
+  card.  It is the same class of defect on the sibling device, and cheap.
+
+  TPL_NOTIFY, so MMIO only: no allocation, no protocol use.
+
+**/
+STATIC
+VOID
+EFIAPI
+DwcSdhciNotifyExitBootServices (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  //
+  // Signal enables first -- that is what reaches the GIC -- then acknowledge
+  // whatever is latched.  Both status registers are write-1-to-clear.
+  //
+  MmioWrite16 ((UINT32)SD_MMC_HC_NOR_INT_SIG, 0);
+  MmioWrite16 ((UINT32)SD_MMC_HC_ERR_INT_SIG, 0);
+  MmioWrite16 ((UINT32)SD_MMC_HC_NOR_INT_STS, MAX_UINT16);
+  MmioWrite16 ((UINT32)SD_MMC_HC_ERR_INT_STS, MAX_UINT16);
+}
+
 STATIC EDKII_SD_MMC_OVERRIDE  mSdMmcOverride = {
   EDKII_SD_MMC_OVERRIDE_PROTOCOL_VERSION,
   EmmcSdMmcCapability,
@@ -412,6 +450,21 @@ DwcSdhciDxeInitialize (
                   (VOID **)&mSdMmcOverride
                   );
   ASSERT_EFI_ERROR (Status);
+
+  Status = gBS->CreateEvent (
+                  EVT_SIGNAL_EXIT_BOOT_SERVICES,
+                  TPL_NOTIFY,
+                  DwcSdhciNotifyExitBootServices,
+                  NULL,
+                  &mExitBootServicesEvent
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "DwcSdhciDxe: no ExitBootServices event: %r\n",
+      Status
+      ));
+  }
 
   return EFI_SUCCESS;
 }
