@@ -37,7 +37,7 @@ See the note below the images and [docs/STATUS.md](docs/STATUS.md).
 | ArmSoM CM5-IO |
 |---|
 | ![Windows Setup on CM5-IO](docs/imgs/cm5io-windows.png) |
-| Windows 10 21H2 ARM64 Setup, 2026-09-18. It had been bugchecking `ACPI_BIOS_ERROR`; the cause was an ACPI SCMI device carried over from RK3588 that drives a doorbell register this SoC does not have. Setup runs, but sees no storage yet — see [docs/STATUS.md](docs/STATUS.md). |
+| Windows 10 21H2 ARM64 Setup, 2026-09-18. It had been bugchecking `ACPI_BIOS_ERROR`; the cause was an ACPI SCMI device carried over from RK3588 that drives a doorbell register this SoC does not have. Since then: the NVMe enumerates and works, all 8 CPUs come up, and the cores run at 1608 MHz. The eMMC and the SD slot still do not — those need host drivers Windows does not ship, and they live in [woa-rk3576](https://github.com/gahingwoo/woa-rk3576). See [docs/STATUS.md](docs/STATUS.md). |
 
 > **CM5-IO: 15 of 15 cold boots.** Two fixes on 2026-09-17 closed this out —
 > an SError that killed every boot before the display path ran, and RK3576's
@@ -53,16 +53,23 @@ See the note below the images and [docs/STATUS.md](docs/STATUS.md).
 
 ## Boards
 
-| Board | Boot medium | Serial console | HDMI | eMMC | USB 3.0 | Ethernet |
-|---|---|---|---|---|---|---|
-| Radxa ROCK 4D | SPI NOR | Reliable | Not working (HPD low; untested since 2026-09-17) | — (no onboard eMMC) | Working | Working |
-| ArmSoM CM5-IO | SD / eMMC | Reliable | Working (15/15 cold boots) | Working (52 MHz HS, reads and writes; UEFI variables persist) | Working | Working |
+| Board | Boot medium | Serial console | HDMI | eMMC | PCIe / NVMe | USB 3.0 | Ethernet |
+|---|---|---|---|---|---|---|---|
+| Radxa ROCK 4D | SPI NOR | Reliable | Not working (HPD low; untested since 2026-09-17) | — (no onboard eMMC) | Untested since 2026-08-04, before the fixes | Working | Working |
+| ArmSoM CM5-IO | SD / eMMC | Reliable | Working (15/15 cold boots) | Working (52 MHz HS, reads and writes; UEFI variables persist) | Working — Fedora boots from the NVMe | Working | Working |
 
 Read [docs/STATUS.md](docs/STATUS.md) before anything else. It is the account
 of what works, what does not, and with what sample size — every claim in it
 carries its evidence. The short version: the serial console and the boot chain
-are solid, CM5-IO's display and eMMC both work, ROCK 4D's HDMI does not, and
-PCIe trains but its endpoint's config space does not answer.
+are solid, and on CM5-IO the display, eMMC and PCIe all work — Fedora boots
+from the NVMe. ROCK 4D's HDMI does not, and ROCK 4D has not been on a bench
+since 2026-08-04, so nothing fixed since then has been checked against it.
+
+PCIe was listed here as broken for a month after it had been fixed. Two
+defects, neither of them the one the old entry was chasing: PERST# was driven
+inverted, and the LTSSM was enabled after PERST# was released rather than
+before. The all-ones config read that entry rested on was the endpoint being
+held in reset.
 
 ## Build
 
