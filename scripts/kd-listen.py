@@ -76,6 +76,7 @@ def show(s):
 
 show(f"# listening on {DEV}, raw copy -> {RAW}")
 last = time.time()
+empty = 0
 while True:
     try:
         chunk = os.read(fd, 4096)
@@ -85,6 +86,20 @@ while True:
         raw.write(chunk)
         buf += chunk
         last = time.time()
+        empty = 0
+    else:
+        # A read of zero bytes on a cdc-acm node that has been unplugged never
+        # turns into an error, so this used to spin at 100% CPU holding a
+        # deleted /dev/ttyACM1 while the probe came back as ttyACM0 -- and the
+        # wrapper could not move on, because it waits for this process to
+        # exit.  Exit instead and let the wrapper find the new node.
+        empty += 1
+        if empty > 200:
+            if not os.path.exists(DEV):
+                sys.stderr.write(f"# {DEV} went away, exiting so the wrapper can reattach\n")
+                sys.exit(0)
+            empty = 0
+        time.sleep(0.01)
 
     while True:
         # find the next leader of either kind
