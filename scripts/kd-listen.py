@@ -143,7 +143,14 @@ while True:
             if ptype == 3 and len(payload) >= 16:
                 api, plevel, proc, slen = struct.unpack("<IHHI", payload[:12])
                 if api == DbgKdPrintStringApi:
-                    s = payload[12:12 + slen].decode("utf-8", "replace").rstrip("\n")
+                    # Take the rest of the packet rather than trusting slen.
+                    # DBGKD_DEBUG_IO's string length sits at a different offset
+                    # than assumed here and the text came out clipped -- "BD:
+                    # Boot Debugger Initiali" for "...Initialized".  The packet
+                    # length already bounds the payload, so there is nothing to
+                    # gain from the field and a truncated message can hide the
+                    # part that matters.
+                    s = payload[12:].decode("utf-8", "replace").rstrip("\x00").rstrip()
                     if n == 1:
                         show(f"KD: {s}")
                     continue
@@ -177,5 +184,16 @@ while True:
                 # frame.
                 os.write(fd, last_sent)
                 show(f"KD<ctrl {name}> id=0x{pid:08x} -> resent {len(last_sent)}B")
+            elif ptype == 6:
+                # RESET: the target is resynchronising -- it does this when the
+                # boot debugger hands over to the kernel's.  KDCOM answers a
+                # RESET with a RESET and restarts packet numbering; log it and
+                # do nothing and the kernel-side debugger never comes up, which
+                # is what happened on CM5-IO 2026-09-20: winload's debugger
+                # talked, then two bare RESETs and silence.
+                out_id = INITIAL_PACKET_ID
+                seen.clear()
+                w = send_ctrl(6, 0)
+                show(f"KD<ctrl RESET> id=0x{pid:08x} -> RESET ({w}B), ids restarted")
             elif ptype not in (4,):
                 show(f"KD<ctrl {name}> id=0x{pid:08x}")
