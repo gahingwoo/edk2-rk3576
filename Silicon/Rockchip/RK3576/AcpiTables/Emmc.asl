@@ -24,7 +24,12 @@
     Name (_DSD, Package () {
       ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
-        Package () { "compatible", "rockchip,rk3576-dwcmshc", "rockchip,rk3588-dwcmshc" },
+        //
+        // A _DSD property is a two-element package {name, value}; a list of
+        // strings has to be nested, the way Sdhc.asl does it.  This had three
+        // elements and was not a valid property.
+        //
+        Package () { "compatible", Package () { "rockchip,rk3576-dwcmshc", "rockchip,rk3588-dwcmshc" } },
         Package () { "max-frequency", 200000000 },
         Package () { "bus-width", 8 },
         Package () { "no-sd", 0x1 },
