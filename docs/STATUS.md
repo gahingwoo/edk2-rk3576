@@ -12,9 +12,10 @@ Last updated: 2026-09-27. Everything claimed for CM5-IO below was measured on
 2026-09-17 or later during a long hardware session unless it says otherwise;
 entries carrying an earlier date have not been rechecked.
 **ROCK 4D was benched again and reported on 2026-09-27**: stable HDMI signal,
-and Fedora boots. That run's serial log was lost, so it carries no boot count
-and no capture. Every other ROCK 4D entry below still predates the display
-fixes and has not been rechecked.
+and Fedora boots from an NVMe disk, which exercises PCIe as well. That run's
+serial log was lost, so it carries no boot count and no capture. Every other
+ROCK 4D entry below still predates the display fixes and has not been
+rechecked.
 
 ---
 
@@ -64,7 +65,7 @@ driver away from firing.
 | Boot chain to UEFI Shell | BootROM → SPL → BL31 → EDK2, serial 1500000 8N1. Reproduced on every boot of both boards. |
 | **The restructured firmware itself** | ROCK 4D booted `rk3576-ROCK4D-legacy-v0.1-1-g652670d` to the front page with no ASSERT, no exception and no abort anywhere in the log. 1 boot. |
 | **Display (CM5-IO)** | 2560x1440@60 over HDMI, clean picture, no stripes and no horizontal offset. 15 of 15 cold boots of the fixed code reached the UEFI front page with `POST_BUF_EMPTY=0`; the picture was confirmed by eye on the runs that were checked. Two fixes: `085b8a4` (an SError that killed every boot before the display path ran) and `255f867` (RK3576's three per-VP mixers left at reset — the stripes). |
-| **Display (ROCK 4D)** | Stable HDMI signal, and Fedora boots. Reported 2026-09-27 from a bench run with this firmware. **The log was lost**, so there is no boot count, no capture and no identified fix — this is the weakest entry in this table and is here because it contradicts the HPD failure recorded below. |
+| **Display and NVMe (ROCK 4D)** | Stable HDMI signal, and Fedora boots from an NVMe disk, so both PCIe fixes hold on this board too. Reported 2026-09-27 from a bench run with this firmware. **The log was lost**, so there is no boot count, no capture and no identified fix for the HPD failure — this is the weakest entry in this table and is here because it contradicts that failure, recorded below. |
 | **eMMC (CM5-IO)** | HighSpeed, 52 MHz, 8-bit. Reads *and* writes: 512 B through 192 KB each written, read back and compared byte-identical, and `Found boot disk for NV storage!`. One SDHCI error event per boot, the benign CMD7 deselect. Was capped at 26 MHz legacy SDR until `54f46cc`; that cap is what broke every multi-block write. |
 | **DRAM (CM5-IO)** | All 4 GB mapped — 4096 MB detected, 3838 MB usable on the front page, no external abort. `0003936`. 3 boots. |
 | USB-A (CM5-IO) | Devices enumerate through the onboard 4-port hub. |
@@ -312,9 +313,9 @@ Reaching LTSSM 0x00030005 needs a link partner, so a device was present and
 the lanes did train — that part was read correctly. The conclusion drawn from
 it, that config access was the fault, was not.
 
-**Neither PCIe fix has been checked on ROCK 4D.** The 2026-09-27 run covered
-the display and a Fedora boot; which medium it booted from was not recorded, so
-it is not evidence for PCIe.
+**Both PCIe fixes hold on ROCK 4D as well**: the 2026-09-27 run booted Fedora
+from an NVMe disk, which cannot happen without the link and config access. That
+run's log was lost, so there is no count behind it.
 
 Separately, `FdtPlatformDxe` cannot find the nodes it wants to fix up:
 

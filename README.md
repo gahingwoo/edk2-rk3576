@@ -47,16 +47,16 @@ See the note below the images and [docs/STATUS.md](docs/STATUS.md).
 > confirmed clean by eye on the runs that were checked. The earlier "2 of 8"
 > figure predates these fixes and is void; so is the sampling that produced it.
 >
-> **ROCK 4D now puts out a stable HDMI signal too**, and boots Fedora. That
-> was a bench run with this firmware, reported 2026-09-27, but the serial log
-> from it was lost, so there is no boot count and no capture behind it. The
-> earlier HPD-reads-low failure is gone.
+> **ROCK 4D now puts out a stable HDMI signal too**, and boots Fedora from an
+> NVMe disk. That was a bench run with this firmware, reported 2026-09-27, but
+> the serial log from it was lost, so there is no boot count and no capture
+> behind it. The earlier HPD-reads-low failure is gone.
 
 ## Boards
 
 | Board | Boot medium | Serial console | HDMI | eMMC | PCIe / NVMe | USB 3.0 | Ethernet |
 |---|---|---|---|---|---|---|---|
-| Radxa ROCK 4D | SPI NOR | Reliable | Working (stable signal; unlogged bench run, no count) | — (no onboard eMMC) | Untested since 2026-08-04, before the fixes | Working | Working |
+| Radxa ROCK 4D | SPI NOR | Reliable | Working (stable signal; unlogged bench run, no count) | — (no onboard eMMC) | Working — Fedora boots from the NVMe | Working | Working |
 | ArmSoM CM5-IO | SD / eMMC | Reliable | Working (15/15 cold boots) | Working (52 MHz HS, reads and writes; UEFI variables persist) | Working — Fedora boots from the NVMe | Working | Working |
 
 Read [docs/STATUS.md](docs/STATUS.md) before anything else. It is the account
