@@ -3,7 +3,7 @@
 [![SoC](https://img.shields.io/badge/SoC-RK3576-blue)]()
 [![License](https://img.shields.io/badge/license-BSD--2--Clause--Patent-lightgrey)](LICENSE)
 [![Flash](https://img.shields.io/badge/flash-WebUSB%20browser%20tool-informational)](https://flash.gahingwoo.com/)
-[![Docs](https://img.shields.io/badge/docs-edk2.gahingwoo.com-informational)](http://edk2.gahingwoo.com/)
+[![Docs](https://img.shields.io/badge/docs-edk2.gahingwoo.com-informational)](https://edk2.gahingwoo.com/)
 
 EDK2 / TianoCore UEFI firmware for Rockchip RK3576 boards.
 
@@ -16,7 +16,7 @@ disk. CM5-IO also runs Windows 10 21H2 Setup.
 
 - **Images:** [Releases](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
 - **Flash from the browser:** [flash.gahingwoo.com](https://flash.gahingwoo.com/)
-- **Docs:** [edk2.gahingwoo.com](http://edk2.gahingwoo.com/)
+- **Docs:** [edk2.gahingwoo.com](https://edk2.gahingwoo.com/)
 
 ## Boards
 
