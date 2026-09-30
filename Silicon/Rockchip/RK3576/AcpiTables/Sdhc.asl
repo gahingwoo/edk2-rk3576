@@ -8,14 +8,20 @@
 
 #include "AcpiTables.h"
 
+//
+// The UHS modes need 1.8 V signalling, and on RK3576 nothing the OS can reach
+// switches vqmmc (vccio_sd_s0, an RK806 LDO): RK3588 does it through a
+// Rockchip SiP call into BL31, and the BL31 these boards ship does not
+// implement that service. So no UHS, and "no-1-8-v" below, until it does.
+//
 #ifndef SDMMC_CAP_DDR50
-#define SDMMC_CAP_DDR50 1
+#define SDMMC_CAP_DDR50 0
 #endif
 #ifndef SDMMC_CAP_SDR50
-#define SDMMC_CAP_SDR50 1
+#define SDMMC_CAP_SDR50 0
 #endif
 #ifndef SDMMC_CAP_SDR104
-#define SDMMC_CAP_SDR104 1
+#define SDMMC_CAP_SDR104 0
 #endif
 
 Scope (\_SB_) {
@@ -54,6 +60,7 @@ Scope (\_SB_) {
         Package () { "sd-uhs-ddr50", SDMMC_CAP_DDR50 },
         Package () { "sd-uhs-sdr50", SDMMC_CAP_SDR50 },
         Package () { "sd-uhs-sdr104", SDMMC_CAP_SDR104 },
+        Package () { "no-1-8-v", 1 },
         Package () { "broken-cd", FixedPcdGetBool (PcdRkSdmmcCardDetectBroken) },
       }
     })

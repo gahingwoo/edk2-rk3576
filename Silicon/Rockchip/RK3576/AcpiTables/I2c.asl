@@ -21,6 +21,16 @@
  **/
 #include "AcpiTables.h"
 
+//
+// "rockchip,bclk" is the controller's input clock, which the Windows rk3xi2c
+// driver needs to compute its SCL dividers and refuses to start without.
+// clk_i2cN (and the PMU clk_i2c0) come out of reset on the nominal 200 MHz
+// parent, clk_gpll_div6: 198 MHz with GPLL at 1188 MHz, 200 MHz if that
+// divider was set otherwise. Neither has been read back on hardware. 200 MHz
+// is the safe claim: if the real rate is 198 MHz, SCL runs 1% slow rather
+// than 1% over the bus limit.
+//
+
   // I2C0 — SoC internal bus (DP/AUX or debug; usually disabled on carrier boards)
   Device (I2C0) {
     Name (_HID, "RKCP3001")
@@ -40,6 +50,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
@@ -65,6 +76,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
@@ -90,6 +102,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
@@ -115,6 +128,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
@@ -140,6 +154,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
@@ -165,6 +180,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
@@ -190,6 +206,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
@@ -215,6 +232,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
@@ -240,6 +258,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
@@ -266,6 +285,7 @@
       Package () {
         Package (2) { "compatible", Package () { "rockchip,rk3576-i2c", "rockchip,rk3399-i2c" } },
         Package (2) { "clock-frequency", 400000 },
+        Package (2) { "rockchip,bclk", 200000000 },
         Package (2) { "#address-cells", 1 },
         Package (2) { "#size-cells", 0 },
       }
