@@ -29,10 +29,10 @@ The serial console is 1500000 8N1 on both boards.
 
 ## Known issues
 
-- **Windows cannot use the eMMC or the SD slot yet.** Windows ships no host
-  driver that handles these controllers; the miniports live in
-  [woa-rk3576](https://github.com/gahingwoo/woa-rk3576). The eMMC driver finds
-  the card and stops at the bus-width test.
+- **Windows needs this project's drivers for the eMMC and the SD slot.** It
+  ships none for these controllers. With the ones in
+  [woa-rk3576](https://github.com/gahingwoo/woa-rk3576), both are disks under
+  WinPE as of 2026-10-01 (one boot).
 - **An SD card in the slot used to make Windows crawl or bugcheck.** The
   firmware left the SD controller's interrupts armed at ExitBootServices.
   `75c0f32` quiesces it; four card-present boots have been clean since, which
