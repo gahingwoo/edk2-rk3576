@@ -36,17 +36,4 @@ Because the SoC is ARMv8.0, Windows 11 24H2 and later cannot run on it.
 | USB-A | Behind an onboard 4-port hub |
 | Tested SKU | 4 GB |
 
-## Screenshots
-
-| Stage | Screenshot |
-|---|---|
-| UEFI front page over HDMI, ROCK 4D | ![monitor](imgs/monitor-4d.png) |
-| UEFI front page over HDMI, CM5-IO | ![monitor](imgs/monitor-cm5io.jpeg) |
-| GRUB from a Fedora USB stick | ![grub](imgs/grub.png) |
-| Fedora live console | ![fedora](imgs/fedora.png) |
-| Fedora 44 GNOME desktop, ROCK 4D | ![rock4d-desktop](imgs/rock4d-desktop.png) |
-| Fedora 45 Workstation desktop, CM5-IO | ![cm5io-desktop](imgs/cm5io-desktop.png) |
-| Windows 10 21H2 ARM64 Setup, CM5-IO | ![cm5io-windows](imgs/cm5io-windows.png) |
-
-Fedora's *About → System Details* panel reads its model and firmware version
-from the SMBIOS tables `PlatformSmbiosDxe` writes.
+Screenshots from both boards are on the [front page](index.md#screenshots).

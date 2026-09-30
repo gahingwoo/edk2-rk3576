@@ -10,8 +10,6 @@ BootROM → U-Boot SPL → TF-A BL31 → EDK2 (BL33) → OS
 Both boards boot to the UEFI front page over HDMI and run Fedora from an NVMe
 disk. CM5-IO also runs Windows 10 21H2 Setup.
 
-![UEFI front page on CM5-IO](imgs/monitor-cm5io.jpeg)
-
 ## Get it
 
 - **Images:** [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
@@ -20,6 +18,30 @@ disk. CM5-IO also runs Windows 10 21H2 Setup.
 
 What works on each board, and the open issues, are in the
 [README](https://github.com/gahingwoo/edk2-rk3576#boards).
+
+## Screenshots
+
+Real captures from these boards.
+
+| Radxa ROCK 4D | ArmSoM CM5-IO |
+|---|---|
+| ![UEFI front page on ROCK 4D](imgs/monitor-4d.png) | ![UEFI front page on CM5-IO](imgs/monitor-cm5io.jpeg) |
+| TianoCore front page, 2560×1440@60 over HDMI | TianoCore front page, 2560×1440@60 over HDMI |
+| ![GNOME on ROCK 4D](imgs/rock4d-desktop.png) | ![GNOME on CM5-IO](imgs/cm5io-desktop.png) |
+| GNOME *About*: Fedora 44, 11.5 GiB RAM | GNOME *About*: Fedora 45 Workstation, kernel 7.2, 3.7 GiB RAM, Mali-G52 via Panfrost |
+
+| | |
+|---|---|
+| ![GRUB on USB](imgs/grub.png) | ![Fedora live console](imgs/fedora.png) |
+| GRUB from a Fedora USB stick | Fedora live console |
+
+![Windows 10 Setup on CM5-IO](imgs/cm5io-windows.png)
+
+Windows 10 21H2 ARM64 Setup on CM5-IO. NVMe works, all 8 CPUs come up, and the
+cores run at 1608 MHz.
+
+Fedora's *About → System Details* panel reads its model and firmware version
+from the SMBIOS tables the firmware writes.
 
 ## Docs
 
