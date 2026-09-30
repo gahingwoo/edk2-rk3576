@@ -1,29 +1,29 @@
-# Local patches to the vendored EDK2 core
+# Local patches to the EDK2 core
 
-`edk2_port/edk2/` is an upstream [tianocore/edk2](https://github.com/tianocore/edk2)
-checkout and is **gitignored** — it is far too large to track, and it is
-described in the build instructions as "cloned at build time".
+`third_party/edk2/` is an upstream [tianocore/edk2](https://github.com/tianocore/edk2)
+submodule, pinned by `scripts/setup-host.sh` to edk2-stable202602. An edit made
+directly inside it shows up only as a modified submodule, is lost the moment
+the checkout is reset, and leaves no record of what it was. Two of the four
+changes below are functional fixes, not debug scaffolding. If they silently
+revert, the firmware still compiles and still produces an image; it just
+behaves differently, with nothing to point at. So they live here.
 
-That combination is a trap: an edit made directly inside that tree is invisible
-to `git status`, survives no re-clone, and leaves no trace when it disappears.
-Two of the four changes below are functional fixes, not debug scaffolding. If
-they silently revert, the firmware still compiles and still produces an image —
-it just behaves differently, with nothing to point at. So they live here.
-
-Generated against **tianocore/edk2 `46548b1adac82211d8d11da12dd914f41e7aa775`**,
-which is the `edk2` submodule pointer of `edk2-porting/edk2-rk3588`.
+They were first generated against tianocore/edk2 `46548b1` and apply cleanly
+to edk2-stable202602, which is what CI builds against.
 
 ## Applying
 
+`scripts/setup-host.sh` applies the required set, so the normal path needs no
+manual step. By hand:
+
 ```sh
-edk2_port/patches-edk2-core/apply.sh                 # required patches only
-edk2_port/patches-edk2-core/apply.sh --with-debug    # + UART tracing
-edk2_port/patches-edk2-core/apply.sh --check         # report, change nothing
+patches/apply.sh third_party/edk2                 # required patches only
+patches/apply.sh --with-debug third_party/edk2    # + UART tracing
+patches/apply.sh --check third_party/edk2         # report, change nothing
 ```
 
-`build_rock4d_uefi.sh` runs the required set automatically before every build,
-so the normal path needs no manual step. Re-running is safe — an already
-applied patch is detected and skipped.
+`setup-host.sh` adds `--with-debug` when `EDK2_CORE_DEBUG_PATCHES=1`.
+Re-running is safe: an already applied patch is detected and skipped.
 
 ## Required
 
@@ -66,20 +66,19 @@ does not fit the FV.
 Dumps the DxeCore load address and the complete HOB list (resource descriptors,
 FV, memory allocations, handoff) just before the handoff. This is the direct way
 to answer "is region X actually reserved" — see the RK3576 memory-map notes in
-`Silicon/Rockchip/RK3588/Library/PlatformLib/Rk3588Mem.c`.
+`Silicon/Rockchip/RK3576/Library/PlatformLib/Rk3576Mem.c`.
 
 Both are noisy by design; keep them off for release images and for any
 measurement where UART latency could matter.
 
 ## Adding a patch
 
-Do not edit `edk2_port/edk2/` and stop there. Generate the patch too:
+Do not edit `third_party/edk2/` and stop there. Generate the patch too:
 
 ```sh
-cd edk2_port/edk2
-diff -u <pristine>/path/File.c path/File.c > ../patches-edk2-core/000N-what-it-does.patch
-# then fix the two header lines to a/path/File.c and b/path/File.c
+cd third_party/edk2
+git diff -- path/File.c > ../../patches/000N-what-it-does.patch
 ```
 
-Name it `NNNN-DEBUG-...` if it is tracing rather than a fix — that prefix is
+Name it `NNNN-DEBUG-...` if it is tracing rather than a fix. That prefix is
 what `apply.sh` keys on to decide whether it is opt-in.

@@ -1,131 +1,120 @@
-# Flashing the prebuilt firmware
+# Flashing
 
-Two delivery paths are provided in this repo:
+Prebuilt images are on the
+[Releases page](https://github.com/gahingwoo/edk2-rk3576/releases/latest).
+If you build your own, `scripts/package.sh` writes the same files under `out/`.
 
-| File                       | Use                                          |
-|----------------------------|----------------------------------------------|
-| `binaries/u-boot.itb`      | U-Boot only (BL31 + U-Boot proper + DTB)     |
-| `out/ROCK4D/ROCK4D-spi.img`      | Full UEFI image for 16 MB SPI NOR            |
-| `out/CM5IO/CM5IO-sdcard.img`          | Full UEFI image for CM5-IO SD card (SPI is 64 KB) |
+| Release file | Built as | Board | Goes on |
+|---|---|---|---|
+| `ROCK4D-spi-edk2-<ver>.img` | `out/ROCK4D/ROCK4D-spi.img` | Radxa ROCK 4D | 16 MB SPI NOR |
+| `CM5IO-sdcard-edk2-<ver>.img` | `out/CM5IO/CM5IO-sdcard.img` | ArmSoM CM5-IO | SD card |
+| `CM5IO-emmc-edk2-<ver>.img` | `out/CM5IO/CM5IO-emmc.img` | ArmSoM CM5-IO | eMMC, with a data partition |
+| `CM5IO-emmc.sfdisk` | `out/CM5IO/CM5IO-emmc.sfdisk` | ArmSoM CM5-IO | the eMMC partition table on its own |
 
-## Option 0 — Browser flash (easiest, no tools required)
+Byte offsets inside each image are in [SPI_LAYOUT.md](SPI_LAYOUT.md).
 
-Open **[gahingwoo.github.io/edk2-webflash](https://gahingwoo.github.io/edk2-webflash/)** in **Chrome or Edge** (WebUSB required).
+## From the browser
 
-1. Hold the MaskROM button, plug in USB-C, then release.
-2. Click **Flash UEFI** and pick the Rockchip device from the browser prompt.
-3. After the loader is sent, click **Reconnect Device** and pick the device again.
-4. Wait for *Flash complete* — the board reboots into UEFI automatically.
+[flash.gahingwoo.com](https://flash.gahingwoo.com/) runs `rkdeveloptool` in the
+browser over WebUSB. Use Chrome or Edge.
 
-No drivers needed on Linux / macOS. On Windows, install WinUSB for the device
-via [Zadig](https://zadig.akeo.ie/) first.
+1. Download the image for your board from the Releases page.
+2. Hold the MaskROM button, plug in USB-C, then release.
+3. Pick the board, click **Flash Custom Image**, choose the file, and pick the
+   Rockchip device from the browser prompt.
+4. After the loader is sent, click **Reconnect Device** and pick the device
+   again.
+5. Wait for the flash to complete. The board reboots on its own.
+
+No driver is needed on Linux or macOS. On Windows, install WinUSB for the
+device with [Zadig](https://zadig.akeo.ie/) first.
 
 Source: [github.com/gahingwoo/edk2-webflash](https://github.com/gahingwoo/edk2-webflash)
 
-## Option A — SPI NOR (UEFI, persistent) via MaskROM
+## ROCK 4D: SPI NOR with rkdeveloptool
 
-1. Put the board in **MaskROM** mode (hold MaskROM button while powering on,
-   or short the MaskROM pads on the bottom side).
+1. Put the board in MaskROM: hold the MaskROM button while powering on.
 2. Connect the USB-C OTG port to your host.
 3. Run:
 
    ```bash
-   rkdeveloptool db   rk3576_spl_loader.bin      # an RKLD loader, see the note below
-   rkdeveloptool wl 0 out/ROCK4D/ROCK4D-spi.img        # write the 16 MB SPI image
-   rkdeveloptool rd                              # reboot
+   rkdeveloptool db   rk3576_spl_loader.bin      # an RKLD loader, see below
+   rkdeveloptool wl 0 ROCK4D-spi-edk2-<ver>.img
+   rkdeveloptool rd
    ```
 
-4. On UART you should see TF-A → U-Boot → EDK2 banner, then the UEFI Shell
-   prompt (or the boot menu).
+The UART shows TF-A, then the EDK2 banner, then the UEFI front page.
 
-## Option B — SD card / eMMC (U-Boot only, no UEFI)
+## CM5-IO: SD card
 
-Use Radxa's upstream packaging recipe with `binaries/u-boot.itb` plus the
-`idblock` from `binaries/u-boot-spl.bin`. The standard layout is:
+The CM5-IO carrier's SPI NOR is 64 KB, far too small for the firmware, so the
+firmware lives on the SD card or the eMMC.
 
-| Offset (sectors @ 512 B) | Content                  |
-|--------------------------|--------------------------|
-| 64                       | idblock (SPL + DDR init) |
-| 16384                    | u-boot.itb               |
+```bash
+dd if=CM5IO-sdcard-edk2-<ver>.img of=/dev/sdX bs=1M status=progress
+sync
+```
 
-## Option C — SD card (ArmSoM CM5-IO — UEFI, persistent)
+Insert the card and power on.
 
-The CM5-IO carrier board has only a **64 KB SPI NOR flash**, which cannot hold
-the UEFI firmware stack (~5 MB). Use an SD card (or eMMC) instead.
+**The BootROM tries the eMMC before the SD card.** If the eMMC already holds a
+bootloader, the board boots that and ignores the card. Either flash the eMMC
+instead, or erase the start of the eMMC first.
 
-SD card image layout:
+UEFI variables persist on the SD card: the image carries a variable store at
+`0x1600000`.
 
-| Sector offset (× 512 B) | Byte offset | Content                              |
-|--------------------------|-------------|--------------------------------------|
-| 64 (0x40)                | 0x008000    | idblock (DDR init + mainline SPL)    |
-| 16384 (0x4000)           | 0x800000    | FIT image (BL31 + EDK2 BL33 + DTB)  |
+## CM5-IO: eMMC with a data partition
 
-1. Insert an SD card (≥ 64 MB) into your host.
-2. Write the image (replace `/dev/sdX` with your SD card device):
-
-   ```bash
-   dd if=out/CM5IO/CM5IO-sdcard.img of=/dev/sdX bs=1M status=progress
-   sync
-   ```
-
-3. Insert the SD card into the CM5-IO SD slot and power on.
-4. On UART (1500000 8N1) you should see:
-   `U-Boot SPL → INFO: BL31 → TianoCore EDK2 / UEFI Interactive Shell`
-
-> **Note:** EFI variables are **volatile** on SD card boot. The carrier SPI
-> (64 KB) is too small for a variable store, so variable changes do not persist
-> across reboots.
-
-## Recovery
-
-If a flash leaves the board unbootable, re-enter MaskROM mode and re-flash
-with Option A. The SPI NOR can always be recovered this way; nothing in the
-boot ROM is touched.
-
-## Option D — CM5-IO eMMC (firmware + data partition)
-
-`out/CM5IO/CM5IO-emmc.img` is the firmware image with a partition table in
-front, so flashing it leaves the whole eMMC usable instead of only the 33 MB the
-firmware occupies. Still 32 MB; the data partition is declared, not populated.
+`CM5IO-emmc-edk2-<ver>.img` is the firmware with a partition table in front,
+so the rest of the eMMC stays usable. The image is 32 MiB; the data partition
+is declared, not populated.
 
 | Partition | Start | Size | Contents |
 |---|---|---|---|
-| p1 `firmware` | sector 64 | 64 MiB | idblock, FIT, NV variable store. No filesystem. |
+| p1 `firmware` | sector 64 | 64 MiB | idblock, FIT, variable store. No filesystem. |
 | p2 `data` | 64 MiB | rest of the eMMC | unformatted |
 
 ```bash
 rkdeveloptool db   rk3576_spl_loader.bin
-rkdeveloptool wl 0 out/CM5IO/CM5IO-emmc.img
+rkdeveloptool wl 0 CM5IO-emmc-edk2-<ver>.img
 rkdeveloptool rd
 # then once, on the board:
 sudo mkfs.ext4 -L data /dev/mmcblk0p2
 sudo sgdisk -e /dev/mmcblk0
 ```
 
-The image stops at 32 MB, so it carries the primary GPT but not the backup copy
-at the end of the device. Linux reads the table and warns about the missing
-alternate; `sgdisk -e` writes it and silences that.
+The image stops at 32 MiB, so it carries the primary GPT but not the backup
+copy at the end of the device. Linux warns about the missing backup;
+`sgdisk -e` writes it.
 
-`CM5IO-sdcard.img` is still produced and is still just the firmware. Flashing it
-over a partitioned eMMC wipes the table, because it starts with 32 KB of zeros
-and Linux will not read a GPT without a valid protective MBR. The data survives;
-`CM5IO-emmc.sfdisk` next to the image writes the table back.
+Flashing the plain SD-card image over a partitioned eMMC wipes the table,
+because that image starts with 32 KB of zeros and Linux will not read a GPT
+without a valid protective MBR. The data survives, and `CM5IO-emmc.sfdisk`
+writes the table back:
+
+```bash
+sudo sfdisk --wipe always /dev/mmcblk0 < CM5IO-emmc.sfdisk
+```
 
 ## The loader `rkdeveloptool db` wants
 
-`db` takes a Rockchip **loader**, a container whose first four bytes are `LDR `,
-such as rkbin's `rk3576_spl_loader_*.bin`. It is not in this repo.
+`db` takes a Rockchip **loader**: a container whose first four bytes are
+`LDR `, such as rkbin's `rk3576_spl_loader_*.bin`. It is not in this repo.
 
-`binaries/rk3576_ddr.bin` is the raw DDR init blob: it starts with an AArch64
+`binaries/rk3576_ddr.bin` is the raw DDR init blob. It starts with an AArch64
 instruction, and handing it to `db` fails with
 
     Opening loader failed, exiting download boot!
 
 which is easy to read as a USB or permissions problem. It is neither.
 
-Two more things about `rkdeveloptool` worth knowing before you script it:
-after `db`, the board takes several seconds to come back on USB, and `ld` keeps
-reporting `Maskrom` the whole time, so there is nothing to poll for. And `wl`
-failing does not stop `rd` from rebooting the board into whatever was already on
-it, so check that `wl` reached 100% before resetting.
+After `db`, the board takes several seconds to come back on USB, and `ld`
+keeps reporting `Maskrom` the whole time, so there is nothing to poll for.
+And a failed `wl` does not stop `rd` from rebooting the board into whatever
+was already on it, so check that `wl` reached 100% before resetting.
 
+## Recovery
+
+MaskROM lives in the BootROM, which nothing here writes to, so a board can
+always be put back into MaskROM and reflashed.

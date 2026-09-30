@@ -4067,8 +4067,8 @@ Vop2Enable (
    *
    * This restores the previous behaviour and leaves 586af04's other three
    * changes in place.  It does NOT fix the scanning-on-an-unprogrammed-clock
-   * window -- that needs dclk_vp0_src to be given a real rate, which is what
-   * docs/STATUS.md records as the VPLL plan and what the vendor firmware in
+   * window -- that needs dclk_vp0_src to be given a real rate, which is the
+   * VPLL plan (source it from VPLL through the CRU) and what the vendor firmware in
    * dirty/ actually does (VPLL 594 MHz, CLKSEL_CON145 = 0x07FF0203). Until
    * that lands, a boot with a correct clock is worth more than a boot that
    * cannot reach the display code at all.

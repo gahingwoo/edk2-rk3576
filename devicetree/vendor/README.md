@@ -1,20 +1,20 @@
-# Rockchip Vendor BSP Device Trees
-## Sources
-* <https://github.com/armbian/linux-rockchip/tree/f3fb30ac9de06b41fb621d17bc53603f1f48ac90/arch/arm64/boot/dts/rockchip>
-  * Updated to `rk-6.1-rkr1` branch, currently called `vendor` branch in armbian/build
+# Vendor BSP device trees
 
-* roc-rk3588s-pc: <https://gitlab.com/firefly-linux/kernel/-/tree/b8646da2122f45a2c02082d949427b80d2e89b1f/arch/arm64/boot/dts/rockchip>
+Precompiled DTBs from a vendor kernel, offered as an alternative to the
+mainline device tree built from `devicetree/mainline/`.
 
-* itx-3588j: <https://gitlab.com/firefly-linux/kernel/-/tree/e14c28295dd7ee8f807899e9b0b7da5f79742e4f/arch/arm64/boot/dts/rockchip>
-  (note: in the dtb given here, the builtin bootargs in the source above were commented out
-   before building. Not sure if that was a necessary step - SS)
+| File | Board | Used by |
+|---|---|---|
+| `rk3576-rock-4d.dtb` | Radxa ROCK 4D | `Platform/Radxa/ROCK4D/DeviceTree/Vendor.inf` |
 
-* rk3588-firefly-aio-3588q: <https://gitlab.com/firefly-linux/kernel/-/tree/fa0e053fd911339b825407cb6d4b167fad7cdc49/arch/arm64/boot/dts/rockchip>
+The ROCK 4D DTB (`compatible = "radxa,rock-4d", "rockchip,rk3576"`) came into
+this tree with the 2026-08-04 restructure. Which vendor kernel and commit it
+was built from was not recorded.
 
-* rk3588-rock-5b-plus: <https://github.com/radxa/kernel/blob/3b95df6d8bf567857b69e5266f1cb0651a6cfb3e/arch/arm64/boot/dts/rockchip/>
-
-* rk3588s-fydetab-duo: <https://github.com/Linux-for-Fydetab-Duo/linux-rockchip/tree/14294048d2a0deb7f38c890329aded87038d3299/arch/arm64/boot/dts/rockchip>
-  (note: dtb taken from the `noble` branch which is based on the rockchip 6.1 rkr3 bsp kernel)
+CM5-IO has a `Vendor.inf` too, but it is commented out of the board DSC and
+FDF, and its DTB is not in this directory. Instructions for adding one are in
+the INF's header.
 
 ## License
+
 SPDX-License-Identifier: GPL-2.0-only

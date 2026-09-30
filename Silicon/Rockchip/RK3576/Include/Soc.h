@@ -283,7 +283,7 @@ extern "C" {
  * was deleted rather than left as a trap -- but the entries stay because the
  * Clocks[]/Resets[] tables in Rk3576CruLib.c are indexed by these enumerators
  * and removing one shifts every index after it.  Replacing this with the real
- * RK3576 clock tree is the open item tracked in docs/STATUS.md.
+ * RK3576 clock tree is still open.
  * --------------------------------------------------------------- */
 typedef enum {
   PLL_LPLL = 0,

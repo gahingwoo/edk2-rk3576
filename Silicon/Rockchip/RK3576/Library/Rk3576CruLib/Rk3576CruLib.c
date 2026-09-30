@@ -15,8 +15,7 @@
  *  SPL left behind.
  *
  *  So this library exists to satisfy the PlatformCruLib class, not because
- *  it is correct.  Implementing real RK3576 CRU programming is the open
- *  item -- see docs/STATUS.md.
+ *  it is correct.  Implementing real RK3576 CRU programming is still open.
  *
  *  Copyright (c) 2024, Mario Bălănică <mariobalanica02@gmail.com>
  *  Copyright (c) 2020-2021 Rockchip Electronics Co., Ltd.
