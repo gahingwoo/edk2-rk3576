@@ -93,4 +93,5 @@ top of RK3588's configuration. That version is on the `legacy/v0.1` branch.
 
 ## Licence
 
-BSD-2-Clause-Patent, like TianoCore and edk2-rockchip. See [LICENSE](LICENSE).
+BSD-2-Clause-Patent, like TianoCore and edk2-rockchip. Code taken from Linux,
+U-Boot and Rockchip keeps its own licence; [LICENSE](LICENSE) lists those files.
