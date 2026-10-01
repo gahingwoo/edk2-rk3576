@@ -21,8 +21,8 @@ the device-tree include mirror described below. The workflow is
 
 ## What each script does
 
-The three are deliberately separate. A compile should not install packages or
-create files in `/`.
+A compile never installs packages or writes outside the tree; only
+`setup-host.sh` does.
 
 | Script | Does | Needs sudo |
 |---|---|---|
@@ -50,10 +50,9 @@ Our patches to the EDK2 core live in
 decompression, and printing ESR/FAR on RELEASE-build faults. The other two are
 UART tracing and are applied only with `EDK2_CORE_DEBUG_PATCHES=1`.
 
-Without the functional two the build still produces an image, just one that
-behaves differently, which is why they are versioned here rather than edited
-into the checkout. Applying them modifies the submodule, so a built image
-reports its version with a `-dirty` suffix.
+Without the two fixes the build still produces an image that behaves
+differently. Applying them modifies the submodule, so a built image reports its
+version with a `-dirty` suffix.
 
 ### The device-tree include mirror
 
@@ -77,17 +76,15 @@ early and clearly if they are missing.
 
 ## Do not trust the exit code alone
 
-`build.sh` greps its own log for compiler errors as well as checking the exit
-status. The script this replaced could exit 0 with a failed compile, which is
-how a stale image got flashed more than once. If you invoke `build` by hand,
-grep the log.
+`build.sh` checks its log for compiler errors as well as the exit status. If
+you run `build` by hand, grep the log too.
 
 ## Host notes
 
 * **AArch64 hosts**: the BaseTools binaries in upstream EDK2 are x86_64.
   `setup-host.sh` detects the mismatch and rebuilds them with the host
   compiler.
-* **GCC 10–13**: several warnings became errors, and `-flto` and
+* **GCC 10 to 13**: several warnings became errors, and `-flto` and
   `-fstack-protector` both break a freestanding EDK2 link.
   `scripts/lib/tools_def_patch.py` handles all three, regenerating
   `Conf/tools_def.txt` from the template each build so it stays idempotent.

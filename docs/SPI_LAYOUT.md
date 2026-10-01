@@ -26,7 +26,7 @@ as a corrupt store rather than an empty one, and variables never initialise.
 | `0x1600000` | UEFI variable store, 3 × 64 KB, erased state |
 
 `CM5IO-emmc.img` is the same bytes with a protective MBR and a primary GPT in
-front. See [FLASHING.md](FLASHING.md#cm5-io-emmc-with-a-data-partition).
+front. See [FLASHING.md](FLASHING.md#cm5-io-empty-emmc).
 
 ## FIT contents
 
@@ -36,7 +36,7 @@ front. See [FLASHING.md](FLASHING.md#cm5-io-emmc-with-a-data-partition).
 | `atf-2` | `0x40040000` | BL31 main code; the configuration's entry point |
 | `atf-3` | `0x4005d000` | BL31 coherent data |
 | `edk2` | `0x40800000` | EDK2 as BL33. Must match TF-A's `BL33_BASE`. |
-| `fdt` | — | The DTB the SPL uses |
+| `fdt` | none | The DTB the SPL uses |
 
 RK3576's DRAM starts at `0x40000000`, so every load address except the PMU
 SRAM segment sits just above that base. The FIT is built with external data

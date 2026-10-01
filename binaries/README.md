@@ -18,6 +18,6 @@ here is produced by `scripts/build.sh`.
 
 It was generated from a Rockchip parameter file that still says
 `MACHINE_MODEL: rk3588_s`. Only the partition table it produces is used, and
-the layout it describes matches what the RK3576 SPL expects, so it works —
+the layout it describes matches what the RK3576 SPL expects, so it works,
 but it has not been regenerated for RK3576 and the provenance is worth
 knowing before anyone edits it.

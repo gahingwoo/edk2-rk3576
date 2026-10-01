@@ -1,27 +1,22 @@
 # edk2-rk3576
 
-EDK2 / TianoCore UEFI firmware for Rockchip RK3576 boards: Radxa ROCK 4D and
-ArmSoM CM5-IO.
+UEFI firmware (EDK2 / TianoCore) for Rockchip RK3576 boards: Radxa ROCK 4D
+and ArmSoM CM5-IO.
 
 ```
 BootROM → U-Boot SPL → TF-A BL31 → EDK2 (BL33) → OS
 ```
 
-Both boards boot to the UEFI front page over HDMI and run Fedora from an NVMe
-disk. CM5-IO also runs Windows 11 23H2 to the desktop from its eMMC.
+Both boards boot Fedora from NVMe. The CM5-IO also boots Windows 11 23H2 from
+its eMMC.
 
 ## Get it
 
-- **Images:** [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
-- **Flash from the browser:** [flash.gahingwoo.com](https://flash.gahingwoo.com/)
-- **Source:** [github.com/gahingwoo/edk2-rk3576](https://github.com/gahingwoo/edk2-rk3576)
-
-What works on each board, and the open issues, are in the
-[README](https://github.com/gahingwoo/edk2-rk3576#boards).
+- Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
+- Flash from the browser: [flash.gahingwoo.com](https://flash.gahingwoo.com/)
+- Source, board status and known issues: [github.com/gahingwoo/edk2-rk3576](https://github.com/gahingwoo/edk2-rk3576#boards)
 
 ## Screenshots
-
-Real captures from these boards.
 
 | Radxa ROCK 4D | ArmSoM CM5-IO |
 |---|---|
@@ -38,11 +33,8 @@ Real captures from these boards.
 ![Windows 11 on CM5-IO](imgs/cm5io-win11-desktop.jpg)
 
 Windows 11 23H2 on CM5-IO, booted from the eMMC: eight cores, 3.7 GB, the eMMC
-as C:, the NVMe, the SD card and Ethernet. The Windows drivers are in
-[woa-rk3576](https://github.com/gahingwoo/woa-rk3576).
-
-Fedora's *About → System Details* panel reads its model and firmware version
-from the SMBIOS tables the firmware writes.
+as C:, the NVMe, the SD card, Ethernet and both USB controllers. The drivers
+are in [woa-rk3576](https://github.com/gahingwoo/woa-rk3576).
 
 ## Docs
 

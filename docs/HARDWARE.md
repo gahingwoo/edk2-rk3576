@@ -1,8 +1,7 @@
 # Hardware
 
 Board facts this firmware depends on. What works on each board is in the
-[README](https://github.com/gahingwoo/edk2-rk3576#boards); this page does not
-repeat it.
+[README](https://github.com/gahingwoo/edk2-rk3576#boards).
 
 ## Common to both boards
 
@@ -35,5 +34,3 @@ Because the SoC is ARMv8.0, Windows 11 24H2 and later cannot run on it.
 | Ethernet PHY | Motorcomm YT8531C, crystal-less: it takes its 25 MHz reference from the SoC. |
 | USB-A | Behind an onboard 4-port hub |
 | Tested SKU | 4 GB |
-
-Screenshots from both boards are on the [front page](index.md#screenshots).
