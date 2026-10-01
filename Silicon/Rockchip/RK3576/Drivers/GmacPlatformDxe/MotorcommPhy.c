@@ -112,9 +112,14 @@ YtPhyModifyExt (
 /**
   Program the RGMII clock delays and RX pad drive strength.
 
-  GMAC0 on both supported boards runs RGMII-ID — the delays are generated in
-  the PHY, not the MAC — which in mainline terms means RXC delay enable stays
-  on and both the rx and ge_tx delay fields get programmed.
+  GMAC0 on both supported boards runs RGMII-ID: the delays are generated in
+  the PHY, not the MAC, so both the rx and ge_tx delay fields get programmed.
+
+  RXC_DLY_EN must be CLEAR. It adds a fixed delay on top of the rx field, and
+  mainline clears it whenever the devicetree has no rx-internal-delay-ps
+  (ytphy_get_delay_reg_value(): "the rx default ... is 1950 ps, so
+  YT8521_CCR_RXC_DLY_EN should not be set"). This code used to set it, and
+  every received frame on CM5-IO failed its CRC.
 **/
 STATIC
 VOID
@@ -125,12 +130,12 @@ Yt8531PhyInit (
   UINT16  Val;
   UINT16  Ds;
 
-  /* RGMII-ID: keep the RXC delay block enabled. */
+  /* rx delay comes from the 1.950 ns field alone; see above. */
   YtPhyModifyExt (
     GmacBase,
     YT8521_CHIP_CONFIG_REG,
     YT8521_CCR_RXC_DLY_EN,
-    YT8521_CCR_RXC_DLY_EN
+    0
     );
 
   /*
