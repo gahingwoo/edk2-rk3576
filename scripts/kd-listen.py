@@ -28,7 +28,7 @@ DbgKdPrintStringApi = 0x00003230
 fd = os.open(DEV, os.O_RDWR | os.O_NOCTTY)
 raw = open(RAW, "ab", buffering=0)
 buf = bytearray()
-seen = {}          # PacketId -> times seen, to mark retransmissions
+seen = {}          # (PacketId, checksum) -> times seen, to mark retransmissions
 
 INITIAL_PACKET_ID = 0x80800000
 SYNC_PACKET_ID    = 0x00000800
@@ -144,8 +144,14 @@ while True:
 
         name = TYPE.get(ptype, f"type{ptype}")
         if leader == PACKET_LEADER:
-            n = seen.get(pid, 0) + 1
-            seen[pid] = n
+            # A retransmission repeats the id *and* the contents. Keying on the
+            # id alone hid almost everything: KDCOM alternates data packet ids
+            # between ...000 and ...001, so from the third packet on every new
+            # one looked like a resend and was answered but never printed --
+            # 2026-10-01, a 67-module boot logged as three.
+            key = (pid, csum)
+            n = seen.get(key, 0) + 1
+            seen[key] = n
             if pid & SYNC_PACKET_ID:
                 # The target is asking to synchronise, not to be acknowledged.
                 # KDCOM answers a sync packet with a reset; an ACK is ignored
@@ -187,6 +193,17 @@ while True:
                     show(f"     state={kind} proc={proc}")
                     if kind == "EXCEPTION":
                         show("     " + payload[:160].hex(" "))
+                    if kind == "LOAD_SYMBOLS" and len(payload) >= 0x24:
+                        # DBGKD_LOAD_SYMBOLS64.PathNameLength sits at 0x20, and
+                        # the path itself is appended after the fixed-size
+                        # state-change record, i.e. it is the packet's tail.
+                        # This is the list of every driver the kernel has
+                        # loaded, which is what a boot that dies with
+                        # INACCESSIBLE_BOOT_DEVICE needs answered first.
+                        plen = struct.unpack("<I", payload[0x20:0x24])[0]
+                        if 0 < plen <= len(payload):
+                            mod = payload[-plen:].split(b"\0")[0].decode("ascii", "replace")
+                            show(f"     module: {mod}")
                 send_continue(proc)
                 if n == 1:
                     show(f"  -> CONTINUE (proc={proc})")
