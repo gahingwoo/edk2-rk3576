@@ -129,8 +129,11 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // SATA — disabled stub; RK3576 has no SATA controller
     include ("Sata.asl")
 
-    // Network: GMAC0 only (RTL8211F GbE, rgmii-rxid)
+    // Network: GMAC0 only (YT8531C GbE, rgmii-id)
     // CM5-IO has a single Ethernet port; GMAC1 is not connected
     include ("Gmac0.asl")
+
+    // GPU: Mali-G52, powered by RK3576Dxe before boot
+    include ("Gpu.asl")
   }
 }
