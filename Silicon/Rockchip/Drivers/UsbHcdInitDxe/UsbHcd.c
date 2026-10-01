@@ -908,6 +908,43 @@ UsbReadyToBootCallback (
   DEBUG ((DEBUG_WARN, "[USB-RTB] === done ===\n"));
 }
 
+/*
+ * USB_GRF_USB3OTG0_CON1 (USB GRF 0x2601E000 + 0x30): the U3 port of DRD0, the
+ * USB-C controller at 0x23000000. Mainline phy-rockchip-usbdp.c writes 0x1100
+ * to enable it and 0x0188 to disable it (its usb3otg0_cfg macro lists them as
+ * "disable, enable", but rk_udphy_u3_port_disable() passes its argument as the
+ * enable flag, so the names read backwards; naneng-combphy's u3otg*_port_en
+ * confirms 0x1100 = enabled).
+ *
+ * The board comes up with 0x0188, and then DRD0's xHCI reports MaxPorts = 1
+ * while its USB3 Supported Protocol capability still says "ports from 2,
+ * count 0". UEFI's XhciDxe and Linux skip a zero count; Windows' usbxhci
+ * rejects it and fails the controller with STATUS_INVALID_PARAMETER (code 10).
+ * With 0x1100 the capability reads "port 2, count 1", MaxPorts = 2, and it is
+ * live (no controller reset needed).
+ *
+ * Written at ExitBootServices rather than at init: UEFI runs DRD0 HS-only
+ * because the USBDP PHY is never initialised here, and that path works with
+ * the port disabled. Measured on CM5-IO, 2026-10-01: with this written after
+ * UEFI's USB init, Windows started XHC0 and enumerated a device on the USB-C
+ * port. The SS port has no PHY behind it, so nothing will train at 5 Gb/s on
+ * it; Linux rewrites this register itself from its usbdp driver.
+ */
+#define RK3576_USB_GRF_USB3OTG0_CON1  0x2601E030UL
+#define RK3576_USB3OTG0_U3_PORT_EN    0x1100U
+
+STATIC
+VOID
+EFIAPI
+UsbExitBootServicesCallback (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  MmioWrite32 (RK3576_USB_GRF_USB3OTG0_CON1,
+               (0xFFFFU << 16) | RK3576_USB3OTG0_U3_PORT_EN);
+}
+
 /**
   The Entry Point of module. It follows the standard UEFI driver model.
 
@@ -928,6 +965,7 @@ InitializeUsbHcd (
   EFI_STATUS  Status;
   EFI_EVENT   EndOfDxeEvent;
   EFI_EVENT   ReadyToBootEvent;
+  EFI_EVENT   ExitBootServicesEvent;
 
   gXhciAddrArray     = PcdGetPtr (PcdDwc3BaseAddresses);
   gXhciAddrArraySize = PcdGetSize (PcdDwc3BaseAddresses);
@@ -953,6 +991,18 @@ InitializeUsbHcd (
              NULL,
              &ReadyToBootEvent
              );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = gBS->CreateEventEx (
+                  EVT_NOTIFY_SIGNAL,
+                  TPL_NOTIFY,
+                  UsbExitBootServicesCallback,
+                  NULL,
+                  &gEfiEventExitBootServicesGuid,
+                  &ExitBootServicesEvent
+                  );
   if (EFI_ERROR (Status)) {
     return Status;
   }
