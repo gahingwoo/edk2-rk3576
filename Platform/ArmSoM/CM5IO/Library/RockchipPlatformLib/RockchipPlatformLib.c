@@ -11,7 +11,7 @@
  *    - PCIe reset:   GPIO2 PB1 active-high  (ROCK 4D: GPIO2 PB4)
  *    - PCIe power:   GPIO0 PC3 active-high  (ROCK 4D: GPIO2 PD3)
  *    - GMAC0 reset:  GPIO2 PB3 active-low   (ROCK 4D: GPIO2 PB5)
- *    - GMAC0 mode:   rgmii-rxid, tx_delay=0x21 (ROCK 4D: rgmii-id, 0/0)
+ *    - GMAC0 mode:   rgmii-id, no MAC delays, as mainline (ROCK 4D: same)
  *    - HDMI 5V:      always-on on carrier board (ROCK 4D: GPIO2 PB0)
  *    - WiFi reset:   GPIO1 PC6 active-low   (ROCK 4D: GPIO2 PD1 active-high)
  *    - BT power:     GPIO1 PC7 active-high  (ROCK 4D: shared with WiFi)

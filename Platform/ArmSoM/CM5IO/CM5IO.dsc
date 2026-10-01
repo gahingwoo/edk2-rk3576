@@ -195,10 +195,13 @@
   gRockchipTokenSpaceGuid.PcdNvStoragePreferSpiFlash|FALSE
   gRockchipTokenSpaceGuid.PcdFitImageFlashAddress|0x800000
 
-  # GMAC0 goes to an on-module MotorComm YT8531 in rgmii-rxid mode:
-  #   tx_delay = 0x21 (MAC-side TX delay; PHY provides RX delay internally)
-  # ROCK 4D uses rgmii-id with 0/0.
-  gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0x21
+  # GMAC0 goes to an on-module Motorcomm YT8531C in rgmii-id mode, as mainline
+  # Linux runs it on this board: no MAC-side delays, both delays in the PHY,
+  # which MotorcommPhy.c programs (1.95 ns RX and TX). This used to be 0x21, a
+  # MAC-side TX delay from the vendor's rgmii-rxid setup -- on top of the PHY's
+  # own TX delay, so TX was delayed twice. Windows' dwc_eqos keeps whatever the
+  # firmware leaves here, and got link at 1000 Mbps but no DHCP lease.
+  gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0
 
   # FDT + ACPI both installed (0x3).  Linux keeps using the mainline DTS;
   # ACPI-only OSes (Windows on Arm, FreeBSD) get the RK3576 tables.
