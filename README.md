@@ -49,7 +49,8 @@ The serial console is 1500000 8N1 on both boards.
   controller at all (code 10); it now enables the controller's USB3 port at
   ExitBootServices so the controller describes itself consistently. Measured on
   CM5-IO only; the ROCK 4D has the same controller and gets the same write.
-  Linux has its own PHY driver and runs the port at 5 Gb/s.
+  Linux has its own PHY driver and registers a SuperSpeed root hub for the
+  port; a device actually linking at 5 Gb/s there has not been checked.
 - **Windows 11 24H2 and later cannot boot.** RK3576 is ARMv8.0. Use Windows 10
   or 11 23H2.
 - **The ComboPHY and PCIe device-tree fixups do nothing.** They look for
