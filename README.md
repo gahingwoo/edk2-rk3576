@@ -44,6 +44,12 @@ The serial console is 1500000 8N1 on both boards.
   firmware left the SD controller's interrupts armed at ExitBootServices.
   `75c0f32` quiesces it; four card-present boots have been clean since, which
   is not yet many.
+- **The USB-C port is USB 2.0 only, in UEFI and in Windows.** No driver here
+  brings up its USBDP PHY. Until `5edeab0` Windows could not start that
+  controller at all (code 10); it now enables the controller's USB3 port at
+  ExitBootServices so the controller describes itself consistently. Measured on
+  CM5-IO only; the ROCK 4D has the same controller and gets the same write.
+  Linux has its own PHY driver and runs the port at 5 Gb/s.
 - **Windows 11 24H2 and later cannot boot.** RK3576 is ARMv8.0. Use Windows 10
   or 11 23H2.
 - **The ComboPHY and PCIe device-tree fixups do nothing.** They look for
