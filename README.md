@@ -12,7 +12,7 @@ BootROM → U-Boot SPL (idbloader) → TF-A BL31 → EDK2 (BL33) → OS
 ```
 
 Both boards boot to the UEFI front page over HDMI and run Fedora from an NVMe
-disk. CM5-IO also runs Windows 10 21H2 Setup.
+disk. CM5-IO also runs Windows 11 23H2 to the desktop from its eMMC.
 
 - **Images:** [Releases](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
 - **Flash from the browser:** [flash.gahingwoo.com](https://flash.gahingwoo.com/)
@@ -31,8 +31,15 @@ The serial console is 1500000 8N1 on both boards.
 
 - **Windows needs this project's drivers for the eMMC and the SD slot.** It
   ships none for these controllers. With the ones in
-  [woa-rk3576](https://github.com/gahingwoo/woa-rk3576), both are disks under
-  WinPE as of 2026-10-01 (one boot).
+  [woa-rk3576](https://github.com/gahingwoo/woa-rk3576), Windows 11 23H2 boots
+  from the eMMC (2026-10-01, one installation); how it is installed is in that
+  repo's `docs/INSTALL.md`.
+- **Boot variables written from an OS do not reach the firmware.** On
+  2026-10-01 a `BootNext` and a Fedora boot entry set with `efibootmgr` under
+  Linux were both absent from the firmware's own list on the next boot, and
+  `bcdboot` left no Windows Boot Manager entry either. Linux also logs
+  `Unable to handle paging request in EFI runtime service` at reboot. Windows
+  boots anyway, through `\EFI\Boot\bootaa64.efi` on the eMMC.
 - **An SD card in the slot used to make Windows crawl or bugcheck.** The
   firmware left the SD controller's interrupts armed at ExitBootServices.
   `75c0f32` quiesces it; four card-present boots have been clean since, which
@@ -64,8 +71,8 @@ The serial console is 1500000 8N1 on both boards.
 
 | ArmSoM CM5-IO |
 |---|
-| ![Windows Setup on CM5-IO](docs/imgs/cm5io-windows.png) |
-| Windows 10 21H2 ARM64 Setup. NVMe works, all 8 CPUs come up, and the cores run at 1608 MHz. |
+| ![Windows 11 on CM5-IO](docs/imgs/cm5io-win11-desktop.jpg) |
+| Windows 11 23H2 booted from the eMMC: eight cores, 3.7 GB, the eMMC as C:, the NVMe, the SD card and Ethernet. Drivers from [woa-rk3576](https://github.com/gahingwoo/woa-rk3576). |
 
 ## Build
 

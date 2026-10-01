@@ -8,7 +8,7 @@ BootROM → U-Boot SPL → TF-A BL31 → EDK2 (BL33) → OS
 ```
 
 Both boards boot to the UEFI front page over HDMI and run Fedora from an NVMe
-disk. CM5-IO also runs Windows 10 21H2 Setup.
+disk. CM5-IO also runs Windows 11 23H2 to the desktop from its eMMC.
 
 ## Get it
 
@@ -35,10 +35,11 @@ Real captures from these boards.
 | ![GRUB on USB](imgs/grub.png) | ![Fedora live console](imgs/fedora.png) |
 | GRUB from a Fedora USB stick | Fedora live console |
 
-![Windows 10 Setup on CM5-IO](imgs/cm5io-windows.png)
+![Windows 11 on CM5-IO](imgs/cm5io-win11-desktop.jpg)
 
-Windows 10 21H2 ARM64 Setup on CM5-IO. NVMe works, all 8 CPUs come up, and the
-cores run at 1608 MHz.
+Windows 11 23H2 on CM5-IO, booted from the eMMC: eight cores, 3.7 GB, the eMMC
+as C:, the NVMe, the SD card and Ethernet. The Windows drivers are in
+[woa-rk3576](https://github.com/gahingwoo/woa-rk3576).
 
 Fedora's *About → System Details* panel reads its model and firmware version
 from the SMBIOS tables the firmware writes.
