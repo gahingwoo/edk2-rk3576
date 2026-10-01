@@ -17,9 +17,20 @@ its eMMC, with the drivers from
 
 - Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
 - Flash from the browser: [flash.gahingwoo.com](https://flash.gahingwoo.com/)
-- Docs and screenshots: [edk2.gahingwoo.com](https://edk2.gahingwoo.com/)
+- Docs: [edk2.gahingwoo.com](https://edk2.gahingwoo.com/)
+
+## Gallery
+
+| Radxa ROCK 4D | ArmSoM CM5-IO |
+|---|---|
+| ![Fedora GNOME on ROCK 4D](docs/imgs/rock4d-desktop.png) | ![Fedora GNOME on CM5-IO](docs/imgs/cm5io-desktop.png) |
+| Fedora 44 from NVMe | Fedora 45 from NVMe, Mali-G52 through Panfrost |
+| ![UEFI front page on ROCK 4D](docs/imgs/monitor-4d.png) | ![UEFI front page on CM5-IO](docs/imgs/monitor-cm5io.jpeg) |
+| UEFI front page, 2560x1440 over HDMI | UEFI front page, 2560x1440 over HDMI |
 
 ![Windows 11 on CM5-IO](docs/imgs/cm5io-win11-desktop.jpg)
+
+Windows 11 23H2 on CM5-IO, from the eMMC.
 
 ## Boards
 
