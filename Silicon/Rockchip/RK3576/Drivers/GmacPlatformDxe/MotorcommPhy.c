@@ -7,14 +7,12 @@
  *  the Realtek one, so on that board PhyInit() fell through to
  *  "Unknown PHY ID" and the PHY was never configured at all.
  *
- *  ---------------------------------------------------------------------------
- *  NOT VERIFIED ON HARDWARE.  This is a faithful port of the register writes
- *  mainline performs, but nobody has watched a link come up with it.  It also
- *  is very likely NOT SUFFICIENT ON ITS OWN for CM5-IO: the part fitted there
- *  is the crystal-less variant, which needs the SoC to drive 25 MHz into it on
- *  clk_mac_refout.  This driver does not make that CRU change; on CM5-IO the
- *  platform library's GmacIomux() does, before the PHY leaves reset.
- *  ---------------------------------------------------------------------------
+ *  Verified on CM5-IO, 2026-10-01: with RXC_DLY_EN clear (see Yt8531PhyInit)
+ *  UEFI receives without CRC errors and Windows gets a DHCP lease.  The part
+ *  fitted there is the crystal-less variant, which needs the SoC to drive
+ *  25 MHz into it on clk_mac_refout.  This driver does not make that CRU
+ *  change; on CM5-IO the platform library's GmacIomux() does, before the PHY
+ *  leaves reset.
  *
  *  Reference: linux/drivers/net/phy/motorcomm.c
  *    yt8531_config_init() -> ytphy_rgmii_clk_delay_config() + yt8531_set_ds()
@@ -195,14 +193,6 @@ MotorcommPhyInit (
     default:
       return EFI_UNSUPPORTED;
   }
-
-  DEBUG ((
-    DEBUG_WARN,
-    "%a: YT8531 init is UNVERIFIED on hardware; the crystal-less part on "
-    "CM5-IO also needs 25 MHz on clk_mac_refout, which the platform's "
-    "GmacIomux sets\n",
-    __func__
-    ));
 
   return EFI_SUCCESS;
 }

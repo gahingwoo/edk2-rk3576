@@ -23,7 +23,7 @@ disk. CM5-IO also runs Windows 11 23H2 to the desktop from its eMMC.
 | Board | Boot medium | HDMI | eMMC | PCIe / NVMe | USB 3.0 | Ethernet |
 |---|---|---|---|---|---|---|
 | Radxa ROCK 4D | SPI NOR | Working (stable signal; one unlogged bench run, no count) | — (UFS, no eMMC) | Working, Fedora boots from NVMe | Working | Working |
-| ArmSoM CM5-IO | SD / eMMC | Working (15 of 15 cold boots) | Working (52 MHz HS, reads and writes; UEFI variables persist) | Working, Fedora boots from NVMe | Working | Working |
+| ArmSoM CM5-IO | SD / eMMC | Working (15 of 15 cold boots) | Working (52 MHz HS, reads and writes; UEFI variables persist) | Working, Fedora boots from NVMe | Working | Working (UEFI received only CRC errors before `4e3f7af`; Windows gets DHCP since then, 2026-10-01) |
 
 The serial console is 1500000 8N1 on both boards.
 
