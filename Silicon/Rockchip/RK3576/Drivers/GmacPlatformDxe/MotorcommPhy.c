@@ -12,8 +12,8 @@
  *  mainline performs, but nobody has watched a link come up with it.  It also
  *  is very likely NOT SUFFICIENT ON ITS OWN for CM5-IO: the part fitted there
  *  is the crystal-less variant, which needs the SoC to drive 25 MHz into it on
- *  clk_mac_refout.  That is a CRU/GRF change this driver does not make.  Treat
- *  a still-dead link as expected until that piece exists.
+ *  clk_mac_refout.  This driver does not make that CRU change; on CM5-IO the
+ *  platform library's GmacIomux() does, before the PHY leaves reset.
  *  ---------------------------------------------------------------------------
  *
  *  Reference: linux/drivers/net/phy/motorcomm.c
@@ -193,9 +193,9 @@ MotorcommPhyInit (
 
   DEBUG ((
     DEBUG_WARN,
-    "%a: YT8531 init is UNVERIFIED on hardware, and the crystal-less part on "
-    "CM5-IO additionally needs 25 MHz on clk_mac_refout, which is not "
-    "programmed here — do not read a dead link as a bug in this code alone\n",
+    "%a: YT8531 init is UNVERIFIED on hardware; the crystal-less part on "
+    "CM5-IO also needs 25 MHz on clk_mac_refout, which the platform's "
+    "GmacIomux sets\n",
     __func__
     ));
 

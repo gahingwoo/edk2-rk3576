@@ -294,7 +294,7 @@ NorFspiEnableClock (
 /*
  * GmacIomux — GMAC iomux for CM5-IO
  *
- * gmac0: RTL8211F in rgmii-rxid mode, eth0 M0 pins (same RK3576 pinout).
+ * gmac0: Motorcomm YT8531C (crystal-less) in rgmii-id mode, eth0 M0 pins.
  * From rk3576-pinctrl.dtsi eth0m0_* groups:
  *   eth0m0_miim:       GPIO3_PA5 (MDIO), GPIO3_PA6 (MDC)
  *   eth0m0_rx_bus2:    GPIO3_PA7 (RXCTL), GPIO3_PB2 (RXD0), GPIO3_PB1 (RXD1)
@@ -337,6 +337,23 @@ GmacIomux (
   GpioPinSetFunction (3, GPIO_PIN_PD2, 3);
   GpioPinSetFunction (3, GPIO_PIN_PC3, 3);
   GpioPinSetFunction (3, GPIO_PIN_PC2, 3);
+
+  /*
+   * The YT8531C on CM5-IO has no crystal: its reference is REFCLKO25M_GMAC0_OUT
+   * on GPIO3_PA4. Muxing the pin is not enough, the clock has to be 25 MHz.
+   * mainline clk-rk3576.c: CLKSEL_CON(36) bit 7 = parent (gpll/cpll), [6:0] =
+   * div; gate CLKGATE_CON(5) bit 10. Linux on this board reads back
+   * CLKSEL_CON(36)[7:0] = 0xa7 (cpll 1000 MHz / 40) with the gate open; set
+   * the same before the PHY comes out of reset.
+   */
+  DEBUG ((
+    DEBUG_INFO,
+    "CM5-IO GmacIomux: REFCLKO25M_GMAC0_OUT was CLKSEL_CON(36)=0x%08x CLKGATE_CON(5)=0x%08x\n",
+    MmioRead32 (CRU_CLKSEL_CON (36)),
+    MmioRead32 (CRU_CLKGATE_CON (5))
+    ));
+  MmioWrite32 (CRU_CLKSEL_CON (36), (0xFFU << 16) | (1U << 7) | (40 - 1));
+  MmioWrite32 (CRU_CLKGATE_CON (5), (1U << (10 + 16)) | (0U << 10));
 
   /* ethm0_clk0_25m_out */
   GpioPinSetFunction (3, GPIO_PIN_PA4, 3);
