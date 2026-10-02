@@ -20,8 +20,8 @@
  *  (STATUS_GRAPHICS_INVALID_DRIVER_MODEL). Which of the two matters is not
  *  known.
  *
- *  Registers and interrupt from mainline rk3576.dtsi (vop@27d00000; "sys"
- *  is GIC SPI 342, GSIV 374).
+ *  Registers from mainline rk3576.dtsi (vop@27d00000). Its "sys" interrupt
+ *  (GIC SPI 342, GSIV 374) is left out: see _CRS.
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  *
@@ -39,7 +39,12 @@ Device (DSP0) {
     Name (RBUF, ResourceTemplate() {
       Memory32Fixed (ReadWrite, 0x27D00000, 0x3000)   // vop
       Memory32Fixed (ReadWrite, 0x27D05000, 0x1000)   // gamma-lut
-      Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 374 }  // sys
+      // No interrupt: with the VOP2's system interrupt (GSIV 374) described
+      // here, WinPE bugchecked with WHEA_INTERNAL_ERROR twice, once during
+      // the driver test and once after it; without it, never. dxgkrnl
+      // connects a display device's interrupt, malidod has no ISR, and the
+      // VOP2 the firmware hands over may leave the line asserted. Unproven;
+      // this is the test.
     })
     Return (RBUF)
   }
