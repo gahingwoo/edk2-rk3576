@@ -133,10 +133,11 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // CM5-IO has a single Ethernet port; GMAC1 is not connected
     include ("Gmac0.asl")
 
+    // Display first: Windows took the first display device as the POST
+    // device (see Display.asl)
+    include ("Display.asl")
+
     // GPU: Mali-G52, powered by RK3576Dxe before boot
     include ("Gpu.asl")
-
-    // Display: the GOP framebuffer, for a display-only driver
-    include ("Display.asl")
   }
 }
