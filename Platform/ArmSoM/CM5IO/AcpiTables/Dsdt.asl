@@ -135,5 +135,8 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
 
     // GPU: Mali-G52, powered by RK3576Dxe before boot
     include ("Gpu.asl")
+
+    // Display: the GOP framebuffer, for a display-only driver
+    include ("Display.asl")
   }
 }
