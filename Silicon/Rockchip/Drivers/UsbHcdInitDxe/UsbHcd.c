@@ -1030,7 +1030,7 @@ STATIC CONST UINT16  mUdphy24mRefclkCfg[][2] = {
 **/
 STATIC
 BOOLEAN
-Rk3576UsbDpPhyUsb3Init (
+Rk3576UsbDpPhyUsb3InitOnce (
   VOID
   )
 {
@@ -1093,6 +1093,40 @@ Rk3576UsbDpPhyUsb3Init (
   }
 
   DEBUG ((DEBUG_ERROR, "UsbDpPhy: USB3 LCPLL did not lock (0x%02x)\n", Val));
+  return FALSE;
+}
+
+/**
+  Rk3576UsbDpPhyUsb3InitOnce, retried.
+
+  Mainline knows this PLL can fail to lock on the first attempt when earlier
+  software already had it running, and answers with -EPROBE_DEFER so the
+  whole init runs again (rk_udphy_status_check). It happened here on
+  2026-10-03: a reset after a boot that had locked it (0xDE) gave 0x38 on
+  the next one. Each attempt starts by asserting every PHY reset.
+**/
+STATIC
+BOOLEAN
+Rk3576UsbDpPhyUsb3Init (
+  VOID
+  )
+{
+  UINTN  Attempt;
+
+  for (Attempt = 1; Attempt <= 3; Attempt++) {
+    if (Rk3576UsbDpPhyUsb3InitOnce ()) {
+      if (Attempt > 1) {
+        DEBUG ((DEBUG_INFO, "UsbDpPhy: locked on attempt %u\n", Attempt));
+      }
+
+      return TRUE;
+    }
+
+    if ((MmioRead32 (RK3576_PMU0_GRF_OSC_CON6) & CLK_PHY_REF_SRC_SEL) != 0) {
+      return FALSE;   // not a lock problem; retrying will not help
+    }
+  }
+
   return FALSE;
 }
 
