@@ -941,8 +941,36 @@ UsbExitBootServicesCallback (
   IN VOID       *Context
   )
 {
+  UINTN  Index;
+  UINTN  Base;
+
   MmioWrite32 (RK3576_USB_GRF_USB3OTG0_CON1,
                (0xFFFFU << 16) | RK3576_USB3OTG0_U3_PORT_EN);
+
+  //
+  // Hand both PHY-suspend enables to the OS set, as Linux runs them.
+  //
+  // UEFI clears GUSB2PHYCFG.SUSPHY (the RK3588 vendor DT's
+  // dis_u2_susphy_quirk) and leaves GUSB3PIPECTL.SUSPHY clear on DRD1 so its
+  // SS link can train. Mainline rk3576.dtsi has neither susphy quirk, and on
+  // CM5-IO under Linux both DRDs read GUSB2PHYCFG 0x00101448 and
+  // GUSB3PIPECTL 0x..0a0002, bits 6 and 17 set; ours were 0x00101408 and
+  // 0x11080002. The databook asks for SUSPHY=1 once the core is initialised.
+  //
+  // Without them, Windows bugchecked on every WinPE shutdown
+  // (WHEA_INTERNAL_ERROR 9/0x11, a synchronous external abort): once UsbHub3
+  // had put DRD1's SS link to the onboard hub into U3, usbxhci's read of
+  // port 2's PORTSC (xHCI +0x430) faulted. Linux reads the same register in
+  // the same U3 state without trouble. Measured 2026-10-03, n=1 dump.
+  //
+  for (Index = 0; Index + sizeof (UINT32) <= gXhciAddrArraySize; Index += sizeof (UINT32)) {
+    Base = gXhciAddrArray[Index] |
+           (UINTN)gXhciAddrArray[Index + 1] << 8 |
+           (UINTN)gXhciAddrArray[Index + 2] << 16 |
+           (UINTN)gXhciAddrArray[Index + 3] << 24;
+    MmioOr32 (Base + DWC3_REG_OFFSET + 0x100, DWC3_GUSB2PHYCFG_SUSPHY);   // GUSB2PHYCFG(0)
+    MmioOr32 (Base + DWC3_REG_OFFSET + 0x1C0, DWC3_GUSB3PIPECTL_SUSPHY);  // GUSB3PIPECTL(0)
+  }
 }
 
 /**
