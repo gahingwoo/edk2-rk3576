@@ -2,7 +2,7 @@
 
 `third_party/edk2/` is the upstream [tianocore/edk2](https://github.com/tianocore/edk2)
 submodule, pinned by `scripts/setup-host.sh` to edk2-stable202602. Edits made
-inside it are lost when the checkout is reset. Two of the four patches here are
+inside it are lost when the checkout is reset. Three of the five patches here are
 real fixes, and without them the firmware still builds but misbehaves, so they
 are kept as patch files.
 
@@ -50,6 +50,19 @@ nothing else.
 Adds a `SerialPortWrite()` of ESR / FAR / SP / LR / EC alongside the existing
 banner. This is what makes the crash-triage workflow (decode DFSC, `addr2line`
 against `DxeCore.debug`) possible on a shipping image.
+
+### `0005-SdMmcPciHcDxe-TRB-timeouts-are-wall-clock-microseconds.patch`
+
+`SdMmcWaitTrbEnv()` and `SdMmcWaitTrbResult()` treat their `Timeout` as a
+count of loop iterations, one `Stall (1)` each. Every iteration also does
+several MMIO reads and error-recovery work, so on RK3576 one "microsecond"
+costs far more than one. A 2.5 s data timeout took minutes. When the eMMC
+answered a cold-boot EXT_CSD read with CRC errors, the firmware sat in these
+loops long enough to look hung.
+
+Measures elapsed time with `GetPerformanceCounter()` instead, so the timeout
+means what it says. The error itself still has to be fixed in the host driver
+(`DwcSdhciDxe`); this only stops it from costing minutes.
 
 ## Optional (`--with-debug`)
 

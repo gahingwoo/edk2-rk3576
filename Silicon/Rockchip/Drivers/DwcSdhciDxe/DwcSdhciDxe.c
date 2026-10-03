@@ -268,6 +268,17 @@ EmmcSdMmcNotifyPhase (
 
       DwcSdhciSetClockRate (MaxClockFreq);
 
+      //
+      // As dwcmshc_rk3568_set_clock() does on every rate change: no command
+      // conflict check, no internal clock gating, and the whole clock
+      // (internal and card) stopped while the DLL is set up; the restart
+      // below brings it back. This driver had done neither. Cold boots
+      // after a long power-off took Data and Command CRC errors on the
+      // first 8-bit HighSpeed read (EXT_CSD) and could not get past it.
+      //
+      MmioAndThenOr32 (EMMC_HOST_CTRL3, ~(UINT32)EMMC_HOST_CTRL3_CMD_CONFLICT, EMMC_HOST_CTRL3_NO_CLK_GATE);
+      MmioWrite16 ((UINT32)SD_MMC_HC_CLOCK_CTRL, 0);
+
       if (MaxClockFreq <= 52000000UL) {
         /* Non-DLL path: set bypass + start so the DLL does not produce
          * spurious output, gate RXCLK, zero TX/CMD delay taps.
