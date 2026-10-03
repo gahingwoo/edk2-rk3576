@@ -933,6 +933,169 @@ UsbReadyToBootCallback (
 #define RK3576_USB_GRF_USB3OTG0_CON1  0x2601E030UL
 #define RK3576_USB3OTG0_U3_PORT_EN    0x1100U
 
+/*
+ * The USB3 half of the RK3576 USB/DP combo PHY (the PHY behind DRD0's U3
+ * port), brought up the way mainline's phy-rockchip-usbdp.c rk_udphy_init()
+ * does for UDPHY_MODE_USB. Addresses and bits are from mainline rk3576.dtsi,
+ * clk-rk3576.c and rst-rk3576.c.
+ *
+ * Why: enabling DRD0's U3 port with no PHY behind it (above) made Windows
+ * start XHC0, but every WinPE shutdown then bugchecked with
+ * WHEA_INTERNAL_ERROR (9, 0x11): usbxhci's read of port 2's PORTSC, taken
+ * while UsbHub3 suspended the root hub, was answered with a synchronous
+ * external abort. The abort record carried 0x23000000; hiding XHC0 from the
+ * OS made the bugcheck go away (2 of 2 runs, against 5 of 5 before).
+ * With the PHY's PLL locked, the SS port has a PIPE clock behind it.
+ *
+ * Orientation is not known here (the CC controller is an FUSB302 on I2C0 that
+ * UEFI does not drive), so the lanes are set up unflipped: a SuperSpeed
+ * device trains in one plug orientation and falls back to high speed in the
+ * other. All four lanes are muxed to USB (mainline's USB-only mode).
+ */
+#define RK3576_PMU1CRU_BASE           0x27220000UL
+#define RK3576_PMU1CRU_GATE_CON0      (RK3576_PMU1CRU_BASE + 0x800)
+#define RK3576_PMU1CRU_SOFTRST_CON00  (RK3576_PMU1CRU_BASE + 0xA00)
+#define RK3576_PMU1CRU_SOFTRST_CON01  (RK3576_PMU1CRU_BASE + 0xA04)
+
+#define UDPHY_PCLK_GATE               BIT12   // PCLK_USBDPPHY
+#define UDPHY_IMMORTAL_GATE           BIT15   // CLK_USBDP_COMBO_PHY_IMMORTAL
+#define UDPHY_RST_PMA_APB             BIT12   // SRST_P_USBDPPHY, SOFTRST_CON00
+#define UDPHY_RST_INIT                BIT15   // SRST_USBDP_COMBO_PHY_INIT, SOFTRST_CON00
+#define UDPHY_RST_CMN                 BIT0    // SOFTRST_CON01
+#define UDPHY_RST_LANE                BIT1    // SOFTRST_CON01
+#define UDPHY_RST_PCS_APB             BIT2    // SOFTRST_CON01
+
+#define RK3576_PMU0_GRF_OSC_CON6      (0x26024000UL + 0x18)
+#define CLK_PHY_REF_SRC_SEL           BIT4    // 0 = xin24m
+
+#define RK3576_USBDPPHY_GRF_CON1      (0x2602C000UL + 0x0004)
+#define UDPHY_GRF_LOW_PWRN            BIT13
+#define UDPHY_GRF_RX_LFPS             BIT14
+
+#define RK3576_UDPHY_PMA              (0x2B010000UL + 0x8000)
+#define CMN_LANE_MUX_AND_EN_OFFSET    0x0288
+#define CMN_ANA_LCPLL_DONE_OFFSET     0x0350
+#define CMN_ANA_LCPLL_LOCK_DONE       BIT7
+#define CMN_ANA_LCPLL_AFC_DONE        BIT6
+
+#define HIWORD(Mask, Val)             (((UINT32)(Mask) << 16) | (Val))
+
+STATIC CONST UINT16  mUdphyInitSequence[][2] = {
+  { 0x0104, 0x44 }, { 0x0234, 0xe8 }, { 0x0248, 0x44 }, { 0x028c, 0x18 },
+  { 0x081c, 0xe5 }, { 0x0878, 0x00 }, { 0x0994, 0x1c }, { 0x0af0, 0x00 },
+  { 0x181c, 0xe5 }, { 0x1878, 0x00 }, { 0x1994, 0x1c }, { 0x1af0, 0x00 },
+  { 0x0428, 0x60 }, { 0x0d58, 0x33 }, { 0x1d58, 0x33 }, { 0x0990, 0x74 },
+  { 0x0d64, 0x17 }, { 0x08c8, 0x13 }, { 0x1990, 0x74 }, { 0x1d64, 0x17 },
+  { 0x18c8, 0x13 }, { 0x0d90, 0x40 }, { 0x0da8, 0x40 }, { 0x0dc0, 0x40 },
+  { 0x0dd8, 0x40 }, { 0x1d90, 0x40 }, { 0x1da8, 0x40 }, { 0x1dc0, 0x40 },
+  { 0x1dd8, 0x40 }, { 0x03c0, 0x30 }, { 0x03c4, 0x06 }, { 0x0e10, 0x00 },
+  { 0x1e10, 0x00 }, { 0x043c, 0x0f }, { 0x0d2c, 0xff }, { 0x1d2c, 0xff },
+  { 0x0d34, 0x0f }, { 0x1d34, 0x0f }, { 0x08fc, 0x2a }, { 0x0914, 0x28 },
+  { 0x0a30, 0x03 }, { 0x0e38, 0x03 }, { 0x0ecc, 0x27 }, { 0x0ed0, 0x22 },
+  { 0x0ed4, 0x26 }, { 0x18fc, 0x2a }, { 0x1914, 0x28 }, { 0x1a30, 0x03 },
+  { 0x1e38, 0x03 }, { 0x1ecc, 0x27 }, { 0x1ed0, 0x22 }, { 0x1ed4, 0x26 },
+  { 0x0048, 0x0f }, { 0x0060, 0x3c }, { 0x0064, 0xf7 }, { 0x006c, 0x20 },
+  { 0x0070, 0x7d }, { 0x0074, 0x68 }, { 0x0af4, 0x1a }, { 0x1af4, 0x1a },
+  { 0x0440, 0x3f }, { 0x10d4, 0x08 }, { 0x20d4, 0x08 }, { 0x00d4, 0x30 },
+  { 0x0024, 0x6e },
+};
+
+STATIC CONST UINT16  mUdphy24mRefclkCfg[][2] = {
+  { 0x0090, 0x68 }, { 0x0094, 0x68 }, { 0x0128, 0x24 }, { 0x012c, 0x44 },
+  { 0x0130, 0x3f }, { 0x0134, 0x44 }, { 0x015c, 0xa9 }, { 0x0160, 0x71 },
+  { 0x0164, 0x71 }, { 0x0168, 0xa9 }, { 0x0174, 0xa9 }, { 0x0178, 0x71 },
+  { 0x017c, 0x71 }, { 0x0180, 0xa9 }, { 0x018c, 0x41 }, { 0x0190, 0x00 },
+  { 0x0194, 0x05 }, { 0x01ac, 0x2a }, { 0x01b0, 0x17 }, { 0x01b4, 0x17 },
+  { 0x01b8, 0x2a }, { 0x01c8, 0x04 }, { 0x01cc, 0x08 }, { 0x01d0, 0x08 },
+  { 0x01d4, 0x04 }, { 0x01d8, 0x20 }, { 0x01dc, 0x01 }, { 0x01e0, 0x09 },
+  { 0x01e4, 0x03 }, { 0x01f0, 0x29 }, { 0x01f4, 0x02 }, { 0x01f8, 0x02 },
+  { 0x01fc, 0x29 }, { 0x0208, 0x2a }, { 0x020c, 0x17 }, { 0x0210, 0x17 },
+  { 0x0214, 0x2a }, { 0x0224, 0x20 }, { 0x03f0, 0x0a }, { 0x03f4, 0x07 },
+  { 0x03f8, 0x07 }, { 0x03fc, 0x0c }, { 0x0404, 0x12 }, { 0x0408, 0x1a },
+  { 0x040c, 0x1a }, { 0x0410, 0x3f }, { 0x0ce0, 0x68 }, { 0x0ce8, 0xd0 },
+  { 0x0cf0, 0x87 }, { 0x0cf8, 0x70 }, { 0x0d00, 0x70 }, { 0x0d08, 0xa9 },
+  { 0x1ce0, 0x68 }, { 0x1ce8, 0xd0 }, { 0x1cf0, 0x87 }, { 0x1cf8, 0x70 },
+  { 0x1d00, 0x70 }, { 0x1d08, 0xa9 }, { 0x0a3c, 0xd0 }, { 0x0a44, 0xd0 },
+  { 0x0a48, 0x01 }, { 0x0a4c, 0x0d }, { 0x0a54, 0xe0 }, { 0x0a5c, 0xe0 },
+  { 0x0a64, 0xa8 }, { 0x1a3c, 0xd0 }, { 0x1a44, 0xd0 }, { 0x1a48, 0x01 },
+  { 0x1a4c, 0x0d }, { 0x1a54, 0xe0 }, { 0x1a5c, 0xe0 }, { 0x1a64, 0xa8 },
+};
+
+/**
+  Bring up the USB3 half of the USBDP PHY. MMIO and stalls only, so it is
+  safe in an ExitBootServices notification.
+
+  @retval TRUE   LCPLL locked.
+  @retval FALSE  It did not, or the reference clock is not 24 MHz.
+**/
+STATIC
+BOOLEAN
+Rk3576UsbDpPhyUsb3Init (
+  VOID
+  )
+{
+  UINTN   Index;
+  UINT32  Val;
+
+  Val = 0;
+  if ((MmioRead32 (RK3576_PMU0_GRF_OSC_CON6) & CLK_PHY_REF_SRC_SEL) != 0) {
+    // Only the 24 MHz table is carried; the other parent is cpll-derived.
+    DEBUG ((DEBUG_ERROR, "UsbDpPhy: refclk is not xin24m, not touching the PHY\n"));
+    return FALSE;
+  }
+
+  // Clocks on (the gates are set-to-gate).
+  MmioWrite32 (RK3576_PMU1CRU_GATE_CON0,
+               HIWORD (UDPHY_PCLK_GATE | UDPHY_IMMORTAL_GATE, 0));
+
+  // rk_udphy_reset_assert_all(), then 10 ms.
+  MmioWrite32 (RK3576_PMU1CRU_SOFTRST_CON00,
+               HIWORD (UDPHY_RST_PMA_APB | UDPHY_RST_INIT,
+                       UDPHY_RST_PMA_APB | UDPHY_RST_INIT));
+  MmioWrite32 (RK3576_PMU1CRU_SOFTRST_CON01,
+               HIWORD (UDPHY_RST_CMN | UDPHY_RST_LANE | UDPHY_RST_PCS_APB,
+                       UDPHY_RST_CMN | UDPHY_RST_LANE | UDPHY_RST_PCS_APB));
+  MicroSecondDelay (10000);
+
+  // RX LFPS for USB, then step 1: power on the PMA, release the APB resets.
+  MmioWrite32 (RK3576_USBDPPHY_GRF_CON1, HIWORD (UDPHY_GRF_RX_LFPS, UDPHY_GRF_RX_LFPS));
+  MmioWrite32 (RK3576_USBDPPHY_GRF_CON1, HIWORD (UDPHY_GRF_LOW_PWRN, UDPHY_GRF_LOW_PWRN));
+  MmioWrite32 (RK3576_PMU1CRU_SOFTRST_CON00, HIWORD (UDPHY_RST_PMA_APB, 0));
+  MmioWrite32 (RK3576_PMU1CRU_SOFTRST_CON01, HIWORD (UDPHY_RST_PCS_APB, 0));
+
+  // Step 2: init sequence and the 24 MHz reference clock.
+  for (Index = 0; Index < ARRAY_SIZE (mUdphyInitSequence); Index++) {
+    MmioWrite32 (RK3576_UDPHY_PMA + mUdphyInitSequence[Index][0], mUdphyInitSequence[Index][1]);
+  }
+
+  for (Index = 0; Index < ARRAY_SIZE (mUdphy24mRefclkCfg); Index++) {
+    MmioWrite32 (RK3576_UDPHY_PMA + mUdphy24mRefclkCfg[Index][0], mUdphy24mRefclkCfg[Index][1]);
+  }
+
+  // Step 3: every lane muxed to USB, no DP lane enabled.
+  MmioAnd32 (RK3576_UDPHY_PMA + CMN_LANE_MUX_AND_EN_OFFSET, ~(UINT32)0xFF);
+
+  // Step 4: release init, 200 ns; step 5: release cmn and lane.
+  MmioWrite32 (RK3576_PMU1CRU_SOFTRST_CON00, HIWORD (UDPHY_RST_INIT, 0));
+  MicroSecondDelay (1);
+  MmioWrite32 (RK3576_PMU1CRU_SOFTRST_CON01, HIWORD (UDPHY_RST_CMN | UDPHY_RST_LANE, 0));
+
+  // Step 6: LCPLL lock, 100 ms as mainline. The RX CDR lock it also polls
+  // needs a link partner and only ever logs, so it is not waited for here.
+  for (Index = 0; Index < 500; Index++) {
+    Val = MmioRead32 (RK3576_UDPHY_PMA + CMN_ANA_LCPLL_DONE_OFFSET);
+    if (((Val & CMN_ANA_LCPLL_AFC_DONE) != 0) && ((Val & CMN_ANA_LCPLL_LOCK_DONE) != 0)) {
+      DEBUG ((DEBUG_INFO, "UsbDpPhy: USB3 LCPLL locked (0x%02x) after %u us\n", Val, Index * 200));
+      return TRUE;
+    }
+
+    MicroSecondDelay (200);
+  }
+
+  DEBUG ((DEBUG_ERROR, "UsbDpPhy: USB3 LCPLL did not lock (0x%02x)\n", Val));
+  return FALSE;
+}
+
 STATIC
 VOID
 EFIAPI
@@ -944,8 +1107,16 @@ UsbExitBootServicesCallback (
   UINTN  Index;
   UINTN  Base;
 
-  MmioWrite32 (RK3576_USB_GRF_USB3OTG0_CON1,
-               (0xFFFFU << 16) | RK3576_USB3OTG0_U3_PORT_EN);
+  //
+  // The U3 port only with its PHY running: an enabled SS port with nothing
+  // behind it is what made Windows take the synchronous external abort. If
+  // the PHY does not come up, leave the port disabled and let Windows fail
+  // XHC0 (code 10) rather than bugcheck.
+  //
+  if (Rk3576UsbDpPhyUsb3Init ()) {
+    MmioWrite32 (RK3576_USB_GRF_USB3OTG0_CON1,
+                 (0xFFFFU << 16) | RK3576_USB3OTG0_U3_PORT_EN);
+  }
 
   //
   // Hand both PHY-suspend enables to the OS set, as Linux runs them.
