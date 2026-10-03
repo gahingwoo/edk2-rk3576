@@ -974,6 +974,7 @@ UsbReadyToBootCallback (
 
 #define RK3576_UDPHY_PMA              (0x2B010000UL + 0x8000)
 #define CMN_LANE_MUX_AND_EN_OFFSET    0x0288
+#define CMN_DP_LANE_MUX_N(n)          (1U << ((n) + 4))
 #define CMN_ANA_LCPLL_DONE_OFFSET     0x0350
 #define CMN_ANA_LCPLL_LOCK_DONE       BIT7
 #define CMN_ANA_LCPLL_AFC_DONE        BIT6
@@ -1031,7 +1032,7 @@ STATIC CONST UINT16  mUdphy24mRefclkCfg[][2] = {
 STATIC
 BOOLEAN
 Rk3576UsbDpPhyUsb3InitOnce (
-  VOID
+  IN BOOLEAN  Flip
   )
 {
   UINTN   Index;
@@ -1072,8 +1073,15 @@ Rk3576UsbDpPhyUsb3InitOnce (
     MmioWrite32 (RK3576_UDPHY_PMA + mUdphy24mRefclkCfg[Index][0], mUdphy24mRefclkCfg[Index][1]);
   }
 
-  // Step 3: every lane muxed to USB, no DP lane enabled.
-  MmioAnd32 (RK3576_UDPHY_PMA + CMN_LANE_MUX_AND_EN_OFFSET, ~(UINT32)0xFF);
+  // Step 3: lane mux, as mainline's rk_udphy_set_typec_default_mapping():
+  // unflipped, lanes 0/1 carry USB and 2/3 are muxed to DP; flipped, the
+  // other way round. No DP lane is enabled.
+  MmioAndThenOr32 (
+    RK3576_UDPHY_PMA + CMN_LANE_MUX_AND_EN_OFFSET,
+    ~(UINT32)0xFF,
+    Flip ? (CMN_DP_LANE_MUX_N (0) | CMN_DP_LANE_MUX_N (1))
+         : (CMN_DP_LANE_MUX_N (2) | CMN_DP_LANE_MUX_N (3))
+    );
 
   // Step 4: release init, 200 ns; step 5: release cmn and lane.
   MmioWrite32 (RK3576_PMU1CRU_SOFTRST_CON00, HIWORD (UDPHY_RST_INIT, 0));
@@ -1085,14 +1093,16 @@ Rk3576UsbDpPhyUsb3InitOnce (
   for (Index = 0; Index < 500; Index++) {
     Val = MmioRead32 (RK3576_UDPHY_PMA + CMN_ANA_LCPLL_DONE_OFFSET);
     if (((Val & CMN_ANA_LCPLL_AFC_DONE) != 0) && ((Val & CMN_ANA_LCPLL_LOCK_DONE) != 0)) {
-      DEBUG ((DEBUG_INFO, "UsbDpPhy: USB3 LCPLL locked (0x%02x) after %u us\n", Val, Index * 200));
+      DEBUG ((DEBUG_INFO, "UsbDpPhy: USB3 LCPLL locked (0x%02x) after %u us, %a\n",
+              Val, Index * 200, Flip ? "flipped" : "unflipped"));
       return TRUE;
     }
 
     MicroSecondDelay (200);
   }
 
-  DEBUG ((DEBUG_ERROR, "UsbDpPhy: USB3 LCPLL did not lock (0x%02x)\n", Val));
+  DEBUG ((DEBUG_ERROR, "UsbDpPhy: USB3 LCPLL did not lock (0x%02x), %a\n",
+          Val, Flip ? "flipped" : "unflipped"));
   return FALSE;
 }
 
@@ -1113,8 +1123,16 @@ Rk3576UsbDpPhyUsb3Init (
 {
   UINTN  Attempt;
 
-  for (Attempt = 1; Attempt <= 3; Attempt++) {
-    if (Rk3576UsbDpPhyUsb3InitOnce ()) {
+  //
+  // The plug orientation is not known here, and it seems to matter to more
+  // than link training: on CM5-IO with a dock plugged in one way round the
+  // LCPLL never locked (3 boots of 3, 0x38, all four lanes muxed to USB),
+  // while the other way round it locked within 200 us. Try the unflipped
+  // mapping, then the flipped one, and keep whichever locks; the log says
+  // which, so this guess can be checked against the dock's orientation.
+  //
+  for (Attempt = 1; Attempt <= 4; Attempt++) {
+    if (Rk3576UsbDpPhyUsb3InitOnce ((Attempt % 2) == 0)) {
       if (Attempt > 1) {
         DEBUG ((DEBUG_INFO, "UsbDpPhy: locked on attempt %u\n", Attempt));
       }
