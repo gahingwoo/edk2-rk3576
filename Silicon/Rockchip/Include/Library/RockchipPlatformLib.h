@@ -92,6 +92,22 @@ Usb2PhyResume (
   VOID
   );
 
+//
+// Plug orientation of a USB Type-C port, for setting up the SuperSpeed lanes
+// behind it. Boards without a CC controller UEFI can read return Unknown.
+//
+typedef enum {
+  UsbTypeCOrientationUnknown = 0,
+  UsbTypeCOrientationNormal,      // CC1 attached
+  UsbTypeCOrientationReverse      // CC2 attached
+} USB_TYPEC_ORIENTATION;
+
+USB_TYPEC_ORIENTATION
+EFIAPI
+UsbTypeCGetOrientation (
+  IN UINT32  Port
+  );
+
 VOID
 EFIAPI
 PcieIoInit (

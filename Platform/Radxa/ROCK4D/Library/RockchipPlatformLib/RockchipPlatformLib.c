@@ -451,6 +451,15 @@ UsbPortPowerEnable (
  *   bit 0 = SRST_USB2PHY0_U2_0  (CRU reset ID 448)
  *   bit 1 = SRST_USB2PHY1_U2_0  (CRU reset ID 449)
  */
+USB_TYPEC_ORIENTATION
+EFIAPI
+UsbTypeCGetOrientation (
+  IN UINT32  Port
+  )
+{
+  return UsbTypeCOrientationUnknown;
+}
+
 VOID
 EFIAPI
 Usb2PhyResume (

@@ -1121,18 +1121,29 @@ Rk3576UsbDpPhyUsb3Init (
   VOID
   )
 {
-  UINTN  Attempt;
+  USB_TYPEC_ORIENTATION  Orientation;
+  BOOLEAN                Flip;
+  UINTN                  Attempt;
 
   //
-  // The plug orientation is not known here, and it seems to matter to more
-  // than link training: on CM5-IO with a dock plugged in one way round the
-  // LCPLL never locked (3 boots of 3, 0x38, all four lanes muxed to USB),
-  // while the other way round it locked within 200 us. Try the unflipped
-  // mapping, then the flipped one, and keep whichever locks; the log says
-  // which, so this guess can be checked against the dock's orientation.
+  // The lane mapping has to match the plug orientation, and it matters to
+  // more than link training: on CM5-IO with a dock plugged in one way round
+  // the LCPLL never locked with all four lanes muxed to USB (3 boots of 3,
+  // 0x38), while the other way round it locked within 200 us.
   //
+  // Ask the board (CM5-IO reads its FUSB302). If it cannot say, try the
+  // unflipped mapping and then the flipped one and keep whichever locks.
+  //
+  Orientation = UsbTypeCGetOrientation (0);
   for (Attempt = 1; Attempt <= 4; Attempt++) {
-    if (Rk3576UsbDpPhyUsb3InitOnce ((Attempt % 2) == 0)) {
+    if (Orientation == UsbTypeCOrientationUnknown) {
+      Flip = (Attempt % 2) == 0;
+    } else {
+      // Known: retry that mapping (mainline retries a failed lock too).
+      Flip = Orientation == UsbTypeCOrientationReverse;
+    }
+
+    if (Rk3576UsbDpPhyUsb3InitOnce (Flip)) {
       if (Attempt > 1) {
         DEBUG ((DEBUG_INFO, "UsbDpPhy: locked on attempt %u\n", Attempt));
       }

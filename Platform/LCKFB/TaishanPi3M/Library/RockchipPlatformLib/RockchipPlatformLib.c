@@ -372,6 +372,25 @@ UsbPortPowerEnable (
 }
 
 /*
+ * UsbTypeCGetOrientation -- which way round the USB-C plug is.
+ *
+ * This board's USB-C port (DRD0) has an FUSB302 at 0x22 on I2C2, as the
+ * CM5-IO has on I2C0, but nothing here reads it: the port's VBUS switch
+ * stays off (see Usb2PhyResume) and XHC0 is not in this board's DSDT, so no
+ * OS driver uses the SuperSpeed lanes the answer would set up.  Returning
+ * Unknown makes UsbHcd try the unflipped and then the flipped lane mapping,
+ * as on the ROCK 4D.
+ */
+USB_TYPEC_ORIENTATION
+EFIAPI
+UsbTypeCGetOrientation (
+  IN UINT32  Port
+  )
+{
+  return UsbTypeCOrientationUnknown;
+}
+
+/*
  * Usb2PhyResume — USB2 PHY wakeup + USB clock enable
  *
  * Same RK3576 USB2 PHY sequence as the CM5-IO and the ROCK 4D.
