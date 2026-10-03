@@ -429,6 +429,270 @@ UsbPortPowerEnable (
 }
 
 /*
+ * UsbTypeCGetOrientation — which way round the USB-C plug is
+ *
+ * The CC lines of the USB-C port go to an FCS FUSB302 at 0x22 on I2C0 (pins
+ * i2c0m1: GPIO0 PC1/PC2, function 9), per rk3576-armsom-cm5-io.dts. Nothing
+ * else in UEFI drives that controller, so this is a minimal polled master:
+ * enough to read the orientation once, at ExitBootServices, for the USBDP
+ * PHY's lane mapping.
+ *
+ * Measured as a source, which is what the board is on this port (it drives
+ * VBUS): put the 80 uA Rp pull-up on one CC line, compare the line against
+ * two MDAC thresholds, then the other line. A sink's Rd (5.1k) sits at about
+ * 0.4 V, an open line goes high, a cable's Ra (1k) stays under 0.2 V.
+ * CC1 = normal, CC2 = reverse (mainline typec convention; the USBDP PHY
+ * flips its lanes for reverse). Afterwards Rp is left on the attached line,
+ * or on both when nothing was found, as a source is supposed to present it.
+ *
+ * I2C0's functional clock is switched to xin24m for the transfer and put
+ * back afterwards, so whatever the OS assumes about it is not disturbed.
+ */
+#define PMU1CRU_BASE            0x27220000UL
+#define PMU1CRU_CLKSEL_CON6     (PMU1CRU_BASE + 0x300 + 6 * 4)   // clk_i2c0 mux, bits 8:7
+#define PMU1CRU_GATE_CON5       (PMU1CRU_BASE + 0x800 + 5 * 4)   // pclk_i2c0 bit1, clk_i2c0 bit2
+
+#define RKI2C_CON               0x000
+#define RKI2C_CLKDIV            0x004
+#define RKI2C_MRXADDR           0x008
+#define RKI2C_MRXRADDR          0x00c
+#define RKI2C_MTXCNT            0x010
+#define RKI2C_MRXCNT            0x014
+#define RKI2C_IEN               0x018
+#define RKI2C_IPD               0x01c
+#define RKI2C_TXDATA0           0x100
+#define RKI2C_RXDATA0           0x200
+#define RKI2C_CON_EN            BIT0
+#define RKI2C_CON_MOD_TX        (0U << 1)
+#define RKI2C_CON_MOD_TRX       (1U << 1)
+#define RKI2C_CON_START         BIT3
+#define RKI2C_CON_STOP          BIT4
+#define RKI2C_CON_LASTACK       BIT5
+#define RKI2C_IPD_MBTF          BIT2
+#define RKI2C_IPD_MBRF          BIT3
+#define RKI2C_IPD_START         BIT4
+#define RKI2C_IPD_STOP          BIT5
+#define RKI2C_IPD_NAK           BIT6
+#define RKI2C_IPD_ALL           0x7F
+
+#define FUSB302_ADDR            0x22
+#define FUSB302_DEVICE_ID       0x01
+#define FUSB302_SWITCHES0       0x02
+#define FUSB302_SW0_PU_EN2      BIT7
+#define FUSB302_SW0_PU_EN1      BIT6
+#define FUSB302_SW0_MEAS_CC2    BIT3
+#define FUSB302_SW0_MEAS_CC1    BIT2
+#define FUSB302_MEASURE         0x04
+#define FUSB302_MDAC_1V6        0x26    // 42 mV steps
+#define FUSB302_MDAC_0V2        0x05
+#define FUSB302_CONTROL0        0x06
+#define FUSB302_CTL0_INT_MASK   BIT5
+#define FUSB302_CTL0_HOST_DEF   (1U << 2)   // 80 uA, default USB power
+#define FUSB302_POWER           0x0B
+#define FUSB302_POWER_ALL       0x0F
+#define FUSB302_RESET           0x0C
+#define FUSB302_RESET_SW        BIT0
+#define FUSB302_STATUS0         0x40
+#define FUSB302_STATUS0_COMP    BIT5
+
+STATIC
+BOOLEAN
+RkI2cWait (
+  IN UINT32  Bits
+  )
+{
+  UINTN   Us;
+  UINT32  Ipd;
+
+  for (Us = 0; Us < 10000; Us++) {
+    Ipd = MmioRead32 (I2C0_BASE + RKI2C_IPD);
+    if ((Ipd & RKI2C_IPD_NAK) != 0) {
+      MmioWrite32 (I2C0_BASE + RKI2C_IPD, RKI2C_IPD_NAK);
+      return FALSE;
+    }
+
+    if ((Ipd & Bits) != 0) {
+      MmioWrite32 (I2C0_BASE + RKI2C_IPD, Bits);
+      return TRUE;
+    }
+
+    MicroSecondDelay (1);
+  }
+
+  return FALSE;
+}
+
+STATIC
+VOID
+RkI2cStop (
+  VOID
+  )
+{
+  MmioWrite32 (I2C0_BASE + RKI2C_IPD, RKI2C_IPD_ALL);
+  MmioWrite32 (I2C0_BASE + RKI2C_CON, RKI2C_CON_EN | RKI2C_CON_STOP);
+  RkI2cWait (RKI2C_IPD_STOP);
+  MmioWrite32 (I2C0_BASE + RKI2C_CON, 0);
+}
+
+STATIC
+BOOLEAN
+Fusb302Write (
+  IN UINT8  Reg,
+  IN UINT8  Val
+  )
+{
+  BOOLEAN  Ok;
+
+  MmioWrite32 (I2C0_BASE + RKI2C_IPD, RKI2C_IPD_ALL);
+  MmioWrite32 (I2C0_BASE + RKI2C_TXDATA0, (FUSB302_ADDR << 1) | ((UINT32)Reg << 8) | ((UINT32)Val << 16));
+  MmioWrite32 (I2C0_BASE + RKI2C_CON, RKI2C_CON_EN | RKI2C_CON_MOD_TX | RKI2C_CON_START);
+  Ok = RkI2cWait (RKI2C_IPD_START);
+  if (Ok) {
+    MmioWrite32 (I2C0_BASE + RKI2C_CON, RKI2C_CON_EN | RKI2C_CON_MOD_TX);
+    MmioWrite32 (I2C0_BASE + RKI2C_MTXCNT, 3);
+    Ok = RkI2cWait (RKI2C_IPD_MBTF);
+  }
+
+  RkI2cStop ();
+  return Ok;
+}
+
+STATIC
+BOOLEAN
+Fusb302Read (
+  IN  UINT8  Reg,
+  OUT UINT8  *Val
+  )
+{
+  BOOLEAN  Ok;
+
+  MmioWrite32 (I2C0_BASE + RKI2C_IPD, RKI2C_IPD_ALL);
+  // Register read: address+W, register, restart, address+R, one byte, NAK.
+  MmioWrite32 (I2C0_BASE + RKI2C_MRXADDR, BIT24 | (FUSB302_ADDR << 1) | 1);
+  MmioWrite32 (I2C0_BASE + RKI2C_MRXRADDR, BIT24 | Reg);
+  MmioWrite32 (I2C0_BASE + RKI2C_CON,
+               RKI2C_CON_EN | RKI2C_CON_MOD_TRX | RKI2C_CON_START | RKI2C_CON_LASTACK);
+  Ok = RkI2cWait (RKI2C_IPD_START);
+  if (Ok) {
+    MmioWrite32 (I2C0_BASE + RKI2C_CON, RKI2C_CON_EN | RKI2C_CON_MOD_TRX | RKI2C_CON_LASTACK);
+    MmioWrite32 (I2C0_BASE + RKI2C_MRXCNT, 1);
+    Ok = RkI2cWait (RKI2C_IPD_MBRF);
+    if (Ok) {
+      *Val = (UINT8)MmioRead32 (I2C0_BASE + RKI2C_RXDATA0);
+    }
+  }
+
+  RkI2cStop ();
+  return Ok;
+}
+
+/* TRUE when the line reads between the two thresholds, i.e. a sink's Rd. */
+STATIC
+BOOLEAN
+Fusb302CcHasRd (
+  IN  UINT8    PullUpAndMeasure,
+  OUT BOOLEAN  *Ok
+  )
+{
+  UINT8  High;
+  UINT8  Low;
+
+  *Ok = Fusb302Write (FUSB302_SWITCHES0, PullUpAndMeasure) &&
+        Fusb302Write (FUSB302_MEASURE, FUSB302_MDAC_1V6);
+  MicroSecondDelay (1000);
+  *Ok = *Ok && Fusb302Read (FUSB302_STATUS0, &High);
+  *Ok = *Ok && Fusb302Write (FUSB302_MEASURE, FUSB302_MDAC_0V2);
+  MicroSecondDelay (1000);
+  *Ok = *Ok && Fusb302Read (FUSB302_STATUS0, &Low);
+  if (!*Ok) {
+    return FALSE;
+  }
+
+  // COMP = 1 when the line is above MDAC.
+  return ((High & FUSB302_STATUS0_COMP) == 0) && ((Low & FUSB302_STATUS0_COMP) != 0);
+}
+
+USB_TYPEC_ORIENTATION
+EFIAPI
+UsbTypeCGetOrientation (
+  IN UINT32  Port
+  )
+{
+  USB_TYPEC_ORIENTATION  Result;
+  UINT32                 SavedSel;
+  UINT32                 SavedDiv;
+  UINT8                  Id;
+  BOOLEAN                Ok1;
+  BOOLEAN                Ok2;
+  BOOLEAN                Cc1;
+  BOOLEAN                Cc2;
+
+  if (Port != 0) {
+    return UsbTypeCOrientationUnknown;
+  }
+
+  Result = UsbTypeCOrientationUnknown;
+
+  GpioPinSetFunction (0, GPIO_PIN_PC1, 9);
+  GpioPinSetFunction (0, GPIO_PIN_PC2, 9);
+  MmioWrite32 (PMU1CRU_GATE_CON5, (BIT1 | BIT2) << 16);   // ungate pclk/clk_i2c0
+  SavedSel = MmioRead32 (PMU1CRU_CLKSEL_CON6) & (3U << 7);
+  SavedDiv = MmioRead32 (I2C0_BASE + RKI2C_CLKDIV);
+  MmioWrite32 (PMU1CRU_CLKSEL_CON6, (3U << (7 + 16)) | (3U << 7));   // xin24m
+  // 100 kHz from 24 MHz: 24e6 / (8 * 100e3) - 2 = 28, split low/high.
+  MmioWrite32 (I2C0_BASE + RKI2C_CLKDIV, (14U << 16) | 14U);
+  // The existing RK I2C driver enables each event before polling for it;
+  // do the same for all of them, and clear it again on the way out so no
+  // interrupt is left armed for the OS.
+  MmioWrite32 (I2C0_BASE + RKI2C_IEN, RKI2C_IPD_ALL);
+
+  if (!Fusb302Read (FUSB302_DEVICE_ID, &Id)) {
+    DEBUG ((DEBUG_ERROR, "CM5-IO TypeC: no FUSB302 answering at I2C0 0x%02x\n", FUSB302_ADDR));
+    goto Restore;
+  }
+
+  if (!(Fusb302Write (FUSB302_RESET, FUSB302_RESET_SW) &&
+        (MicroSecondDelay (100), TRUE) &&
+        Fusb302Write (FUSB302_POWER, FUSB302_POWER_ALL) &&
+        Fusb302Write (FUSB302_CONTROL0, FUSB302_CTL0_INT_MASK | FUSB302_CTL0_HOST_DEF)))
+  {
+    DEBUG ((DEBUG_ERROR, "CM5-IO TypeC: FUSB302 setup failed\n"));
+    goto Restore;
+  }
+
+  Cc1 = Fusb302CcHasRd (FUSB302_SW0_PU_EN1 | FUSB302_SW0_MEAS_CC1, &Ok1);
+  Cc2 = Fusb302CcHasRd (FUSB302_SW0_PU_EN2 | FUSB302_SW0_MEAS_CC2, &Ok2);
+
+  if (Ok1 && Ok2 && (Cc1 != Cc2)) {
+    Result = Cc1 ? UsbTypeCOrientationNormal : UsbTypeCOrientationReverse;
+  }
+
+  Fusb302Write (
+    FUSB302_SWITCHES0,
+    (Result == UsbTypeCOrientationNormal) ? FUSB302_SW0_PU_EN1 :
+    (Result == UsbTypeCOrientationReverse) ? FUSB302_SW0_PU_EN2 :
+    (FUSB302_SW0_PU_EN1 | FUSB302_SW0_PU_EN2)
+    );
+
+  DEBUG ((
+    DEBUG_INFO,
+    "CM5-IO TypeC: FUSB302 id 0x%02x, CC1 %a, CC2 %a -> %a\n",
+    Id,
+    !Ok1 ? "i2c error" : (Cc1 ? "Rd" : "open"),
+    !Ok2 ? "i2c error" : (Cc2 ? "Rd" : "open"),
+    (Result == UsbTypeCOrientationNormal) ? "normal" :
+    (Result == UsbTypeCOrientationReverse) ? "reverse" : "unknown"
+    ));
+
+Restore:
+  MmioWrite32 (I2C0_BASE + RKI2C_IEN, 0);
+  MmioWrite32 (I2C0_BASE + RKI2C_IPD, RKI2C_IPD_ALL);
+  MmioWrite32 (I2C0_BASE + RKI2C_CLKDIV, SavedDiv);
+  MmioWrite32 (PMU1CRU_CLKSEL_CON6, (3U << (7 + 16)) | SavedSel);
+  return Result;
+}
+
+/*
  * Usb2PhyResume — USB2 PHY wakeup + USB clock enable
  *
  * Same RK3576 USB2 PHY configuration as ROCK 4D.
