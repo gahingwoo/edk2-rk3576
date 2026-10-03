@@ -7,8 +7,8 @@ The target retransmits every packet until a debugger acknowledges it, which is
 why an unattended serial line shows the same line over and over and the boot
 never advances.  This ACKs, so the boot proceeds and the bugcheck arrives.
 
-Not a debugger: it never sends a manipulate request, so the target is free to
-carry on.
+Not a debugger: apart from continue, it sends manipulate requests only after a
+bugcheck, to save the register context and stack (see dump_next).
 """
 import os, sys, struct, time, termios
 
@@ -40,6 +40,7 @@ def send_ctrl(ptype, pid):
 
 DbgKdContinueApi2 = 0x0000313C
 DBG_CONTINUE      = 0x00010002
+DBG_EXCEPTION_NOT_HANDLED = 0x80010001
 MANIPULATE_SIZE   = 56          # sizeof(DBGKD_MANIPULATE_STATE64); not verified
                                 # for ARM64 -- if continue is ignored, this is
                                 # the first thing to doubt.
@@ -55,10 +56,10 @@ def send_data(ptype, payload):
     os.write(fd, last_sent)
     out_id ^= 1
 
-def send_continue(processor):
+def send_continue(processor, status=DBG_CONTINUE):
     pl = bytearray(MANIPULATE_SIZE)
     struct.pack_into("<IHHi", pl, 0, DbgKdContinueApi2, 0, processor, 0)
-    struct.pack_into("<I", pl, 12, DBG_CONTINUE)
+    struct.pack_into("<I", pl, 12, status)
     send_data(2, bytes(pl))
 
 STATUS_NOT_IMPLEMENTED = 0xC0000002
@@ -73,6 +74,90 @@ def send_fileio_fail(api):
 
 def show(s):
     print(s, flush=True)
+
+# After a bugcheck the target sits in the debugger, and a bugcheck's own
+# breakpoint carries no clue to what faulted: on 2026-10-03 a
+# WHEA_INTERNAL_ERROR (0x122, 9, 0x11 = SEA) came back as `brk` in
+# KeBugCheckEx and nothing else. So on the first exception after a "Fatal
+# System Error" print, ask for the register context and read the stack before
+# continuing; the trap frame of the abort and the return addresses into the
+# driver that took it are in there. Saved raw to kd-dump-<time>.bin; the module
+# lines above carry each image's base and size to resolve them against.
+DbgKdReadVirtualMemoryApi = 0x00003130
+DbgKdGetContextApi        = 0x00003132
+DbgKdGetContextExApi      = 0x0000315F
+ARM64_CONTEXT_SIZE        = 0x390
+STACK_CHUNK               = 0x400
+STACK_CHUNKS              = 48
+
+dump = None        # {"proc", "stage", "sp", "next", "out"} while a dump is in progress
+bugchecked = False
+
+def send_manip(api, proc, fill=None):
+    pl = bytearray(MANIPULATE_SIZE)
+    struct.pack_into("<IHH", pl, 0, api, 0, proc)
+    if fill:
+        fill(pl)
+    send_data(2, bytes(pl))
+
+def ask_context(proc, ex=False):
+    if ex:
+        send_manip(DbgKdGetContextExApi, proc,
+                   lambda pl: struct.pack_into("<III", pl, 16, 0, ARM64_CONTEXT_SIZE, 0))
+    else:
+        send_manip(DbgKdGetContextApi, proc)
+
+def ask_read(proc, va, n):
+    send_manip(DbgKdReadVirtualMemoryApi, proc,
+               lambda pl: struct.pack_into("<QII", pl, 16, va, n, 0))
+
+def dump_next():
+    """Ask for the next stack chunk, or finish and let the target go."""
+    global dump
+    d = dump
+    if d["next"] < STACK_CHUNKS:
+        ask_read(d["proc"], d["sp"] + d["next"] * STACK_CHUNK, STACK_CHUNK)
+        d["next"] += 1
+        return
+    d["out"].close()
+    show(f"  [dump] done: {STACK_CHUNKS * STACK_CHUNK:#x} bytes of stack from "
+         f"sp=0x{d['sp']:016x} -> {d['path']}")
+    proc = d["proc"]
+    dump = None
+    send_continue(proc)
+
+def on_manip(payload):
+    """A STATE_MANIPULATE reply from the target, while a dump is running."""
+    global dump
+    if dump is None or len(payload) < MANIPULATE_SIZE:
+        return
+    api, _, proc, st = struct.unpack("<IHHI", payload[:12])
+    data = payload[MANIPULATE_SIZE:]
+    d = dump
+    if api in (DbgKdGetContextApi, DbgKdGetContextExApi):
+        if st != 0 or len(data) < 0x110:
+            show(f"  [dump] get-context api=0x{api:x} status=0x{st:08x} len={len(data)}")
+            if api == DbgKdGetContextApi:
+                ask_context(proc, ex=True)
+                return
+            dump = None
+            send_continue(proc)
+            return
+        x = struct.unpack_from("<29Q", data, 8)
+        fp, lr, sp, pc = struct.unpack_from("<4Q", data, 0xF0)
+        show(f"  [dump] context proc={proc} pc=0x{pc:016x} lr=0x{lr:016x} "
+             f"sp=0x{sp:016x} fp=0x{fp:016x}")
+        show("  [dump] " + " ".join(f"x{i}={v:x}" for i, v in enumerate(x)))
+        d["sp"] = sp & ~0xF
+        d["out"].write(struct.pack("<4sQ", b"CTX0", len(data)) + data)
+        dump_next()
+    elif api == DbgKdReadVirtualMemoryApi:
+        got = struct.unpack_from("<I", payload, 28)[0]
+        va = struct.unpack_from("<Q", payload, 16)[0]
+        if st != 0:
+            show(f"  [dump] read 0x{va:016x} status=0x{st:08x}")
+        d["out"].write(struct.pack("<4sQI", b"MEM0", va, len(data)) + data)
+        dump_next()
 
 show(f"# listening on {DEV}, raw copy -> {RAW}")
 last = time.time()
@@ -174,7 +259,13 @@ while True:
                     s = payload[12:].decode("utf-8", "replace").rstrip("\x00").rstrip()
                     if n == 1:
                         show(f"KD: {s}")
+                        if "Fatal System Error" in s:
+                            bugchecked = True
                     continue
+            if ptype == 2:
+                if n == 1:
+                    on_manip(payload)
+                continue
             if ptype == 11 and len(payload) >= 8:
                 api = struct.unpack("<I", payload[:4])[0]
                 path = payload[64:].decode("utf-16-le", "replace").strip("\x00")
@@ -203,10 +294,39 @@ while True:
                         plen = struct.unpack("<I", payload[0x20:0x24])[0]
                         if 0 < plen <= len(payload):
                             mod = payload[-plen:].split(b"\0")[0].decode("ascii", "replace")
-                            show(f"     module: {mod}")
-                send_continue(proc)
+                            base = struct.unpack("<Q", payload[40:48])[0]
+                            size = struct.unpack("<I", payload[60:64])[0]
+                            show(f"     module: {mod} base=0x{base:016x} size=0x{size:x}")
+                # DBGKD_WAIT_STATE_CHANGE64: ProgramCounter at 24, then the
+                # EXCEPTION_RECORD64 (ExceptionCode at 32).
+                status = DBG_CONTINUE
+                if kind == "EXCEPTION" and len(payload) >= 40:
+                    pc = struct.unpack("<Q", payload[24:32])[0]
+                    code = struct.unpack("<I", payload[32:36])[0]
+                    if pc < 0x8000000000000000:
+                        # A user-mode exception (a process's own breakpoint,
+                        # say). DBG_CONTINUE re-runs a brk forever: on
+                        # 2026-10-02 svchost -k utcsvc's brk #0xf000 looped on
+                        # all eight CPUs and flooded the line. Hand it back
+                        # to the process instead.
+                        status = DBG_EXCEPTION_NOT_HANDLED
+                    if n == 1:
+                        show(f"     exception 0x{code:08x} at pc 0x{pc:016x}"
+                             f" -> {'NOT_HANDLED' if status != DBG_CONTINUE else 'CONTINUE'}")
+                if kind == "EXCEPTION" and bugchecked and dump is None and n == 1:
+                    bugchecked = False
+                    path = time.strftime("kd-dump-%Y%m%d-%H%M%S.bin")
+                    dump = {"proc": proc, "sp": 0, "next": 0, "path": path,
+                            "out": open(path, "wb")}
+                    dump["out"].write(struct.pack("<4sI", b"EXC0", len(payload)) + payload)
+                    show(f"  [dump] bugcheck: reading context and stack of proc {proc}")
+                    ask_context(proc)
+                    continue
+                if dump is not None:
+                    continue   # the target is waiting on our reads; do not continue it twice
+                send_continue(proc, status)
                 if n == 1:
-                    show(f"  -> CONTINUE (proc={proc})")
+                    show(f"  -> CONTINUE (proc={proc}, status=0x{status:08x})")
         else:
             if ptype == 5 and last_sent is not None:
                 # RESEND: the target did not get our last packet and will not
