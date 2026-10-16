@@ -1088,9 +1088,12 @@ Rk3576UsbDpPhyUsb3InitOnce (
   MicroSecondDelay (1);
   MmioWrite32 (RK3576_PMU1CRU_SOFTRST_CON01, HIWORD (UDPHY_RST_CMN | UDPHY_RST_LANE, 0));
 
-  // Step 6: LCPLL lock, 100 ms as mainline. The RX CDR lock it also polls
-  // needs a link partner and only ever logs, so it is not waited for here.
-  for (Index = 0; Index < 500; Index++) {
+  // Step 6: LCPLL lock. Mainline allows 100 ms; here locks have been
+  // measured at 200 us, 48.8 ms and 99.6 ms, the last a hair under that
+  // limit, so a failure at 100 ms may just be a slow lock. Allow 1 s and
+  // log the time it took. The RX CDR lock mainline also polls needs a link
+  // partner and only ever logs, so it is not waited for here.
+  for (Index = 0; Index < 5000; Index++) {
     Val = MmioRead32 (RK3576_UDPHY_PMA + CMN_ANA_LCPLL_DONE_OFFSET);
     if (((Val & CMN_ANA_LCPLL_AFC_DONE) != 0) && ((Val & CMN_ANA_LCPLL_LOCK_DONE) != 0)) {
       DEBUG ((DEBUG_INFO, "UsbDpPhy: USB3 LCPLL locked (0x%02x) after %u us, %a\n",
