@@ -1229,6 +1229,16 @@ UsbExitBootServicesCallback (
   if (Rk3576UsbDpPhyUsb3Init ()) {
     MmioWrite32 (RK3576_USB_GRF_USB3OTG0_CON1,
                  (0xFFFFU << 16) | RK3576_USB3OTG0_U3_PORT_EN);
+    //
+    // DISRXDETINP3 off on DRD0. The init path sets it on every controller,
+    // but mainline gives snps,dis_rxdet_inp3_quirk to DRD1 only, and Linux
+    // runs DRD0 with GUSB3PIPECTL 0x010a0002 against our 0x110a0002. With
+    // SUSPHY set the PHY sits in P3 during Rx.Detect, so with receiver
+    // detection disabled in P3 the link never saw a device: 2026-10-17, an
+    // NVMe enclosure on the correct (FUSB302-detected) lanes stayed in
+    // Rx.Detect, PORTSC2 0x2A0.
+    //
+    MmioAnd32 (0x23000000UL + 0xC2C0, ~(UINT32)DWC3_GUSB3PIPECTL_DISRXDETINP3);
     Rk3576UsbDpLogLink ();
   }
 
