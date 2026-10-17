@@ -1239,6 +1239,31 @@ UsbExitBootServicesCallback (
     // Rx.Detect, PORTSC2 0x2A0.
     //
     MmioAnd32 (0x23000000UL + 0xC2C0, ~(UINT32)DWC3_GUSB3PIPECTL_DISRXDETINP3);
+
+    //
+    // Linux brings the PHY up before the DWC3 core; here the core was set
+    // up first, HS-only, with its USB3 PIPE side suspended and no PHY
+    // behind it. With the PHY now locked the link still never left
+    // Rx.Detect, GDBGLTSSM reading exactly 0x4155065A on three boots, so
+    // the core's PIPE side is reset to pick the PHY up. SUSPHY comes off
+    // first (PHYSOFTRST with SUSPHY pending can deadlock, see the init
+    // path) and goes back on afterwards, as Linux runs it.
+    //
+    {
+      UINTN   Pipe;
+      UINT32  Val;
+
+      Pipe = 0x23000000UL + 0xC2C0;
+      Val  = MmioRead32 (Pipe);
+      MmioWrite32 (Pipe, Val & ~(UINT32)DWC3_GUSB3PIPECTL_SUSPHY);
+      MicroSecondDelay (1000);
+      MmioWrite32 (Pipe, (Val & ~(UINT32)DWC3_GUSB3PIPECTL_SUSPHY) | DWC3_GUSB3PIPECTL_PHYSOFTRST);
+      MicroSecondDelay (10000);
+      MmioWrite32 (Pipe, Val & ~(UINT32)DWC3_GUSB3PIPECTL_SUSPHY);
+      MicroSecondDelay (1000);
+      MmioWrite32 (Pipe, Val);
+    }
+
     Rk3576UsbDpLogLink ();
   }
 
