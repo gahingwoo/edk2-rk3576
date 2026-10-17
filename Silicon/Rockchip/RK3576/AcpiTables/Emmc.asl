@@ -10,7 +10,15 @@
 
   Device (SDC3) {
     Name (_HID, "RKCP0D40")
-    Name (_CID, "PNP0D40")   // SDA-compatible: lets the Windows inbox SDHCI driver bind
+    // No _CID PNP0D40. It let the inbox sdbus match this controller, and
+    // sdbus cannot drive it. Because sdbus is signed and dwcsdhc only
+    // test-signed, PnP ranks sdbus "Optimal" and dwcsdhc "Outranked". OOBE's
+    // Sysprep specialize pass then re-installs the eMMC onto sdbus (which
+    // also rewrites the sdbus service, undoing the deploy script's Start=4),
+    // and the next boot is INACCESSIBLE_BOOT_DEVICE. Seen 2026-10-01 and
+    // again on 2026-10-17 on a fresh deploy (setupapi.dev.log: "Using
+    // suboptimal driver (oem2.inf), needs re-install"). dwcsdhc binds the
+    // HID.
     Name (_UID, 3)
     Name (_CCA, 0)
 
