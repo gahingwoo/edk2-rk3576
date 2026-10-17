@@ -1110,6 +1110,53 @@ Rk3576UsbDpPhyUsb3InitOnce (
 }
 
 /**
+  Say whether DRD0's SuperSpeed link trained, so each boot's log shows the
+  USB-C port's speed instead of leaving it to be inferred from Windows'
+  driver choice. Waits up to 300 ms for the DWC3 LTSSM to reach U0.
+  Only called with the PHY locked: an SS PORTSC read without it is the
+  synchronous external abort this PHY bring-up exists to prevent.
+**/
+STATIC
+VOID
+Rk3576UsbDpLogLink (
+  VOID
+  )
+{
+  STATIC CONST CHAR8  *CONST  Names[] = {
+    "U0", "U1", "U2", "U3", "SS.Disabled", "Rx.Detect", "SS.Inactive", "Polling",
+    "Recovery", "Hot Reset", "Compliance", "Loopback"
+  };
+  UINTN   Ms;
+  UINT32  Ltssm;
+  UINT32  State;
+  UINT32  PortSc;
+
+  State = 0xF;
+  Ltssm = 0;
+  for (Ms = 0; Ms <= 300; Ms++) {
+    Ltssm = MmioRead32 (0x23000000UL + 0xC164);    // DRD0 GDBGLTSSM
+    State = (Ltssm >> 22) & 0xF;                   // link state, 25:22
+    if (State == 0) {
+      break;
+    }
+
+    MicroSecondDelay (1000);
+  }
+
+  PortSc = MmioRead32 (0x23000000UL + 0x20 + 0x400 + 0x10);   // port 2 PORTSC
+  DEBUG ((
+    DEBUG_INFO,
+    "UsbDpPhy: DRD0 SS link %a after %u ms (GDBGLTSSM 0x%08x), PORTSC2 0x%08x CCS=%u speed=%u\n",
+    (State < ARRAY_SIZE (Names)) ? Names[State] : "?",
+    Ms,
+    Ltssm,
+    PortSc,
+    PortSc & 1,
+    (PortSc >> 10) & 0xF
+    ));
+}
+
+/**
   Rk3576UsbDpPhyUsb3InitOnce, retried.
 
   Mainline knows this PLL can fail to lock on the first attempt when earlier
@@ -1182,6 +1229,7 @@ UsbExitBootServicesCallback (
   if (Rk3576UsbDpPhyUsb3Init ()) {
     MmioWrite32 (RK3576_USB_GRF_USB3OTG0_CON1,
                  (0xFFFFU << 16) | RK3576_USB3OTG0_U3_PORT_EN);
+    Rk3576UsbDpLogLink ();
   }
 
   //

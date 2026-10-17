@@ -652,7 +652,7 @@ UsbTypeCGetOrientation (
   }
 
   if (!(Fusb302Write (FUSB302_RESET, FUSB302_RESET_SW) &&
-        (MicroSecondDelay (100), TRUE) &&
+        (MicroSecondDelay (10000), TRUE) &&   // 100 us was not enough: CC1 i2c error, 2026-10-17
         Fusb302Write (FUSB302_POWER, FUSB302_POWER_ALL) &&
         Fusb302Write (FUSB302_CONTROL0, FUSB302_CTL0_INT_MASK | FUSB302_CTL0_HOST_DEF)))
   {
@@ -661,7 +661,14 @@ UsbTypeCGetOrientation (
   }
 
   Cc1 = Fusb302CcHasRd (FUSB302_SW0_PU_EN1 | FUSB302_SW0_MEAS_CC1, &Ok1);
+  if (!Ok1) {
+    Cc1 = Fusb302CcHasRd (FUSB302_SW0_PU_EN1 | FUSB302_SW0_MEAS_CC1, &Ok1);
+  }
+
   Cc2 = Fusb302CcHasRd (FUSB302_SW0_PU_EN2 | FUSB302_SW0_MEAS_CC2, &Ok2);
+  if (!Ok2) {
+    Cc2 = Fusb302CcHasRd (FUSB302_SW0_PU_EN2 | FUSB302_SW0_MEAS_CC2, &Ok2);
+  }
 
   if (Ok1 && Ok2 && (Cc1 != Cc2)) {
     Result = Cc1 ? UsbTypeCOrientationNormal : UsbTypeCOrientationReverse;
