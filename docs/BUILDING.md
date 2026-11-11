@@ -11,11 +11,12 @@ scripts/package.sh cm5io       # -> out/CM5IO/CM5IO-sdcard.img
 
 Boards live in
 [`boards/`](https://github.com/gahingwoo/edk2-rk3576/tree/main/boards):
-`cm5io`, `rock4d`.
+`cm5io`, `rock4d`, and `tspi3m` (LCKFB TaishanPi 3M, a skeleton that builds
+but has not been booted).
 
 `scripts/build.sh <board> clean` wipes `Build/` and `Conf/` first.
 
-CI runs these three scripts for both boards on every push, after fetching
+CI runs these three scripts for every board on every push, after fetching
 the device-tree include mirror described below. The workflow is
 [`.github/workflows/build.yml`](https://github.com/gahingwoo/edk2-rk3576/blob/main/.github/workflows/build.yml).
 
@@ -64,7 +65,7 @@ not fetch them. The recipe CI uses:
 git clone --depth=1 --filter=blob:none --sparse \
     https://github.com/torvalds/linux /tmp/linux
 git -C /tmp/linux sparse-checkout set \
-    include/dt-bindings arch/arm64/boot/dts/rockchip
+    include/dt-bindings arch/arm64/boot/dts/rockchip include/uapi/linux
 mkdir -p devicetree/mainline/upstream/src/arm64
 ln -sfn /tmp/linux/include devicetree/mainline/upstream/include
 ln -sfn /tmp/linux/arch/arm64/boot/dts/rockchip \

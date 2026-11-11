@@ -1,0 +1,41 @@
+## @file
+#
+#  RockchipPlatformLib for the LCKFB TaishanPi 3M (RK3576)
+#
+#  Board-specific initialization: GPIO iomux, PMIC voltage rails, GMAC,
+#  USB power, PCIe power/reset, HDMI, SPI NOR, and platform identification.
+#
+#  Copyright (c) 2021, Rockchip Limited.
+#  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = RockchipPlatformLib
+  FILE_GUID                      = 3f8e2a71-5c94-4d0b-a6e3-9b1d7c4f2e60
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = RockchipPlatformLib
+
+[Sources]
+  RockchipPlatformLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ArmPkg/ArmPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+  GpioLib
+  RK806
+  PWMLib
+  TimerLib

@@ -17,7 +17,7 @@ jobs:
       # CI at all before the restructure -- only ROCK 4D and a NanoPi target
       # that is no longer in this tree.
       matrix:
-        board: [cm5io, rock4d]
+        board: [cm5io, rock4d, tspi3m]
 
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,12 @@ jobs:
           git clone --depth=1 --filter=blob:none --sparse \
             https://github.com/torvalds/linux /tmp/linux
           git -C /tmp/linux sparse-checkout set \
-            include/dt-bindings arch/arm64/boot/dts/rockchip
+            include/dt-bindings arch/arm64/boot/dts/rockchip \
+            include/uapi/linux
+          # dt-bindings/input/input.h includes linux-event-codes.h, a symlink
+          # into include/uapi/linux.  The TaishanPi 3M DTS is the first one
+          # here to use it (adc-keys).
+          test -f /tmp/linux/include/uapi/linux/input-event-codes.h
           mkdir -p devicetree/mainline/upstream/src/arm64
           ln -sfn /tmp/linux/include devicetree/mainline/upstream/include
           ln -sfn /tmp/linux/arch/arm64/boot/dts/rockchip \

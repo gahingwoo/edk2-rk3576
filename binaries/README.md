@@ -10,6 +10,7 @@ here is produced by `scripts/build.sh`.
 | `rk3576_ddr.bin` | LPDDR5 init blob v1.09, consumed by the SPL. **Not** what `rkdeveloptool db` takes: that wants an RKLD loader (first four bytes `LDR `), which is not in this repo. |
 | `idblock_mainline.bin` | U-Boot SPL (idbloader), built from U-Boot e3405917a180 with `rock-4d-rk3576_defconfig` plus `CONFIG_SPI_FLASH_XMC=y`, DDR blob v1.09. `package.sh` prefers a freshly built `out/<BOARD>/idbloader.img` over this one. |
 | `idblock_cm5io.bin` | U-Boot SPL 2026.07-rc3 with the CM5-IO carrier overlay. `boards/cm5io.conf` pins it through `IDBLOCK_OVERRIDE`; `idblock_mainline.bin` is 2026.04 and predates that overlay. |
+| `idblock_tspi3m.bin` | U-Boot SPL 2026.10 built from `lckfb-tspi-3m-rk3576_defconfig`, with DDR init blob v1.08. Same source as the U-Boot in the Armbian images that boot the TaishanPi 3M; this binary itself has not been flashed. `boards/tspi3m.conf` pins it. |
 | `rk3576_spi_nor_gpt.img` | GPT written at offset 0 of the 16 MB SPI NOR image (ROCK 4D). |
 
 `checksums.sha256` covers the ELF and BIN files.

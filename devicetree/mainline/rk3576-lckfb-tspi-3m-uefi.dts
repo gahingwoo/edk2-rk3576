@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * LCKFB TaishanPi 3M -- the device tree the UEFI firmware hands to the OS.
+ *
+ * rk3576-lckfb-tspi-3m.dts next to this file is the mainline Linux 7.3 file,
+ * unchanged.  Anything the firmware needs on top of it goes here, so the
+ * mainline file can be replaced by a newer one without a merge.
+ *
+ * Nothing is added yet.  The CM5-IO wrapper forces both USB controllers to
+ * host mode and enables the UFS controller; neither has been shown to be
+ * needed on this board, and the USB-C port here is described with a FUSB302
+ * and role switching that a forced host mode would override.
+ *
+ * Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+ */
+
+#include "rk3576-lckfb-tspi-3m.dts"
