@@ -46,13 +46,17 @@ Windows 11 23H2 on CM5-IO, from the eMMC.
 
 Serial console: 1500000 8N1.
 
-### LCKFB TaishanPi 3M (skeleton)
+### LCKFB TaishanPi 3M (early)
 
-`boards/tspi3m.conf` and `Platform/LCKFB/TaishanPi3M/` build and package an
-SD image for the [LCKFB TaishanPi 3M](https://wiki.lckfb.com/). It has not
-been booted on the board yet, so it is not in the table above and there is no
-release image for it. The board package says, line by line, which values come
-from the board's mainline device tree and which are still the CM5-IO's.
+`boards/tspi3m.conf` and `Platform/LCKFB/TaishanPi3M/` build an image for the
+[LCKFB TaishanPi 3M](https://wiki.lckfb.com/). It boots to the UEFI front page
+with HDMI at 2560x1440, and finds the eMMC, the SD card and the USB hub. It
+has not booted an operating system yet and there is no release image.
+
+The BootROM on this board only tries the eMMC, so the SPL has to be written
+there; the firmware itself can stay on an SD card. See
+[Flashing](docs/FLASHING.md#lckfb-taishanpi-3m) and
+[Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
 
 The TaishanPi 3M used for this work was provided by LCKFB.
 
@@ -84,7 +88,7 @@ scripts/package.sh cm5io      # -> out/CM5IO/CM5IO-sdcard.img
 ```
 Platform/ArmSoM/CM5IO/       board package: DSC, PMIC/GPIO/PHY glue, ACPI, DTS
 Platform/Radxa/ROCK4D/
-Platform/LCKFB/TaishanPi3M/  skeleton, not booted yet
+Platform/LCKFB/TaishanPi3M/  early: boots to the UEFI front page
 Silicon/Rockchip/RK3576/     SoC package: RK3576Base.dsc.inc, FDF, ACPI, drivers
 Silicon/Rockchip/            drivers shared across Rockchip SoCs
 Silicon/Synopsys/DesignWare/ DWC EQoS and DWC MMC

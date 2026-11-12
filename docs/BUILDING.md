@@ -11,8 +11,7 @@ scripts/package.sh cm5io       # -> out/CM5IO/CM5IO-sdcard.img
 
 Boards live in
 [`boards/`](https://github.com/gahingwoo/edk2-rk3576/tree/main/boards):
-`cm5io`, `rock4d`, and `tspi3m` (LCKFB TaishanPi 3M, a skeleton that builds
-but has not been booted).
+`cm5io`, `rock4d`, and `tspi3m` (LCKFB TaishanPi 3M, early).
 
 `scripts/build.sh <board> clean` wipes `Build/` and `Conf/` first.
 

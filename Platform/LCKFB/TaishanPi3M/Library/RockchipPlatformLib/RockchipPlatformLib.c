@@ -2,11 +2,12 @@
  *
  *  RockchipPlatformLib.c -- board glue for the LCKFB TaishanPi 3M (RK3576)
  *
- *  SKELETON.  Written from the ArmSoM CM5-IO library and the board's mainline
- *  device tree (arch/arm64/boot/dts/rockchip/rk3576-lckfb-tspi-3m.dts, Linux
- *  7.3).  It compiles; it has not been run on the board.  Every pin below
- *  names the device tree line it was taken from, so it can be checked against
- *  the schematic before the first flash.
+ *  Written from the ArmSoM CM5-IO library and the board's mainline device
+ *  tree (arch/arm64/boot/dts/rockchip/rk3576-lckfb-tspi-3m.dts, Linux 7.3).
+ *  Every pin below names the device tree line it was taken from.  First run
+ *  on the board 2026-11-12: the PMIC, SD, eMMC, GMAC, USB and HDMI paths all
+ *  executed and the firmware reached the front page.  PCIe, the LED and the
+ *  USB-A power switches ran but had nothing attached to show they work.
  *
  *  Pins that differ from the CM5-IO:
  *    - USB-A 5V:      GPIO2 PB5 (USB 2.0 ports) and GPIO0 PC3 (USB 3.0 port)

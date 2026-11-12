@@ -98,3 +98,30 @@ eMMC holds a bootloader. UEFI variables are stored on the card at `0x1600000`.
 
 MaskROM is in the BootROM, which nothing here writes, so a board can always be
 put back into MaskROM and reflashed.
+
+## LCKFB TaishanPi 3M
+
+Early support, no release image. Build it with `scripts/build.sh tspi3m` and
+`scripts/package.sh tspi3m`.
+
+The BootROM on this board reads the eMMC and nothing else, so an SD card on
+its own does not boot. Put the SPL on the eMMC once, and the firmware on an SD
+card:
+
+```bash
+# On the board, from a running Linux. Replaces only the SPL, about 200 KB.
+# An OS whose own U-Boot FIT is at sector 16384 of the eMMC still boots
+# whenever no card is in the slot.
+dd if=binaries/idblock_tspi3m.bin of=/dev/mmcblk0 bs=512 seek=64 conv=fsync
+
+# On the PC.
+dd if=out/TaishanPi3M/TaishanPi3M-sdcard.img of=/dev/sdX bs=1M status=progress
+```
+
+With the card in, the SPL prints `Trying to boot from MMC2` and loads the
+firmware from it. With the card out, the board boots whatever is on the eMMC.
+
+Before replacing the SPL, check that MaskROM can be reached: power off, short
+the two `MSK` pads under the `RK3576` silkscreen, connect the `OTG+DP` USB-C
+port to the PC and power on. A device `2207:350e` should appear. If the SPL
+write goes wrong, that is the way back.

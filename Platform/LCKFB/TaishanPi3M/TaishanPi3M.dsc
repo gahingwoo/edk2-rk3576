@@ -2,8 +2,8 @@
 #
 #  UEFI platform description for the LCKFB TaishanPi 3M (RK3576)
 #
-#  SKELETON.  This builds and packages.  It has not been booted on the board.
-#  The board was provided by LCKFB.
+#  Early support.  Boots to the UEFI front page (2026-11-12); has not booted an
+#  operating system.  The board was provided by LCKFB.
 #
 #  Board:  LCKFB TaishanPi 3M
 #  SoC:    RK3576 (4x A72 + 4x A53)
