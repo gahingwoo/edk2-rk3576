@@ -128,12 +128,12 @@
   # 0x80000000 = NATIVE: follow the sink's EDID, as on the other two boards.
   gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
 
-  # Start the fan on CN2 (PWM2 ch3, see PwmFanIoSetup) at 60% and leave it
-  # running into the OS.  Windows has no driver for it.  60% is Linux's
-  # second cooling level on this board (150 of 255, the 45-55 C band in
-  # rk3576-lckfb-tspi-3m.dts:171-178), a middle setting rather than full
-  # speed, since nothing turns it down again under Windows.
-  gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|60
+  # Start the fan on CN2 (PWM2 ch3, see PwmFanIoSetup) at full speed and
+  # leave it running into the OS.  Windows has no driver for it and nothing
+  # turns it down again.  60% was tried first: the fan ran, but the 2 kHz
+  # switching was audible and louder than the fan at 100%, where the pin is
+  # simply held high.
+  gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
 
 ################################################################################
 [Components.common]

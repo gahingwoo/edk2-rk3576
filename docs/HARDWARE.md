@@ -50,7 +50,7 @@ from that one boot. The board was provided by LCKFB.
 | USB-A | Four ports behind an onboard hub on DRD1 |
 | USB-C | FUSB302 on I²C2. The firmware does not switch VBUS on. |
 | HDMI | GPIO4_C6 enables the level shifters. HPD reaches the SoC through two transistor stages (Q17, Q16), so it is not inverted: measured from Linux, GPIO4_C1 reads 1 with a monitor attached and 0 without, and follows the cable at once. The connector's 5 V comes from the system rail through a diode and is not switched. |
-| Fan | 2-pin connector CN2 on PWM2 channel 3 (GPIO3_D0), 2 kHz, high = on. The firmware starts it at 60% (`PcdPwmFanSpeedDefault`) and leaves it running, because Windows has no fan driver and the ACPI tables have no thermal zone; under Linux, `pwm-fan` takes it over. Not yet seen spinning. |
+| Fan | 2-pin connector CN2 on PWM2 channel 3 (GPIO3_D0), 2 kHz, high = on. The firmware starts it at 100% (`PcdPwmFanSpeedDefault`) and leaves it running; at 60% the 2 kHz switching was audible and louder than the fan at full speed, because Windows has no fan driver and the ACPI tables have no thermal zone; under Linux, `pwm-fan` takes it over. |
 | Tested SKU | 4 GB LPDDR5, 64 GB eMMC |
 
 Seen working: SPL from eMMC loading the FIT from SD, TF-A v2.14, the UEFI
