@@ -84,6 +84,7 @@
   gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPathDefault
   gRK3576TokenSpaceGuid.PcdStatusLedGpio
   gRK3576TokenSpaceGuid.PcdStatusLedGpioPolarity
+  gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault
   # Display connector list is set in ROCK4D.dsc using the RK3588 tokenspace
   # (same TokenSpace the DwHdmiQpLib / Vop2Dxe library set reads from).
   gRK3588TokenSpaceGuid.PcdDisplayConnectors

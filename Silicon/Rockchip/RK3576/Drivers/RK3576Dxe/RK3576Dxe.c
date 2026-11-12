@@ -159,6 +159,37 @@ RK3576InitStatusLed (
 }
 
 /*
+ * Start the board's cooling fan at a fixed duty and leave it running.
+ *
+ * There is no HII setting for this on RK3576: the RK3588 cooling-fan form and
+ * its variables were never ported (VarStoreData.h carries the two structures,
+ * nothing uses them).  The duty is PcdPwmFanSpeedDefault; boards that leave it
+ * at 0 skip this entirely, so their fan pins and PWM blocks are not touched.
+ * The fan is left on after ExitBootServices on purpose: Windows has no driver
+ * for it, and Linux's pwm-fan takes the channel over when it probes.
+ */
+STATIC
+VOID
+RK3576InitCoolingFan (
+  VOID
+  )
+{
+  UINT32  Percentage = FixedPcdGet32 (PcdPwmFanSpeedDefault);
+
+  if (Percentage == 0) {
+    return;
+  }
+
+  if (Percentage > 100) {
+    Percentage = 100;
+  }
+
+  PwmFanIoSetup ();
+  PwmFanSetSpeed (Percentage);
+  DEBUG ((DEBUG_INFO, "RK3576Dxe: cooling fan started at %u%%\n", Percentage));
+}
+
+/*
  * Boot-time register snapshot — OFF by default.  Read this before turning it on.
  *
  * This driver used to open with a dozen MmioRead32() calls inside
@@ -270,6 +301,9 @@ RK3576EntryPoint (
 
   /* Initialize status LED */
   RK3576InitStatusLed ();
+
+  /* Board fan, if the board has one the firmware knows how to drive */
+  RK3576InitCoolingFan ();
 
   /* Install protocol to signal platform config is applied */
   Status = gBS->InstallMultipleProtocolInterfaces (

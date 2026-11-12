@@ -84,6 +84,13 @@
   gRK3576TokenSpaceGuid.PcdGmac1TxDelay|0x00|UINT8|0x00010604
   gRK3576TokenSpaceGuid.PcdGmac1RxDelay|0x00|UINT8|0x00010605
 
+  # Cooling fan: duty in percent that RK3576Dxe starts the board's fan at,
+  # through PwmFanIoSetup() and PwmFanSetSpeed() in RockchipPlatformLib.  It
+  # keeps running after ExitBootServices, so an OS without a fan driver
+  # (Windows) still gets cooling.  0 leaves the fan pin and PWM untouched;
+  # set it only on a board whose fan wiring is in its platform library.
+  gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|0|UINT32|0x00010700
+
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   # Runtime dynamic PCDs (set by RK3576Dxe at DXE phase from *Default FixedAtBuild values)
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode|0|UINT32|0x00000101

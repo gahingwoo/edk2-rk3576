@@ -206,6 +206,7 @@
   PlatformCruLib|Silicon/Rockchip/RK3576/Library/Rk3576CruLib/Rk3576CruLib.inf
   OtpLib|Silicon/Rockchip/RK3576/Library/OtpLib/OtpLib.inf
   GpioLib|Silicon/Rockchip/RK3576/Library/GpioLib/GpioLib.inf
+  Rk3576PwmLib|Silicon/Rockchip/RK3576/Library/Rk3576PwmLib/Rk3576PwmLib.inf
 
 [LibraryClasses.common.SEC]
   MemoryInitPeiLib|Silicon/Rockchip/RK3576/Library/MemoryInitPeiLib/MemoryInitPeiLib.inf

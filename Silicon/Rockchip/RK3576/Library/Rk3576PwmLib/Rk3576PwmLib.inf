@@ -1,0 +1,29 @@
+#/** @file
+#
+#  RK3576 PWM ("PWM v4") output library.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = Rk3576PwmLib
+  FILE_GUID                      = 0567c593-5838-4826-b9be-91e3f19b2ded
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = Rk3576PwmLib
+
+[Sources]
+  Rk3576PwmLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  DebugLib
+  IoLib
