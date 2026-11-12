@@ -23,12 +23,15 @@
  *    - XHC0 (DRD0, the USB-C port).  On this board its VBUS switch
  *      (vcc_5v0_typec, GPIO0_B6, dts:90-100) is only turned on by Linux after
  *      the FUSB302 sees a sink, and the firmware leaves it off, so a host
- *      port there has no power to give.  And on main, UsbHcd enables DRD0's
- *      U3 port at ExitBootServices without bringing up the USBDP PHY behind
- *      it; on the CM5-IO that exact state made usbxhci take a synchronous
- *      external abort reading XHC0's port-2 PORTSC (WHEA_INTERNAL_ERROR at
- *      WinPE shutdown), and hiding XHC0 made it go away.  The USBDP bring-up
- *      that fixes it is on the cm5io-mali-m1 branch, not on main.
+ *      port there has no power to give.  UsbHcd now brings up the USBDP
+ *      PHY's USB3 half at ExitBootServices and enables DRD0's U3 port only
+ *      once its PLL locks, the CM5-IO's fix for the synchronous external
+ *      abort usbxhci took reading XHC0's port-2 PORTSC (WHEA_INTERNAL_ERROR
+ *      at WinPE shutdown).  This board's library does not read its FUSB302
+ *      (UsbTypeCGetOrientation returns Unknown), so the lanes are a guess,
+ *      and on the CM5-IO SuperSpeed has not trained on that port even with
+ *      the orientation known.  Adding XHC0 here would need VBUS, and so a
+ *      port manager, first.
  *    - XHC2 and ATA0..ATA2.  The CM5-IO includes them as _STA = 0 stubs whose
  *      addresses are RK3588's; a disabled device with a wrong address adds
  *      nothing.
@@ -41,8 +44,8 @@
  *      774-777); LCKFB's vendor tree adds an ES8388 on I2C3.  The CM5-IO does
  *      not include Es8388.asl or I2s.asl either, and RK3576's audio block is
  *      SAI, which no driver here supports.
- *    - The LED (GPIO0_A0, dts:47-52), the ADC key (dts:30-42), HDMI and the
- *      display controller: not declared on the CM5-IO either.
+ *    - The LED (GPIO0_A0, dts:47-52), the ADC key (dts:30-42) and HDMI: not
+ *      declared on the CM5-IO either.
  *
  *  GPIO0_B6 is the USB-C VBUS switch on this board, not SDMMC0_PWREN
  *  (dts:825).  Nothing in this table, including the shared Sdhc.asl,
@@ -188,5 +191,21 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // YT8531C.  Its reset (GPIO2_B3, dts:696) is not declared, as on the
     // CM5-IO; the firmware leaves it deasserted.
     include ("Gmac0.asl")
+
+    // Display (DSP0, RKCP7403) and Mali-G52 (GPU0, RKCP7402), as on the
+    // CM5-IO and in the same order, for the wddm-mali-g52 drivers (malidod
+    // binds DSP0, maliwddm binds GPU0).  Both are the SoC's: DSP0 claims
+    // the VOP2's registers (0x27d00000, 0x27d05000) and no interrupt, GPU0
+    // the Mali's registers and its job, MMU and GPU interrupts; see the two
+    // files.  RK3576Dxe powers PD_GPU on every board before boot, which
+    // needs vdd_gpu_s0 on; here it is RK806 DCDC5 with regulator-boot-on
+    // (dts:429-431), as on the CM5-IO.  The display VOP2 and HDMI path is
+    // the same one the CM5-IO's GOP uses.
+    //
+    // With no driver installed, WinPE on the CM5-IO listed both as code 28
+    // (no driver) and the display stayed on Basic Display.  Neither driver
+    // has been run on this board.
+    include ("Display.asl")
+    include ("Gpu.asl")
   }
 }

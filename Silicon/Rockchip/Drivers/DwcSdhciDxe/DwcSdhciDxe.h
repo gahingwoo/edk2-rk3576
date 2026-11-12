@@ -23,6 +23,8 @@
 
 // eMMC Registers
 #define EMMC_HOST_CTRL3   (DWC_SDHCI_BASE + 0x508)
+#define EMMC_HOST_CTRL3_CMD_CONFLICT  BIT0   // command conflict check
+#define EMMC_HOST_CTRL3_NO_CLK_GATE   BIT4   // keep the internal clock ungated
 #define EMMC_EMMC_CTRL    (DWC_SDHCI_BASE + 0x52C)
 #define EMMC_DLL_CTRL     (DWC_SDHCI_BASE + 0x800)
 #define EMMC_DLL_RXCLK    (DWC_SDHCI_BASE + 0x804)

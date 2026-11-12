@@ -1,0 +1,102 @@
+diff --git a/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHcDxe.h b/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHcDxe.h
+index b76c7cffa2..9b9aadb0ab 100644
+--- a/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHcDxe.h
++++ b/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHcDxe.h
+@@ -19,6 +19,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ 
+ #include <Library/UefiDriverEntryPoint.h>
+ #include <Library/DebugLib.h>
++#include <Library/TimerLib.h>
+ #include <Library/UefiBootServicesTableLib.h>
+ #include <Library/BaseMemoryLib.h>
+ #include <Library/MemoryAllocationLib.h>
+diff --git a/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHcDxe.inf b/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHcDxe.inf
+index e502443ddd..9e7fd05acb 100644
+--- a/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHcDxe.inf
++++ b/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHcDxe.inf
+@@ -57,6 +57,7 @@
+   UefiDriverEntryPoint
+   DebugLib
+   PcdLib
++  TimerLib
+ 
+ [Protocols]
+   gEdkiiSdMmcOverrideProtocolGuid               ## SOMETIMES_CONSUMES
+diff --git a/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHci.c b/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHci.c
+index 9e8a7f4e43..ed398098f5 100644
+--- a/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHci.c
++++ b/MdeModulePkg/Bus/Pci/SdMmcPciHcDxe/SdMmcPciHci.c
+@@ -2085,6 +2085,7 @@ SdMmcWaitTrbEnv (
+   EFI_SD_MMC_PASS_THRU_COMMAND_PACKET  *Packet;
+   UINT64                               Timeout;
+   BOOLEAN                              InfiniteWait;
++  UINT64                               Start;
+ 
+   //
+   // Wait Command Complete Interrupt Status bit in Normal Interrupt Status Register
+@@ -2097,7 +2098,14 @@ SdMmcWaitTrbEnv (
+     InfiniteWait = FALSE;
+   }
+ 
+-  while (InfiniteWait || (Timeout > 0)) {
++  //
++  // Packet->Timeout is microseconds of wall clock. Counting it down by one
++  // per Stall (1) made it a loop count: with the register reads and the
++  // stall's real granularity each round takes many microseconds, and a 2.5 s
++  // timeout ran for minutes per attempt.
++  //
++  Start = GetPerformanceCounter ();
++  while (InfiniteWait || (DivU64x32 (GetTimeInNanoSecond (GetPerformanceCounter () - Start), 1000) < Timeout)) {
+     //
+     // Check Trb execution result by reading Normal Interrupt Status register.
+     //
+@@ -2106,12 +2114,7 @@ SdMmcWaitTrbEnv (
+       return Status;
+     }
+ 
+-    //
+-    // Stall for 1 microsecond.
+-    //
+     gBS->Stall (1);
+-
+-    Timeout--;
+   }
+ 
+   return EFI_TIMEOUT;
+@@ -2898,6 +2901,7 @@ SdMmcWaitTrbResult (
+   EFI_SD_MMC_PASS_THRU_COMMAND_PACKET  *Packet;
+   UINT64                               Timeout;
+   BOOLEAN                              InfiniteWait;
++  UINT64                               Start;
+ 
+   Packet = Trb->Packet;
+   //
+@@ -2910,7 +2914,14 @@ SdMmcWaitTrbResult (
+     InfiniteWait = FALSE;
+   }
+ 
+-  while (InfiniteWait || (Timeout > 0)) {
++  //
++  // Packet->Timeout is microseconds of wall clock. Counting it down by one
++  // per Stall (1) made it a loop count: with the register reads and the
++  // stall's real granularity each round takes many microseconds, and a 2.5 s
++  // timeout ran for minutes per attempt.
++  //
++  Start = GetPerformanceCounter ();
++  while (InfiniteWait || (DivU64x32 (GetTimeInNanoSecond (GetPerformanceCounter () - Start), 1000) < Timeout)) {
+     //
+     // Check Trb execution result by reading Normal Interrupt Status register.
+     //
+@@ -2919,12 +2930,7 @@ SdMmcWaitTrbResult (
+       return Status;
+     }
+ 
+-    //
+-    // Stall for 1 microsecond.
+-    //
+     gBS->Stall (1);
+-
+-    Timeout--;
+   }
+ 
+   return EFI_TIMEOUT;

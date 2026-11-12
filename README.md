@@ -71,7 +71,11 @@ The TaishanPi 3M used for this work was provided by LCKFB.
 - Boot entries written from an OS (`efibootmgr`, `bcdboot`) do not reach the
   firmware, and Linux logs `Unable to handle paging request in EFI runtime
   service` at reboot. Windows boots through `\EFI\Boot\bootaa64.efi` instead.
-- The USB-C port has no USBDP PHY driver, so it runs at USB 2.0 outside Linux.
+- The USB-C port runs at USB 2.0 outside Linux. The firmware brings up the
+  USBDP PHY's USB3 half at ExitBootServices (on the CM5-IO it reads the plug
+  orientation from the FUSB302), which stopped Windows bugchecking at
+  shutdown, but SuperSpeed has not trained there: DRD0's link stays in
+  Rx.Detect.
 - The ROCK 4D has not been tested with the Windows-related changes in 0.2.0.
 - The ComboPHY and PCIe device-tree fixups look for `/pcie@…` at the root,
   where mainline has `/soc/`, so they do nothing. NVMe works without them.

@@ -32,6 +32,7 @@
 #include "../../Include/Soc.h"
 #include "RK3576DxeFormSetGuid.h"
 #include "ConfigTable.h"
+#include "Gpu.h"
 #include "CpuPerf.h"
 #include "Display.h"
 #include "ComboPhy.h"
@@ -263,6 +264,9 @@ RK3576EntryPoint (
 
   /* Read the cluster clocks we were handed, and apply the configured rates */
   RK3576SetupCpuPerf ();
+
+  /* Power the Mali-G52 for OS drivers that cannot (Windows) */
+  RK3576GpuPowerOn ();
 
   /* Initialize status LED */
   RK3576InitStatusLed ();
