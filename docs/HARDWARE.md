@@ -49,14 +49,17 @@ from that one boot. The board was provided by LCKFB.
 | Ethernet PHY | Maxio MAE0621A-Q3C, ID `7b74.4412`, at MDIO address 1 and answering address 0. Delays are set by straps: RX delay in the PHY, TX delay `0x24` in the MAC. The firmware writes nothing to it. |
 | USB-A | Four ports behind an onboard hub on DRD1 |
 | USB-C | FUSB302 on I²C2. The firmware does not switch VBUS on. |
-| HDMI | GPIO4_C6 enables the level shifters. HPD reaches the SoC through a transistor stage (Q16) with a pull-up to 3.3 V, which by the netlist inverts it. |
+| HDMI | GPIO4_C6 enables the level shifters. HPD reaches the SoC through two transistor stages (Q17, Q16), so it is not inverted: measured from Linux, GPIO4_C1 reads 1 with a monitor attached and 0 without, and follows the cable at once. The connector's 5 V comes from the system rail through a diode and is not switched. |
 | Tested SKU | 4 GB LPDDR5, 64 GB eMMC |
 
 Seen working: SPL from eMMC loading the FIT from SD, TF-A v2.14, the UEFI
 front page, HDMI at 2560x1440 from the sink's EDID, eMMC at 52 MHz, SD card
 with the NV variable store on it, the USB hub, PHY identification.
 
-Known problem: the firmware reads HPD low with a monitor attached, waits out
-its 5 second timeout and then carries on, so the picture arrives late.
+Open: on the one firmware boot so far, HPD read low with a monitor attached
+until the firmware gave up after 5 seconds and brought the display up anyway.
+Linux reads it high on the same board, cable and monitor, with the same IOC
+register values, so the cause is not known. It needs more boots before
+anything is changed.
 
 Not tried: an Ethernet link, USB devices, booting an operating system, PCIe.
