@@ -184,23 +184,42 @@ Rk3576PwmStart (
   MmioWrite32 (Base + PWM_CLK_CTRL, HIWORD (PWM_CLK_CTRL_WRITABLE, 0));
 
   /*
-   * Order from [M] rockchip_pwm_v4_write_wf (:1290-1333), which quotes RK3576
-   * TRM Part 1 section 34.6.3: enable first, then the parameters, then
-   * CTRL_UPDATE_EN to commit them.
+   * Parameters and mode first, commit them, and only then enable: the order
+   * of [V] rockchip_pwm_config_v4 followed by rockchip_pwm_enable_v4
+   * (pwm-rockchip.c:898-911).
+   *
+   * Enabling first does not work from reset.  CTRL resets to one-shot mode,
+   * so the channel fires once and clears PWM_EN and PWM_CLK_EN by itself
+   * before the continuous mode written afterwards is committed.  Measured on
+   * the TaishanPi 3M: with enable first, ENABLE read back 0 with PERIOD,
+   * DUTY and CTRL all correct and the fan stopped; writing 0x00030003 to
+   * ENABLE by hand then held at 3.
    */
-  MmioWrite32 (
-    Base + PWM_ENABLE,
-    HIWORD (PWM_ENABLE_EN | PWM_ENABLE_CLK_EN, PWM_ENABLE_EN | PWM_ENABLE_CLK_EN)
-    );
   MmioWrite32 (Base + PWM_PERIOD, (UINT32)PeriodCycles);
   MmioWrite32 (Base + PWM_DUTY, (UINT32)DutyCycles);
   MmioWrite32 (Base + PWM_OFFSET, 0);
 
-  Ctrl = PWM_CTRL_MODE_CONTINUOUS | PWM_CTRL_UNALIGNED;
+  Ctrl  = PWM_CTRL_MODE_CONTINUOUS | PWM_CTRL_UNALIGNED;
   Ctrl |= Inverted ? PWM_CTRL_INACTIVE_POSITIVE : PWM_CTRL_DUTY_POSITIVE;
   MmioWrite32 (Base + PWM_CTRL, HIWORD (PWM_CTRL_WRITABLE, Ctrl));
 
   MmioWrite32 (Base + PWM_ENABLE, HIWORD (PWM_ENABLE_CTRL_UPDATE, PWM_ENABLE_CTRL_UPDATE));
+  MmioWrite32 (
+    Base + PWM_ENABLE,
+    HIWORD (PWM_ENABLE_EN | PWM_ENABLE_CLK_EN, PWM_ENABLE_EN | PWM_ENABLE_CLK_EN)
+    );
+
+  if ((MmioRead32 (Base + PWM_ENABLE) & (PWM_ENABLE_EN | PWM_ENABLE_CLK_EN)) !=
+      (PWM_ENABLE_EN | PWM_ENABLE_CLK_EN))
+  {
+    DEBUG ((
+      DEBUG_ERROR,
+      "Rk3576PwmStart: PWM2 ch%u did not stay enabled (ENABLE 0x%08x)\n",
+      Channel,
+      MmioRead32 (Base + PWM_ENABLE)
+      ));
+    return EFI_DEVICE_ERROR;
+  }
 
   DEBUG ((
     DEBUG_INFO,
