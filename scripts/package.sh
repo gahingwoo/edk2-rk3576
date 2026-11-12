@@ -71,13 +71,16 @@ from elftools.elf.elffile import ELFFile
 print(hex(ELFFile(open('$BL31','rb')).header.e_entry))")"
 info "BL31 entry: $BL31_ENTRY"
 
-# Booting from SD/eMMC needs the EDK2 payload compressed: the vendor SPL's MMC
-# DMA tops out around 2 MB per transfer and a 13 MB uncompressed FV times out.
-# gzip brings it to roughly 2 MB.  The SPI path uses mainline SPL and has no
-# such limit.
-GZIP_FLAG=""
-[ "$BOOT_MEDIUM" = "sdcard" ] && GZIP_FLAG="--gzip-edk2"
-python3 "$ROOT/scripts/lib/gen_fit_its.py" "$WORK" "$DEVICE_TREE_NAME" "$BL31_ENTRY" $GZIP_FLAG
+# The EDK2 payload goes into the FIT uncompressed on every boot medium.
+#
+# The SD/eMMC path used to pass --gzip-edk2 here, on the theory that the SPL's
+# MMC DMA could not move a 13 MB payload.  That option only wrote
+# compression = "gzip" into the ITS; the data was never compressed.  The image
+# booted because the SPLs in binaries/ are built without CONFIG_SPL_GZIP and
+# copy a payload as it is whatever the label says: the SPL has been loading
+# 13 MB over MMC all along.  An SPL built with gzip support would have tried
+# to inflate raw data and failed.  Found 2026-11-12 on the TaishanPi 3M.
+python3 "$ROOT/scripts/lib/gen_fit_its.py" "$WORK" "$DEVICE_TREE_NAME" "$BL31_ENTRY"
 [ -f "$WORK/${DEVICE_TREE_NAME}_EFI.its" ] || die "gen_fit_its.py produced no ITS"
 
 # mkimage must be >= 2020.07.  Older releases silently ignore -B, which makes
