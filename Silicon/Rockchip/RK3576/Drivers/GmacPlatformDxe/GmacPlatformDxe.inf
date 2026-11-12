@@ -21,6 +21,7 @@
   GmacPlatformDxe.c
   RealtekPhy.c
   MotorcommPhy.c
+  MaxioPhy.c
 
 [Packages]
   CryptoPkg/CryptoPkg.dec

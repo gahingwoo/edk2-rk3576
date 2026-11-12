@@ -252,9 +252,13 @@ NorFspiEnableClock (
  * ethm0_clk0_25m_out, so that block is not carried over.  Check the schematic
  * for the PHY's crystal before relying on this.
  *
- * The PHY reports ID 7b74.4412.  GmacPlatformDxe has init code for Realtek
- * and Motorcomm PHYs only, so it will log "Unknown PHY ID" and leave this one
- * at its strap defaults.  Whether the link comes up like that is not known.
+ * The PHY is a Maxio MAE0621A-Q3C, ID 7b74.4412, with its own 25 MHz crystal
+ * (PCB v1.4).  GmacPlatformDxe's MaxioPhy.c recognises it and keeps its strap
+ * defaults: RX delay on, TX delay off, address 1.  Its CLKOUT pin drives
+ * eth0m0_mclk, but GmacSetToRgmii() takes the MAC TX clock from the CRU, as
+ * LCKFB's vendor DTS does (clock_in_out = "output"); mainline's "input"
+ * instead uses CLKOUT and needs it at 125 MHz.  Whether the link comes up in
+ * UEFI like this is not known.
  */
 VOID
 EFIAPI

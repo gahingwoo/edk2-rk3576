@@ -185,6 +185,7 @@ STATIC GMAC_DEVICE  mGmacDevices[] = {
 STATIC ETHERNET_PHY_INIT  mPhyInitList[] = {
   RealtekPhyInit,
   MotorcommPhyInit,
+  MaxioPhyInit,
 };
 
 VOID

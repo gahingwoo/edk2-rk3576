@@ -107,7 +107,9 @@
 
   # GMAC0 is rgmii-rxid with tx_delay = <0x24> in the device tree: the PHY
   # delays RX, the MAC delays TX.  The CM5-IO and the ROCK 4D both use 0 here
-  # because their PHYs add both delays.  NOT CHECKED on this board.
+  # because their PHYs add both delays.  Here the MAE0621A's straps (PCB v1.4:
+  # RXD0 pulled up = RXDLY on, RXD1 pulled down = TXDLY off) match that split.
+  # NOT CHECKED on the board.
   gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0x24
 
   # FDT only.  No ACPI tables are built for this board.

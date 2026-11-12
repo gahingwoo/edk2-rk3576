@@ -47,4 +47,11 @@ MotorcommPhyInit (
   IN UINT32                PhyId
   );
 
+EFI_STATUS
+EFIAPI
+MaxioPhyInit (
+  IN EFI_PHYSICAL_ADDRESS  GmacBase,
+  IN UINT32                PhyId
+  );
+
 #endif /* ETHERNETPHY_H__ */
