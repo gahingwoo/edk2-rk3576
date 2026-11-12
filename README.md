@@ -50,10 +50,12 @@ Serial console: 1500000 8N1.
 
 `boards/tspi3m.conf` and `Platform/LCKFB/TaishanPi3M/` build an image for the
 [LCKFB TaishanPi 3M](https://wiki.lckfb.com/). It boots to the UEFI front page
-with HDMI at 2560x1440, and finds the eMMC, the SD card and the USB hub. It
-has not booted an operating system yet and there is no release image. Like
-the CM5-IO image it carries ACPI tables as well as the device tree, but the
-ACPI tables have not been tried with any OS, Windows included.
+with HDMI at 2560x1440, and finds the eMMC, the SD card and the USB hub. Like
+the CM5-IO image it carries ACPI tables as well as the device tree. Windows
+11 23H2 Setup starts on it but cannot see the eMMC yet, and no operating
+system has been installed or booted from the board's own storage. Test
+images are in the
+[pre-releases](https://github.com/gahingwoo/edk2-rk3576/releases).
 
 The BootROM on this board only tries the eMMC, so the SPL has to be written
 there; the firmware itself can stay on an SD card. See

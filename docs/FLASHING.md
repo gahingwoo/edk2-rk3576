@@ -101,8 +101,8 @@ put back into MaskROM and reflashed.
 
 ## LCKFB TaishanPi 3M
 
-Early support, no release image. Build it with `scripts/build.sh tspi3m` and
-`scripts/package.sh tspi3m`.
+Early support. Test images are published as pre-releases; to build one
+yourself use `scripts/build.sh tspi3m` and `scripts/package.sh tspi3m`.
 
 The BootROM on this board reads the eMMC and nothing else, so an SD card on
 its own does not boot. Put the SPL on the eMMC once, and the firmware on an SD
@@ -120,6 +120,18 @@ dd if=out/TaishanPi3M/TaishanPi3M-sdcard.img of=/dev/sdX bs=1M status=progress
 
 With the card in, the SPL prints `Trying to boot from MMC2` and loads the
 firmware from it. With the card out, the board boots whatever is on the eMMC.
+
+Without a running Linux on the board, write the SPL from MaskROM instead:
+
+```bash
+rkdeveloptool db rk3576_spl_loader.bin     # Rockchip's RK3576 loader, from rkbin
+rkdeveloptool wl 64 idblock_tspi3m.bin
+rkdeveloptool rd
+```
+
+Some builds of rkdeveloptool spell these `boot`, `write 64` and `reset`. Wait
+a couple of seconds after the loader download before the write; the device
+re-enumerates.
 
 Before replacing the SPL, check that MaskROM can be reached: power off, short
 the two `MSK` pads under the `RK3576` silkscreen, connect the `OTG+DP` USB-C

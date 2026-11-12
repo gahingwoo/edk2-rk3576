@@ -69,9 +69,11 @@ separately.
 Not tried: an Ethernet link, USB devices, booting an operating system, PCIe.
 
 ACPI: the image installs ACPI tables next to the device tree, as the CM5-IO
-does (ConfigTableMode ACPI + FDT, switchable in the front-page menu). They
-have not been tried with any operating system, so nothing is known about
-Windows on this board. The SoC tables (MADT, GTDT, PPTT, MCFG, SPCR, DBG2,
+does (ConfigTableMode ACPI + FDT, switchable in the front-page menu).
+`acpiview` reports no errors on the board, and Windows 11 23H2 Setup starts
+from a USB stick. Setup does not see the eMMC: Windows has no inbox driver
+for it, and the driver in woa-rk3576 has not been tried on this board.
+Nothing is installed or booted from the eMMC yet. The SoC tables (MADT, GTDT, PPTT, MCFG, SPCR, DBG2,
 FADT) are the CM5-IO's and compile to the same bytes. The DSDT
 (`Platform/LCKFB/TaishanPi3M/AcpiTables/Dsdt.asl`) is the CM5-IO's minus
 the USB-C controller (XHC0) and the disabled XHC2 and SATA stubs; its
