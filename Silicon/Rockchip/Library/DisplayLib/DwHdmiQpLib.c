@@ -419,22 +419,33 @@ DwHdmiQpSetIomux (
   // IOC_HDMI_HPD_STATUS BIT(3) always read 0 even when the monitor is
   // asserting HPD.
   //
-  // IOC_GRF (RK3588_SYS_GRF_BASE = 0x26040000) + 0xA3B0 is the GPIO4_PC
-  // pull register.  Layout: 2 bits per pin, PC0=[1:0] PC1=[3:2] PC2=[5:4]
-  // PC3=[7:6].  Values: 00=none, 01=pull-up, 10=pull-down.
+  // IOC_GRF (RK3588_SYS_GRF_BASE = 0x26040000) + 0xA148 is the GPIO4_PC
+  // pull register: rk3576_calc_pull_reg_and_bit() in pinctrl-rockchip.c gives
+  // RK3576_PULL_GPIO4_CL_OFFSET 0xA148 for GPIO4 pins 16-23, 2 bits per pin,
+  // so PC0=[1:0] PC1=[3:2] PC2=[5:4] PC3=[7:6], and 00 is "no pull".
+  //
+  // This used to write 0xA3B0, which is not a pull register.  It reads back 0
+  // and writing 0 to it does nothing, so the pulls were never cleared and the
+  // pads kept their reset value (the register reads 0x5555).  On the CM5-IO
+  // the external pull-ups win anyway and nobody noticed.  On the TaishanPi 3M
+  // they do not: HPD (PC1) and CEC (PC0) read 0 with a monitor attached and
+  // showing a picture, and the firmware waited out its 5 second HPD timeout
+  // on every boot.  Clearing these two fields by hand at the U-Boot prompt
+  // (mw.l 2604A148 000F0000) made both pins read 1 at once, 2026-11-12.
   //
   // We clear PC1 pull (bits [3:2]) to 00=none.  Also clear PC2 (SCL) and
-  // PC3 (SDA) pulls — DDC lines should be driven by the monitor side.
-  // PC0 (CEC, unused) pull is also cleared for safety.
+  // PC3 (SDA) pulls, DDC lines have their own pull-ups on the connector side,
+  // and PC0 (CEC).  mainline's hdmi_txm0_pins and hdmi_tx_scl/sda use
+  // pcfg_pull_none for the same four pins.
   //
   // HIWORD_UPDATE format: upper 16 = write-enable mask.
   //   Mask = 0x00FF (bits 7:0 = PC0-PC3 pull fields).
   //   Value = 0x0000 (all pulls = none).
   //
-  HDMI_TRACE ("SetIomux: GPIO4 PC0-PC3 pull -> NONE (clear bootloader pull-down from HPD pin)\n");
-  HDMI_DUMP_REG ("GPIO4_PC_PULL_before ", RK3588_SYS_GRF_BASE + 0xA3B0);
-  MmioWrite32 (RK3588_SYS_GRF_BASE + 0xA3B0, 0x00FF0000U);
-  HDMI_DUMP_REG ("GPIO4_PC_PULL_after  ", RK3588_SYS_GRF_BASE + 0xA3B0);
+  HDMI_TRACE ("SetIomux: GPIO4 PC0-PC3 pull -> NONE (clear reset-default pull from HPD pin)\n");
+  HDMI_DUMP_REG ("GPIO4_PC_PULL_before ", RK3588_SYS_GRF_BASE + 0xA148);
+  MmioWrite32 (RK3588_SYS_GRF_BASE + 0xA148, 0x00FF0000U);
+  HDMI_DUMP_REG ("GPIO4_PC_PULL_after  ", RK3588_SYS_GRF_BASE + 0xA148);
 
   HDMI_TRACE ("SetIomux: pre-state\n");
   HDMI_DUMP_REG ("VO0_GRF_SOC_CON14   ", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON14);
