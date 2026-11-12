@@ -1,0 +1,67 @@
+#/** @file
+#
+#  ACPI tables for the LCKFB TaishanPi 3M (RK3576)
+#
+#  Only the DSDT is the board's.  MADT, FADT, GTDT, SPCR, MCFG, DBG2 and PPTT
+#  describe the SoC and are built from Silicon/Rockchip/RK3576/AcpiTables, the
+#  same sources the CM5-IO builds.  AcpiTables.h is the SoC's
+#  (Silicon/Rockchip/RK3576/Include/AcpiTables.h): this directory has no copy
+#  of its own.
+#
+#  Installed alongside the DTB (PcdConfigTableModeDefault = ACPI + FDT).  None
+#  of it has been run with any operating system on this board.
+#
+#  FILE_GUID must stay 7E374E25-8E01-4FEE-87F2-390C23C606CD: RK3576AcpiPlatformDxe
+#  finds the tables in the FV by that GUID (mAcpiTableFile).  Only one board is
+#  built per image, so sharing the CM5-IO's GUID is intended.
+#
+#  Copyright (c) 2019-2021, ARM Limited. All rights reserved.
+#  Copyright (c) Microsoft Corporation. All rights reserved.
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = AcpiTables
+  FILE_GUID                      = 7E374E25-8E01-4FEE-87F2-390C23C606CD
+  MODULE_TYPE                    = USER_DEFINED
+  VERSION_STRING                 = 1.0
+  RK_COMMON_ACPI_DIR             = Silicon/Rockchip/RK3576/AcpiTables
+
+#
+#  VALID_ARCHITECTURES           = AARCH64
+#
+
+[Sources]
+  Dsdt.asl
+  $(RK_COMMON_ACPI_DIR)/Madt.aslc
+  $(RK_COMMON_ACPI_DIR)/Fadt.aslc
+  $(RK_COMMON_ACPI_DIR)/Gtdt.aslc
+  $(RK_COMMON_ACPI_DIR)/Spcr.aslc
+  $(RK_COMMON_ACPI_DIR)/Mcfg.aslc
+  $(RK_COMMON_ACPI_DIR)/Dbg2.aslc
+  $(RK_COMMON_ACPI_DIR)/Pptt.aslc
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[FixedPcd]
+  gArmTokenSpaceGuid.PcdArmArchTimerIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerHypIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerSecIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerVirtIntrNum
+  gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase
+  gArmTokenSpaceGuid.PcdGicDistributorBase
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase
+  gRockchipTokenSpaceGuid.PcdRkMtlMailBoxBase
+  gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSize
+  gRockchipTokenSpaceGuid.PcdRkSdmmcCardDetectBroken

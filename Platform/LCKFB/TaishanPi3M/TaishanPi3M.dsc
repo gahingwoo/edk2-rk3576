@@ -112,14 +112,33 @@
   # NOT CHECKED on the board.
   gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0x24
 
-  # FDT only.  No ACPI tables are built for this board.
-  gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_FDT)
+  # FDT + ACPI both installed (0x3), as on the CM5-IO.  Linux keeps using the
+  # mainline device tree; an ACPI OS gets AcpiTables/.  Switchable at runtime
+  # in the front-page menu.  The ACPI tables have NOT been run with any
+  # operating system on this board.
+  gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_ACPI_FDT)
+
+  # Hide \_SB.PCI0 from ACPI when the mini-PCIe link did not train in UEFI.
+  # The slot normally carries a USB modem with nothing on PCIe, and then
+  # PciHostBridgeInit.c leaves pcie0 held in reset; without this the DSDT
+  # would still point the OS at that controller's DBI.  Off on the CM5-IO,
+  # whose M.2 slot is the case the PCI0/PCI1 rules were measured with.
+  gRK3576TokenSpaceGuid.PcdAcpiPcieRequireRootBridge|TRUE
 
   # 0x80000000 = NATIVE: follow the sink's EDID, as on the other two boards.
   gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
 
 ################################################################################
 [Components.common]
+  # ACPI tables, installed alongside the DTB (PcdConfigTableModeDefault above)
+  $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+
+  # Patches the DSDT and MCFG at boot: PCI0/PCI1 _STA from the ComboPHY mode
+  # and the root bridges UEFI produced, ECAM layout per OS, SD removability.
+  # Does nothing unless ConfigTableMode has the ACPI bit.  Listed per board
+  # because only the boards with ACPI tables carry it.
+  Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
+
   # Mainline device tree, built from DTS at compile time
   $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
 

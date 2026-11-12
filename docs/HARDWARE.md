@@ -67,3 +67,14 @@ power cycle reads the same bytes from the card and has not been tried
 separately.
 
 Not tried: an Ethernet link, USB devices, booting an operating system, PCIe.
+
+ACPI: the image installs ACPI tables next to the device tree, as the CM5-IO
+does (ConfigTableMode ACPI + FDT, switchable in the front-page menu). They
+have not been tried with any operating system, so nothing is known about
+Windows on this board. The SoC tables (MADT, GTDT, PPTT, MCFG, SPCR, DBG2,
+FADT) are the CM5-IO's and compile to the same bytes. The DSDT
+(`Platform/LCKFB/TaishanPi3M/AcpiTables/Dsdt.asl`) is the CM5-IO's minus
+the USB-C controller (XHC0) and the disabled XHC2 and SATA stubs; its
+comments give the device tree line for each board value. The mini-PCIe
+root complex is hidden from ACPI when its link does not train in UEFI,
+which is the usual case with a USB modem in the slot.
