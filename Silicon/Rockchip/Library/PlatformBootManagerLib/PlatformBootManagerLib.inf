@@ -68,6 +68,7 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy
 
 [Guids]
+  gEfiGlobalVariableGuid
   gBootDiscoveryPolicyMgrFormsetGuid
   gEdkiiNonDiscoverableEhciDeviceGuid
   gEdkiiNonDiscoverableUhciDeviceGuid

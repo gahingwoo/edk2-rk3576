@@ -17,6 +17,7 @@
 #include <Protocol/Smbios.h>
 #include <Library/BootLogoLib.h>
 #include <Library/CapsuleLib.h>
+#include <Guid/GlobalVariable.h>
 #include <Library/DevicePathLib.h>
 #include <Library/DxeServicesTableLib.h>
 #include <Library/HobLib.h>
@@ -1108,6 +1109,119 @@ BootDiscoveryPolicyHandler (
 }
 
 /**
+  Tell whether a boot option boots from the network.
+
+  @param[in] DevicePath  The boot option's device path.
+
+  @retval TRUE   The path has a MAC address node (PXE, HTTP boot).
+  @retval FALSE  Anything else.
+**/
+STATIC
+BOOLEAN
+PlatformIsNetworkBootOption (
+  IN EFI_DEVICE_PATH_PROTOCOL  *DevicePath
+  )
+{
+  EFI_DEVICE_PATH_PROTOCOL  *Node;
+
+  for (Node = DevicePath; (Node != NULL) && !IsDevicePathEnd (Node); Node = NextDevicePathNode (Node)) {
+    if (  (DevicePathType (Node) == MESSAGING_DEVICE_PATH)
+       && (DevicePathSubType (Node) == MSG_MAC_ADDR_DP))
+    {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+  Move network boot options behind every other boot option in BootOrder,
+  keeping the relative order inside both groups.
+
+  EfiBootManagerRefreshAllBootOption() appends whatever it finds new to the end
+  of BootOrder.  The PXE option exists from the first boot, so a disk that shows
+  up later lands behind it: a USB stick plugged in afterwards, or the firmware's
+  own disk, whose description gains " [Fw]" once RkFvbDxe has identified it and
+  which is therefore deleted and added again as a "new" option.  On a network
+  with a boot server that is not a delay, it is a board that boots the network
+  image instead of the installed system.  Seen on the TaishanPi 3M on
+  2026-11-13: BootOrder was eMMC Boot 1, eMMC Boot 2, PXEv4, eMMC User Data
+  [Fw], and the board ended up in iPXE instead of Windows.
+
+  Variables written by an operating system at runtime are not kept on boards
+  whose store is on SD or eMMC, so the OS cannot put its own entry first
+  either.  Hence a fixed rule here: network boot is tried last.  It can still
+  be picked by hand from the Boot Manager.
+**/
+STATIC
+VOID
+PlatformDemoteNetworkBootOptions (
+  VOID
+  )
+{
+  EFI_STATUS                    Status;
+  EFI_BOOT_MANAGER_LOAD_OPTION  *BootOptions;
+  UINTN                         BootOptionCount;
+  UINT16                        *NewOrder;
+  UINTN                         Index;
+  UINTN                         Next;
+  BOOLEAN                       Changed;
+
+  BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
+  if ((BootOptions == NULL) || (BootOptionCount < 2)) {
+    EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
+    return;
+  }
+
+  NewOrder = AllocatePool (BootOptionCount * sizeof (UINT16));
+  if (NewOrder == NULL) {
+    EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
+    return;
+  }
+
+  Next = 0;
+  for (Index = 0; Index < BootOptionCount; Index++) {
+    if (!PlatformIsNetworkBootOption (BootOptions[Index].FilePath)) {
+      NewOrder[Next++] = (UINT16)BootOptions[Index].OptionNumber;
+    }
+  }
+
+  for (Index = 0; Index < BootOptionCount; Index++) {
+    if (PlatformIsNetworkBootOption (BootOptions[Index].FilePath)) {
+      NewOrder[Next++] = (UINT16)BootOptions[Index].OptionNumber;
+    }
+  }
+
+  Changed = FALSE;
+  for (Index = 0; Index < BootOptionCount; Index++) {
+    if (NewOrder[Index] != (UINT16)BootOptions[Index].OptionNumber) {
+      Changed = TRUE;
+      break;
+    }
+  }
+
+  if (Changed) {
+    Status = gRT->SetVariable (
+                    EFI_BOOT_ORDER_VARIABLE_NAME,
+                    &gEfiGlobalVariableGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    BootOptionCount * sizeof (UINT16),
+                    NewOrder
+                    );
+    DEBUG ((
+      DEBUG_INFO,
+      "%a: moved network boot options behind the others in BootOrder: %r\n",
+      __FUNCTION__,
+      Status
+      ));
+  }
+
+  FreePool (NewOrder);
+  EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
+}
+
+/**
   Do the platform specific action after the console is ready
   Possible things that can be done in PlatformBootManagerAfterConsole:
   > Console post action:
@@ -1175,6 +1289,11 @@ PlatformBootManagerAfterConsole (
   // refresh Boot order for newly discovered boot devices
   //
   BootDiscoveryPolicyHandler ();
+
+  //
+  // Local media before the network, whatever order the options were found in.
+  //
+  PlatformDemoteNetworkBootOptions ();
 
   //
   // On ARM, there is currently no reason to use the phased capsule
