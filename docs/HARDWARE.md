@@ -66,7 +66,11 @@ part of the FIT and the SPL loads it back. Seen for a firmware reset; a
 power cycle reads the same bytes from the card and has not been tried
 separately.
 
-Not tried: an Ethernet link, USB devices, booting an operating system, PCIe.
+Also seen working, reported from the board: a USB keyboard in the UEFI menus,
+booting from a USB stick, keyboard and mouse in Windows Setup, and Ethernet
+getting a DHCP address in UEFI.
+
+Not tried: booting an installed operating system, Linux through UEFI, PCIe.
 
 ACPI: the image installs ACPI tables next to the device tree, as the CM5-IO
 does (ConfigTableMode ACPI + FDT, switchable in the front-page menu).
