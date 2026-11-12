@@ -37,5 +37,5 @@
   IoLib
   GpioLib
   RK806
-  PWMLib
+  Rk3576PwmLib
   TimerLib

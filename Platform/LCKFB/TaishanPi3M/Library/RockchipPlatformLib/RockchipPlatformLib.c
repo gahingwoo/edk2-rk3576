@@ -32,7 +32,7 @@
 #include <Library/IoLib.h>
 #include <Library/GpioLib.h>
 #include <Library/RK806.h>
-#include <Library/PWMLib.h>
+#include <Library/Rk3576PwmLib.h>
 #include <Library/TimerLib.h>
 #include <Soc.h>
 #include <VarStoreData.h>
@@ -613,15 +613,47 @@ HdmiTxIomux (
 }
 
 /*
- * PwmFanIoSetup / PwmFanSetSpeed
- * Fan control is left to the OS.
+ * PwmFanIoSetup / PwmFanSetSpeed -- the 2-pin fan on CN2.
+ *
+ * Wiring, from three sources that agree:
+ *   - LCKFB's vendor tree, rk3576-lckfb-tspi-3m.dts:164-188:
+ *       fan: pwm-fan { pwms = <&pwm2_8ch_3 0 500000 0>;
+ *                      cooling-levels = <0 100 150 200 255>; }
+ *       &pwm2_8ch_3 { pinctrl-0 = <&pwm2m3_ch3>; }
+ *   - Armbian's mainline tree for this board,
+ *     board-lckfb-tspi-3m-01-onboard-hardware.patch:58-64 and :238-242,
+ *     the same pwms cell and pinctrl, tested on the board with 7.3.3.
+ *   - The schematic (LCEDA project v1.4, page 31 "RTC和FAN") has net
+ *     PWM2_CH3_M3, VCC5V0_SYS, an MMST3904 NPN (Q13), an SK2301 P-MOSFET
+ *     (Q12), a 1N4148 (D60) and the 2-pin connector CN2: the usual NPN
+ *     driving a high-side P-MOSFET, in which a high pin turns the fan on.
+ *     The parts list was read from the project file; the wires between them
+ *     were not traced, so the device trees are the authority on polarity.
+ *
+ * So: PWM2 channel 3 (pwm@2ade3000), 500000 ns period (2 kHz), polarity flag
+ * 0 = PWM_POLARITY_NORMAL, i.e. the pin is high for the duty part of the
+ * period.  The cooling levels make duty 0 the "off" level, so high = fan on.
+ * This is not the CM5-IO, whose fan is inverted.
+ *
+ * pwm2m3_ch3 is GPIO3_D0 function 12 (rk3576-pinctrl.dtsi:2958-2961).  GPIO3
+ * PD is IOC_GRF + 0x4078 (pinctrl-rockchip.c:6433), which GpioLib computes
+ * as 0x4060 + (24 / 4) * 4.  The pin config there also asks for drive level
+ * 2; GpioLib cannot set drive strength on RK3576, so the pad keeps its reset
+ * drive.  It only feeds Q13's base resistor.
  */
+#define FAN_PWM_CONTROLLER  2
+#define FAN_PWM_CHANNEL     3
+#define FAN_PWM_PERIOD_NS   500000U
+#define FAN_PWM_INVERTED    FALSE
+
 VOID
 EFIAPI
 PwmFanIoSetup (
   VOID
   )
 {
+  /* pwm2m3_ch3: GPIO3 PD0 function 12 */
+  GpioPinSetFunction (3, GPIO_PIN_PD0, 12);
 }
 
 VOID
@@ -630,6 +662,25 @@ PwmFanSetSpeed (
   IN UINT32  Percentage
   )
 {
+  EFI_STATUS  Status;
+
+  if (Percentage > 100) {
+    Percentage = 100;
+  }
+
+  Status = Rk3576PwmStart (
+             FAN_PWM_CONTROLLER,
+             FAN_PWM_CHANNEL,
+             FAN_PWM_PERIOD_NS,
+             FAN_PWM_PERIOD_NS / 100 * Percentage,
+             FAN_PWM_INVERTED
+             );
+  DEBUG ((
+    EFI_ERROR (Status) ? DEBUG_ERROR : DEBUG_INFO,
+    "TSPI-3M PwmFanSetSpeed: %u%% on PWM2 ch3 (GPIO3 PD0): %r\n",
+    Percentage,
+    Status
+    ));
 }
 
 /*
