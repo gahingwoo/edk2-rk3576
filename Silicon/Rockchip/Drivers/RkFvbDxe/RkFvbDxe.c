@@ -1155,7 +1155,32 @@ FvbConfigureFlashInstance (
     return EFI_OUT_OF_RESOURCES;
   }
 
-  ZeroMem ((VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize);
+  //
+  // Do not wipe a store that is already there.
+  //
+  // When the firmware boots from SD or eMMC, the SPL loads the FIT image
+  // "nvdata" to PcdFlashNvStorageVariableBase64 before EDK2 runs (see
+  // scripts/package.sh), so this buffer already holds what the last boot
+  // saved.  This used to be an unconditional ZeroMem, followed further down by
+  // a dump of the now-empty buffer to the boot disk as soon as the disk was
+  // found.  Nothing ever read the disk copy back, so every boot started from
+  // an empty store and then overwrote the saved one with it: variables could
+  // not survive a reset on any board that boots from SD or eMMC.
+  //
+  // The SPI NOR path below reads the flash into the buffer and is unaffected.
+  //
+  if (  (FlashInstance->RegionBaseAddress == (UINTN)FixedPcdGet64 (PcdFlashNvStorageVariableBase64))
+     && !EFI_ERROR (FvbValidateFvHeader (FlashInstance)))
+  {
+    DEBUG ((
+      DEBUG_INFO,
+      "%a: variable store preloaded at 0x%lx is valid, keeping it\n",
+      __FUNCTION__,
+      (UINT64)FlashInstance->RegionBaseAddress
+      ));
+  } else {
+    ZeroMem ((VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize);
+  }
 
   if (FlashInstance->IsSpiFlashAvailable) {
     if (  (mBootDeviceType != RkAtagBootDevTypeSpiNor)
@@ -1432,9 +1457,10 @@ FvbCheckRkBootDeviceSupported (
 STATIC
 BOOLEAN
 FvbCheckBootDiskDeviceHasFirmware (
-  IN EFI_HANDLE  Handle,
-  IN UINT32      MediaId,
-  IN CHAR16      *DevicePathText
+  IN  EFI_HANDLE  Handle,
+  IN  UINT32      MediaId,
+  IN  CHAR16      *DevicePathText,
+  OUT UINT64      *NvDataOffset
   )
 {
   EFI_STATUS            Status;
@@ -1445,7 +1471,12 @@ FvbCheckBootDiskDeviceHasFirmware (
   VOID                  *Fdt = NULL;
   INT32                 Ret;
   INT32                 Node;
+  INT32                 Len;
+  CONST UINT32          *Prop;
+  UINT64                NvPosition;
   BOOLEAN               Found = FALSE;
+
+  *NvDataOffset = 0;
 
   Status = gBS->HandleProtocol (Handle, &gEfiDiskIoProtocolGuid, (VOID **)&DiskIo);
   ASSERT_EFI_ERROR (Status);
@@ -1513,6 +1544,42 @@ FvbCheckBootDiskDeviceHasFirmware (
 
   Found = TRUE;
 
+  //
+  // Where the SPL reads "nvdata" from is where the store has to be written
+  // back to.  mkimage -E records it either as an absolute data-position or as
+  // a data-offset from the end of the (4-byte aligned) FIT header.
+  //
+  Node = FdtPathOffset (Fdt, "/images/nvdata");
+  if (Node >= 0) {
+    NvPosition = 0;
+    Prop       = FdtGetProp (Fdt, Node, "data-position", &Len);
+    if ((Prop != NULL) && (Len == sizeof (UINT32))) {
+      NvPosition = Fdt32ToCpu (*Prop);
+    } else {
+      Prop = FdtGetProp (Fdt, Node, "data-offset", &Len);
+      if ((Prop != NULL) && (Len == sizeof (UINT32))) {
+        NvPosition = ALIGN_VALUE ((UINT64)FdtTotalSize (&FdtHeader), 4) + Fdt32ToCpu (*Prop);
+      }
+    }
+
+    Prop = FdtGetProp (Fdt, Node, "data-size", &Len);
+    if (  (NvPosition != 0)
+       && (Prop != NULL) && (Len == sizeof (UINT32))
+       && (Fdt32ToCpu (*Prop) == mFvbDevice->FvbSize))
+    {
+      *NvDataOffset = Offset + NvPosition;
+    } else {
+      DEBUG ((
+        DEBUG_WARN,
+        "%a: [%s] FIT: '/images/nvdata' is unusable (position 0x%lx, size %a)\n",
+        __FUNCTION__,
+        DevicePathText,
+        NvPosition,
+        (Prop != NULL) ? "mismatch" : "missing"
+        ));
+    }
+  }
+
 Exit:
   if (Fdt != NULL) {
     FreePool (Fdt);
@@ -1532,6 +1599,7 @@ FvbProcessBootDiskDeviceHandle (
   EFI_BLOCK_IO_PROTOCOL     *BlkIo;
   EFI_DEVICE_PATH_PROTOCOL  *Device         = NULL;
   CHAR16                    *DevicePathText = NULL;
+  UINT64                    NvDataOffset;
 
   if (!FvbCheckRkBootDeviceSupported (Handle, BootDevice)) {
     return;
@@ -1567,9 +1635,28 @@ FvbProcessBootDiskDeviceHandle (
     goto Exit;
   }
 
-  if (!FvbCheckBootDiskDeviceHasFirmware (Handle, BlkIo->Media->MediaId, DevicePathText)) {
+  if (!FvbCheckBootDiskDeviceHasFirmware (Handle, BlkIo->Media->MediaId, DevicePathText, &NvDataOffset)) {
     DEBUG ((DEBUG_INFO, "%a: [%s] No compatible firmware found. Skipping.\n", __FUNCTION__, DevicePathText));
     goto Exit;
+  }
+
+  if (NvDataOffset != 0) {
+    mFvbDevice->FvbOffset = NvDataOffset;
+    DEBUG ((
+      DEBUG_INFO,
+      "%a: [%s] NV store is the FIT's nvdata image at 0x%lx\n",
+      __FUNCTION__,
+      DevicePathText,
+      NvDataOffset
+      ));
+  } else {
+    DEBUG ((
+      DEBUG_WARN,
+      "%a: [%s] FIT has no nvdata image: the SPL will not load the store"
+      " back, so variables will not survive a reset\n",
+      __FUNCTION__,
+      DevicePathText
+      ));
   }
 
   Status = FvbDiskDumpNvData (Device, BlkIo->Media->MediaId);

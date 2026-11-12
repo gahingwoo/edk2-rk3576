@@ -80,7 +80,36 @@ info "BL31 entry: $BL31_ENTRY"
 # copy a payload as it is whatever the label says: the SPL has been loading
 # 13 MB over MMC all along.  An SPL built with gzip support would have tried
 # to inflate raw data and failed.  Found 2026-11-12 on the TaishanPi 3M.
-python3 "$ROOT/scripts/lib/gen_fit_its.py" "$WORK" "$DEVICE_TREE_NAME" "$BL31_ENTRY"
+#
+# On SD and eMMC the UEFI variable store travels inside the FIT as the image
+# "nvdata".  The SPL loads it to PcdFlashNvStorageVariableBase64 on every boot
+# and RkFvbDxe writes it back to the same bytes of the FIT, which is the only
+# way a saved variable gets back into memory on these media.  The address and
+# size come from the FDF so they cannot drift from the firmware's idea of
+# them.  SPI NOR images do not need this: the driver reads the flash itself.
+NVDATA_ARGS=()
+if [ "$BOOT_MEDIUM" = "sdcard" ]; then
+    read -r NV_LOAD NV_SIZE < <(python3 - "$ROOT/Silicon/Rockchip/RK3576/RK3576.fdf" <<'PY'
+import re, sys
+t = open(sys.argv[1]).read()
+base = int(re.search(r'^BaseAddress\s*=\s*(0x[0-9A-Fa-f]+)', t, re.M).group(1), 16)
+def region(pcd):
+    m = re.search(r'^(0x[0-9A-Fa-f]+)\|(0x[0-9A-Fa-f]+)\s*\n[^\n]*' + pcd, t, re.M)
+    return int(m.group(1), 16), int(m.group(2), 16)
+var = region('PcdFlashNvStorageVariableBase64')
+ftw = region('PcdFlashNvStorageFtwWorkingBase64')
+spare = region('PcdFlashNvStorageFtwSpareBase64')
+assert var[0] + var[1] == ftw[0] and ftw[0] + ftw[1] == spare[0], "NV regions are not contiguous"
+print(hex(base + var[0]), var[1] + ftw[1] + spare[1])
+PY
+    )
+    [ -n "${NV_LOAD:-}" ] && [ "${NV_SIZE:-0}" -gt 0 ] || die "could not read the NV store layout from RK3576.fdf"
+    # 0xFF is the erased state.  All-zero reads as "corrupted", not "empty".
+    head -c "$NV_SIZE" /dev/zero | tr '\0' '\377' > "$WORK/nvdata.bin"
+    NVDATA_ARGS=(--nvdata "$NV_LOAD")
+    info "NV store: $NV_SIZE bytes in the FIT, loaded to $NV_LOAD"
+fi
+python3 "$ROOT/scripts/lib/gen_fit_its.py" "$WORK" "$DEVICE_TREE_NAME" "$BL31_ENTRY" "${NVDATA_ARGS[@]}"
 [ -f "$WORK/${DEVICE_TREE_NAME}_EFI.its" ] || die "gen_fit_its.py produced no ITS"
 
 # mkimage must be >= 2020.07.  Older releases silently ignore -B, which makes
@@ -140,31 +169,33 @@ if [ "$BOOT_MEDIUM" = "sdcard" ]; then
     dd if="$IDBLOCK" of="$OUT_IMG" bs=512 seek=64 conv=notrunc status=none
     dd if="$FIT" of="$OUT_IMG" bs=512 seek=16384 conv=notrunc status=none
 
-    # NV variable store, 3 x 64 KB, filled with 0xFF.  The rest of the image is
-    # zeros, and the variable driver reads all-zero as "corrupted" rather than
-    # "erased", so it would report a broken store on every boot.  The offset
-    # must match PcdRkFvbNvStorageSpiOffset in the board DSC.
-    NVS_OFF=$((0x1600000)); NVS_SIZE=$((3 * 64 * 1024))
-    if [ $((NVS_OFF + NVS_SIZE)) -le $((SD_MB * 1024 * 1024)) ] \
-       && [ "$NVS_OFF" -ge $((0x800000 + FIT_SIZE)) ]; then
-        # head -c bounds the producer.  `tr < /dev/zero` never stops on its own,
-        # so once dd exits tr takes SIGPIPE, and with `set -o pipefail` that
-        # fails the whole pipeline and kills the script here.
-        head -c "$NVS_SIZE" /dev/zero | tr '\0' '\377' \
-            | dd of="$OUT_IMG" bs=64K oflag=seek_bytes seek="$NVS_OFF" conv=notrunc status=none
-        # Read it back.  "wrote it but not all of it" should not be something
-        # you discover by eye in a log.
-        LEFT="$(dd if="$OUT_IMG" bs=64K iflag=skip_bytes,count_bytes \
-                   skip="$NVS_OFF" count="$NVS_SIZE" status=none | tr -d '\377' | wc -c)"
-        [ "$LEFT" -eq 0 ] || die "NV store fill incomplete ($LEFT bytes are not 0xFF)"
-        ok "NV store: 0xFF at $(printf '0x%X' $NVS_OFF), verified"
-    else
-        warn "NV store at $(printf '0x%X' $NVS_OFF) overlaps the FIT or exceeds the image -- variables will not persist"
-    fi
+    # The variable store is the FIT image "nvdata" (see above).  Find where
+    # mkimage put it and check that those bytes on the image are the erased
+    # store, because that offset is what the firmware will write back to.
+    NVS_OFF="$(python3 - "$FIT" <<'PY'
+import struct, subprocess, sys, re
+fit = open(sys.argv[1], 'rb').read()
+total = struct.unpack('>I', fit[4:8])[0]
+dts = subprocess.run(['dtc', '-I', 'dtb', '-O', 'dts', '-q', sys.argv[1]], capture_output=True, text=True).stdout
+m = re.search(r'nvdata \{(.*?)\n\t\t\};', dts, re.S)
+body = m.group(1)
+pos = re.search(r'data-position = <(0x[0-9a-f]+)>', body)
+off = re.search(r'data-offset = <(0x[0-9a-f]+)>', body)
+size = int(re.search(r'data-size = <(0x[0-9a-f]+)>', body).group(1), 16)
+start = int(pos.group(1), 16) if pos else ((total + 3) & ~3) + int(off.group(1), 16)
+assert fit[start:start + size] == b'\xff' * size, "nvdata in the FIT is not all 0xFF"
+print(0x800000 + start, size)
+PY
+    )"
+    read -r NVS_OFF NVS_SIZE <<<"$NVS_OFF"
+    LEFT="$(dd if="$OUT_IMG" bs=64K iflag=skip_bytes,count_bytes \
+               skip="$NVS_OFF" count="$NVS_SIZE" status=none | tr -d '\377' | wc -c)"
+    [ "$LEFT" -eq 0 ] || die "NV store on the image is not erased ($LEFT bytes are not 0xFF)"
+    ok "NV store: $NVS_SIZE bytes of 0xFF at $(printf '0x%X' "$NVS_OFF"), inside the FIT, verified"
 
     LAYOUT="  sector 64    (0x008000)  idblock (DDR init + SPL)
-  sector 16384 (0x800000)  FIT (BL31 + EDK2 + DTB)
-  0x1600000                NV variable store (3 x 64 KB)"
+  sector 16384 (0x800000)  FIT (BL31 + EDK2 + DTB + NV variable store)
+  $(printf '0x%X' "$NVS_OFF")                NV variable store, the last image in the FIT"
     FLASH="  dd if=out/$PLATFORM_NAME/$PLATFORM_NAME-sdcard.img of=/dev/sdX bs=1M status=progress && sync"
 
     # Partitioned eMMC image.  The plain sdcard image is the firmware and
