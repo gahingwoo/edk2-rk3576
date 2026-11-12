@@ -17,6 +17,7 @@
 #include <Protocol/ExitBootServicesOsNotify.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/NonDiscoverableDevice.h>
+#include <Protocol/PciRootBridgeIo.h>
 #include <Library/AcpiLib.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
@@ -103,6 +104,62 @@ AcpiUpdateSdtNameInteger (
   return EFI_NOT_FOUND;
 }
 
+//
+// Whether UEFI produced a PCI root bridge for this segment.
+//
+// Rk3576PciHostBridgeLib only returns a root bridge whose link trained.  When
+// it does not train, PciHostBridgeInit.c asserts the controller's APB and
+// power-up resets and leaves them asserted, so the DBI that \_SB.PCIn's
+// RES0, its _CRS windows and the MCFG all point at belongs to a block held in
+// reset.  This asks the PCI stack rather than reading the controller, so it
+// never touches a register of a block that may be in reset.
+//
+// Runs at EndOfDxe.  PciHostBridgeDxe installs its root bridge protocols from
+// its entry point, which the DXE dispatcher has run before BDS signals
+// EndOfDxe; its depex (gRockchipPlatformConfigAppliedProtocolGuid) is the same
+// as this driver's.
+//
+STATIC
+BOOLEAN
+PcieSegmentHasRootBridge (
+  IN UINT32  Segment
+  )
+{
+  EFI_STATUS                       Status;
+  EFI_HANDLE                       *Handles;
+  UINTN                            HandleCount;
+  UINTN                            Index;
+  EFI_PCI_ROOT_BRIDGE_IO_PROTOCOL  *RootBridgeIo;
+  BOOLEAN                          Found;
+
+  Status = gBS->LocateHandleBuffer (
+                  ByProtocol,
+                  &gEfiPciRootBridgeIoProtocolGuid,
+                  NULL,
+                  &HandleCount,
+                  &Handles
+                  );
+  if (EFI_ERROR (Status)) {
+    return FALSE;
+  }
+
+  Found = FALSE;
+  for (Index = 0; Index < HandleCount; Index++) {
+    Status = gBS->HandleProtocol (
+                    Handles[Index],
+                    &gEfiPciRootBridgeIoProtocolGuid,
+                    (VOID **)&RootBridgeIo
+                    );
+    if (!EFI_ERROR (Status) && (RootBridgeIo->SegmentNumber == Segment)) {
+      Found = TRUE;
+      break;
+    }
+  }
+
+  FreePool (Handles);
+  return Found;
+}
+
 STATIC
 VOID
 EFIAPI
@@ -125,6 +182,24 @@ AcpiDsdtFixupStatus (
     { "\\_SB.PCI0._STA", PcdGet32 (PcdComboPhy0Mode) == COMBO_PHY_MODE_PCIE },
     { "\\_SB.PCI1._STA", PcdGet32 (PcdComboPhy1Mode) == COMBO_PHY_MODE_PCIE },
   };
+
+  //
+  // On boards that ask for it, a segment whose link did not train in UEFI is
+  // hidden as well (see PcieSegmentHasRootBridge).  DevStatus[n] is segment n.
+  //
+  if (FixedPcdGetBool (PcdAcpiPcieRequireRootBridge)) {
+    for (Index = 0; Index < ARRAY_SIZE (DevStatus); Index++) {
+      if (DevStatus[Index].Enabled && !PcieSegmentHasRootBridge ((UINT32)Index)) {
+        DEBUG ((
+          DEBUG_WARN,
+          "AcpiPlatform: no PCI root bridge for segment %u, hiding %a\n",
+          (UINT32)Index,
+          DevStatus[Index].ObjectPath
+          ));
+        DevStatus[Index].Enabled = FALSE;
+      }
+    }
+  }
 
   for (Index = 0; Index < ARRAY_SIZE (DevStatus); Index++) {
     if (DevStatus[Index].Enabled == FALSE) {

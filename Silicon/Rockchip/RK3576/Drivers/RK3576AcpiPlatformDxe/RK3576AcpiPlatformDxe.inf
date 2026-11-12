@@ -48,7 +48,11 @@
   gEdkiiNonDiscoverableDeviceProtocolGuid
   gEfiAcpiSdtProtocolGuid
   gEfiLoadedImageProtocolGuid
+  gEfiPciRootBridgeIoProtocolGuid
   gExitBootServicesOsNotifyProtocolGuid
+
+[FixedPcd]
+  gRK3576TokenSpaceGuid.PcdAcpiPcieRequireRootBridge
 
 [Pcd]
   gRK3576TokenSpaceGuid.PcdConfigTableMode

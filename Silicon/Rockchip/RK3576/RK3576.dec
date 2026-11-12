@@ -53,6 +53,13 @@
   # Config table mode (ACPI / FDT)
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|0|UINT32|0x00010300
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault|0|UINT32|0x00010301
+  #
+  # TRUE: RK3576AcpiPlatformDxe also hides \_SB.PCIn when UEFI produced no PCI
+  # root bridge for segment n (its link did not train, so PciHostBridgeInit.c
+  # left the controller in reset).  FALSE keeps the older rule, ComboPHY mode
+  # only.  FALSE by default so a board that does not ask for it is unchanged.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiPcieRequireRootBridge|FALSE|BOOLEAN|0x00010302
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|0|UINT32|0x00010351
   gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|0|UINT8|0x00010352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault|0|UINT8|0x00010353
