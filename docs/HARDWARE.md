@@ -56,10 +56,14 @@ Seen working: SPL from eMMC loading the FIT from SD, TF-A v2.14, the UEFI
 front page, HDMI at 2560x1440 from the sink's EDID, eMMC at 52 MHz, SD card
 with the NV variable store on it, the USB hub, PHY identification.
 
-Open: on the one firmware boot so far, HPD read low with a monitor attached
-until the firmware gave up after 5 seconds and brought the display up anyway.
-Linux reads it high on the same board, cable and monitor, with the same IOC
-register values, so the cause is not known. It needs more boots before
-anything is changed.
+HPD used to read low under the firmware with a monitor attached, and every
+boot waited 5 seconds before forcing the display on. The pads' reset pull was
+never cleared, because the firmware wrote the wrong register; fixed, and HPD
+now reads high at once.
+
+UEFI variables are kept across a reset when booting from SD: the store is
+part of the FIT and the SPL loads it back. Seen for a firmware reset; a
+power cycle reads the same bytes from the card and has not been tried
+separately.
 
 Not tried: an Ethernet link, USB devices, booting an operating system, PCIe.
