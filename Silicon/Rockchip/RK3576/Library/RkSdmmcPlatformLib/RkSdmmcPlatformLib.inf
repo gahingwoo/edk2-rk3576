@@ -27,6 +27,7 @@
   Silicon/Rockchip/RK3576/RK3576.dec
 
 [LibraryClasses]
+  BaseLib
   DebugLib
   GpioLib
   IoLib
