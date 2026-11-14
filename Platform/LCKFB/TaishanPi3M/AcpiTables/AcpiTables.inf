@@ -2,7 +2,8 @@
 #
 #  ACPI tables for the LCKFB TaishanPi 3M (RK3576)
 #
-#  Only the DSDT is the board's.  MADT, FADT, GTDT, SPCR, MCFG, DBG2 and PPTT
+#  Only the DSDT and the fan SSDT (Fan.asl, installed only when fan control is
+#  enabled in setup) are the board's.  MADT, FADT, GTDT, SPCR, MCFG, DBG2 and PPTT
 #  describe the SoC and are built from Silicon/Rockchip/RK3576/AcpiTables, the
 #  same sources the CM5-IO builds.  AcpiTables.h is the SoC's
 #  (Silicon/Rockchip/RK3576/Include/AcpiTables.h): this directory has no copy
@@ -37,6 +38,7 @@
 
 [Sources]
   Dsdt.asl
+  Fan.asl
   $(RK_COMMON_ACPI_DIR)/Madt.aslc
   $(RK_COMMON_ACPI_DIR)/Fadt.aslc
   $(RK_COMMON_ACPI_DIR)/Gtdt.aslc

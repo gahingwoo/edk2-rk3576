@@ -207,5 +207,12 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // has been run on this board.
     include ("Display.asl")
     include ("Gpu.asl")
+
+    // SoC temperature: TSADC channels 0-2 as thermal zones TZ00..TZ02,
+    // read-out only, no trip points.  The TSADC is started by the firmware
+    // (PcdTsadcEnable in TaishanPi3M.dsc).  The fan and its trip points on
+    // TZ01 are in Fan.asl, a separate SSDT installed only when fan control is
+    // enabled in setup.
+    include ("Thermal.asl")
   }
 }

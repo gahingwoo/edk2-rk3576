@@ -207,6 +207,7 @@
   OtpLib|Silicon/Rockchip/RK3576/Library/OtpLib/OtpLib.inf
   GpioLib|Silicon/Rockchip/RK3576/Library/GpioLib/GpioLib.inf
   Rk3576PwmLib|Silicon/Rockchip/RK3576/Library/Rk3576PwmLib/Rk3576PwmLib.inf
+  Rk3576TsadcLib|Silicon/Rockchip/RK3576/Library/Rk3576TsadcLib/Rk3576TsadcLib.inf
 
 [LibraryClasses.common.SEC]
   MemoryInitPeiLib|Silicon/Rockchip/RK3576/Library/MemoryInitPeiLib/MemoryInitPeiLib.inf
@@ -424,6 +425,11 @@
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault|TRUE
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePathDefault|L""
   gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPathDefault|L""
+  #
+  # ACPI fan control (setup option, backs PcdAcpiFanControl below): off unless
+  # a board turns it on.  A DynamicHii default must be set here explicitly.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
 
   #
   # GMAC.  GMAC0 is used on both boards; GMAC1 is not brought out.
@@ -496,6 +502,7 @@
   #
   gRK3576TokenSpaceGuid.PcdConfigTableMode|L"ConfigTableMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdConfigTableModeDefault
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode|L"AcpiPcieEcamCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault
+  gRK3576TokenSpaceGuid.PcdAcpiFanControl|L"AcpiFanControl"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault

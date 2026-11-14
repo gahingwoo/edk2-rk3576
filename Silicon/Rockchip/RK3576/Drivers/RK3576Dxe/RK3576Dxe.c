@@ -21,6 +21,7 @@
 #include <Library/UefiLib.h>
 #include <Library/RockchipPlatformLib.h>
 #include <Library/GpioLib.h>
+#include <Library/Rk3576TsadcLib.h>
 #include <Protocol/DevicePath.h>
 #include <VarStoreData.h>
 /*
@@ -301,6 +302,13 @@ RK3576EntryPoint (
 
   /* Initialize status LED */
   RK3576InitStatusLed ();
+
+  /*
+   * Temperature sensors, read-out only, if the board asks for it
+   * (PcdTsadcEnable).  Before the fan, so the log shows the temperature the
+   * fan starts at.
+   */
+  Rk3576TsadcInit ();
 
   /* Board fan, if the board has one the firmware knows how to drive */
   RK3576InitCoolingFan ();

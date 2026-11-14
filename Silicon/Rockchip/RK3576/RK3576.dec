@@ -60,6 +60,15 @@
   # only.  FALSE by default so a board that does not ask for it is unchanged.
   #
   gRK3576TokenSpaceGuid.PcdAcpiPcieRequireRootBridge|FALSE|BOOLEAN|0x00010302
+  #
+  # ACPI fan control (the board's fan SSDT, OEM table ID "RKFAN"): TRUE in
+  # PcdAcpiFanControlSupported makes the setup option visible; the option
+  # (PcdAcpiFanControl, default PcdAcpiFanControlDefault) decides whether
+  # RK3576AcpiPlatformDxe installs that SSDT.  Without it only the
+  # temperature read-out in the DSDT remains.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|FALSE|BOOLEAN|0x00010303
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0|UINT8|0x00010304
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|0|UINT32|0x00010351
   gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|0|UINT8|0x00010352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault|0|UINT8|0x00010353
@@ -91,6 +100,18 @@
   # set it only on a board whose fan wiring is in its platform library.
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|0|UINT32|0x00010700
 
+  # PWM period of the board fan, in nanoseconds, for PwmFanSetSpeed().  The
+  # default 500000 (2 kHz) is what the device trees use.  At 100% duty the
+  # pin is held high and the period does not matter.
+  gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|500000|UINT32|0x00010702
+
+  # TRUE: RK3576Dxe starts the TSADC sampling at boot, read-out only (no
+  # TSHUT output, no interrupt, no reset; see Rk3576TsadcLib.c), and
+  # RK3576AcpiPlatformDxe tells the DSDT's thermal zones it may read it.
+  # FALSE leaves the TSADC untouched.  Set it only on a board whose DSDT
+  # includes Thermal.asl.
+  gRK3576TokenSpaceGuid.PcdTsadcEnable|FALSE|BOOLEAN|0x00010701
+
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   # Runtime dynamic PCDs (set by RK3576Dxe at DXE phase from *Default FixedAtBuild values)
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode|0|UINT32|0x00000101
@@ -98,6 +119,7 @@
 
   gRK3576TokenSpaceGuid.PcdConfigTableMode|0|UINT32|0x00000300
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|0|UINT32|0x00000351
+  gRK3576TokenSpaceGuid.PcdAcpiFanControl|0|UINT8|0x00000303
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup|0|UINT8|0x00000354

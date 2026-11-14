@@ -135,6 +135,26 @@
   # simply held high.
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
 
+  # 40000 ns = 25 kHz, above hearing, for when the fan runs at partial duty
+  # (only with ACPI fan control on; at 100% the pin is held high and the
+  # period changes nothing).  The fan is a 2-pin fan switched on its supply by
+  # a P-MOSFET (Q12, driven by Q13), not a 4-pin fan with a PWM input: 25 kHz
+  # on the supply of a brushless fan can make it stall or run unevenly at low
+  # duty, and the transistor stage may not switch cleanly at 40 us.  If it
+  # does, set this back to 500000 (2 kHz, what the device trees use).
+  # 24 MHz PWM clock, so 960 counts per period.
+  gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|40000
+
+  # TSADC read-out for the DSDT's thermal zones (Thermal.asl): started at
+  # boot with no TSHUT output, no interrupt and no reset write.
+  gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
+
+  # Fan control by ACPI thermal zone (AcpiTables/Fan.asl): the setup option
+  # exists on this board, and is off until the temperature read-out has been
+  # checked on the board.
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
+
 ################################################################################
 [Components.common]
   # ACPI tables, installed alongside the DTB (PcdConfigTableModeDefault above)

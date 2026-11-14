@@ -31,6 +31,7 @@
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
 #include <Library/GpioLib.h>
+#include <Library/PcdLib.h>
 #include <Library/RK806.h>
 #include <Library/Rk3576PwmLib.h>
 #include <Library/TimerLib.h>
@@ -630,9 +631,11 @@ HdmiTxIomux (
  *     The parts list was read from the project file; the wires between them
  *     were not traced, so the device trees are the authority on polarity.
  *
- * So: PWM2 channel 3 (pwm@2ade3000), 500000 ns period (2 kHz), polarity flag
- * 0 = PWM_POLARITY_NORMAL, i.e. the pin is high for the duty part of the
- * period.  The cooling levels make duty 0 the "off" level, so high = fan on.
+ * So: PWM2 channel 3 (pwm@2ade3000), polarity flag 0 = PWM_POLARITY_NORMAL,
+ * i.e. the pin is high for the duty part of the period.  The device trees
+ * use a 500000 ns period (2 kHz); the firmware's is PcdPwmFanPeriodNs, 25 kHz
+ * on this board (TaishanPi3M.dsc says why and what the risk is).  Linux's
+ * pwm-fan programs its own period when it probes.  The cooling levels make duty 0 the "off" level, so high = fan on.
  * This is not the CM5-IO, whose fan is inverted.
  *
  * pwm2m3_ch3 is GPIO3_D0 function 12 (rk3576-pinctrl.dtsi:2958-2961).  GPIO3
@@ -643,7 +646,7 @@ HdmiTxIomux (
  */
 #define FAN_PWM_CONTROLLER  2
 #define FAN_PWM_CHANNEL     3
-#define FAN_PWM_PERIOD_NS   500000U
+#define FAN_PWM_PERIOD_NS   FixedPcdGet32 (PcdPwmFanPeriodNs)
 #define FAN_PWM_INVERTED    FALSE
 
 VOID
@@ -672,7 +675,7 @@ PwmFanSetSpeed (
              FAN_PWM_CONTROLLER,
              FAN_PWM_CHANNEL,
              FAN_PWM_PERIOD_NS,
-             FAN_PWM_PERIOD_NS / 100 * Percentage,
+             (UINT32)(((UINT64)FAN_PWM_PERIOD_NS * Percentage) / 100),
              FAN_PWM_INVERTED
              );
   DEBUG ((
