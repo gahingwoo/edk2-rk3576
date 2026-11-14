@@ -223,6 +223,35 @@ AcpiDsdtFixupStatus (
 }
 
 //
+// The board's fan SSDT (OEM table ID "RKFAN") is installed only when fan
+// control is enabled in setup (PcdAcpiFanControl).  Without it the DSDT's
+// thermal zones still report the temperature, but have no trip points and no
+// cooling device, so the OS changes nothing.
+//
+#define FAN_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'F', 'A', 'N', ' ', ' ', ' ')
+
+STATIC
+BOOLEAN
+EFIAPI
+AcpiTableCheck (
+  IN EFI_ACPI_DESCRIPTION_HEADER  *AcpiHeader
+  )
+{
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == FAN_SSDT_OEM_TABLE_ID))
+  {
+    if (PcdGet8 (PcdAcpiFanControl) == 0) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: fan control off in setup, fan SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_INFO, "AcpiPlatform: fan control on, installing the fan SSDT\n"));
+  }
+
+  return TRUE;
+}
+
+//
 // Thermal.asl's zones read the TSADC only when \_SB.TSEN is 1, so an OS never
 // reads a block the firmware left in reset or unclocked; they return 300.0 K
 // otherwise.  \_SB.TSBn is the channel's code-table origin in millikelvin,
@@ -295,7 +324,7 @@ NotifyEndOfDxeEvent (
     return;
   }
 
-  Status = LocateAndInstallAcpiFromFvConditional (&mAcpiTableFile, NULL);
+  Status = LocateAndInstallAcpiFromFvConditional (&mAcpiTableFile, AcpiTableCheck);
   if (EFI_ERROR (Status)) {
     DEBUG ((
       DEBUG_WARN,

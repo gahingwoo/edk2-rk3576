@@ -53,6 +53,10 @@
                                                                            "NXPMX6 - uses the NXP i.MX6 ECAM quirk.\n\n"
                                                                            "AMAZON GRAVITON - uses the Amazon Graviton ECAM quirk."
 
+#string STR_ACPI_FAN_CONTROL_PROMPT                        #language en-US "Fan Control by ACPI Thermal Zone"
+#string STR_ACPI_FAN_CONTROL_HELP                          #language en-US "Disabled - the fan stays at the speed the firmware starts it at; the OS only gets the temperature read-out.\n\n"
+                                                                           "Enabled - the OS turns the fan down and up with the SoC temperature through ACPI fan devices (Windows inbox, no driver needed). Has no effect on Linux with a device tree."
+
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language en-US "Auto"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language en-US "Single Device"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_NXPMX6              #language en-US "NXPMX6"
