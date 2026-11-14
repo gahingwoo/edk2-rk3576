@@ -45,7 +45,11 @@
  *
  *  A data word below code 215 (including 0, before the first sample) or with
  *  bits above the 9-bit data mask set is not a temperature, and returns
- *  3000 (300.0 K, 26.85 C).  So does every read while TSEN is 0.
+ *  TBAD, 3732 (373.2 K, 100.0 C).  So does every read while TSEN is 0.
+ *  A reading that cannot be trusted has to look hot, not cool: with the fan
+ *  under ACPI control a cool value would stop the fan, a hot one runs it at
+ *  full speed.  There is no _CRT or _HOT, so no value shuts the machine
+ *  down.  100.0 C exactly, in a tool that shows the zones, means this.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
@@ -56,6 +60,7 @@
 // 1 once RK3576AcpiPlatformDxe has seen the TSADC out of reset, clocked and
 // sampling.  While 0 the zones never touch the TSADC.
 Name (TSEN, 0)
+Name (TBAD, 3732)   // what _TMP returns for a reading it cannot trust: 100.0 C
 
 // Per-channel origin in millikelvin: 233150 minus the trim in millidegrees.
 // Patched by RK3576AcpiPlatformDxe; written as DWord constants so the patch
@@ -76,7 +81,7 @@ Field (TSAD, DWordAcc, NoLock, Preserve) {
 Method (TSCV, 2, Serialized) {
   Local0 = Arg0
   If ((Local0 > 0x1FF) || (Local0 < 215)) {
-    Return (3000)
+    Return (TBAD)
   }
 
   If (Local0 <= 285) {
@@ -98,7 +103,7 @@ ThermalZone (TZ00) {
   Name (_TZP, 50)     // poll every 5.0 s
   Method (_TMP, 0, Serialized) {
     If (TSEN == 0) {
-      Return (3000)
+      Return (TBAD)
     }
     Return (TSCV (TSD0, TSB0))
   }
@@ -109,7 +114,7 @@ ThermalZone (TZ01) {
   Name (_TZP, 50)
   Method (_TMP, 0, Serialized) {
     If (TSEN == 0) {
-      Return (3000)
+      Return (TBAD)
     }
     Return (TSCV (TSD1, TSB1))
   }
@@ -120,7 +125,7 @@ ThermalZone (TZ02) {
   Name (_TZP, 50)
   Method (_TMP, 0, Serialized) {
     If (TSEN == 0) {
-      Return (3000)
+      Return (TBAD)
     }
     Return (TSCV (TSD2, TSB2))
   }
