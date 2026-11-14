@@ -75,13 +75,34 @@ Not tried: booting an installed operating system, Linux through UEFI, PCIe.
 
 ACPI: the image installs ACPI tables next to the device tree, as the CM5-IO
 does (ConfigTableMode ACPI + FDT, switchable in the front-page menu).
-`acpiview` reports no errors on the board, and Windows 11 23H2 Setup starts
-from a USB stick. Setup does not see the eMMC: Windows has no inbox driver
-for it, and the driver in woa-rk3576 has not been tried on this board.
-Nothing is installed or booted from the eMMC yet. The SoC tables (MADT, GTDT, PPTT, MCFG, SPCR, DBG2,
+`acpiview` reports no errors on the board. Windows 11 23H2 is installed on
+the eMMC with the drivers from
+[woa-rk3576](https://github.com/gahingwoo/woa-rk3576) and has run there
+since 2026-11-12, with its desktop on the Mali-G52 through
+[wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52) since
+2026-11-13. The SoC tables (MADT, GTDT, PPTT, MCFG, SPCR, DBG2,
 FADT) are the CM5-IO's and compile to the same bytes. The DSDT
 (`Platform/LCKFB/TaishanPi3M/AcpiTables/Dsdt.asl`) is the CM5-IO's minus
 the USB-C controller (XHC0) and the disabled XHC2 and SATA stubs; its
 comments give the device tree line for each board value. The mini-PCIe
 root complex is hidden from ACPI when its link does not train in UEFI,
 which is the usual case with a USB modem in the slot.
+
+Merged on 2026-11-14 and **not yet run on a board**; the release images
+are older than these and do not contain them:
+
+- The SD card clock: the divider field is one bit lower than the eMMC's
+  and the parents are the full PLLs, so a 52 MHz request was 85 to 91 MHz
+  (all boards).
+- The monitor's EDID is published as `\_SB.GPU0.EDID` for the Windows
+  display driver, and on the GOP handle (CM5-IO and TaishanPi 3M).
+- The TSADC is started for read-out only and three ACPI thermal zones read
+  it (TaishanPi 3M). Hardware over-temperature shutdown is not enabled and
+  there are no trip points. A reading that cannot be trusted shows as
+  100.0 C. Fan control from the big-core zone is in a separate table that
+  is off unless enabled in setup.
+- GPIO0 PB4 to PB7 iomux is written at the right address, which makes the
+  I2C2 SCL mux on PB7 take effect for the first time (all boards).
+- A 48 kHz HDMI audio preset with a SAI6 ACPI device, behind
+  `PcdHdmiAudioPreset`, which is FALSE: with it off nothing is written and
+  the device is not in the DSDT.
