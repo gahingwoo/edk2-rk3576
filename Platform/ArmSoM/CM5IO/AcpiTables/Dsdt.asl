@@ -139,5 +139,11 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
 
     // GPU: Mali-G52, powered by RK3576Dxe before boot
     include ("Gpu.asl")
+
+#if FixedPcdGetBool (PcdHdmiAudioPreset)
+    // SAI6, the HDMI audio interface.  Only with the firmware's HDMI audio
+    // preset, which sets its clocks; see Sai.asl.
+    include ("Sai.asl")
+#endif
   }
 }
