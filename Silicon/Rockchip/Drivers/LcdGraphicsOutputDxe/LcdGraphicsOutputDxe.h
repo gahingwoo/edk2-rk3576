@@ -20,6 +20,8 @@
 
 #include <Protocol/Cpu.h>
 #include <Protocol/DevicePath.h>
+#include <Protocol/EdidActive.h>
+#include <Protocol/EdidDiscovered.h>
 #include <Protocol/RockchipCrtcProtocol.h>
 #include <Protocol/RockchipConnectorProtocol.h>
 
@@ -45,6 +47,14 @@ typedef struct {
   DISPLAY_STATE                           *DisplayStates[VOP_OUTPUT_IF_NUMS];
   UINT32                                  DisplayStatesCount;
   DISPLAY_MODE                            *DisplayModes;
+  //
+  // The primary display's EDID as read over DDC, on the GOP handle (UEFI
+  // spec, EDID Discovered and EDID Active). SizeOfEdid is 0 when none was
+  // read or what was read does not check out. Nothing overrides it, so the
+  // two are the same.
+  //
+  EFI_EDID_DISCOVERED_PROTOCOL            EdidDiscovered;
+  EFI_EDID_ACTIVE_PROTOCOL                EdidActive;
 } LCD_INSTANCE;
 
 #define LCD_INSTANCE_SIGNATURE  SIGNATURE_32('l', 'c', 'd', '0')
