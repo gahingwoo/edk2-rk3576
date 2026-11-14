@@ -102,8 +102,10 @@ put back into MaskROM and reflashed.
 ## LCKFB TaishanPi 3M
 
 Images are in the
-[0.3.0-tspi3m.1 pre-release](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.3.0-tspi3m.1),
-whose notes have the full procedure with the expected serial output. To build
+[latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest),
+from 0.3.0 on. The notes of the
+[0.3.0-tspi3m.1 pre-release](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.3.0-tspi3m.1)
+have the expected serial output. To build
 one yourself use `scripts/build.sh tspi3m` and `scripts/package.sh tspi3m`.
 
 The BootROM on this board reads the eMMC and nothing else, so an SD card on

@@ -18,9 +18,6 @@ the TaishanPi 3M boot Windows 11 23H2 from their eMMC, with the drivers from
 [Windows](#windows) below.
 
 - Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
-  for the ROCK 4D and the CM5-IO, the
-  [0.3.0-tspi3m.1 pre-release](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.3.0-tspi3m.1)
-  for the TaishanPi 3M
 - Flash from the browser: [flash.gahingwoo.com](https://flash.gahingwoo.com/)
 - Docs: [edk2.gahingwoo.com](https://edk2.gahingwoo.com/)
 
@@ -37,6 +34,11 @@ the TaishanPi 3M boot Windows 11 23H2 from their eMMC, with the drivers from
 |---|---|
 | ![Windows 11 on CM5-IO](docs/imgs/cm5io-win11-desktop.jpg) | ![Windows 11 on TaishanPi 3M](docs/imgs/tspi3m-win11-desktop.jpg) |
 | Windows 11 23H2 from the eMMC | Windows 11 23H2 from the eMMC, desktop drawn on the Mali-G52 |
+
+![HWiNFO system summary on the TaishanPi 3M](docs/imgs/tspi3m-hwinfo.jpg)
+
+HWiNFO on the TaishanPi 3M under Windows: eight cores, 3838 MB, the board and
+firmware names from SMBIOS, the Mali-G52.
 
 ## Boards
 
@@ -64,9 +66,7 @@ firmware can reset into MaskROM by itself (F4 during the boot countdown). See
 [Flashing](docs/FLASHING.md#lckfb-taishanpi-3m) and
 [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
 
-The fan connector is driven from firmware and runs at full speed. The
-TaishanPi 3M has no full release yet; its images are in the pre-release
-linked above.
+The fan connector is driven from firmware and runs at full speed.
 
 The TaishanPi 3M used for this work was provided by LCKFB.
 
@@ -81,7 +81,7 @@ controller, and it refuses a machine without a TPM. The image is applied with
 DISM from a WinPE that carries the drivers and a script that does the rest:
 
 1. Flash this firmware to the eMMC. On the TaishanPi 3M that is the
-   `emmc` image ("Option A" in the pre-release notes).
+   `emmc` image, written at sector 0 from MaskROM.
 2. Write the WinPE image from the
    [woa-rk3576 release](https://github.com/gahingwoo/woa-rk3576/releases/latest)
    to a USB stick. Add an exFAT or NTFS partition in the free space behind it

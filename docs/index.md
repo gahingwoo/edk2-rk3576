@@ -13,8 +13,7 @@ TaishanPi 3M boot Windows 11 23H2 from their eMMC;
 
 ## Get it
 
-- Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest);
-  for the TaishanPi 3M, the [0.3.0-tspi3m.1 pre-release](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.3.0-tspi3m.1)
+- Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
 - Flash from the browser: [flash.gahingwoo.com](https://flash.gahingwoo.com/)
 - Source, board status and known issues: [github.com/gahingwoo/edk2-rk3576](https://github.com/gahingwoo/edk2-rk3576#boards)
 
@@ -43,6 +42,10 @@ are in [woa-rk3576](https://github.com/gahingwoo/woa-rk3576).
 Windows 11 23H2 on the TaishanPi 3M, booted from the eMMC. The desktop in
 this photo is drawn on the Mali-G52 by
 [wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52).
+
+![HWiNFO system summary on the TaishanPi 3M](imgs/tspi3m-hwinfo.jpg)
+
+HWiNFO on the TaishanPi 3M under Windows.
 
 ## Docs
 
