@@ -11,11 +11,16 @@ UEFI firmware (EDK2 / TianoCore) for Rockchip RK3576 boards.
 BootROM → U-Boot SPL → TF-A BL31 → EDK2 (BL33) → OS
 ```
 
-Both boards boot Fedora from NVMe. The CM5-IO also boots Windows 11 23H2 from
-its eMMC, with the drivers from
-[woa-rk3576](https://github.com/gahingwoo/woa-rk3576).
+Three boards are supported: the Radxa ROCK 4D, the ArmSoM CM5-IO and the LCKFB
+TaishanPi 3M. The ROCK 4D and the CM5-IO boot Fedora from NVMe. The CM5-IO and
+the TaishanPi 3M boot Windows 11 23H2 from their eMMC, with the drivers from
+[woa-rk3576](https://github.com/gahingwoo/woa-rk3576); see
+[Windows](#windows) below.
 
 - Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
+  for the ROCK 4D and the CM5-IO, the
+  [0.3.0-tspi3m.1 pre-release](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.3.0-tspi3m.1)
+  for the TaishanPi 3M
 - Flash from the browser: [flash.gahingwoo.com](https://flash.gahingwoo.com/)
 - Docs: [edk2.gahingwoo.com](https://edk2.gahingwoo.com/)
 
@@ -28,41 +33,83 @@ its eMMC, with the drivers from
 | ![UEFI front page on ROCK 4D](docs/imgs/monitor-4d.png) | ![UEFI front page on CM5-IO](docs/imgs/monitor-cm5io.jpeg) |
 | UEFI front page, 2560x1440 over HDMI | UEFI front page, 2560x1440 over HDMI |
 
-![Windows 11 on CM5-IO](docs/imgs/cm5io-win11-desktop.jpg)
-
-Windows 11 23H2 on CM5-IO, from the eMMC.
+| ArmSoM CM5-IO | LCKFB TaishanPi 3M |
+|---|---|
+| ![Windows 11 on CM5-IO](docs/imgs/cm5io-win11-desktop.jpg) | ![Windows 11 on TaishanPi 3M](docs/imgs/tspi3m-win11-desktop.jpg) |
+| Windows 11 23H2 from the eMMC | Windows 11 23H2 from the eMMC, desktop drawn on the Mali-G52 |
 
 ## Boards
 
-| | Radxa ROCK 4D | ArmSoM CM5-IO |
-|---|---|---|
-| Boots from | SPI NOR | eMMC or SD |
-| HDMI | yes | yes |
-| eMMC | no eMMC (UFS) | yes, UEFI variables persist |
-| NVMe | yes | yes |
-| USB | yes | yes; USB-C is USB 2.0 in UEFI and Windows |
-| Ethernet | yes | yes, in UEFI, Linux and Windows |
-| Windows 11 23H2 | not tried | boots to the desktop |
+| | Radxa ROCK 4D | ArmSoM CM5-IO | LCKFB TaishanPi 3M |
+|---|---|---|---|
+| Boots from | SPI NOR | eMMC or SD | eMMC, or an SPL on eMMC with the firmware on SD |
+| HDMI | yes | yes | yes |
+| eMMC | no eMMC (UFS) | yes, UEFI variables persist | yes, UEFI variables persist |
+| NVMe | yes | yes | not tried (mini-PCIe slot) |
+| USB | yes | yes; USB-C is USB 2.0 in UEFI and Windows | four USB-A ports; USB-C unused |
+| Ethernet | yes | yes, in UEFI, Linux and Windows | yes, in UEFI and Windows |
+| Linux through UEFI | Fedora from NVMe | Fedora from NVMe | not tried |
+| Windows 11 23H2 | not tried | boots to the desktop | boots to the desktop, GPU driver available |
 
 Serial console: 1500000 8N1.
 
-### LCKFB TaishanPi 3M (early)
+Each board's results come from one unit.
 
-`boards/tspi3m.conf` and `Platform/LCKFB/TaishanPi3M/` build an image for the
-[LCKFB TaishanPi 3M](https://wiki.lckfb.com/). It boots to the UEFI front page
-with HDMI at 2560x1440, and finds the eMMC, the SD card and the USB hub. Like
-the CM5-IO image it carries ACPI tables as well as the device tree. Windows
-11 23H2 Setup starts on it but cannot see the eMMC yet, and no operating
-system has been installed or booted from the board's own storage. Test
-images are in the
-[pre-releases](https://github.com/gahingwoo/edk2-rk3576/releases).
+### LCKFB TaishanPi 3M
 
-The BootROM on this board only tries the eMMC, so the SPL has to be written
-there; the firmware itself can stay on an SD card. See
+The BootROM on this board only tries the eMMC, and there is no MaskROM
+button: two pads marked `MSK` are shorted instead. So the first flash goes
+through MaskROM, and at least the SPL has to live on the eMMC. After that the
+firmware can reset into MaskROM by itself (F4 during the boot countdown). See
 [Flashing](docs/FLASHING.md#lckfb-taishanpi-3m) and
 [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
 
+The fan connector is driven from firmware and runs at full speed. The
+TaishanPi 3M has no full release yet; its images are in the pre-release
+linked above.
+
 The TaishanPi 3M used for this work was provided by LCKFB.
+
+## Windows
+
+Windows 11 23H2 runs from the eMMC of the CM5-IO and of the TaishanPi 3M.
+Windows 10 22H2 should also run and has not been tried. Windows 11 24H2 and
+later cannot: they need ARMv8.1 and RK3576 is ARMv8.0.
+
+Windows Setup does not work on these boards. It has no driver for the eMMC
+controller, and it refuses a machine without a TPM. The image is applied with
+DISM from a WinPE that carries the drivers and a script that does the rest:
+
+1. Flash this firmware to the eMMC. On the TaishanPi 3M that is the
+   `emmc` image ("Option A" in the pre-release notes).
+2. Write the WinPE image from the
+   [woa-rk3576 release](https://github.com/gahingwoo/woa-rk3576/releases/latest)
+   to a USB stick. Add an exFAT or NTFS partition in the free space behind it
+   and copy `sources\install.wim` there from a Windows 11 23H2 ARM64 ISO.
+3. Take out any SD card, plug the stick into a USB-A port and boot it from
+   the firmware's boot menu.
+4. Run `woa-deploy\deploy-windows.cmd` from the stick. It checks that the
+   disk is the eMMC with this firmware on it, asks you to type `ERASE`,
+   partitions the rest of the eMMC, applies the image, adds the drivers and
+   turns on test signing.
+5. Remove the stick and reboot. Windows finishes its setup and reaches the
+   desktop, which shows "Test Mode".
+
+The full procedure, the reasons for each step and what to do when it does not
+boot are in
+[woa-rk3576's INSTALL.md](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.md).
+Do not make the stick with Ventoy: its UDF driver stops with a synchronous
+exception on RK3576.
+
+Out of the box the desktop is drawn on the CPU into the firmware's
+framebuffer, at the one mode the firmware set.
+[wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52) is a display
+driver for the Mali-G52 that moves the desktop onto the GPU. It is an early
+driver, built by that repository's CI and without a release, and has run on
+the TaishanPi 3M only.
+
+Not working under Windows on either board: audio, WiFi and Bluetooth. The
+TaishanPi 3M has no RTC driver, so the clock is wrong until it syncs.
 
 ## Known issues
 
@@ -77,6 +124,8 @@ The TaishanPi 3M used for this work was provided by LCKFB.
   shutdown, but SuperSpeed has not trained there: DRD0's link stays in
   Rx.Detect.
 - The ROCK 4D has not been tested with the Windows-related changes in 0.2.0.
+- `main` is ahead of the release images. What has been merged and not yet run
+  on a board is listed in [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
 - The ComboPHY and PCIe device-tree fixups look for `/pcie@…` at the root,
   where mainline has `/soc/`, so they do nothing. NVMe works without them.
 
@@ -96,7 +145,7 @@ scripts/package.sh cm5io      # -> out/CM5IO/CM5IO-sdcard.img
 ```
 Platform/ArmSoM/CM5IO/       board package: DSC, PMIC/GPIO/PHY glue, ACPI, DTS
 Platform/Radxa/ROCK4D/
-Platform/LCKFB/TaishanPi3M/  early: boots to the UEFI front page
+Platform/LCKFB/TaishanPi3M/
 Silicon/Rockchip/RK3576/     SoC package: RK3576Base.dsc.inc, FDF, ACPI, drivers
 Silicon/Rockchip/            drivers shared across Rockchip SoCs
 Silicon/Synopsys/DesignWare/ DWC EQoS and DWC MMC

@@ -37,8 +37,8 @@ Because the SoC is ARMv8.0, Windows 11 24H2 and later cannot run on it.
 
 ## LCKFB TaishanPi 3M
 
-Early support. First booted 2026-11-12; everything under "seen working" is
-from that one boot. The board was provided by LCKFB.
+First booted 2026-11-12, and in daily use under Windows since. Everything
+here is from one board. The board was provided by LCKFB.
 
 | | |
 |---|---|
@@ -71,7 +71,7 @@ Also seen working, reported from the board: a USB keyboard in the UEFI menus,
 booting from a USB stick, keyboard and mouse in Windows Setup, and Ethernet
 getting a DHCP address in UEFI.
 
-Not tried: booting an installed operating system, Linux through UEFI, PCIe.
+Not tried: Linux through UEFI, PCIe.
 
 ACPI: the image installs ACPI tables next to the device tree, as the CM5-IO
 does (ConfigTableMode ACPI + FDT, switchable in the front-page menu).

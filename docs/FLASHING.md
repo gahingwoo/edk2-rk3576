@@ -101,12 +101,33 @@ put back into MaskROM and reflashed.
 
 ## LCKFB TaishanPi 3M
 
-Early support. Test images are published as pre-releases; to build one
-yourself use `scripts/build.sh tspi3m` and `scripts/package.sh tspi3m`.
+Images are in the
+[0.3.0-tspi3m.1 pre-release](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.3.0-tspi3m.1),
+whose notes have the full procedure with the expected serial output. To build
+one yourself use `scripts/build.sh tspi3m` and `scripts/package.sh tspi3m`.
 
 The BootROM on this board reads the eMMC and nothing else, so an SD card on
-its own does not boot. Put the SPL on the eMMC once, and the firmware on an SD
-card:
+its own does not boot. There are two layouts.
+
+Everything on the eMMC, which is what Windows needs. From MaskROM (reached as
+described at the end of this section):
+
+```bash
+rkdeveloptool db rk3576_spl_loader.bin
+rkdeveloptool wl 0 TaishanPi3M-emmc-edk2-<version>.img
+rkdeveloptool rd
+```
+
+This replaces the partition table and the first 32 MiB of the eMMC. To update
+the firmware later without touching an installed system, write only the
+firmware slice:
+
+```bash
+dd if=TaishanPi3M-emmc-edk2-<version>.img of=firmware.bin bs=512 skip=16384 count=27264
+rkdeveloptool wl 16384 firmware.bin
+```
+
+Or the SPL on the eMMC and the firmware on an SD card:
 
 ```bash
 # On the board, from a running Linux. Replaces only the SPL, about 200 KB.
