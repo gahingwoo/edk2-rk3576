@@ -54,6 +54,7 @@
   ArmSmcLib
   PcdLib
   RockchipPlatformLib
+  Rk3576TsadcLib
   TimerLib
 
 [Protocols]

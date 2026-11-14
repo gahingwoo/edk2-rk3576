@@ -26,6 +26,7 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
+#include <Library/Rk3576TsadcLib.h>
 #include <AcpiTables.h>
 #include <VarStoreData.h>
 
@@ -221,6 +222,56 @@ AcpiDsdtFixupStatus (
   }
 }
 
+//
+// Thermal.asl's zones read the TSADC only when \_SB.TSEN is 1, so an OS never
+// reads a block the firmware left in reset or unclocked; they return 300.0 K
+// otherwise.  \_SB.TSBn is the channel's code-table origin in millikelvin,
+// RK3576_TSADC_BIAS_MK minus the channel's OTP trim (Rk3576TsadcLib.c).
+//
+// Absent from a DSDT that does not include Thermal.asl: FindPath then fails
+// and nothing is patched.
+//
+STATIC
+VOID
+AcpiDsdtFixupThermal (
+  IN EFI_ACPI_SDT_PROTOCOL  *AcpiSdtProtocol,
+  IN EFI_ACPI_HANDLE        TableHandle
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       Index;
+  INT32       TrimMc;
+  CHAR8       *BiasPath[] = { "\\_SB.TSB0", "\\_SB.TSB1", "\\_SB.TSB2" };
+
+  if (!FixedPcdGetBool (PcdTsadcEnable)) {
+    return;
+  }
+
+  if (!Rk3576TsadcIsRunning ()) {
+    DEBUG ((DEBUG_WARN, "AcpiPlatform: TSADC not running, thermal zones will report a fixed 300.0 K\n"));
+    return;
+  }
+
+  for (Index = 0; Index < ARRAY_SIZE (BiasPath); Index++) {
+    TrimMc = Rk3576TsadcGetTrimMilliCelsius ((UINT32)Index);
+    Status = AcpiAmlObjectUpdateInteger (
+               AcpiSdtProtocol,
+               TableHandle,
+               BiasPath[Index],
+               (UINTN)(RK3576_TSADC_BIAS_MK - TrimMc)
+               );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "AcpiPlatform: Failed to patch %a. Status=%r\n", BiasPath[Index], Status));
+      return;
+    }
+  }
+
+  Status = AcpiAmlObjectUpdateInteger (AcpiSdtProtocol, TableHandle, "\\_SB.TSEN", 1);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "AcpiPlatform: Failed to patch \\_SB.TSEN. Status=%r\n", Status));
+  }
+}
+
 STATIC
 VOID
 EFIAPI
@@ -274,6 +325,7 @@ NotifyEndOfDxeEvent (
   }
 
   AcpiDsdtFixupStatus (mAcpiSdtProtocol, TableHandle);
+  AcpiDsdtFixupThermal (mAcpiSdtProtocol, TableHandle);
 
   mAcpiSdtProtocol->Close (TableHandle);
 }

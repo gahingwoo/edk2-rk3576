@@ -1,0 +1,35 @@
+#/** @file
+#
+#  RK3576 TSADC (temperature sensor ADC): read-out only.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = Rk3576TsadcLib
+  FILE_GUID                      = 09da8dfe-b765-46a8-8e1b-4d2a7b76c139
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = Rk3576TsadcLib
+
+[Sources]
+  Rk3576TsadcLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  DebugLib
+  IoLib
+  OtpLib
+  PcdLib
+  TimerLib
+
+[FixedPcd]
+  gRK3576TokenSpaceGuid.PcdTsadcEnable

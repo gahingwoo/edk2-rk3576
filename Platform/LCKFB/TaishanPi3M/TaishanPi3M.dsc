@@ -135,6 +135,10 @@
   # simply held high.
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
 
+  # TSADC read-out for the DSDT's thermal zones (Thermal.asl): started at
+  # boot with no TSHUT output, no interrupt and no reset write.
+  gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
+
 ################################################################################
 [Components.common]
   # ACPI tables, installed alongside the DTB (PcdConfigTableModeDefault above)

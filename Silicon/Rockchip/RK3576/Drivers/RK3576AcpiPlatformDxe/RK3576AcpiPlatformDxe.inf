@@ -36,6 +36,8 @@
   DebugLib
   DevicePathLib
   MemoryAllocationLib
+  PcdLib
+  Rk3576TsadcLib
   UefiBootServicesTableLib
   UefiLib
   UefiDriverEntryPoint
@@ -53,6 +55,7 @@
 
 [FixedPcd]
   gRK3576TokenSpaceGuid.PcdAcpiPcieRequireRootBridge
+  gRK3576TokenSpaceGuid.PcdTsadcEnable
 
 [Pcd]
   gRK3576TokenSpaceGuid.PcdConfigTableMode
