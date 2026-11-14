@@ -132,8 +132,15 @@ SdmmcIoMux (
   GpioPinSetFunction (2, GPIO_PIN_PA4, 1);
   /* sdmmc0_clk: GPIO2 PA5 function 1 */
   GpioPinSetFunction (2, GPIO_PIN_PA5, 1);
-  /* sdmmc0_pwren: GPIO0 PB6 function 1 (hardware power enable) */
-  GpioPinSetFunction (0, GPIO_PIN_PB6, 1);
+  /*
+   * sdmmc0_pwren (GPIO0 PB6 function 1) is not muxed.  The call that used to
+   * be here wrote IOC + 0x000C, where there is no register, so the pin has
+   * always stayed a GPIO and the SD slot has worked that way; with GpioLib
+   * now writing PB4-PB7 to their real register (IOC + 0x2000) the same call
+   * would hand the pin to the SDMMC PWREN bit for the first time.  The card
+   * is powered from vcc_3v3_s3 (vmmc-supply in the mainline device tree),
+   * and mainline's sdmmc pinctrl does not include sdmmc0_pwren either.
+   */
   /* sdmmc0_det: GPIO0 PA7 function 1 (hardware DETN input) */
   GpioPinSetFunction (0, GPIO_PIN_PA7, 1);
 

@@ -16,7 +16,8 @@
  *      Offsets derived from upstream Linux kernel pinctrl-rockchip.c:
  *
  *        GPIO0  PA0-PA7: IOC + 0x0000  (4-pin groups: 0x0000, 0x0004)
- *               PB0-PB7: IOC + 0x0008           (0x0008, 0x000C)
+ *               PB0-PB3: IOC + 0x0008
+ *               PB4-PB7: IOC + 0x2000  (PMU1_IOC, not 0x000C; see below)
  *               PC0-PC7: IOC + 0x2004           (0x2004, 0x2008)
  *               PD0-PD7: IOC + 0x200C           (0x200C, 0x2010)
  *        GPIO1  all:     IOC + 0x4020 + (pin/4)*4
@@ -72,9 +73,20 @@ GpioIomuxReg (
 {
   switch (Group) {
     case 0:
-      if (Pin < 16) {
-        /* PA0-PB7: consecutive starting at IOC offset 0x0000 */
+      if (Pin < 12) {
+        /* PA0-PB3: PMU0_IOC GPIO0A_IOMUX_SEL_L/H, GPIO0B_IOMUX_SEL_L */
         return RK3576_IOC_GRF_BASE + (UINTN)(Pin / 4) * 4UL;
+      } else if (Pin < 16) {
+        /*
+         * PB4-PB7: PMU1_IOC GPIO0B_IOMUX_SEL_H at 0x26042000 + 0x0, which
+         * is IOC + 0x2000.  There is no register at IOC + 0x000C (TRM V1.2
+         * Part 1, PMU0_IOC summary: 0x0008 GPIO0B_IOMUX_SEL_L, then 0x0010
+         * GPIO0A_DS_L).  Mainline gets the same address by adding 0x1ff4 to
+         * the computed 0xC for exactly these four pins (pinctrl-rockchip.c,
+         * rockchip_get_mux and rockchip_set_mux, "if (ctrl->type == RK3576)
+         * ... RK_PB4 ... RK_PB7 ... reg += 0x1ff4").
+         */
+        return RK3576_IOC_GRF_BASE + 0x2000UL;
       } else {
         /* PC0-PD7: base at IOC offset 0x2004 (4-pin stride = 4 bytes) */
         return RK3576_IOC_GRF_BASE + 0x2004UL + (UINTN)((Pin - 16) / 4) * 4UL;
