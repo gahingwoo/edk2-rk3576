@@ -1124,6 +1124,19 @@ DwHdmiQpConnectorDetect (
   OUT DISPLAY_STATE                *DisplayState
   );
 
+/* HDMI audio preset, DwHdmiQpAudio.c.  Both do nothing unless PcdHdmiAudioPreset. */
+VOID
+DwHdmiQpAudioNoteLink (
+  IN struct DwHdmiQpDevice  *Hdmi,
+  IN DISPLAY_STATE          *DisplayState,
+  IN EFI_STATUS             Status
+  );
+
+VOID
+DwHdmiQpAudioInit (
+  VOID
+  );
+
 EFI_STATUS
 HdptxRopllTmdsModeConfig (
   OUT struct RockchipHdptxPhyHdmi  *Hdptx,

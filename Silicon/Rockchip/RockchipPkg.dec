@@ -191,6 +191,15 @@
   gRK3588TokenSpaceGuid.PcdDisplayRotationDefault|0|UINT16|0x00010807
   gRK3588TokenSpaceGuid.PcdHdmiSignalingModeDefault|0|UINT8|0x00010808
 
+  #
+  # HDMI audio preset (DwHdmiQpAudio.c): at ExitBootServices, set
+  # mclk_sai6 to 12.288 MHz and program the DW-HDMI-QP for 48 kHz 2-channel
+  # L-PCM from SAI6, so an OS audio driver only has to run SAI6.  The SAI6
+  # ACPI device (RK3576 Sai.asl) is published only when this is TRUE.
+  # FALSE by default: it has not run on hardware.
+  #
+  gRK3588TokenSpaceGuid.PcdHdmiAudioPreset|FALSE|BOOLEAN|0x00010809
+
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   #
   # Shared display PCDs — runtime-settable (the board DSCs bind these as
