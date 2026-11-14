@@ -40,10 +40,10 @@
  *    - WiFi on SDIO and Bluetooth on UART6 (dts:789-814, 853-873): the CM5-IO
  *      declares neither, and their power, reset and 32 kHz clock are
  *      sequenced by Linux (sdio_pwrseq, dts:167-175).
- *    - Audio.  The mainline tree has HDMI audio on SAI6 only (dts:315-323,
- *      774-777); LCKFB's vendor tree adds an ES8388 on I2C3.  The CM5-IO does
- *      not include Es8388.asl or I2s.asl either, and RK3576's audio block is
- *      SAI, which no driver here supports.
+ *    - Analog audio.  The mainline tree has HDMI audio on SAI6 only
+ *      (dts:315-323, 774-777); LCKFB's vendor tree adds an ES8388 on I2C3.
+ *      The CM5-IO does not include Es8388.asl or I2s.asl either.  SAI6 for
+ *      HDMI is declared, but only when PcdHdmiAudioPreset is TRUE.
  *    - The LED (GPIO0_A0, dts:47-52), the ADC key (dts:30-42) and HDMI: not
  *      declared on the CM5-IO either.
  *
@@ -214,5 +214,13 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // TZ01 are in Fan.asl, a separate SSDT installed only when fan control is
     // enabled in setup.
     include ("Thermal.asl")
+
+#if FixedPcdGetBool (PcdHdmiAudioPreset)
+    // SAI6, the HDMI audio interface (hdmi_sound and sai6, dts:315-323,
+    // 774-777).  Only with the firmware's HDMI audio preset, which sets its
+    // clocks and the HDMI controller's audio path; see Sai.asl.  The ES8388
+    // of LCKFB's vendor tree is still left out.
+    include ("Sai.asl")
+#endif
   }
 }

@@ -24,6 +24,7 @@
 
 [Sources.common]
   DwHdmiQpLib.c
+  DwHdmiQpAudio.c
   PhyRockchipSamsungHdptxHdmi.c
 
 [LibraryClasses]
@@ -39,6 +40,7 @@
   PWMLib
   RockchipPlatformLib
   UefiLib
+  UefiBootServicesTableLib
   UefiDriverEntryPoint
 
 [Packages]
@@ -47,9 +49,15 @@
   MdeModulePkg/MdeModulePkg.dec
   Silicon/Rockchip/RockchipPkg.dec
 
+[FixedPcd]
+  gRK3588TokenSpaceGuid.PcdHdmiAudioPreset
+
 [Pcd]
   gRK3588TokenSpaceGuid.PcdDisplayConnectorsMask
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode
+
+[Guids]
+  gEfiEventExitBootServicesGuid
 
 [Protocols]
   gRockchipConnectorProtocolGuid

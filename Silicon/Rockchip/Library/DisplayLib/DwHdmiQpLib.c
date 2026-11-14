@@ -2861,6 +2861,12 @@ DwHdmiQpConnectorEnable (
   DwHdmiQpRecordDiag (Hdmi, Status);
 #endif
 
+  //
+  // Records the link for the HDMI audio preset; touches no register.  The
+  // audio registers are written at ExitBootServices (DwHdmiQpAudio.c).
+  //
+  DwHdmiQpAudioNoteLink (Hdmi, DisplayState, Status);
+
   HDMI_TRACE ("ConnectorEnable: EXIT Status=%r\n", Status);
   return Status;
 }
@@ -2978,6 +2984,8 @@ DwHdmiQpInitHdmi (
     HDMI_TRACE ("InitHdmi: InstallProtocol -> %r handle=%p\n", Status, Handle);
     ASSERT_EFI_ERROR (Status);
   }
+
+  DwHdmiQpAudioInit ();
 
   HDMI_TRACE ("InitHdmi: EXIT\n");
   return EFI_SUCCESS;
