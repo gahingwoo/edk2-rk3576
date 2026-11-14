@@ -27,4 +27,35 @@ Device (GPU0) {
     })
     Return (RBUF)
   }
+
+  //
+  // The monitor's EDID, for the display driver (DxgkCbEvalAcpiMethod on the
+  // adapter, DISPLAY_ADAPTER_HW_ID), which has no DDC of its own and would
+  // otherwise report a monitor with no name, size or modes.
+  //
+  // RK3576AcpiPlatformDxe copies in what LcdGraphicsOutputDxe read over DDC
+  // (EFI_EDID_ACTIVE_PROTOCOL) at ReadyToBoot: the base block and its
+  // extensions, zero after them. All zeros means no EDID: no monitor, or a
+  // read that failed and fell back to the built-in mode. A reader checks
+  // the header and checksum and uses byte 126 for the block count.
+  //
+  // 512 bytes, the most _DDC may return (ACPI 6.4, Appendix B, _DDC). The
+  // initialiser is written out so iasl emits every byte and the firmware
+  // can fill them in place; Buffer (512) {} would leave no room for them.
+  //
+  // A private object on the adapter, not _DOD with an output device that
+  // has _DDC: those are the standard ACPI video objects, and Windows would
+  // see them whatever driver is bound to GPU0 and expect the driver's child
+  // IDs to match the _ADR values. This one is read only by a driver that
+  // asks for it.
+  //
+#define EDID_ZERO16  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+#define EDID_ZERO128 EDID_ZERO16, EDID_ZERO16, EDID_ZERO16, EDID_ZERO16, EDID_ZERO16, EDID_ZERO16, EDID_ZERO16, EDID_ZERO16
+  Name (EDBF, Buffer (512) {
+    EDID_ZERO128, EDID_ZERO128, EDID_ZERO128, EDID_ZERO128
+  })
+
+  Method (EDID, 0, Serialized) {
+    Return (EDBF)
+  }
 }
