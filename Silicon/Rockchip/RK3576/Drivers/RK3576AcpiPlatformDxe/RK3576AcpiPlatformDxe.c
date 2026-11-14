@@ -14,6 +14,7 @@
  **/
 
 #include <IndustryStandard/AcpiAml.h>
+#include <Protocol/EdidActive.h>
 #include <Protocol/ExitBootServicesOsNotify.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/NonDiscoverableDevice.h>
@@ -102,6 +103,146 @@ AcpiUpdateSdtNameInteger (
   }
 
   return EFI_NOT_FOUND;
+}
+
+//
+// Fill a NameOp buffer in place: "08 XXXX 11 PkgLength BufferSize bytes".
+// The buffer keeps its size; Data goes at its start and the rest is zeroed.
+// Only a buffer whose every byte is in the AML can be filled, which is why
+// the ASL writes out its initialiser.
+//
+STATIC
+EFI_STATUS
+AcpiUpdateSdtNameBuffer (
+  IN  EFI_ACPI_DESCRIPTION_HEADER  *AcpiTable,
+  IN  CHAR8                        Name[AML_NAME_SEG_SIZE],
+  IN  CONST UINT8                  *Data,
+  IN  UINT32                       DataSize
+  )
+{
+  UINT8   *Sdt;
+  UINT8   *End;
+  UINT8   *Pkg;
+  UINT8   *Bytes;
+  UINT32  PkgLength;
+  UINT32  LengthBytes;
+  UINT32  BufferSize;
+  UINT32  Index;
+
+  Sdt = (UINT8 *)AcpiTable;
+  End = Sdt + AcpiTable->Length;
+
+  for (Pkg = Sdt + sizeof (EFI_ACPI_DESCRIPTION_HEADER); Pkg + SDT_PATTERN_LEN + 1 < End; Pkg++) {
+    if ((Pkg[0] != AML_NAME_OP) ||
+        (CompareMem (Pkg + 1, Name, AML_NAME_SEG_SIZE) != 0) ||
+        (Pkg[SDT_PATTERN_LEN] != AML_BUFFER_OP))
+    {
+      continue;
+    }
+
+    //
+    // PkgLength: bits 7:6 of the lead byte count the bytes that follow it.
+    // It covers itself, the BufferSize term and the byte list.
+    //
+    Pkg        += SDT_PATTERN_LEN + 1;
+    LengthBytes = Pkg[0] >> 6;
+    if (Pkg + 1 + LengthBytes > End) {
+      return EFI_UNSUPPORTED;
+    }
+
+    if (LengthBytes == 0) {
+      PkgLength = Pkg[0] & 0x3F;
+    } else {
+      PkgLength = Pkg[0] & 0x0F;
+      for (Index = 0; Index < LengthBytes; Index++) {
+        PkgLength |= (UINT32)Pkg[1 + Index] << (4 + 8 * Index);
+      }
+    }
+
+    Bytes = Pkg + 1 + LengthBytes;
+    switch (Bytes[0]) {
+      case AML_BYTE_PREFIX:
+        BufferSize = Bytes[1];
+        Bytes     += 1 + sizeof (UINT8);
+        break;
+      case AML_WORD_PREFIX:
+        BufferSize = ReadUnaligned16 ((UINT16 *)(Bytes + 1));
+        Bytes     += 1 + sizeof (UINT16);
+        break;
+      case AML_DWORD_PREFIX:
+        BufferSize = ReadUnaligned32 ((UINT32 *)(Bytes + 1));
+        Bytes     += 1 + sizeof (UINT32);
+        break;
+      default:
+        return EFI_UNSUPPORTED;
+    }
+
+    if ((Pkg + PkgLength > End) ||
+        (Bytes + BufferSize != Pkg + PkgLength) ||
+        (DataSize > BufferSize))
+    {
+      return EFI_BAD_BUFFER_SIZE;
+    }
+
+    if (DataSize != 0) {
+      CopyMem (Bytes, Data, DataSize);
+    }
+
+    ZeroMem (Bytes + DataSize, BufferSize - DataSize);
+    return EFI_SUCCESS;
+  }
+
+  return EFI_NOT_FOUND;
+}
+
+//
+// Hand the monitor's EDID to the OS: \_SB.GPU0.EDBF (Gpu.asl), read by the
+// display driver through GPU0.EDID. LcdGraphicsOutputDxe publishes only an
+// EDID that checks out, so what is copied here is the monitor's own.
+//
+// At ReadyToBoot: the DSDT and the GOP are both installed at EndOfDxe, in
+// an order nothing fixes. A board whose DSDT has no GPU0 (ROCK 4D) has no
+// EDBF, and nothing is changed.
+//
+STATIC
+VOID
+AcpiPublishEdid (
+  VOID
+  )
+{
+  EFI_STATUS                Status;
+  EFI_EDID_ACTIVE_PROTOCOL  *EdidActive;
+  CONST UINT8               *Edid;
+  UINT32                    Size;
+
+  if (mDsdtTable == NULL) {
+    return;
+  }
+
+  Edid   = NULL;
+  Size   = 0;
+  Status = gBS->LocateProtocol (&gEfiEdidActiveProtocolGuid, NULL, (VOID **)&EdidActive);
+  if (!EFI_ERROR (Status) && (EdidActive->Edid != NULL)) {
+    Edid = EdidActive->Edid;
+    Size = EdidActive->SizeOfEdid;
+  }
+
+  Status = AcpiUpdateSdtNameBuffer (mDsdtTable, "EDBF", Edid, MIN (Size, 512));
+  if (Status == EFI_NOT_FOUND) {
+    return;
+  }
+
+  DEBUG ((
+    EFI_ERROR (Status) ? DEBUG_ERROR : DEBUG_INFO,
+    "AcpiPlatform: EDID %u of %u bytes to GPU0.EDBF. Status=%r\n",
+    MIN (Size, 512),
+    Size,
+    Status
+    ));
+
+  if (!EFI_ERROR (Status)) {
+    AcpiUpdateChecksum ((UINT8 *)mDsdtTable, mDsdtTable->Length);
+  }
 }
 
 //
@@ -704,6 +845,8 @@ NotifyReadyToBoot (
   )
 {
   gBS->CloseEvent (Event);
+
+  AcpiPublishEdid ();
 
   EfiCreateProtocolNotifyEvent (
     &gEfiLoadedImageProtocolGuid,

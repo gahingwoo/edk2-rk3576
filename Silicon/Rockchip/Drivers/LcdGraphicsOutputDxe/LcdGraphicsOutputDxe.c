@@ -538,6 +538,68 @@ GetSupportedDisplayModes (
   return EFI_SUCCESS;
 }
 
+//
+// How much of a connector's EDID buffer is a whole, valid EDID: the base
+// block and every extension it announces (up to what was read), or 0.
+//
+// DwHdmiQpConnectorGetEdid returns EFI_SUCCESS when its DDC read fails, after
+// setting a fallback mode, and leaves whatever it had read in the buffer. So
+// success from GetEdid says nothing about the bytes; they are checked here
+// before anything outside this driver is shown them.
+//
+STATIC
+UINT32
+ValidEdidSize (
+  IN CONST UINT8  *Edid
+  )
+{
+  STATIC CONST UINT8  Header[EDID_HEADER_SIZE] = {
+    0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00
+  };
+  UINT32              Blocks;
+  UINT32              Index;
+
+  if (CompareMem (Edid, Header, sizeof (Header)) != 0) {
+    return 0;   // nothing was read: no message, this is the no-monitor case
+  }
+
+  Blocks = 1 + MIN (((CONST EDID_BASE *)Edid)->ExtensionFlag, EDID_MAX_EXTENSION_BLOCKS);
+  for (Index = 0; Index < Blocks; Index++) {
+    if (EFI_ERROR (CheckEdidBlock ((UINT8 *)EDID_BLOCK (Edid, Index), (UINT8)Index))) {
+      return 0;
+    }
+  }
+
+  return Blocks * EDID_BLOCK_SIZE;
+}
+
+STATIC
+VOID
+PublishEdid (
+  IN LCD_INSTANCE   *Instance,
+  IN DISPLAY_STATE  *PrimaryDisplayState
+  )
+{
+  UINT8   *Edid;
+  UINT32  Size;
+
+  Edid = NULL;
+  Size = 0;
+  if (PrimaryDisplayState != NULL) {
+    Size = ValidEdidSize (PrimaryDisplayState->ConnectorState.Edid);
+    if (Size != 0) {
+      Edid = PrimaryDisplayState->ConnectorState.Edid;
+    }
+  }
+
+  DEBUG ((DEBUG_INFO, "%a: EDID %u bytes\n", __func__, Size));
+
+  Instance->EdidDiscovered.SizeOfEdid = Size;
+  Instance->EdidDiscovered.Edid       = Edid;
+  Instance->EdidActive.SizeOfEdid     = Size;
+  Instance->EdidActive.Edid           = Edid;
+}
+
 STATIC
 VOID
 LcdGraphicsOutputDestroy (
@@ -557,6 +619,10 @@ LcdGraphicsOutputDestroy (
            &Instance->Gop,
            &gEfiDevicePathProtocolGuid,
            &Instance->DevicePath,
+           &gEfiEdidDiscoveredProtocolGuid,
+           &Instance->EdidDiscovered,
+           &gEfiEdidActiveProtocolGuid,
+           &Instance->EdidActive,
            NULL
            );
   }
@@ -648,12 +714,18 @@ LcdGraphicsOutputInit (
     goto Exit;
   }
 
+  PublishEdid (Instance, PrimaryDisplayState);
+
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &Instance->Handle,
                   &gEfiGraphicsOutputProtocolGuid,
                   &Instance->Gop,
                   &gEfiDevicePathProtocolGuid,
                   &Instance->DevicePath,
+                  &gEfiEdidDiscoveredProtocolGuid,
+                  &Instance->EdidDiscovered,
+                  &gEfiEdidActiveProtocolGuid,
+                  &Instance->EdidActive,
                   NULL
                   );
   if (EFI_ERROR (Status)) {

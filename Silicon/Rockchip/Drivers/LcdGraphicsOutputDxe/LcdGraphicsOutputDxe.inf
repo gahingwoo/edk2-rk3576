@@ -44,6 +44,8 @@
 [Protocols]
   gEfiCpuArchProtocolGuid
   gEfiDevicePathProtocolGuid
+  gEfiEdidActiveProtocolGuid
+  gEfiEdidDiscoveredProtocolGuid
   gEfiGraphicsOutputProtocolGuid
   gRockchipCrtcProtocolGuid
   gRockchipConnectorProtocolGuid

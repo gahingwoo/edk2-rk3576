@@ -47,6 +47,7 @@
 [Protocols]
   gEdkiiNonDiscoverableDeviceProtocolGuid
   gEfiAcpiSdtProtocolGuid
+  gEfiEdidActiveProtocolGuid
   gEfiLoadedImageProtocolGuid
   gEfiPciRootBridgeIoProtocolGuid
   gExitBootServicesOsNotifyProtocolGuid
