@@ -425,6 +425,11 @@
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixupDefault|TRUE
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePathDefault|L""
   gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPathDefault|L""
+  #
+  # ACPI fan control (setup option, backs PcdAcpiFanControl below): off unless
+  # a board turns it on.  A DynamicHii default must be set here explicitly.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
 
   #
   # GMAC.  GMAC0 is used on both boards; GMAC1 is not brought out.
