@@ -135,6 +135,11 @@
   # simply held high.
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
 
+  # HDMI audio preset (DwHdmiQpAudio.c) and the SAI6 ACPI device for the
+  # woa-rk3576 SAI drivers.  ON here so this board's CI image can test it;
+  # it has not run on hardware.  Revert this line for an image without it.
+  gRK3588TokenSpaceGuid.PcdHdmiAudioPreset|TRUE
+
 ################################################################################
 [Components.common]
   # ACPI tables, installed alongside the DTB (PcdConfigTableModeDefault above)
