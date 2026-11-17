@@ -57,6 +57,11 @@ Serial console: 1500000 8N1.
 
 Each board's results come from one unit.
 
+The setup menus can be switched to Simplified Chinese on the front page. The
+display, I2C and menu changes that came with the TaishanPi 3M's screen are
+shared by all three boards. They were run on the TaishanPi 3M and, for the
+menus over HDMI, on the CM5-IO; on the ROCK 4D they have only been built.
+
 ### LCKFB TaishanPi 3M
 
 The BootROM on this board only tries the eMMC, and there is no MaskROM
@@ -67,6 +72,28 @@ firmware can reset into MaskROM by itself (F4 during the boot countdown). See
 [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
 
 The fan connector is driven from firmware and runs at full speed.
+
+LCKFB's 800x1280 MIPI DSI screen (part C41409463) works from power on. The
+firmware looks for its touch controller on I2C0 and uses the screen when it
+is there, HDMI when it is not. The ribbon must only be plugged or unplugged
+with the power off.
+
+- The firmware's menus are drawn rotated to landscape. "Screen Rotation" in
+  the platform setup changes that. The rotation covers the menus, the UEFI
+  Shell and the touch test. An operating system gets the panel as it is,
+  portrait, and rotates it itself.
+- Touch works in the menus as keys: drag moves the highlight, a tap is
+  Enter, two fingers or a long press is Esc. "Touch Test" in the boot
+  manager shows where touches land.
+- Windows shows its picture on the screen in portrait. Touch does not work
+  in Windows yet.
+- Mainline Linux has no driver for this panel. Turn on "Force UEFI GOP
+  Display" (ACPI / Device Tree page, visible when the device tree is handed
+  over) and the kernel keeps the firmware's picture through simpledrm or
+  efifb: a fixed 800x1280 mode without acceleration, and HDMI is then off
+  in Linux. Seen working with an Armbian 7.3 kernel booted from a USB stick.
+  The touch controller is described in the device tree; it has not been seen
+  working under Linux yet.
 
 The TaishanPi 3M used for this work was provided by LCKFB.
 
