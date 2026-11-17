@@ -1400,9 +1400,19 @@ static int dw_mipi_dsi2_connector_enable(ROCKCHIP_CONNECTOR_PROTOCOL *conn,
 {
 	struct dw_mipi_dsi2 *dsi2 = DW_MIPI_DSI2_FROM_CONNECTOR_PROTOCOL(conn);
 
-	dw_mipi_dsi2_enable(dsi2);
-
+	/*
+	 * Reset the panel and send its init sequence while the host is still in
+	 * command mode, then start the video stream.  The order used to be the
+	 * other way round: the panel was reset and given its 194 commands in the
+	 * blanking of a stream that was already running.  The vendor kernel
+	 * prepares the panel first, and with a picture on the screen its
+	 * DSI_VID_TX_CFG reads 0x00000002, without LPDT_DISPLAY_CMD_EN, where
+	 * this driver left 0x00100002.  An ILI9881C given its init that way
+	 * stays dark: backlight on, link up, no picture.
+	 */
 	rockchip_panel_init(dsi2);
+
+	dw_mipi_dsi2_enable(dsi2);
 
 	return 0;
 }
