@@ -14,6 +14,7 @@
 #include <Library/DevicePathLib.h>
 #include <Library/HiiLib.h>
 #include <Library/IoLib.h>
+#include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -71,6 +72,58 @@ STATIC HII_VENDOR_DEVICE_PATH  mVendorDevicePath = {
 };
 
 /*
+ * Set TargetId, in every language the package list has, to Prefix (if any)
+ * followed by SourceId in that language.  HiiSetString() with a NULL
+ * language writes one text into every language, so a string that has to
+ * stay translated is set one language at a time.
+ */
+STATIC
+VOID
+RK3576SetStringPerLanguage (
+  IN EFI_HII_HANDLE  HiiHandle,
+  IN EFI_STRING_ID   TargetId,
+  IN CONST CHAR16    *Prefix OPTIONAL,
+  IN EFI_STRING_ID   SourceId
+  )
+{
+  CHAR8   *Languages;
+  CHAR8   *Lang;
+  CHAR8   *Next;
+  CHAR16  *Source;
+  CHAR16  Text[128];
+
+  Languages = HiiGetSupportedLanguages (HiiHandle);
+  if (Languages == NULL) {
+    return;
+  }
+
+  for (Lang = Languages; *Lang != '\0'; Lang = Next) {
+    for (Next = Lang; (*Next != '\0') && (*Next != ';'); Next++) {
+    }
+
+    if (*Next == ';') {
+      *Next++ = '\0';
+    }
+
+    Source = HiiGetString (HiiHandle, SourceId, Lang);
+    if (Source == NULL) {
+      continue;
+    }
+
+    if (Prefix != NULL) {
+      UnicodeSPrint (Text, sizeof (Text), L"%s %s", Prefix, Source);
+    } else {
+      UnicodeSPrint (Text, sizeof (Text), L"%s", Source);
+    }
+
+    HiiSetString (HiiHandle, TargetId, Text, Lang);
+    FreePool (Source);
+  }
+
+  FreePool (Languages);
+}
+
+/*
  * Register the HII package list (VFR form + UNI strings) so the UEFI
  * setup browser shows the ROCK 4D / RK3576 Configuration page.
  */
@@ -84,7 +137,7 @@ RK3576InstallHiiPages (
   EFI_HII_HANDLE  HiiHandle;
   EFI_HANDLE      DriverHandle;
   CHAR8           *PlatformName;
-  CHAR16          Title[128];
+  CHAR16          Name[64];
 
   DriverHandle = NULL;
   Status       = gBS->InstallMultipleProtocolInterfaces (
@@ -123,17 +176,18 @@ RK3576InstallHiiPages (
   // A failure here costs nothing but the fallback string, so it is not
   // propagated.
   //
+  // The title is set per language: the board name, then "Platform
+  // Configuration" in that language.
+  //
   PlatformName = (CHAR8 *)PcdGetPtr (PcdPlatformName);
   if ((PlatformName != NULL) && (PlatformName[0] != '\0')) {
-    UnicodeSPrintAsciiFormat (
-      Title,
-      sizeof (Title),
-      "%a Platform Configuration",
-      PlatformName
+    UnicodeSPrint (Name, sizeof (Name), L"%a", PlatformName);
+    RK3576SetStringPerLanguage (
+      HiiHandle,
+      STRING_TOKEN (STR_FORM_SET_TITLE),
+      Name,
+      STRING_TOKEN (STR_PLATFORM_CONFIGURATION)
       );
-    if (HiiSetString (HiiHandle, STRING_TOKEN (STR_FORM_SET_TITLE), Title, NULL) == 0) {
-      DEBUG ((DEBUG_WARN, "RK3576Dxe: could not set the form title (keeping the default)\n"));
-    }
   }
 
   return EFI_SUCCESS;

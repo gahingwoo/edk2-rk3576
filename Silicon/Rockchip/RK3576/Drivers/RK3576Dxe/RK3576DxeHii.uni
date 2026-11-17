@@ -22,6 +22,8 @@
 #string STR_FORM_SET_TITLE                                 #language en-US "RK3576 Platform Configuration"
 #string STR_FORM_SET_TITLE_HELP                            #language en-US "Configure ACPI and Device Tree system table support."
 #string STR_FORM_SET_TITLE_SUBTITLE                        #language en-US "Configuration Options"
+// RK3576Dxe sets the form set title to PcdPlatformName followed by this, per language.
+#string STR_PLATFORM_CONFIGURATION                         #language en-US "Platform Configuration"
 
 #string STR_DISABLED                                       #language en-US "Disabled"
 #string STR_ENABLED                                        #language en-US "Enabled"
@@ -231,6 +233,7 @@
 #string STR_FORM_SET_TITLE                                 #language zh-Hans "RK3576 \wide平台配置\narrow"
 #string STR_FORM_SET_TITLE_HELP                            #language zh-Hans "\wide配置\narrow ACPI \wide和设备树系统表支持。\narrow"
 #string STR_FORM_SET_TITLE_SUBTITLE                        #language zh-Hans "\wide配置选项\narrow"
+#string STR_PLATFORM_CONFIGURATION                         #language zh-Hans "\wide平台配置\narrow"
 #string STR_DISABLED                                       #language zh-Hans "\wide禁用\narrow"
 #string STR_ENABLED                                        #language zh-Hans "\wide启用\narrow"
 #string STR_PLUS_SIGN                                      #language zh-Hans "+"
