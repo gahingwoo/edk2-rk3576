@@ -881,6 +881,8 @@ static void dw_mipi_dsi2_post_disable(struct dw_mipi_dsi2 *dsi2)
 		dw_mipi_dsi2_post_disable(dsi2->slave);
 }
 
+static void rk3576_dsi_clocks_on(void);
+
 static int dw_mipi_dsi2_connector_pre_init(ROCKCHIP_CONNECTOR_PROTOCOL *conn,
 					   DISPLAY_STATE *state)
 {
