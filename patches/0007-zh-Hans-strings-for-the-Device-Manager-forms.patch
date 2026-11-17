@@ -1,0 +1,471 @@
+diff --git a/MdeModulePkg/Universal/Disk/RamDiskDxe/RamDiskHiiStrings.uni b/MdeModulePkg/Universal/Disk/RamDiskDxe/RamDiskHiiStrings.uni
+index 5ee1172..73f5088 100644
+--- a/MdeModulePkg/Universal/Disk/RamDiskDxe/RamDiskHiiStrings.uni
++++ b/MdeModulePkg/Universal/Disk/RamDiskDxe/RamDiskHiiStrings.uni
+@@ -8,6 +8,7 @@
+ // **/
+ 
+ #langdef en-US  "English"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string STR_FORM_SET_TITLE             #language en-US "RAM Disk Configuration"
+ #string STR_FORM_SET_TITLE_HELP        #language en-US "Press <Enter> to add/remove RAM disks."
+@@ -39,3 +40,40 @@
+ #string STR_CREATE_AND_EXIT_PROMPT     #language en-US "Create & Exit"
+ #string STR_DISCARD_AND_EXIT_HELP      #language en-US "Discard and exit."
+ #string STR_DISCARD_AND_EXIT_PROMPT    #language en-US "Discard & Exit"
++
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string STR_FORM_SET_TITLE             #language zh-Hans "RAM \wide盘配置\narrow"
++#string STR_FORM_SET_TITLE_HELP        #language zh-Hans "\wide按\narrow <Enter> \wide键添加或删除\narrow RAM \wide盘。\narrow"
++#string STR_MAIN_FORM_TITLE            #language zh-Hans "RAM \wide盘\narrow HII \wide主界面\narrow"
++#string STR_RAM_DISK_NULL_STRING       #language zh-Hans ""
++#string STR_RAM_DISK_LIST_TEXT         #language zh-Hans "\wide已创建的\narrow RAM \wide盘列表：\narrow"
++#string STR_RAM_DISK_LIST_HELP         #language zh-Hans "\wide勾选以删除\narrow"
++#string STR_GOTO_ADD_RAW_FORM          #language zh-Hans "\wide创建空白\narrow RAM \wide盘\narrow"
++#string STR_GOTO_ADD_RAW_FORM_HELP     #language zh-Hans "\wide创建一个空白（\narrowraw\wide）\narrowRAM \wide盘。\narrow"
++#string STR_GOTO_ADD_FROM_FILE_FORM    #language zh-Hans "\wide从文件创建\narrow"
++#string STR_GOTO_ADD_FROM_FILE_FORM_HELP #language zh-Hans "\wide用指定的文件创建\narrow RAM \wide盘。\narrow"
++#string STR_REMOVE_SEL_HELP            #language zh-Hans "\wide删除选中的\narrow RAM \wide盘\narrow"
++#string STR_REMOVE_SEL_TEXT            #language zh-Hans "\wide删除选中的\narrow RAM \wide盘。\narrow"
++#string STR_ADD_RAW_FORM_TITLE         #language zh-Hans "\wide添加空白\narrow RAM \wide盘\narrow"
++#string STR_ADD_RAW_FORM_SUBTITLE_TEXT #language zh-Hans " "
++#string STR_SIZE_PROMPT                #language zh-Hans "\wide大小（十六进制）：\narrow"
++#string STR_SIZE_HELP                  #language zh-Hans "RAM \wide盘大小必须是\narrow RAM \wide盘块大小的整数倍。\narrow"
++#string STR_MEMORY_TYPE_PROMPT         #language zh-Hans "\wide盘使用的内存类型：\narrow"
++#string STR_MEMORY_TYPE_HELP           #language zh-Hans "\wide指定从系统可用内存池中用哪种类型的内存来创建\narrow RAM \wide盘。\narrow"
++#string STR_RAM_DISK_BOOT_SERVICE_DATA_MEMORY #language zh-Hans "\wide启动服务数据\narrow"
++#string STR_RAM_DISK_RESERVED_MEMORY   #language zh-Hans "\wide保留内存\narrow"
++#string STR_CREATE_AND_EXIT_HELP       #language zh-Hans "\wide用给定的起始和结束地址创建新的\narrow RAM \wide盘。\narrow"
++#string STR_CREATE_AND_EXIT_PROMPT     #language zh-Hans "\wide创建并退出\narrow"
++#string STR_DISCARD_AND_EXIT_HELP      #language zh-Hans "\wide放弃并退出。\narrow"
++#string STR_DISCARD_AND_EXIT_PROMPT    #language zh-Hans "\wide放弃并退出\narrow"
+diff --git a/SecurityPkg/VariableAuthenticated/SecureBootConfigDxe/SecureBootConfigStrings.uni b/SecurityPkg/VariableAuthenticated/SecureBootConfigDxe/SecureBootConfigStrings.uni
+index 177c585..2cb3e97 100644
+--- a/SecurityPkg/VariableAuthenticated/SecureBootConfigDxe/SecureBootConfigStrings.uni
++++ b/SecurityPkg/VariableAuthenticated/SecureBootConfigDxe/SecureBootConfigStrings.uni
+@@ -7,6 +7,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ **/
+ 
+ #langdef en-US "English"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string STR_SECUREBOOT_TITLE               #language en-US "Secure Boot Configuration"
+ #string STR_SECUREBOOT_HELP                #language en-US "Press <Enter> to select Secure Boot options."
+@@ -140,3 +141,117 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ #string STR_SIGNATURE_DATA_HELP_FORMAT_TIME       #language en-US "Revocation Time:\n%s"
+ 
+ #string STR_SIGNATURE_DELETE_ALL_CONFIRM          #language en-US "Press 'Y' to delete all signature List."
++
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string STR_SECUREBOOT_TITLE           #language zh-Hans "\wide安全启动配置\narrow"
++#string STR_SECUREBOOT_HELP            #language zh-Hans "\wide按\narrow <Enter> \wide键选择安全启动选项。\narrow"
++#string STR_NULL                       #language zh-Hans ""
++#string STR_DBX_SUBTITLE_TEXT          #language zh-Hans ""
++#string STR_SECURE_BOOT_STATE_PROMPT   #language zh-Hans "\wide当前安全启动状态\narrow"
++#string STR_SECURE_BOOT_STATE_HELP     #language zh-Hans "\wide当前安全启动状态：启用或禁用。\narrow"
++#string STR_SECURE_BOOT_STATE_CONTENT  #language zh-Hans " "
++#string STR_SECURE_BOOT_PROMPT         #language zh-Hans "\wide尝试安全启动\narrow"
++#string STR_SECURE_BOOT_HELP           #language zh-Hans "\wide平台重启后启用或禁用安全启动功能\narrow"
++#string STR_SECURE_RESET_TO_DEFAULTS_HELP #language zh-Hans "\wide用默认变量中的数据注册密钥\narrow"
++#string STR_SECURE_RESET_TO_DEFAULTS   #language zh-Hans "\wide重置安全启动密钥\narrow"
++#string STR_RESET_TO_DEFAULTS_POPUP    #language zh-Hans "\wide安全启动密钥和数据库将用默认值初始化。\narrow\n \wide确定吗？\narrow"
++#string STR_SECURE_BOOT_ENROLL_SIGNATURE #language zh-Hans "\wide注册签名\narrow"
++#string STR_SECURE_BOOT_DELETE_SIGNATURE #language zh-Hans "\wide删除签名\narrow"
++#string STR_SECURE_BOOT_DELETE_LIST_FORM #language zh-Hans "\wide删除签名列表\narrow"
++#string STR_SECURE_BOOT_DELETE_DATA_FORM #language zh-Hans "\wide删除签名数据\narrow"
++#string STR_SECURE_BOOT_DELETE_ALL_LIST #language zh-Hans "\wide删除所有签名列表\narrow"
++#string STR_SECURE_BOOT_DELETE_ALL_DATA #language zh-Hans "\wide删除所有签名数据\narrow"
++#string STR_SECURE_BOOT_DELETE_CHECK_DATA #language zh-Hans "\wide删除勾选的签名数据\narrow"
++#string STR_SECURE_BOOT_DELETE_ALL_DATA_HELP #language zh-Hans "\wide无论勾选了多少签名数据，所有签名数据都将被删除。\narrow"
++#string STR_SECURE_BOOT_DELETE_CHECK_DATA_HELP #language zh-Hans "\wide所有勾选的签名数据都将被删除。\narrow"
++#string STR_SECURE_BOOT_SIGNATURE_GUID #language zh-Hans "\wide签名\narrow GUID"
++#string STR_SECURE_BOOT_SIGNATURE_GUID_HELP #language zh-Hans "\wide按\narrow 11111111-2222-3333-4444-1234567890ab \wide格式输入。\narrow"
++#string STR_SECURE_BOOT_ADD_SIGNATURE_FILE #language zh-Hans "\wide使用文件注册签名\narrow"
++#string STR_DBX_CERTIFICATE_FORMAT_PROMPT #language zh-Hans "\wide签名格式\narrow"
++#string STR_DBX_CERTIFICATE_FORMAT_HELP #language zh-Hans "\wide已注册\narrow X509 DER \wide证书。选择其他选项可将其注册到\narrow DBX\wide。\narrow"
++#string STR_DBX_CERTIFICATE_FORMAT_SHA256 #language zh-Hans "X509 CERT SHA256"
++#string STR_DBX_CERTIFICATE_FORMAT_SHA384 #language zh-Hans "X509 CERT SHA384"
++#string STR_DBX_CERTIFICATE_FORMAT_SHA512 #language zh-Hans "X509 CERT SHA512"
++#string STR_DBX_CERTIFICATE_FORMAT_RAW #language zh-Hans "X509 CERT"
++#string STR_DBX_PE_IMAGE_FORMAT_HELP   #language zh-Hans "\wide已注册\narrow PE \wide映像。使用\narrow SHA256 \wide哈希将其注册到\narrow DBX"
++#string STR_DBX_PE_FORMAT_SHA256       #language zh-Hans "PE \wide映像\narrow SHA256"
++#string STR_DBX_AUTH_2_FORMAT_HELP     #language zh-Hans "\wide已注册\narrow VARIABLE_AUTHENTICATION_2 \wide二进制数据。使用原始二进制数据将其注册到\narrow DBX"
++#string STR_DBX_AUTH_2_FORMAT          #language zh-Hans "VARIABLE_AUTHENTICATION_2"
++#string STR_CERTIFICATE_REVOCATION_TIME_PROMPT #language zh-Hans "  \wide吊销时间\narrow"
++#string STR_CERTIFICATE_REVOCATION_TIME_HELP #language zh-Hans "\wide输入证书的吊销时间\narrow"
++#string STR_CERTIFICATE_REVOCATION_DATE_PROMPT #language zh-Hans "  \wide吊销日期\narrow"
++#string STR_CERTIFICATE_REVOCATION_DATE_HELP #language zh-Hans "\wide输入证书的吊销日期\narrow"
++#string STR_ALWAYS_CERTIFICATE_REVOCATION_PROMPT #language zh-Hans "\wide始终吊销\narrow"
++#string STR_ALWAYS_CERTIFICATE_REVOCATION_HELP #language zh-Hans "\wide表示证书是否始终被吊销。\narrow"
++#string STR_SAVE_SIGNATURE_FILE        #language zh-Hans "\wide保存签名文件\narrow"
++#string STR_SAVE_AND_EXIT              #language zh-Hans "\wide提交更改并退出\narrow"
++#string STR_NO_SAVE_AND_EXIT           #language zh-Hans "\wide放弃更改并退出\narrow"
++#string STR_FILE_EXPLORER_TITLE        #language zh-Hans "\wide文件浏览器\narrow"
++#string STR_SECURE_BOOT_MODE_PROMPT    #language zh-Hans "\wide安全启动模式\narrow"
++#string STR_SECURE_BOOT_MODE_HELP      #language zh-Hans "\wide安全启动模式：自定义模式或标准模式\narrow"
++#string STR_STANDARD_MODE              #language zh-Hans "\wide标准模式\narrow"
++#string STR_CUSTOM_MODE                #language zh-Hans "\wide自定义模式\narrow"
++#string STR_SECURE_BOOT_OPTION         #language zh-Hans "\wide自定义安全启动选项\narrow"
++#string STR_SECURE_BOOT_OPTION_HELP    #language zh-Hans "\wide进入自定义安全启动选项\narrow"
++#string STR_SECURE_BOOT_OPTION_TITLE   #language zh-Hans "\wide自定义安全启动选项\narrow"
++#string STR_SECURE_BOOT_PK_OPTION      #language zh-Hans "PK \wide选项\narrow"
++#string STR_SECURE_BOOT_PK_OPTION_HELP #language zh-Hans "\wide注册或删除\narrow PK"
++#string STR_SECURE_BOOT_KEK_OPTION     #language zh-Hans "KEK \wide选项\narrow"
++#string STR_SECURE_BOOT_KEK_OPTION_HELP #language zh-Hans "\wide注册或删除\narrow KEK"
++#string STR_SECURE_BOOT_DB_OPTION      #language zh-Hans "DB \wide选项\narrow"
++#string STR_SECURE_BOOT_DB_OPTION_HELP #language zh-Hans "\wide注册或删除签名\narrow"
++#string STR_SECURE_BOOT_DBX_OPTION     #language zh-Hans "DBX \wide选项\narrow"
++#string STR_SECURE_BOOT_DBX_OPTION_HELP #language zh-Hans "\wide注册或删除\narrow DBX"
++#string STR_SECURE_BOOT_DBT_OPTION     #language zh-Hans "DBT \wide选项\narrow"
++#string STR_SECURE_BOOT_DBT_OPTION_HELP #language zh-Hans "\wide注册或删除\narrow DBT"
++#string STR_ENROLL_PK                  #language zh-Hans "\wide注册\narrow PK"
++#string STR_ENROLL_PK_HELP             #language zh-Hans "\wide进入注册\narrow PK \wide页面\narrow"
++#string STR_SAVE_PK_FILE               #language zh-Hans "\wide保存\narrow PK \wide文件\narrow"
++#string STR_SECURE_BOOT_ENROLL_PK_FILE #language zh-Hans "\wide使用文件注册\narrow PK"
++#string STR_DELETE_PK                  #language zh-Hans "\wide删除\narrow PK"
++#string STR_DELETE_PK_HELP             #language zh-Hans "\wide选择是否删除\narrow PK\wide，否则保留\narrow PK"
++#string STR_ENROLL_PK_TITLE            #language zh-Hans "\wide注册\narrow PK"
++#string STR_ENROLL_KEK                 #language zh-Hans "\wide注册\narrow KEK"
++#string STR_ENROLL_KEK_HELP            #language zh-Hans "\wide进入注册\narrow KEK \wide页面\narrow"
++#string STR_DELETE_KEK                 #language zh-Hans "\wide删除\narrow KEK"
++#string STR_DELETE_KEK_HELP            #language zh-Hans "\wide进入删除\narrow KEK \wide页面\narrow"
++#string STR_ENROLL_KEK_TITLE           #language zh-Hans "\wide注册\narrow KEK"
++#string STR_DELETE_KEK_TITLE           #language zh-Hans "\wide删除\narrow KEK"
++#string STR_FORM_ENROLL_KEK_FROM_FILE_TITLE #language zh-Hans "\wide使用文件注册\narrow KEK"
++#string STR_FORM_ENROLL_KEK_FROM_FILE_TITLE_HELP #language zh-Hans "\wide从文件读取\narrow KEK \wide公钥\narrow"
++#string STR_CERT_TYPE_RSA2048_SHA256_GUID #language zh-Hans "RSA2048_SHA256_GUID"
++#string STR_CERT_TYPE_PCKS7_GUID       #language zh-Hans "PCKS7_GUID"
++#string STR_CERT_TYPE_SHA1_GUID        #language zh-Hans "SHA1_GUID"
++#string STR_CERT_TYPE_SHA256_GUID      #language zh-Hans "SHA256_GUID"
++#string STR_CERT_TYPE_X509_SHA256_GUID #language zh-Hans "X509_SHA256_GUID"
++#string STR_CERT_TYPE_X509_SHA384_GUID #language zh-Hans "X509_SHA384_GUID"
++#string STR_CERT_TYPE_X509_SHA512_GUID #language zh-Hans "X509_SHA512_GUID"
++#string STR_LIST_TYPE_RSA2048_SHA256   #language zh-Hans "RSA2048_SHA256"
++#string STR_LIST_TYPE_X509             #language zh-Hans "X509"
++#string STR_LIST_TYPE_SHA1             #language zh-Hans "SHA1"
++#string STR_LIST_TYPE_SHA256           #language zh-Hans "SHA256"
++#string STR_LIST_TYPE_SHA384           #language zh-Hans "SHA384"
++#string STR_LIST_TYPE_SHA512           #language zh-Hans "SHA512"
++#string STR_LIST_TYPE_X509_SHA256      #language zh-Hans "X509_SHA256"
++#string STR_LIST_TYPE_X509_SHA384      #language zh-Hans "X509_SHA384"
++#string STR_LIST_TYPE_X509_SHA512      #language zh-Hans "X509_SHA512"
++#string STR_LIST_TYPE_UNKNOWN          #language zh-Hans "\wide未知\narrow"
++#string STR_SIGNATURE_LIST_NAME_FORMAT #language zh-Hans "\wide签名列表，条目\narrow-%d"
++#string STR_SIGNATURE_DATA_NAME_FORMAT #language zh-Hans "\wide签名数据，条目\narrow-%d"
++#string STR_SIGNATURE_LIST_HELP_FORMAT #language zh-Hans "\wide列表类型：\narrow\n  %s\n\n\wide条目数：\narrow\n  %d"
++#string STR_SIGNATURE_DATA_HELP_FORMAT_GUID #language zh-Hans "\wide所有者\narrow GUID\wide：\narrow\n%s\n\n"
++#string STR_SIGNATURE_DATA_HELP_FORMAT_CN #language zh-Hans "%s(%d \wide字节\narrow)\wide：\narrow\nCN = %s\n"
++#string STR_SIGNATURE_DATA_HELP_FORMAT_HASH #language zh-Hans "%s(%d \wide字节\narrow)\wide：\narrow\n%s\n"
++#string STR_SIGNATURE_DATA_HELP_FORMAT_TIME #language zh-Hans "\wide吊销时间：\narrow\n%s"
++#string STR_SIGNATURE_DELETE_ALL_CONFIRM #language zh-Hans "\wide按\narrow 'Y' \wide删除所有签名列表。\narrow"
+diff --git a/EmbeddedPkg/Drivers/MemoryAttributeManagerDxe/MemoryAttributeManagerDxeHii.uni b/EmbeddedPkg/Drivers/MemoryAttributeManagerDxe/MemoryAttributeManagerDxeHii.uni
+index 8537824..5aba5e2 100644
+--- a/EmbeddedPkg/Drivers/MemoryAttributeManagerDxe/MemoryAttributeManagerDxeHii.uni
++++ b/EmbeddedPkg/Drivers/MemoryAttributeManagerDxe/MemoryAttributeManagerDxeHii.uni
+@@ -7,6 +7,7 @@
+ **/
+ 
+ #langdef en-US  "English"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string STR_NULL_STRING                                    #language en-US ""
+ 
+@@ -15,3 +16,21 @@
+                                                                            "Some old OS loader versions (e.g. as found in CentOS Stream 9) do not properly support the protocol and may cause a Synchronous Exception. This security feature can be disabled to work around the issue; otherwise it should be kept enabled."
+ 
+ #string STR_ENABLE_PROTOCOL_PROMPT                         #language en-US "Enable Protocol"
++
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string STR_NULL_STRING                                    #language zh-Hans ""
++#string STR_FORM_SET_TITLE                                 #language zh-Hans "EFI Memory Attribute Protocol"
++#string STR_FORM_SET_TITLE_HELP                            #language zh-Hans "\wide配置\narrow EFI Memory Attribute Protocol\wide（内存属性协议）的状态。\narrow\n\n"
++                                                                             "\wide部分旧版操作系统引导程序（例如\narrow CentOS Stream 9 \wide中的版本）不能正确支持此协议，可能引发同步异常（\narrowSynchronous Exception\wide）。可以禁用这项安全功能来规避该问题；否则应保持启用。\narrow"
++#string STR_ENABLE_PROTOCOL_PROMPT                         #language zh-Hans "\wide启用协议\narrow"
+diff --git a/NetworkPkg/VlanConfigDxe/VlanConfigStrings.uni b/NetworkPkg/VlanConfigDxe/VlanConfigStrings.uni
+index 1ccfd60..df3589c 100644
+--- a/NetworkPkg/VlanConfigDxe/VlanConfigStrings.uni
++++ b/NetworkPkg/VlanConfigDxe/VlanConfigStrings.uni
+@@ -9,6 +9,7 @@
+ /=#
+ 
+ #langdef en-US "English"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string STR_VLAN_FORM_SET_TITLE       #language en-US "VLAN Configuration"
+ #string STR_VLAN_FORM_SET_TITLE_HELP  #language en-US "VLAN configuration for this network device"
+@@ -29,3 +30,34 @@
+ #string STR_VLAN_NULL_STRING          #language en-US ""
+ #string STR_GET_CURRENT_SETTING       #language en-US "Enter Configuration Menu"
+ #string STR_GET_CURRENT_SETTING_HELP  #language en-US "Press ENTER to enter configuration menu for VLAN configuration."
++
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string STR_VLAN_FORM_SET_TITLE        #language zh-Hans "VLAN \wide配置\narrow"
++#string STR_VLAN_FORM_SET_TITLE_HELP   #language zh-Hans "\wide此网络设备的\narrow VLAN \wide配置\narrow"
++#string STR_VLAN_FORM_TITLE            #language zh-Hans "VLAN \wide配置\narrow"
++#string STR_VLAN_FORM_HELP             #language zh-Hans "VLAN \wide配置帮助\narrow"
++#string STR_VLAN_CREATE_VLAN           #language zh-Hans "\wide新建\narrow VLAN"
++#string STR_VLAN_VID_PROMPT            #language zh-Hans "  VLAN ID"
++#string STR_VLAN_VID_HELP              #language zh-Hans "\wide新建或已有\narrow VLAN \wide的\narrow VLAN ID\wide，有效值为\narrow 0~4094"
++#string STR_VLAN_PRIORITY_PROMPT       #language zh-Hans "  \wide优先级\narrow"
++#string STR_VLAN_PRIORITY_HELP         #language zh-Hans "802.1Q \wide优先级，有效值为\narrow 0~7"
++#string STR_VLAN_ADD_VLAN_PROMPT       #language zh-Hans "\wide添加\narrow VLAN"
++#string STR_VLAN_ADD_VLAN_HELP         #language zh-Hans "\wide新建\narrow VLAN \wide或更新已有的\narrow VLAN"
++#string STR_VLAN_VLAN_LIST             #language zh-Hans "\wide已配置的\narrow VLAN \wide列表\narrow"
++#string STR_VLAN_VLAN_LIST_HELP        #language zh-Hans "\wide勾选以删除\narrow"
++#string STR_VLAN_REMOVE_VLAN_PROMPT    #language zh-Hans "\wide删除\narrow VLAN"
++#string STR_VLAN_REMOVE_VLAN_HELP      #language zh-Hans "\wide删除选中的\narrow VLAN"
++#string STR_VLAN_NULL_STRING           #language zh-Hans ""
++#string STR_GET_CURRENT_SETTING        #language zh-Hans "\wide进入配置菜单\narrow"
++#string STR_GET_CURRENT_SETTING_HELP   #language zh-Hans "\wide按\narrow ENTER \wide键进入\narrow VLAN \wide配置菜单。\narrow"
+diff --git a/NetworkPkg/Ip4Dxe/Ip4DxeStrings.uni b/NetworkPkg/Ip4Dxe/Ip4DxeStrings.uni
+index c262298..f6c24b1 100644
+--- a/NetworkPkg/Ip4Dxe/Ip4DxeStrings.uni
++++ b/NetworkPkg/Ip4Dxe/Ip4DxeStrings.uni
+@@ -10,6 +10,7 @@
+ /=#
+ 
+ #langdef en-US "English"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string STR_IP4_CONFIG2_FORM_TITLE    #language en-US "IPv4 Network Configuration"
+ #string STR_IP4_CONFIG2_FORM_HELP     #language en-US "Configure network parameters."
+@@ -28,3 +29,33 @@
+ #string STR_IP4_DNS_HELP              #language en-US "Enter DNS Servers in dotted-decimal notation. Example: 192.168.10.8 192.168.10.9\r\n"
+ #string STR_SAVE_CHANGES              #language en-US "Save Changes and Exit"
+ #string STR_NULL                      #language en-US ""
++
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string STR_IP4_CONFIG2_FORM_TITLE     #language zh-Hans "IPv4 \wide网络配置\narrow"
++#string STR_IP4_CONFIG2_FORM_HELP      #language zh-Hans "\wide配置网络参数。\narrow"
++#string STR_IP4_DEVICE_FORM_TITLE      #language zh-Hans ""
++#string STR_IP4_DEVICE_FORM_HELP       #language zh-Hans ""
++#string STR_IP4_CONFIGURE              #language zh-Hans "\wide已配置\narrow"
++#string STR_IP4_CONFIGURE_HELP         #language zh-Hans "\wide表示网络地址是否已配置成功。\narrow"
++#string STR_IP4_ENABLE_DHCP            #language zh-Hans "\wide启用\narrow DHCP"
++#string STR_IP4_LOCAL_IP_ADDRESS       #language zh-Hans "\wide本机\narrow IP \wide地址\narrow"
++#string STR_IP4_IP_ADDRESS_HELP        #language zh-Hans "\wide以点分十进制格式输入\narrow IP \wide地址。例如：\narrow192.168.10.12\r\n"
++#string STR_IP4_LOCAL_MASK             #language zh-Hans "\wide本机子网掩码\narrow"
++#string STR_IP4_MASK_HELP              #language zh-Hans "\wide以点分十进制格式输入子网掩码。例如：\narrow255.255.255.0\r\n"
++#string STR_IP4_LOCAL_GATEWAY          #language zh-Hans "\wide本机网关\narrow"
++#string STR_IP4_GATEWAY_HELP           #language zh-Hans "\wide以点分十进制格式输入网关地址。例如：\narrow192.168.10.1\r\n"
++#string STR_IP4_LOCAL_DNS              #language zh-Hans "\wide本机\narrow DNS \wide服务器\narrow"
++#string STR_IP4_DNS_HELP               #language zh-Hans "\wide以点分十进制格式输入\narrow DNS \wide服务器地址。例如：\narrow192.168.10.8 192.168.10.9\r\n"
++#string STR_SAVE_CHANGES               #language zh-Hans "\wide保存更改并退出\narrow"
++#string STR_NULL                       #language zh-Hans ""
+diff --git a/NetworkPkg/Ip6Dxe/Ip6DxeStrings.uni b/NetworkPkg/Ip6Dxe/Ip6DxeStrings.uni
+index 6b77176..fcd73b3 100644
+--- a/NetworkPkg/Ip6Dxe/Ip6DxeStrings.uni
++++ b/NetworkPkg/Ip6Dxe/Ip6DxeStrings.uni
+@@ -8,6 +8,7 @@
+ **/
+ 
+ #langdef en-US "English"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string STR_IP6_CONFIG_FORM_TITLE       #language en-US "IPv6 Network Configuration"
+ #string STR_IP6_CONFIG_FORM_HELP        #language en-US "Configure IPv6 network parameters."
+@@ -53,3 +54,60 @@
+ #string STR_NULL                        #language en-US ""
+ #string STR_GET_CURRENT_SETTING         #language en-US "Enter Configuration Menu"
+ #string STR_GET_CURRENT_SETTING_HELP    #language en-US "Press ENTER to enter configuration menu for IPv6 configuration."
++
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string STR_IP6_CONFIG_FORM_TITLE      #language zh-Hans "IPv6 \wide网络配置\narrow"
++#string STR_IP6_CONFIG_FORM_HELP       #language zh-Hans "\wide配置\narrow IPv6 \wide网络参数。\narrow"
++#string STR_IP6_DEVICE_FORM_TITLE      #language zh-Hans "IPv6 \wide当前设置\narrow"
++#string STR_IP6_DEVICE_FORM_HELP       #language zh-Hans "\wide显示\narrow IPv6 \wide网络参数。\narrow"
++#string STR_IP6_INTERFACE_NAME         #language zh-Hans "\wide接口名称：\narrow"
++#string STR_IP6_INTERFACE_NAME_HELP    #language zh-Hans "\wide网络接口的名称。\narrow"
++#string STR_IP6_INTERFACE_NAME_CONTENT #language zh-Hans ""
++#string STR_IP6_INTERFACE_TYPE         #language zh-Hans "\wide接口类型：\narrow"
++#string STR_IP6_INTERFACE_TYPE_HELP    #language zh-Hans "\wide网络接口的类型，见\narrow RFC1700 \wide中的定义。\narrow"
++#string STR_IP6_INTERFACE_TYPE_CONTENT #language zh-Hans ""
++#string STR_IP6_MAC_ADDRESS            #language zh-Hans "MAC \wide地址：\narrow"
++#string STR_IP6_MAC_ADDRESS_HELP       #language zh-Hans "\wide网络接口的硬件地址。\narrow"
++#string STR_IP6_MAC_ADDRESS_CONTENT    #language zh-Hans ""
++#string STR_IP6_HOST_ADDRESS           #language zh-Hans "\wide主机地址：\narrow"
++#string STR_IP6_HOST_ADDRESS_HELP      #language zh-Hans "\wide本机\narrow IPv6 \wide地址及其前缀长度的列表。\narrow"
++#string STR_IP6_ROUTE_TABLE            #language zh-Hans "\wide路由表：\narrow"
++#string STR_IP6_ROUTE_TABLE_HELP       #language zh-Hans "\wide此接口上运行的\narrow IPv6 \wide协议栈的路由表。\narrow"
++#string STR_IP6_GATEWAY_ADDRESS        #language zh-Hans "\wide网关地址：\narrow"
++#string STR_IP6_GATEWAY_ADDRESS_HELP   #language zh-Hans "\wide当前的\narrow IPv6 \wide网关地址。\narrow"
++#string STR_IP6_DNS_ADDRESS            #language zh-Hans "DNS \wide地址：\narrow"
++#string STR_IP6_DNS_ADDRESS_HELP       #language zh-Hans "\wide当前的\narrow DNS \wide服务器列表。\narrow"
++#string STR_IP6_INTERFACE_ID           #language zh-Hans "\wide接口\narrow ID"
++#string STR_IP6_INTERFACE_ID_HELP      #language zh-Hans "\wide设备的\narrow 64 \wide位备用接口\narrow ID\wide，以冒号分隔。例如：\narrowff:dd:88:66:cc:1:2:3"
++#string STR_IP6_DAD_TRANSMIT_COUNT     #language zh-Hans "DAD \wide发送次数\narrow"
++#string STR_IP6_DAD_TRANSMIT_COUNT_HELP #language zh-Hans "\wide对暂定地址执行重复地址检测（\narrowDAD\wide）时连续发送的邻居请求消息数。\narrow0 \wide表示不执行重复地址检测。\narrow"
++#string STR_POLICY_TYPE_PROMPT         #language zh-Hans "\wide策略\narrow"
++#string STR_POLICY_TYPE_HELP           #language zh-Hans "\wide自动或手动\narrow"
++#string STR_POLICY_TYPE_AUTO           #language zh-Hans "\wide自动\narrow"
++#string STR_POLICY_TYPE_MANUAL         #language zh-Hans "\wide手动\narrow"
++#string STR_IP6_AD_CONFIG_FORM         #language zh-Hans "\wide高级配置\narrow"
++#string STR_IP6_AD_CONFIG_FORM_HELP    #language zh-Hans "\wide手动配置接口，可配置\narrow IP \wide地址、网关地址和\narrow DNS \wide服务器地址。\narrow"
++#string STR_IP6_MANUAL_ADDRESS         #language zh-Hans "\wide新\narrow IPv6 \wide地址\narrow"
++#string STR_IP6_MANUAL_ADDRESS_HELP    #language zh-Hans "\wide只有在手动策略下才能配置\narrow IP \wide地址。多个地址之间用空格分隔。例如：\narrow2002::1/64 2002::2/64"
++#string STR_IP6_NEW_GATEWAY_ADDRESS    #language zh-Hans "\wide新网关地址\narrow"
++#string STR_IP6_NEW_GATEWAY_ADDR_HELP  #language zh-Hans "\wide只有在手动策略下才能配置网关\narrow IP \wide地址。例如：\narrow2002::3\wide。多个地址之间用空格分隔。\narrow"
++#string STR_IP6_NEW_DNS_ADDRESS        #language zh-Hans "\wide新\narrow DNS \wide地址\narrow"
++#string STR_IP6_NEW_DNS_ADDRESS_HELP   #language zh-Hans "\wide只有在手动策略下才能配置\narrow DNS \wide地址。例如：\narrow2002::4\wide。多个地址之间用空格分隔。\narrow"
++#string STR_SAVE_CHANGES               #language zh-Hans "\wide保存更改并退出\narrow"
++#string STR_SAVE_CHANGES_HELP          #language zh-Hans "\wide保存接口\narrow ID\wide、\narrowDAD \wide发送次数、策略以及高级配置中的数据。\narrow"
++#string STR_SAVE_AND_EXIT              #language zh-Hans "\wide提交更改并退出\narrow"
++#string STR_NO_SAVE_AND_EXIT           #language zh-Hans "\wide放弃更改并退出\narrow"
++#string STR_NULL                       #language zh-Hans ""
++#string STR_GET_CURRENT_SETTING        #language zh-Hans "\wide进入配置菜单\narrow"
++#string STR_GET_CURRENT_SETTING_HELP   #language zh-Hans "\wide按\narrow ENTER \wide键进入\narrow IPv6 \wide配置菜单。\narrow"
+diff --git a/NetworkPkg/HttpBootDxe/HttpBootConfigStrings.uni b/NetworkPkg/HttpBootDxe/HttpBootConfigStrings.uni
+index 28af02b..55d836c 100644
+--- a/NetworkPkg/HttpBootDxe/HttpBootConfigStrings.uni
++++ b/NetworkPkg/HttpBootDxe/HttpBootConfigStrings.uni
+@@ -8,6 +8,7 @@
+ **/
+ 
+ #langdef en-US "English"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string STR_HTTP_BOOT_CONFIG_FORM_TITLE       #language en-US "HTTP Boot Configuration"
+ #string STR_HTTP_BOOT_CONFIG_FORM_HELP        #language en-US "Configure HTTP Boot parameters."
+@@ -21,3 +22,28 @@
+ #string STR_BOOT_PROXY_URI_PROMPT             #language en-US "Proxy URI"
+ #string STR_BOOT_PROXY_URI_HELP               #language en-US "Proxy URI through which to connect to Boot URI"
+ #string STR_NULL_STRING                       #language en-US ""
++
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string STR_HTTP_BOOT_CONFIG_FORM_TITLE #language zh-Hans "HTTP \wide启动配置\narrow"
++#string STR_HTTP_BOOT_CONFIG_FORM_HELP #language zh-Hans "\wide配置\narrow HTTP \wide启动参数。\narrow"
++#string STR_HTTP_BOOT_IP_VERSION_PROMPT #language zh-Hans "\wide网际协议\narrow"
++#string STR_HTTP_BOOT_IP_VERSION_HELP  #language zh-Hans "\wide选择网际协议的版本。\narrow"
++#string STR_HTTP_BOOT_IP_VERSION_4     #language zh-Hans "IP4"
++#string STR_HTTP_BOOT_IP_VERSION_6     #language zh-Hans "IP6"
++#string STR_BOOT_URI_PROMPT            #language zh-Hans "\wide启动\narrow URI"
++#string STR_BOOT_URI_HELP              #language zh-Hans "\wide将根据此启动\narrow URI \wide新建一个启动项。\narrow"
++#string STR_BOOT_DESCRIPTION_PROMPT    #language zh-Hans "\wide输入描述\narrow"
++#string STR_BOOT_PROXY_URI_PROMPT      #language zh-Hans "\wide代理\narrow URI"
++#string STR_BOOT_PROXY_URI_HELP        #language zh-Hans "\wide连接启动\narrow URI \wide时使用的代理\narrow URI"
++#string STR_NULL_STRING                #language zh-Hans ""
+diff --git a/NetworkPkg/TlsAuthConfigDxe/TlsAuthConfigDxeStrings.uni b/NetworkPkg/TlsAuthConfigDxe/TlsAuthConfigDxeStrings.uni
+index 0afa6e3..b61c576 100644
+--- a/NetworkPkg/TlsAuthConfigDxe/TlsAuthConfigDxeStrings.uni
++++ b/NetworkPkg/TlsAuthConfigDxe/TlsAuthConfigDxeStrings.uni
+@@ -7,6 +7,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ **/
+ 
+ #langdef en-US "English"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string STR_TLS_AUTH_CONFIG_TITLE                    #language en-US "TLS Auth Configuration"
+ #string STR_TLS_AUTH_CONFIG_HELP                     #language en-US "Press <Enter> to select TLS Auth Configuration."
+@@ -33,3 +34,34 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ #string STR_CERT_TYPE_PCKS_GUID                      #language en-US "GUID for CERT"
+ 
+ #string STR_NULL                                     #language en-US ""
++
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string STR_TLS_AUTH_CONFIG_TITLE      #language zh-Hans "TLS \wide认证配置\narrow"
++#string STR_TLS_AUTH_CONFIG_HELP       #language zh-Hans "\wide按\narrow <Enter> \wide键进入\narrow TLS \wide认证配置。\narrow"
++#string STR_TLS_AUTH_CONFIG_SERVER_CA  #language zh-Hans "\wide服务器\narrow CA \wide配置\narrow"
++#string STR_TLS_AUTH_CONFIG_SERVER_CA_HELP #language zh-Hans "\wide按\narrow <Enter> \wide键配置服务器\narrow CA\wide。\narrow"
++#string STR_TLS_AUTH_CONFIG_CLIENT_CERT #language zh-Hans "\wide客户端证书配置\narrow"
++#string STR_TLS_AUTH_CONFIG_CLIENT_CERT_HELP #language zh-Hans "\wide目前不支持客户端证书配置。\narrow"
++#string STR_TLS_AUTH_CONFIG_ENROLL_CERT #language zh-Hans "\wide注册证书\narrow"
++#string STR_TLS_AUTH_CONFIG_ENROLL_CERT_HELP #language zh-Hans "\wide按\narrow <Enter> \wide键注册证书。\narrow"
++#string STR_TLS_AUTH_CONFIG_DELETE_CERT #language zh-Hans "\wide删除证书\narrow"
++#string STR_TLS_AUTH_CONFIG_DELETE_CERT_HELP #language zh-Hans "\wide按\narrow <Enter> \wide键删除证书。\narrow"
++#string STR_TLS_AUTH_CONFIG_ADD_CERT_FILE #language zh-Hans "\wide使用文件注册证书\narrow"
++#string STR_TLS_AUTH_CONFIG_CERT_GUID  #language zh-Hans "\wide证书\narrow GUID"
++#string STR_TLS_AUTH_CONFIG_CERT_GUID_HELP #language zh-Hans "\wide按\narrow 11111111-2222-3333-4444-1234567890ab \wide格式输入。\narrow"
++#string STR_TLS_AUTH_CONFIG_SAVE_AND_EXIT #language zh-Hans "\wide提交更改并退出\narrow"
++#string STR_TLS_AUTH_CONFIG_NO_SAVE_AND_EXIT #language zh-Hans "\wide放弃更改并退出\narrow"
++#string STR_TLS_AUTH_ENROLL_CERT_FAILURE #language zh-Hans "\wide注册证书失败！\narrow"
++#string STR_CERT_TYPE_PCKS_GUID        #language zh-Hans "\wide证书的\narrow GUID"
++#string STR_NULL                       #language zh-Hans ""

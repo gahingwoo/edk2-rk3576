@@ -4,7 +4,8 @@
 submodule, pinned by `scripts/setup-host.sh` to edk2-stable202602. Edits made
 inside it are lost when the checkout is reset. Three of the five patches here are
 real fixes, and without them the firmware still builds but misbehaves, so they
-are kept as patch files.  A sixth adds Chinese strings to the stock menus.
+are kept as patch files.  The others add Chinese to the stock menus and make
+them follow a language switch.
 
 They were first generated against tianocore/edk2 `46548b1` and apply cleanly
 to edk2-stable202602, which is what CI builds against.
@@ -85,6 +86,19 @@ Not translated: DisplayEngineDxe / CustomizedDisplayLib (the key-help footer
 and the save / discard pop-ups) and SetupBrowserDxe.  Some of their strings
 are the answer keys the pop-ups compare against ("Y", "N"), so translating
 them is not purely cosmetic.  They stay English in both languages.
+
+### `0007-zh-Hans-strings-for-the-Device-Manager-forms.patch`
+
+The forms of the TianoCore drivers these boards build, in Simplified
+Chinese, every string: RAM disk, Secure Boot, EFI Memory Attribute Protocol
+(EmbeddedPkg's MemoryAttributeManagerDxe), and the per-NIC network forms
+(VLAN, IPv4, IPv6, HTTP boot, TLS authentication). String files only.
+
+Three texts in these drivers are built in C and stay English or stay in the
+language the board booted in: the "(MAC:...)" suffix the IPv4, IPv6 and HTTP
+boot drivers append to their help line once at start, VlanConfigDxe's whole
+"VLAN Configuration (MAC:...)" help line, and Secure Boot's
+"Enabled"/"Disabled" state, which is a C literal.
 
 ## Optional (`--with-debug`)
 
