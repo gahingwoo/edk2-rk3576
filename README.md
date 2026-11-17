@@ -46,10 +46,11 @@ firmware names from SMBIOS, the Mali-G52.
 |---|---|---|---|
 | Boots from | SPI NOR | eMMC or SD | eMMC, or an SPL on eMMC with the firmware on SD |
 | HDMI | yes | yes | yes |
+| MIPI DSI screen | not tried | not tried | LCKFB's 800x1280 screen, with touch in the menus |
 | eMMC | no eMMC (UFS) | yes, UEFI variables persist | yes, UEFI variables persist |
 | NVMe | yes | yes | not tried (mini-PCIe slot) |
 | USB | yes | yes; USB-C is USB 2.0 in UEFI and Windows | four USB-A ports; USB-C unused |
-| Ethernet | yes | yes, in UEFI, Linux and Windows | yes, in UEFI and Windows |
+| Ethernet | yes | yes, in UEFI, Linux and Windows | yes, in UEFI and Windows; not checked in Linux |
 | Linux through UEFI | Fedora from NVMe | Fedora from NVMe | boots from a USB stick, [with limits](#linux-on-the-taishanpi-3m) |
 | Windows 11 23H2 | not tried | boots to the desktop | boots to the desktop, GPU driver available |
 
@@ -148,8 +149,9 @@ DISM from a WinPE that carries the drivers and a script that does the rest:
 The full procedure, the reasons for each step and what to do when it does not
 boot are in
 [woa-rk3576's INSTALL.md](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.md).
-Do not make the stick with Ventoy: its UDF driver stops with a synchronous
-exception on RK3576.
+Do not make this stick with Ventoy: with the WinPE image its UDF driver
+stopped with a synchronous exception. Ventoy itself does start on this
+firmware, and has handed over to a Linux disk image once.
 
 Out of the box the desktop is drawn on the CPU into the firmware's
 framebuffer, at the one mode the firmware set.
@@ -168,14 +170,18 @@ TaishanPi 3M has no RTC driver, so the clock is wrong until it syncs.
 - Boot entries written from an OS (`efibootmgr`, `bcdboot`) do not reach the
   firmware, and Linux logs `Unable to handle paging request in EFI runtime
   service` at reboot. Windows boots through `\EFI\Boot\bootaa64.efi` instead.
-- The USB-C port runs at USB 2.0 outside Linux. The firmware brings up the
-  USBDP PHY's USB3 half at ExitBootServices (on the CM5-IO it reads the plug
-  orientation from the FUSB302), which stopped Windows bugchecking at
-  shutdown, but SuperSpeed has not trained there: DRD0's link stays in
-  Rx.Detect.
-- The ROCK 4D has not been tested with the Windows-related changes in 0.2.0.
-- `main` is ahead of the release images. What has been merged and not yet run
-  on a board is listed in [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
+- On the ROCK 4D and the CM5-IO the USB-C port runs at USB 2.0 outside
+  Linux. The firmware brings up the USBDP PHY's USB3 half at
+  ExitBootServices (on the CM5-IO it reads the plug orientation from the
+  FUSB302), which stopped Windows bugchecking at shutdown, but SuperSpeed
+  has not trained there: DRD0's link stays in Rx.Detect. On the TaishanPi 3M
+  the firmware does not use the USB-C port at all.
+- The ROCK 4D has not been run with anything merged after 0.2.1. Its 0.4.0
+  image is built only. On the CM5-IO, 0.4.0 has shown its menus and has not
+  started an operating system; 0.2.1 is the last release that did.
+- The release images are built from `main`. Some of what is in them has
+  booted without being checked for what it is meant to do; that is listed in
+  [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
 - The ComboPHY and PCIe device-tree fixups look for `/pcie@…` at the root,
   where mainline has `/soc/`, so they do nothing. NVMe works without them.
 
