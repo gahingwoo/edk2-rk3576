@@ -17,8 +17,7 @@
  *  It is started as a boot option, so the firmware's picture is already back
  *  in the panel's native orientation and coordinates map one to one.
  *
- *  Leave with Esc on a keyboard or with a double tap (TouchKeysDxe turns a
- *  double tap, and two fingers, into Esc).
+ *  Leave with Q on a keyboard, or by putting three fingers down.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
@@ -177,13 +176,13 @@ TouchTestMain (
   Print (L"  Touch Test\n\n");
   Print (L"  screen %u x %u, touch 0..%lu x 0..%lu\n", W, H, MaxX, MaxY);
   Print (L"  red = (0,0)  green = (maxX,0)\n  blue = (0,maxY)  white = (maxX,maxY)\n\n");
-  Print (L"  Touch the red corner: expect about 0, 0.\n\n");
-  Print (L"  Leave: Esc, or double-tap the screen.\n\n");
+  Print (L"  Touch the red corner: expect about 0, 0.\n");
+  Print (L"  Q or three fingers to leave.\n\n");
   Print (L"  Touch in the menus:\n");
-  Print (L"    drag        move the highlight\n");
-  Print (L"    tap         select (Enter)\n");
-  Print (L"    double tap  back (Esc)\n");
-  Print (L"    2 fingers   back (Esc)\n\n");
+  Print (L"    drag         move the highlight\n");
+  Print (L"    tap          select (Enter)\n");
+  Print (L"    two fingers  back (Esc)\n");
+  Print (L"    long press   back (Esc)\n\n");
   if ((W != MaxX + 1) || (H != MaxY + 1)) {
     Print (L"  Screen and touch sizes differ: dots are scaled.\n\n");
   }
@@ -200,10 +199,9 @@ TouchTestMain (
     }
 
     if (Which == 1) {
-      // Touches also arrive as keys (TouchKeysDxe): taps as Enter, drags as
-      // arrows, and a double tap or two fingers as Esc, which leaves.
+      // Touches also arrive as keys (TouchKeysDxe); only Q leaves.
       if (!EFI_ERROR (gST->ConIn->ReadKeyStroke (gST->ConIn, &Key)) &&
-          (Key.ScanCode == SCAN_ESC))
+          ((Key.UnicodeChar == L'q') || (Key.UnicodeChar == L'Q')))
       {
         break;
       }
@@ -213,6 +211,10 @@ TouchTestMain (
 
     if (EFI_ERROR (Touch->GetState (Touch, &State))) {
       continue;
+    }
+
+    if (State.CurrentZ >= 3) {
+      break;
     }
 
     if ((State.ActiveButtons & EFI_ABSP_TouchActive) == 0) {

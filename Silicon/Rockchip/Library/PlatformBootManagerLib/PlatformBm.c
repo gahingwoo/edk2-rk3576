@@ -51,7 +51,7 @@
 // TaishanPi 3M): what the fingers do goes into the prompt, since a board
 // with a screen may have no keyboard at all.
 //
-#define BOOT_PROMPT_TOUCH  L"Setup (ESC/F2, or double-tap)   Shell (F1)   MaskROM (F4)   Continue (Enter, or tap)"
+#define BOOT_PROMPT_TOUCH  L"Setup (ESC/F2, or two fingers)   Shell (F1)   MaskROM (F4)   Continue (Enter, or tap)"
 
 /**
   Is there a touch screen that acts as a keyboard?  It is the one device
