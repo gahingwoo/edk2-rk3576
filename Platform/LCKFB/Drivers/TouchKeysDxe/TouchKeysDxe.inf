@@ -18,6 +18,7 @@
 
 [Sources]
   TouchKeysDxe.c
+  TouchKeys.h
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -28,14 +29,18 @@
   BaseLib
   BaseMemoryLib
   DebugLib
+  DevicePathLib
   MemoryAllocationLib
   PcdLib
+  UefiBootManagerLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
   UefiLib
 
 [Protocols]
+  gEfiAbsolutePointerProtocolGuid       ## PRODUCES
   gEfiDevicePathProtocolGuid            ## PRODUCES
+  gEfiLoadedImageProtocolGuid           ## CONSUMES
   gEfiI2cMasterProtocolGuid             ## CONSUMES
   gEfiSimpleTextInProtocolGuid          ## PRODUCES
   gEfiSimpleTextInputExProtocolGuid     ## PRODUCES
@@ -50,4 +55,4 @@
   gRK3588TokenSpaceGuid.PcdDisplayRotation
 
 [Depex]
-  TRUE
+  gEfiVariableArchProtocolGuid AND gEfiVariableWriteArchProtocolGuid

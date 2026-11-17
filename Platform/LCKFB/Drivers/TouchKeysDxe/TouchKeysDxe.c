@@ -38,11 +38,17 @@
 #include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
+#include <Library/DevicePathLib.h>
+#include <Library/UefiBootManagerLib.h>
+#include <Protocol/AbsolutePointer.h>
 #include <Protocol/DevicePath.h>
+#include <Protocol/LoadedImage.h>
 #include <Protocol/I2cMaster.h>
 #include <Protocol/RockchipDsiPanel.h>
 #include <Protocol/SimpleTextIn.h>
 #include <Protocol/SimpleTextInEx.h>
+
+#include "TouchKeys.h"
 
 #define TOUCH_I2C_BUS      0
 #define TOUCH_I2C_ADDRESS  0x5d
@@ -77,8 +83,7 @@ STATIC TOUCH_DEVICE_PATH  mDevicePath = {
   {
     { HARDWARE_DEVICE_PATH,                                                                                                                                             HW_VENDOR_DP, { sizeof (VENDOR_DEVICE_PATH), 0 }
     },
-    { 0x2c0d7a3e, 0x6b1f, 0x4f4c,                                                    { 0x8a, 0x55, 0x1e, 0x0b, 0x73, 0x62, 0x9d, 0x14 }
-    }
+    TOUCH_KEYS_DEVICE_GUID
   },
   { END_DEVICE_PATH_TYPE,                                                                                                                                               END_ENTIRE_DEVICE_PATH_SUBTYPE, { sizeof (EFI_DEVICE_PATH_PROTOCOL), 0 }
   }
@@ -102,6 +107,16 @@ STATIC BOOLEAN  mTwoFingers;
 STATIC INT32    mStartX, mStartY;
 STATIC INT32    mAnchorX, mAnchorY;
 STATIC UINTN    mDownPolls;
+
+//
+// The same touches as an absolute pointer, in the panel's native
+// coordinates, for TouchTest and for whatever wants a pointer later.
+// CurrentZ carries the number of fingers down.
+//
+STATIC EFI_ABSOLUTE_POINTER_MODE   mAbsMode = { 0, 0, 0, 799, 1279, 10, 0 };
+STATIC EFI_ABSOLUTE_POINTER_STATE  mAbsState;
+STATIC BOOLEAN                     mAbsChanged;
+STATIC EFI_EVENT                   mAbsEvent;
 
 STATIC
 EFI_STATUS
@@ -258,6 +273,13 @@ TouchPoll (
     X = Point[1] | (Point[2] << 8);
     Y = Point[3] | (Point[4] << 8);
 
+    mAbsState.CurrentX      = (UINT64)X;
+    mAbsState.CurrentY      = (UINT64)Y;
+    mAbsState.CurrentZ      = Fingers;
+    mAbsState.ActiveButtons = EFI_ABSP_TouchActive;
+    mAbsChanged             = TRUE;
+    gBS->SignalEvent (mAbsEvent);
+
     if (!mDown) {
       mDown       = TRUE;
       mMoved      = FALSE;
@@ -290,6 +312,11 @@ TouchPoll (
   } else if (mDown) {
     // released
     mDown = FALSE;
+
+    mAbsState.CurrentZ      = 0;
+    mAbsState.ActiveButtons = 0;
+    mAbsChanged             = TRUE;
+    gBS->SignalEvent (mAbsEvent);
 
     if (mTwoFingers) {
       TouchQueueKey (SCAN_ESC, 0);
@@ -465,6 +492,130 @@ STATIC EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL  mTextInEx = {
   TouchUnregisterKeyNotify
 };
 
+//
+// Absolute Pointer
+//
+
+STATIC
+EFI_STATUS
+EFIAPI
+TouchAbsReset (
+  IN EFI_ABSOLUTE_POINTER_PROTOCOL  *This,
+  IN BOOLEAN                        ExtendedVerification
+  )
+{
+  mAbsChanged = FALSE;
+  return EFI_SUCCESS;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+TouchAbsGetState (
+  IN  EFI_ABSOLUTE_POINTER_PROTOCOL  *This,
+  OUT EFI_ABSOLUTE_POINTER_STATE     *State
+  )
+{
+  EFI_TPL  Tpl;
+
+  if (State == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Tpl = gBS->RaiseTPL (TPL_NOTIFY);
+  if (!mAbsChanged) {
+    gBS->RestoreTPL (Tpl);
+    return EFI_NOT_READY;
+  }
+
+  *State      = mAbsState;
+  mAbsChanged = FALSE;
+  gBS->RestoreTPL (Tpl);
+
+  return EFI_SUCCESS;
+}
+
+STATIC
+VOID
+EFIAPI
+TouchAbsWait (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  if (mAbsChanged) {
+    gBS->SignalEvent (Event);
+  }
+}
+
+STATIC EFI_ABSOLUTE_POINTER_PROTOCOL  mAbsPointer = {
+  TouchAbsReset,
+  TouchAbsGetState,
+  NULL,
+  &mAbsMode
+};
+
+/**
+  Offer TouchTest in the boot manager.  It is an application in the same
+  firmware volume as this driver; the option is only added on a board where
+  the controller answered, and only once.
+**/
+STATIC
+VOID
+TouchAddTestOption (
+  IN EFI_HANDLE  ImageHandle
+  )
+{
+  EFI_STATUS                         Status;
+  EFI_GUID                           FileGuid = TOUCH_TEST_FILE_GUID;
+  EFI_LOADED_IMAGE_PROTOCOL          *LoadedImage;
+  MEDIA_FW_VOL_FILEPATH_DEVICE_PATH  FileNode;
+  EFI_DEVICE_PATH_PROTOCOL           *Path;
+  EFI_BOOT_MANAGER_LOAD_OPTION       Option;
+  EFI_BOOT_MANAGER_LOAD_OPTION       *Options;
+  UINTN                              Count;
+
+  Status = gBS->HandleProtocol (ImageHandle, &gEfiLoadedImageProtocolGuid, (VOID **)&LoadedImage);
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  Path = DevicePathFromHandle (LoadedImage->DeviceHandle);
+  if (Path == NULL) {
+    return;
+  }
+
+  EfiInitializeFwVolDevicepathNode (&FileNode, &FileGuid);
+  Path = AppendDevicePathNode (Path, (EFI_DEVICE_PATH_PROTOCOL *)&FileNode);
+  if (Path == NULL) {
+    return;
+  }
+
+  Status = EfiBootManagerInitializeLoadOption (
+             &Option,
+             LoadOptionNumberUnassigned,
+             LoadOptionTypeBoot,
+             LOAD_OPTION_ACTIVE | LOAD_OPTION_CATEGORY_APP,
+             L"Touch Test",
+             Path,
+             NULL,
+             0
+             );
+  FreePool (Path);
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  Options = EfiBootManagerGetLoadOptions (&Count, LoadOptionTypeBoot);
+  if (EfiBootManagerFindLoadOption (&Option, Options, Count) == -1) {
+    Status = EfiBootManagerAddLoadOptionVariable (&Option, MAX_UINTN);
+    DEBUG ((DEBUG_INFO, "TouchKeys: boot option \"Touch Test\" added: %r\n", Status));
+  }
+
+  EfiBootManagerFreeLoadOption (&Option);
+  EfiBootManagerFreeLoadOptions (Options, Count);
+}
+
 /**
   The firmware's picture goes back to the panel's own orientation when
   something is booted (LcdGraphicsOutputDxe); follow it.
@@ -559,13 +710,19 @@ TouchEndOfDxe (
   //
   Setting   = PcdGet16 (PcdDisplayRotation);
   mRotation = 0;
+  Panel     = NULL;
+  gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel);
   if ((Setting == 90) || (Setting == 270)) {
     mRotation = Setting;
-  } else if ((Setting == 0) &&
-             !EFI_ERROR (gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel)) &&
+  } else if ((Setting == 0) && (Panel != NULL) &&
              ((Panel->Rotation == 90) || (Panel->Rotation == 270)))
   {
     mRotation = Panel->Rotation;
+  }
+
+  if ((Panel != NULL) && (Panel->NativeMode.HActive != 0) && (Panel->NativeMode.VActive != 0)) {
+    mAbsMode.AbsoluteMaxX = Panel->NativeMode.HActive - 1;
+    mAbsMode.AbsoluteMaxY = Panel->NativeMode.VActive - 1;
   }
 
   Status = gBS->CreateEvent (EVT_NOTIFY_WAIT, TPL_NOTIFY, TouchWaitForKey, NULL, &mWaitEvent);
@@ -576,6 +733,13 @@ TouchEndOfDxe (
   mTextIn.WaitForKey     = mWaitEvent;
   mTextInEx.WaitForKeyEx = mWaitEvent;
 
+  Status = gBS->CreateEvent (EVT_NOTIFY_WAIT, TPL_NOTIFY, TouchAbsWait, NULL, &mAbsEvent);
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  mAbsPointer.WaitForInput = mAbsEvent;
+
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &mHandle,
                   &gEfiDevicePathProtocolGuid,
@@ -584,6 +748,8 @@ TouchEndOfDxe (
                   &mTextIn,
                   &gEfiSimpleTextInputExProtocolGuid,
                   &mTextInEx,
+                  &gEfiAbsolutePointerProtocolGuid,
+                  &mAbsPointer,
                   &gEfiConsoleInDeviceGuid,
                   NULL,
                   NULL
@@ -595,6 +761,8 @@ TouchEndOfDxe (
 
   // Let the console splitter take it now; BDS connects it again later.
   gBS->ConnectController (mHandle, NULL, NULL, TRUE);
+
+  TouchAddTestOption ((EFI_HANDLE)Context);
 
   EfiCreateEventReadyToBootEx (TPL_CALLBACK, TouchReadyToBoot, NULL, &ReadyToBootEvent);
 
@@ -630,7 +798,7 @@ TouchKeysEntry (
                 EVT_NOTIFY_SIGNAL,
                 TPL_CALLBACK,
                 TouchEndOfDxe,
-                NULL,
+                ImageHandle,
                 &gEfiEndOfDxeEventGroupGuid,
                 &Event
                 );
