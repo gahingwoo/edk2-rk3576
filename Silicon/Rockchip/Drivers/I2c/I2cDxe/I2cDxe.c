@@ -981,15 +981,20 @@ I2cStartRequest (
     // TO-DO: See above.
   }
 
+  //
+  // Report what happened.  This used to return EFI_SUCCESS whatever the
+  // transfer did, so a device that is not there read as a device that
+  // answered with whatever was left in the caller's buffer.
+  //
   if (I2cStatus != NULL) {
-    *I2cStatus = EFI_SUCCESS;
+    *I2cStatus = Status;
   }
 
   if (Event != NULL) {
     gBS->SignalEvent (Event);
   }
 
-  return EFI_SUCCESS;
+  return Status;
 }
 
 STATIC CONST EFI_GUID  DevGuid = I2C_GUID;

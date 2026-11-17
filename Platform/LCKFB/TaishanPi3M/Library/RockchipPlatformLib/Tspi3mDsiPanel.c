@@ -353,7 +353,12 @@ Tspi3mTouchRead (
   Packet.Operation[1].LengthInBytes = Length;
   Packet.Operation[1].Buffer        = Buffer;
 
-  return Master->StartRequest (Master, TOUCH_I2C_ADDRESS, (EFI_I2C_REQUEST_PACKET *)&Packet, NULL, NULL);
+  Status = Master->StartRequest (Master, TOUCH_I2C_ADDRESS, (EFI_I2C_REQUEST_PACKET *)&Packet, NULL, NULL);
+  if (!EFI_ERROR (Status) && (Packet.Operation[1].LengthInBytes != Length)) {
+    Status = EFI_DEVICE_ERROR;            /* the driver stores what it really moved */
+  }
+
+  return Status;
 }
 
 STATIC
@@ -364,7 +369,7 @@ Tspi3mDsiPanelDetect (
   )
 {
   EFI_STATUS  Status;
-  UINT8       Id[4];
+  UINT8       Id[4] = { 0, 0, 0, 0 };
 
   Status = Tspi3mTouchRead (0x8140, Id, sizeof (Id));
   if (Status == EFI_UNSUPPORTED) {
@@ -374,6 +379,19 @@ Tspi3mDsiPanelDetect (
 
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "Tspi3mDsiPanel: touch controller did not answer (%r): no screen\n", Status));
+    return EFI_NOT_FOUND;
+  }
+
+  //
+  // A Goodix ID is ASCII digits ("9271", "911" and a NUL).  Anything else is
+  // a bus that returned without talking to the chip.
+  //
+  if ((Id[0] < '0') || (Id[0] > '9') || (Id[1] < '0') || (Id[1] > '9')) {
+    DEBUG ((
+      DEBUG_INFO,
+      "Tspi3mDsiPanel: 0x5d answered %02x %02x %02x %02x, not a Goodix ID: no screen\n",
+      Id[0], Id[1], Id[2], Id[3]
+      ));
     return EFI_NOT_FOUND;
   }
 
