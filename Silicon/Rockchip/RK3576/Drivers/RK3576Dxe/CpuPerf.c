@@ -266,3 +266,25 @@ RK3576SetupCpuPerf (
     DEBUG ((DEBUG_ERROR, "CpuPerf: could not register for the SCMI clock protocol\n"));
   }
 }
+
+EFI_STATUS
+RK3576GetCpuClusterRates (
+  OUT UINT64  *LittleHz,
+  OUT UINT64  *BigHz
+  )
+{
+  EFI_STATUS            Status;
+  SCMI_CLOCK2_PROTOCOL  *Clock;
+
+  Status = gBS->LocateProtocol (&gArmScmiClock2ProtocolGuid, NULL, (VOID **)&Clock);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = Clock->RateGet (Clock, SCMI_ARMCLK_L, LittleHz);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  return Clock->RateGet (Clock, SCMI_ARMCLK_B, BigHz);
+}

@@ -38,6 +38,7 @@
 #include "CpuPerf.h"
 #include "Display.h"
 #include "ComboPhy.h"
+#include "About.h"
 
 extern UINT8  RK3576DxeHiiBin[];
 extern UINT8  RK3576DxeStrings[];
@@ -189,6 +190,8 @@ RK3576InstallHiiPages (
       STRING_TOKEN (STR_PLATFORM_CONFIGURATION)
       );
   }
+
+  RK3576InitAboutPage (HiiHandle, __DATE__ " " __TIME__);
 
   return EFI_SUCCESS;
 }

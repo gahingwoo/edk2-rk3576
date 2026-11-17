@@ -174,6 +174,12 @@ formset
 
       subtitle text = STRING_TOKEN(STR_NULL_STRING);
 
+      goto 0x1010,
+        prompt = STRING_TOKEN(STR_ABOUT_FORM_TITLE),
+        help   = STRING_TOKEN(STR_ABOUT_FORM_HELP);
+
+      subtitle text = STRING_TOKEN(STR_NULL_STRING);
+
     suppressif ideqval DisplayConnectorsMask == 0;
       goto 0x1000,
         prompt = STRING_TOKEN(STR_DISPLAY_FORM_TITLE),
@@ -591,6 +597,68 @@ formset
 
         subtitle text = STRING_TOKEN(STR_NULL_STRING);
         subtitle text = STRING_TOKEN(STR_COMBO_PHY_FORM_SUBTITLE);
+    endform;
+
+    //
+    // About: read-only.  Every line is a single text, so the browser draws it
+    // across the prompt and option columns.  RK3576Dxe About.c fills in the
+    // values per language; see there for where each comes from.
+    //
+    form formid = 0x1010,
+      title = STRING_TOKEN(STR_ABOUT_FORM_TITLE);
+
+      subtitle text = STRING_TOKEN(STR_ABOUT_SUBTITLE_FIRMWARE);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_VERSION);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_BUILD);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_LICENSE);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_FONT);
+      subtitle text = STRING_TOKEN(STR_NULL_STRING);
+      subtitle text = STRING_TOKEN(STR_ABOUT_SUBTITLE_HARDWARE);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_BOARD);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_VENDOR);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_SOC);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_CPU);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_CPU_CLOCK);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_MEMORY);
+      subtitle text = STRING_TOKEN(STR_NULL_STRING);
+      subtitle text = STRING_TOKEN(STR_ABOUT_SUBTITLE_DETECTED);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_DISPLAY);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_TOUCH);
+      subtitle text = STRING_TOKEN(STR_NULL_STRING);
+      subtitle text = STRING_TOKEN(STR_ABOUT_SUBTITLE_PROJECT);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_REPO);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_DOCS);
+      text
+        help = STRING_TOKEN(STR_NULL_STRING),
+        text = STRING_TOKEN(STR_ABOUT_FLASHER);
     endform;
 
 endformset;

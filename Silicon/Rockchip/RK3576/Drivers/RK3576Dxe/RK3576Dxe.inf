@@ -18,6 +18,8 @@
 
 [Sources]
   RK3576Dxe.c
+  About.c
+  About.h
   CpuPerf.c
   Display.c
   ComboPhy.c
@@ -63,10 +65,17 @@
   gEfiSimpleTextInputExProtocolGuid              ## SOMETIMES_CONSUMES
   gRockchipPlatformConfigAppliedProtocolGuid     ## PRODUCES
   gArmScmiClock2ProtocolGuid                     ## CONSUMES
+  gEfiSmbiosProtocolGuid                         ## SOMETIMES_CONSUMES (About page)
+  gEfiGraphicsOutputProtocolGuid                 ## SOMETIMES_CONSUMES (About page)
+  gRockchipCrtcProtocolGuid                      ## SOMETIMES_CONSUMES (About page)
+  gEfiAbsolutePointerProtocolGuid                ## SOMETIMES_CONSUMES (About page)
+  gEfiSimpleTextInProtocolGuid                   ## SOMETIMES_CONSUMES (About page)
 
 [FixedPcd]
   gRockchipTokenSpaceGuid.CruBaseAddr
   gRockchipTokenSpaceGuid.PcdPlatformName
+  gRockchipTokenSpaceGuid.PcdPlatformVendorName
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString
   gRK3576TokenSpaceGuid.PcdCPULClusterClockPresetDefault
   gRK3576TokenSpaceGuid.PcdCPUBClusterClockPresetDefault
   gRK3576TokenSpaceGuid.PcdCPULClusterClockHz
@@ -125,6 +134,7 @@
 [Guids]
   gRK3576DxeFormSetGuid
   gEfiEventReadyToBootGuid                       ## CONSUMES (ReadyToBoot dump callback)
+  gRockchipEventPlatformBmAfterConsoleGuid       ## CONSUMES (About page)
 
 [Depex]
   # DynamicHii PCD accesses require the variable write arch protocol to be
