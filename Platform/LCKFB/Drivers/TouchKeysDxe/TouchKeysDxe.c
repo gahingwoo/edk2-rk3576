@@ -1,0 +1,637 @@
+/** @file
+ *
+ *  Touches on the TaishanPi 3M's MIPI DSI screen as key strokes.
+ *
+ *  The firmware's menus only take keys: the stock form browser and boot
+ *  manager do not look at pointer devices.  So this is a keyboard, not a
+ *  pointer.  A finger on the screen does what the four arrows, Enter and Esc
+ *  do:
+ *
+ *    drag               an arrow key for every STEP pixels moved, in the
+ *                       direction of the drag as the picture is turned
+ *    tap                Enter
+ *    long press         Esc
+ *    two fingers        Esc
+ *
+ *  It is a console input device like any other, so an OS loader that reads
+ *  keys from the firmware (GRUB, the Windows boot manager) gets them too.
+ *
+ *  The controller is a Goodix GT9271 on I2C0 at 0x5d (the overlay
+ *  rk3576-lckfb-tspi-3m-dsi-c41409463.dtsi).  It is polled: status at
+ *  0x814E (bit 7 = a report is ready, low nibble = fingers down), the first
+ *  finger's report at 0x814F (track id, X low, X high, Y low, Y high, ...),
+ *  and 0x814E has to be written back to 0 after every report.  Coordinates
+ *  are the panel's native ones, 800 x 1280.
+ *
+ *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+ *
+ *  SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ **/
+
+#include <Uefi.h>
+#include <Guid/ConsoleInDevice.h>
+#include <Guid/EventGroup.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/DebugLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/PcdLib.h>
+#include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiLib.h>
+#include <Protocol/DevicePath.h>
+#include <Protocol/I2cMaster.h>
+#include <Protocol/RockchipDsiPanel.h>
+#include <Protocol/SimpleTextIn.h>
+#include <Protocol/SimpleTextInEx.h>
+
+#define TOUCH_I2C_BUS      0
+#define TOUCH_I2C_ADDRESS  0x5d
+#define GT_REG_STATUS      0x814E
+#define GT_REG_POINT0      0x814F
+#define GT_REG_ID          0x8140
+
+#define POLL_100NS         (20 * 10000)      // 20 ms
+#define STEP_PIXELS        70                // one arrow key per this much drag
+#define TAP_SLOP_PIXELS    25                // movement still counted as a tap
+#define LONG_PRESS_POLLS   35                // 0.7 s
+#define KEY_QUEUE_SIZE     16
+#define MAX_NOTIFY         16
+
+typedef struct {
+  UINTN                OperationCount;
+  EFI_I2C_OPERATION    Operation[2];
+} TOUCH_I2C_PACKET;
+
+typedef struct {
+  VENDOR_DEVICE_PATH          Vendor;
+  EFI_DEVICE_PATH_PROTOCOL    End;
+} TOUCH_DEVICE_PATH;
+
+typedef struct {
+  BOOLEAN                    Used;
+  EFI_KEY_DATA               Key;
+  EFI_KEY_NOTIFY_FUNCTION    Function;
+} TOUCH_NOTIFY;
+
+STATIC TOUCH_DEVICE_PATH  mDevicePath = {
+  {
+    { HARDWARE_DEVICE_PATH,                                                                                                                                             HW_VENDOR_DP, { sizeof (VENDOR_DEVICE_PATH), 0 }
+    },
+    { 0x2c0d7a3e, 0x6b1f, 0x4f4c,                                                    { 0x8a, 0x55, 0x1e, 0x0b, 0x73, 0x62, 0x9d, 0x14 }
+    }
+  },
+  { END_DEVICE_PATH_TYPE,                                                                                                                                               END_ENTIRE_DEVICE_PATH_SUBTYPE, { sizeof (EFI_DEVICE_PATH_PROTOCOL), 0 }
+  }
+};
+
+STATIC EFI_I2C_MASTER_PROTOCOL  *mMaster;
+STATIC EFI_HANDLE               mHandle;
+STATIC EFI_EVENT                mPollEvent;
+STATIC EFI_EVENT                mWaitEvent;
+STATIC UINT16                   mRotation;
+
+STATIC EFI_INPUT_KEY  mQueue[KEY_QUEUE_SIZE];
+STATIC UINTN          mQueueHead;
+STATIC UINTN          mQueueCount;
+STATIC TOUCH_NOTIFY   mNotify[MAX_NOTIFY];
+
+// gesture state
+STATIC BOOLEAN  mDown;
+STATIC BOOLEAN  mMoved;
+STATIC BOOLEAN  mTwoFingers;
+STATIC INT32    mStartX, mStartY;
+STATIC INT32    mAnchorX, mAnchorY;
+STATIC UINTN    mDownPolls;
+
+STATIC
+EFI_STATUS
+TouchTransfer (
+  IN     UINT16   Register,
+  IN OUT UINT8    *Buffer,
+  IN     UINT32   Length,
+  IN     BOOLEAN  Write
+  )
+{
+  EFI_STATUS        Status;
+  TOUCH_I2C_PACKET  Packet;
+  UINT8             Out[4];
+
+  if (mMaster == NULL) {
+    return EFI_NOT_READY;
+  }
+
+  Out[0] = (UINT8)(Register >> 8);
+  Out[1] = (UINT8)Register;
+
+  if (Write) {
+    if (Length > sizeof (Out) - 2) {
+      return EFI_INVALID_PARAMETER;
+    }
+
+    CopyMem (&Out[2], Buffer, Length);
+    Packet.OperationCount             = 1;
+    Packet.Operation[0].Flags         = 0;
+    Packet.Operation[0].LengthInBytes = 2 + Length;
+    Packet.Operation[0].Buffer        = Out;
+  } else {
+    Packet.OperationCount             = 2;
+    Packet.Operation[0].Flags         = 0;
+    Packet.Operation[0].LengthInBytes = 2;
+    Packet.Operation[0].Buffer        = Out;
+    Packet.Operation[1].Flags         = I2C_FLAG_READ;
+    Packet.Operation[1].LengthInBytes = Length;
+    Packet.Operation[1].Buffer        = Buffer;
+  }
+
+  Status = mMaster->StartRequest (mMaster, TOUCH_I2C_ADDRESS, (EFI_I2C_REQUEST_PACKET *)&Packet, NULL, NULL);
+  if (!EFI_ERROR (Status) && !Write && (Packet.Operation[1].LengthInBytes != Length)) {
+    Status = EFI_DEVICE_ERROR;
+  }
+
+  return Status;
+}
+
+STATIC
+VOID
+TouchQueueKey (
+  IN UINT16  ScanCode,
+  IN CHAR16  UnicodeChar
+  )
+{
+  EFI_KEY_DATA  KeyData;
+  UINTN         Index;
+
+  if (mQueueCount < KEY_QUEUE_SIZE) {
+    Index                        = (mQueueHead + mQueueCount) % KEY_QUEUE_SIZE;
+    mQueue[Index].ScanCode       = ScanCode;
+    mQueue[Index].UnicodeChar    = UnicodeChar;
+    mQueueCount++;
+  }
+
+  //
+  // Hot keys (Esc during the boot countdown and the like) are not read from
+  // the queue; whoever wants one registers for it.
+  //
+  ZeroMem (&KeyData, sizeof (KeyData));
+  KeyData.Key.ScanCode    = ScanCode;
+  KeyData.Key.UnicodeChar = UnicodeChar;
+
+  for (Index = 0; Index < MAX_NOTIFY; Index++) {
+    if (mNotify[Index].Used &&
+        (mNotify[Index].Key.Key.ScanCode == ScanCode) &&
+        (mNotify[Index].Key.Key.UnicodeChar == UnicodeChar) &&
+        ((mNotify[Index].Key.KeyState.KeyShiftState & ~EFI_SHIFT_STATE_VALID) == 0))
+    {
+      mNotify[Index].Function (&KeyData);
+    }
+  }
+
+  gBS->SignalEvent (mWaitEvent);
+}
+
+/**
+  A drag of (Dx, Dy) in the panel's native coordinates, as seen on the
+  picture the firmware draws.  Same mapping as LcdGraphicsOutputDxe's rotated
+  Blt: 270 puts the picture's top at the panel's left edge, 90 at its right.
+**/
+STATIC
+VOID
+TouchToPicture (
+  IN  INT32  Dx,
+  IN  INT32  Dy,
+  OUT INT32  *PictureDx,
+  OUT INT32  *PictureDy
+  )
+{
+  switch (mRotation) {
+    case 270:
+      *PictureDx = -Dy;
+      *PictureDy = Dx;
+      break;
+    case 90:
+      *PictureDx = Dy;
+      *PictureDy = -Dx;
+      break;
+    default:
+      *PictureDx = Dx;
+      *PictureDy = Dy;
+      break;
+  }
+}
+
+STATIC
+VOID
+EFIAPI
+TouchPoll (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  UINT8  Status;
+  UINT8  Point[5];
+  UINT8  Zero = 0;
+  UINTN  Fingers;
+  INT32  X, Y, Dx, Dy;
+
+  if (EFI_ERROR (TouchTransfer (GT_REG_STATUS, &Status, 1, FALSE))) {
+    return;
+  }
+
+  if ((Status & 0x80) == 0) {
+    // No new report.  A finger that stays down keeps reporting, so this is
+    // only the gap between two reports.
+    if (mDown) {
+      mDownPolls++;
+    }
+
+    return;
+  }
+
+  Fingers = Status & 0x0F;
+
+  if (Fingers > 0) {
+    if (EFI_ERROR (TouchTransfer (GT_REG_POINT0, Point, sizeof (Point), FALSE))) {
+      TouchTransfer (GT_REG_STATUS, &Zero, 1, TRUE);
+      return;
+    }
+
+    X = Point[1] | (Point[2] << 8);
+    Y = Point[3] | (Point[4] << 8);
+
+    if (!mDown) {
+      mDown       = TRUE;
+      mMoved      = FALSE;
+      mTwoFingers = FALSE;
+      mStartX     = mAnchorX = X;
+      mStartY     = mAnchorY = Y;
+      mDownPolls  = 0;
+    }
+
+    mDownPolls++;
+    if (Fingers >= 2) {
+      mTwoFingers = TRUE;
+    }
+
+    TouchToPicture (X - mAnchorX, Y - mAnchorY, &Dx, &Dy);
+
+    if (!mTwoFingers) {
+      if ((ABS (Dy) >= STEP_PIXELS) && (ABS (Dy) >= ABS (Dx))) {
+        TouchQueueKey ((Dy > 0) ? SCAN_DOWN : SCAN_UP, 0);
+        mMoved   = TRUE;
+        mAnchorX = X;
+        mAnchorY = Y;
+      } else if ((ABS (Dx) >= STEP_PIXELS) && (ABS (Dx) > ABS (Dy))) {
+        TouchQueueKey ((Dx > 0) ? SCAN_RIGHT : SCAN_LEFT, 0);
+        mMoved   = TRUE;
+        mAnchorX = X;
+        mAnchorY = Y;
+      }
+    }
+  } else if (mDown) {
+    // released
+    mDown = FALSE;
+
+    if (mTwoFingers) {
+      TouchQueueKey (SCAN_ESC, 0);
+    } else if (!mMoved) {
+      if (mDownPolls >= LONG_PRESS_POLLS) {
+        TouchQueueKey (SCAN_ESC, 0);
+      } else {
+        TouchQueueKey (SCAN_NULL, CHAR_CARRIAGE_RETURN);
+      }
+    }
+  }
+
+  TouchTransfer (GT_REG_STATUS, &Zero, 1, TRUE);
+}
+
+//
+// Simple Text Input (and Ex)
+//
+
+STATIC
+EFI_STATUS
+EFIAPI
+TouchReset (
+  IN EFI_SIMPLE_TEXT_INPUT_PROTOCOL  *This,
+  IN BOOLEAN                         ExtendedVerification
+  )
+{
+  mQueueHead  = 0;
+  mQueueCount = 0;
+  return EFI_SUCCESS;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+TouchReadKeyStroke (
+  IN  EFI_SIMPLE_TEXT_INPUT_PROTOCOL  *This,
+  OUT EFI_INPUT_KEY                   *Key
+  )
+{
+  EFI_TPL  Tpl;
+
+  if (Key == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Tpl = gBS->RaiseTPL (TPL_NOTIFY);
+  if (mQueueCount == 0) {
+    gBS->RestoreTPL (Tpl);
+    return EFI_NOT_READY;
+  }
+
+  *Key       = mQueue[mQueueHead];
+  mQueueHead = (mQueueHead + 1) % KEY_QUEUE_SIZE;
+  mQueueCount--;
+  gBS->RestoreTPL (Tpl);
+
+  return EFI_SUCCESS;
+}
+
+STATIC
+VOID
+EFIAPI
+TouchWaitForKey (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  if (mQueueCount > 0) {
+    gBS->SignalEvent (Event);
+  }
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+TouchResetEx (
+  IN EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL  *This,
+  IN BOOLEAN                            ExtendedVerification
+  )
+{
+  return TouchReset (NULL, ExtendedVerification);
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+TouchReadKeyStrokeEx (
+  IN  EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL  *This,
+  OUT EFI_KEY_DATA                       *KeyData
+  )
+{
+  if (KeyData == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  ZeroMem (KeyData, sizeof (*KeyData));
+  return TouchReadKeyStroke (NULL, &KeyData->Key);
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+TouchSetState (
+  IN EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL  *This,
+  IN EFI_KEY_TOGGLE_STATE               *KeyToggleState
+  )
+{
+  return EFI_UNSUPPORTED;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+TouchRegisterKeyNotify (
+  IN  EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL  *This,
+  IN  EFI_KEY_DATA                       *KeyData,
+  IN  EFI_KEY_NOTIFY_FUNCTION            KeyNotificationFunction,
+  OUT VOID                               **NotifyHandle
+  )
+{
+  UINTN  Index;
+
+  if ((KeyData == NULL) || (KeyNotificationFunction == NULL) || (NotifyHandle == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  for (Index = 0; Index < MAX_NOTIFY; Index++) {
+    if (!mNotify[Index].Used) {
+      mNotify[Index].Used     = TRUE;
+      mNotify[Index].Key      = *KeyData;
+      mNotify[Index].Function = KeyNotificationFunction;
+      *NotifyHandle           = &mNotify[Index];
+      return EFI_SUCCESS;
+    }
+  }
+
+  return EFI_OUT_OF_RESOURCES;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+TouchUnregisterKeyNotify (
+  IN EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL  *This,
+  IN VOID                               *NotificationHandle
+  )
+{
+  UINTN  Index;
+
+  for (Index = 0; Index < MAX_NOTIFY; Index++) {
+    if (NotificationHandle == &mNotify[Index]) {
+      mNotify[Index].Used = FALSE;
+      return EFI_SUCCESS;
+    }
+  }
+
+  return EFI_INVALID_PARAMETER;
+}
+
+STATIC EFI_SIMPLE_TEXT_INPUT_PROTOCOL  mTextIn = {
+  TouchReset,
+  TouchReadKeyStroke,
+  NULL
+};
+
+STATIC EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL  mTextInEx = {
+  TouchResetEx,
+  TouchReadKeyStrokeEx,
+  NULL,
+  TouchSetState,
+  TouchRegisterKeyNotify,
+  TouchUnregisterKeyNotify
+};
+
+/**
+  The firmware's picture goes back to the panel's own orientation when
+  something is booted (LcdGraphicsOutputDxe); follow it.
+**/
+STATIC
+VOID
+EFIAPI
+TouchReadyToBoot (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  mRotation = 0;
+}
+
+STATIC
+EFI_I2C_MASTER_PROTOCOL *
+TouchFindMaster (
+  VOID
+  )
+{
+  EFI_STATUS                Status;
+  EFI_HANDLE                *Handles;
+  UINTN                     Count;
+  UINTN                     Index;
+  EFI_DEVICE_PATH_PROTOCOL  *Path;
+  EFI_I2C_MASTER_PROTOCOL   *Master;
+
+  Status = gBS->LocateHandleBuffer (ByProtocol, &gEfiI2cMasterProtocolGuid, NULL, &Count, &Handles);
+  if (EFI_ERROR (Status)) {
+    return NULL;
+  }
+
+  Master = NULL;
+  for (Index = 0; Index < Count; Index++) {
+    // I2cDxe's bus path: VENDOR_DEVICE_PATH followed by the bus number.
+    Status = gBS->HandleProtocol (Handles[Index], &gEfiDevicePathProtocolGuid, (VOID **)&Path);
+    if (EFI_ERROR (Status) ||
+        (Path->Type != HARDWARE_DEVICE_PATH) || (Path->SubType != HW_VENDOR_DP) ||
+        (*(UINTN *)((UINT8 *)Path + sizeof (VENDOR_DEVICE_PATH)) != TOUCH_I2C_BUS))
+    {
+      continue;
+    }
+
+    if (EFI_ERROR (gBS->HandleProtocol (Handles[Index], &gEfiI2cMasterProtocolGuid, (VOID **)&Master))) {
+      Master = NULL;
+    }
+
+    break;
+  }
+
+  gBS->FreePool (Handles);
+  return Master;
+}
+
+STATIC
+VOID
+EFIAPI
+TouchEndOfDxe (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  EFI_STATUS                   Status;
+  UINT8                        Id[4] = { 0, 0, 0, 0 };
+  UINTN                        Frequency;
+  UINT16                       Setting;
+  ROCKCHIP_DSI_PANEL_PROTOCOL  *Panel;
+  EFI_EVENT                    ReadyToBootEvent;
+
+  gBS->CloseEvent (Event);
+
+  mMaster = TouchFindMaster ();
+  if (mMaster == NULL) {
+    DEBUG ((DEBUG_INFO, "TouchKeys: no I2C%u master\n", TOUCH_I2C_BUS));
+    return;
+  }
+
+  Frequency = 100000;
+  mMaster->SetBusFrequency (mMaster, &Frequency);
+
+  Status = TouchTransfer (GT_REG_ID, Id, sizeof (Id), FALSE);
+  if (EFI_ERROR (Status) || (Id[0] < '0') || (Id[0] > '9') || (Id[1] < '0') || (Id[1] > '9')) {
+    DEBUG ((DEBUG_INFO, "TouchKeys: no Goodix controller at 0x%02x (%r)\n", TOUCH_I2C_ADDRESS, Status));
+    mMaster = NULL;
+    return;
+  }
+
+  //
+  // The rotation of the picture, worked out as LcdGraphicsOutputDxe does:
+  // the setting if it names one, else what the panel declares.
+  //
+  Setting   = PcdGet16 (PcdDisplayRotation);
+  mRotation = 0;
+  if ((Setting == 90) || (Setting == 270)) {
+    mRotation = Setting;
+  } else if ((Setting == 0) &&
+             !EFI_ERROR (gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel)) &&
+             ((Panel->Rotation == 90) || (Panel->Rotation == 270)))
+  {
+    mRotation = Panel->Rotation;
+  }
+
+  Status = gBS->CreateEvent (EVT_NOTIFY_WAIT, TPL_NOTIFY, TouchWaitForKey, NULL, &mWaitEvent);
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  mTextIn.WaitForKey     = mWaitEvent;
+  mTextInEx.WaitForKeyEx = mWaitEvent;
+
+  Status = gBS->InstallMultipleProtocolInterfaces (
+                  &mHandle,
+                  &gEfiDevicePathProtocolGuid,
+                  &mDevicePath,
+                  &gEfiSimpleTextInProtocolGuid,
+                  &mTextIn,
+                  &gEfiSimpleTextInputExProtocolGuid,
+                  &mTextInEx,
+                  &gEfiConsoleInDeviceGuid,
+                  NULL,
+                  NULL
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "TouchKeys: could not install the input protocols: %r\n", Status));
+    return;
+  }
+
+  // Let the console splitter take it now; BDS connects it again later.
+  gBS->ConnectController (mHandle, NULL, NULL, TRUE);
+
+  EfiCreateEventReadyToBootEx (TPL_CALLBACK, TouchReadyToBoot, NULL, &ReadyToBootEvent);
+
+  Status = gBS->CreateEvent (EVT_TIMER | EVT_NOTIFY_SIGNAL, TPL_CALLBACK, TouchPoll, NULL, &mPollEvent);
+  if (!EFI_ERROR (Status)) {
+    Status = gBS->SetTimer (mPollEvent, TimerPeriodic, POLL_100NS);
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "TouchKeys: Goodix \"%c%c%c%c\" on I2C%u, picture rotation %u, polling %r\n",
+    Id[0], Id[1], Id[2], Id[3] ? Id[3] : ' ',
+    TOUCH_I2C_BUS,
+    mRotation,
+    Status
+    ));
+}
+
+EFI_STATUS
+EFIAPI
+TouchKeysEntry (
+  IN EFI_HANDLE        ImageHandle,
+  IN EFI_SYSTEM_TABLE  *SystemTable
+  )
+{
+  EFI_EVENT  Event;
+
+  //
+  // The I2C bus driver may be dispatched after this one; look for the
+  // controller when every driver has had its turn.
+  //
+  return gBS->CreateEventEx (
+                EVT_NOTIFY_SIGNAL,
+                TPL_CALLBACK,
+                TouchEndOfDxe,
+                NULL,
+                &gEfiEndOfDxeEventGroupGuid,
+                &Event
+                );
+}

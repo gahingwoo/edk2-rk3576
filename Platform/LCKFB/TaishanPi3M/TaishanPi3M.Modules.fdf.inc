@@ -22,3 +22,4 @@
 
   # Splash screen logo
   INF $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
+  INF $(VENDOR_DIRECTORY)/Drivers/TouchKeysDxe/TouchKeysDxe.inf

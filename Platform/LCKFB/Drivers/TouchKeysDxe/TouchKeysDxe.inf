@@ -1,0 +1,53 @@
+## @file
+#  Turns touches on the TaishanPi 3M's MIPI DSI screen into key strokes, so
+#  that the setup menus, the boot manager and an OS loader's menu can be
+#  used without a keyboard.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = TouchKeysDxe
+  FILE_GUID                      = 6f2a4b6e-2f0e-4d53-9d0b-5a1c6f1f3e71
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = TouchKeysEntry
+
+[Sources]
+  TouchKeysDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  MemoryAllocationLib
+  PcdLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gEfiDevicePathProtocolGuid            ## PRODUCES
+  gEfiI2cMasterProtocolGuid             ## CONSUMES
+  gEfiSimpleTextInProtocolGuid          ## PRODUCES
+  gEfiSimpleTextInputExProtocolGuid     ## PRODUCES
+  gRockchipDsiPanelProtocolGuid         ## SOMETIMES_CONSUMES
+
+[Guids]
+  gEfiConsoleInDeviceGuid               ## PRODUCES
+  gEfiEndOfDxeEventGroupGuid
+  gEfiEventReadyToBootGuid
+
+[Pcd]
+  gRK3588TokenSpaceGuid.PcdDisplayRotation
+
+[Depex]
+  TRUE

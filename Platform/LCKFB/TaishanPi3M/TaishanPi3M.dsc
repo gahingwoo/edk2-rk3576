@@ -193,6 +193,7 @@
 
   # Splash screen logo
   $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
+  $(VENDOR_DIRECTORY)/Drivers/TouchKeysDxe/TouchKeysDxe.inf
 
   # RK3576Dxe, FdtPlatformDxe, the PCIe stack and the GMAC stack are common to
   # every RK3576 board and are declared in RK3576Base.dsc.inc.
