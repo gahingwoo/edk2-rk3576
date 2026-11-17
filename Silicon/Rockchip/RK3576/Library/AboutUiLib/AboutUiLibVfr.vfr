@@ -1,0 +1,78 @@
+/** @file
+ *
+ *  The "About" page.  Read-only: every line is a single text, so the browser
+ *  draws it across the prompt and option columns.  AboutUiLib.c fills in the
+ *  values per language; see there for where each comes from.
+ *
+ *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+ *
+ *  SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ **/
+
+#include "AboutFormSetGuid.h"
+
+formset
+  guid      = RK3576_ABOUT_FORMSET_GUID,
+  title     = STRING_TOKEN(STR_ABOUT_FORM_TITLE),
+  help      = STRING_TOKEN(STR_ABOUT_FORM_HELP),
+  classguid = gEfiIfrFrontPageGuid,
+
+  form formid = RK3576_ABOUT_FORM_ID,
+    title = STRING_TOKEN(STR_ABOUT_FORM_TITLE);
+
+    subtitle text = STRING_TOKEN(STR_ABOUT_SUBTITLE_FIRMWARE);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_VERSION);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_BUILD);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_LICENSE);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_FONT);
+    subtitle text = STRING_TOKEN(STR_NULL_STRING);
+    subtitle text = STRING_TOKEN(STR_ABOUT_SUBTITLE_HARDWARE);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_BOARD);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_VENDOR);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_SOC);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_CPU);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_CPU_CLOCK);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_MEMORY);
+    subtitle text = STRING_TOKEN(STR_NULL_STRING);
+    subtitle text = STRING_TOKEN(STR_ABOUT_SUBTITLE_DETECTED);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_DISPLAY);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_TOUCH);
+    subtitle text = STRING_TOKEN(STR_NULL_STRING);
+    subtitle text = STRING_TOKEN(STR_ABOUT_SUBTITLE_PROJECT);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_REPO);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_DOCS);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_FLASHER);
+  endform;
+
+endformset;

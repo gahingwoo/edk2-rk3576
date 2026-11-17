@@ -84,6 +84,8 @@ mkdir -p "$ROOT/Build"
 # before and after a flash, and there was no way to tell whether the image on
 # the board was the one just built.
 touch "$ROOT/Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.c"
+# The About page shows its own __DATE__ __TIME__ as the build time.
+touch "$ROOT/Silicon/Rockchip/RK3576/Library/AboutUiLib/AboutUiLib.c"
 
 set +e
 build -s -n "$(nproc)" -a AARCH64 -t GCC \

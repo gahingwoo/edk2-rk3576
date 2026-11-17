@@ -832,6 +832,10 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
       NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
       NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
       NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
+      # The About page, a front page entry of its own.  It is listed in the
+      # order the library constructors register their forms, so keep it
+      # after the three menus above.
+      NULL|Silicon/Rockchip/RK3576/Library/AboutUiLib/AboutUiLib.inf
       NULL|Silicon/Rockchip/Library/PlatformBootDescriptionLib/PlatformBootDescriptionLib.inf
       PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
   }

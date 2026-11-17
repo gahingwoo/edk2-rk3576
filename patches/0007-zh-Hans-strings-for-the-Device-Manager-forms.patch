@@ -182,7 +182,7 @@ index 177c585..2cb3e97 100644
 +#string STR_SIGNATURE_DATA_HELP_FORMAT_TIME #language zh-Hans "\wide吊销时间：\narrow\n%s"
 +#string STR_SIGNATURE_DELETE_ALL_CONFIRM #language zh-Hans "\wide按\narrow 'Y' \wide删除所有签名列表。\narrow"
 diff --git a/EmbeddedPkg/Drivers/MemoryAttributeManagerDxe/MemoryAttributeManagerDxeHii.uni b/EmbeddedPkg/Drivers/MemoryAttributeManagerDxe/MemoryAttributeManagerDxeHii.uni
-index 8537824..5aba5e2 100644
+index 8537824..5eb09d6 100644
 --- a/EmbeddedPkg/Drivers/MemoryAttributeManagerDxe/MemoryAttributeManagerDxeHii.uni
 +++ b/EmbeddedPkg/Drivers/MemoryAttributeManagerDxe/MemoryAttributeManagerDxeHii.uni
 @@ -7,6 +7,7 @@
@@ -211,7 +211,7 @@ index 8537824..5aba5e2 100644
 +//
 +
 +#string STR_NULL_STRING                                    #language zh-Hans ""
-+#string STR_FORM_SET_TITLE                                 #language zh-Hans "EFI Memory Attribute Protocol"
++#string STR_FORM_SET_TITLE                                 #language zh-Hans "EFI \wide内存属性协议\narrow"
 +#string STR_FORM_SET_TITLE_HELP                            #language zh-Hans "\wide配置\narrow EFI Memory Attribute Protocol\wide（内存属性协议）的状态。\narrow\n\n"
 +                                                                             "\wide部分旧版操作系统引导程序（例如\narrow CentOS Stream 9 \wide中的版本）不能正确支持此协议，可能引发同步异常（\narrowSynchronous Exception\wide）。可以禁用这项安全功能来规避该问题；否则应保持启用。\narrow"
 +#string STR_ENABLE_PROTOCOL_PROMPT                         #language zh-Hans "\wide启用协议\narrow"

@@ -1,0 +1,225 @@
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
+index 23c5f3f..503dfef 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
+@@ -525,6 +525,163 @@ GetWidth (
+   return ReturnWidth;
+ }
+ 
++/**
++  Does Char close a phrase, so that a line must not start with it?
++
++  @param  Char  The character.
++
++  @retval TRUE   It is closing punctuation.
++  @retval FALSE  It is not.
++
++**/
++STATIC
++BOOLEAN
++IsClosingPunctuation (
++  IN CHAR16  Char
++  )
++{
++  switch (Char) {
++    case 0x3001:  // ideographic comma
++    case 0x3002:  // ideographic full stop
++    case 0x3009:  // right angle bracket
++    case 0x300B:  // right double angle bracket
++    case 0x300D:  // right corner bracket
++    case 0x300F:  // right white corner bracket
++    case 0x3011:  // right black lenticular bracket
++    case 0x3015:  // right tortoise shell bracket
++    case 0x2026:  // horizontal ellipsis
++    case 0xFF01:  // fullwidth exclamation mark
++    case 0xFF09:  // fullwidth right parenthesis
++    case 0xFF0C:  // fullwidth comma
++    case 0xFF0E:  // fullwidth full stop
++    case 0xFF1A:  // fullwidth colon
++    case 0xFF1B:  // fullwidth semicolon
++    case 0xFF1F:  // fullwidth question mark
++    case 0xFF3D:  // fullwidth right square bracket
++    case 0xFF5D:  // fullwidth right curly bracket
++    case L')':
++    case L']':
++    case L'}':
++    case L',':
++    case L'.':
++    case L':':
++    case L';':
++    case L'!':
++    case L'?':
++    case L'%':
++      return TRUE;
++    default:
++      return FALSE;
++  }
++}
++
++/**
++  Does Char open a phrase, so that a line must not end with it?
++
++  @param  Char  The character.
++
++  @retval TRUE   It is opening punctuation.
++  @retval FALSE  It is not.
++
++**/
++STATIC
++BOOLEAN
++IsOpeningPunctuation (
++  IN CHAR16  Char
++  )
++{
++  switch (Char) {
++    case 0x3008:  // left angle bracket
++    case 0x300A:  // left double angle bracket
++    case 0x300C:  // left corner bracket
++    case 0x300E:  // left white corner bracket
++    case 0x3010:  // left black lenticular bracket
++    case 0x3014:  // left tortoise shell bracket
++    case 0xFF08:  // fullwidth left parenthesis
++    case 0xFF3B:  // fullwidth left square bracket
++    case 0xFF5B:  // fullwidth left curly bracket
++    case L'(':
++    case L'[':
++    case L'{':
++    case L'<':
++      return TRUE;
++    default:
++      return FALSE;
++  }
++}
++
++/**
++  Find where to break a line that does not fit.
++
++  A line may break before a space, as it always could, or between two
++  characters of which at least one is wide (CJK text has no spaces), except
++  that a line does not start with closing punctuation or end with opening
++  punctuation.  Between two narrow characters, which is inside a Latin word,
++  it does not break.  Whether a character is wide is known from the
++  WIDE_CHAR / NARROW_CHAR markers, as everywhere else in the browser.
++
++  @param  String       The text of the line, from its first character.
++  @param  Limit        Offset of the first character that did not fit.
++  @param  GlyphWidth   The glyph width at String[0].
++  @param  BreakWidth   Returns the glyph width at the break.
++
++  @return The offset to break at: the next line starts with String[return].
++          0 if there is no allowed break before Limit.
++
++**/
++STATIC
++UINT16
++GetLineBreakOffset (
++  IN  CHAR16  *String,
++  IN  UINT16  Limit,
++  IN  UINT16  GlyphWidth,
++  OUT UINT16  *BreakWidth
++  )
++{
++  UINT16   Offset;
++  UINT16   Break;
++  BOOLEAN  HavePrevious;
++  CHAR16   Previous;
++  BOOLEAN  PreviousWide;
++  BOOLEAN  Wide;
++
++  Break        = 0;
++  *BreakWidth  = GlyphWidth;
++  HavePrevious = FALSE;
++  Previous     = CHAR_NULL;
++  PreviousWide = FALSE;
++
++  for (Offset = 0; Offset <= Limit; Offset++) {
++    if (String[Offset] == NARROW_CHAR) {
++      GlyphWidth = 1;
++      continue;
++    }
++
++    if (String[Offset] == WIDE_CHAR) {
++      GlyphWidth = 2;
++      continue;
++    }
++
++    Wide = (BOOLEAN)(GlyphWidth == 2);
++    if (HavePrevious &&
++        ((String[Offset] == CHAR_SPACE) ||
++         ((Previous != CHAR_SPACE) &&
++          (PreviousWide || Wide) &&
++          !IsClosingPunctuation (String[Offset]) &&
++          !IsOpeningPunctuation (Previous))))
++    {
++      Break       = Offset;
++      *BreakWidth = GlyphWidth;
++    }
++
++    HavePrevious = TRUE;
++    Previous     = String[Offset];
++    PreviousWide = Wide;
++  }
++
++  return Break;
++}
++
+ /**
+   Will copy LineWidth amount of a string in the OutputString buffer and return the
+   number of CHAR16 characters that were copied into the OutputString buffer.
+@@ -557,8 +714,8 @@ GetLineByWidth (
+   UINT16   GlyphOffset;
+   UINT16   OriginalGlyphWidth;
+   BOOLEAN  ReturnFlag;
+-  UINT16   LastSpaceOffset;
+-  UINT16   LastGlyphWidth;
++  UINT16   BreakOffset;
++  UINT16   BreakGlyphWidth;
+ 
+   if ((InputString == NULL) || (Index == NULL) || (OutputString == NULL)) {
+     return 0;
+@@ -572,9 +729,7 @@ GetLineByWidth (
+   // Save original glyph width.
+   //
+   OriginalGlyphWidth = *GlyphWidth;
+-  LastGlyphWidth     = OriginalGlyphWidth;
+   ReturnFlag         = FALSE;
+-  LastSpaceOffset    = 0;
+ 
+   //
+   // NARROW_CHAR can not be printed in screen, so if a line only contain  the two CHARs: 'NARROW_CHAR + CHAR_CARRIAGE_RETURN' , it is a empty line  in Screen.
+@@ -605,15 +760,6 @@ GetLineByWidth (
+ 
+       default:
+         GlyphOffset = GlyphOffset + *GlyphWidth;
+-
+-        //
+-        // Record the last space info in this line. Will be used in rewind.
+-        //
+-        if ((InputString[*Index + StrOffset] == CHAR_SPACE) && (GlyphOffset <= LineWidth)) {
+-          LastSpaceOffset = StrOffset;
+-          LastGlyphWidth  = *GlyphWidth;
+-        }
+-
+         break;
+     }
+ 
+@@ -627,11 +773,15 @@ GetLineByWidth (
+   //
+   if (GlyphOffset > LineWidth) {
+     //
+-    // Rewind the string to last space char in this line.
++    // Rewind the string to the last place in this line where it may break:
++    // a space, or a boundary next to CJK text that does not leave closing
++    // punctuation at the start of the next line.  The character at
++    // StrOffset - 1 is the one that did not fit.
+     //
+-    if (LastSpaceOffset != 0) {
+-      StrOffset   = LastSpaceOffset;
+-      *GlyphWidth = LastGlyphWidth;
++    BreakOffset = GetLineBreakOffset (&InputString[*Index], StrOffset - 1, OriginalGlyphWidth, &BreakGlyphWidth);
++    if (BreakOffset != 0) {
++      StrOffset   = BreakOffset;
++      *GlyphWidth = BreakGlyphWidth;
+     } else {
+       //
+       // Roll back to last char in the line width.
