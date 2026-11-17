@@ -61,7 +61,7 @@ Each board's results come from one unit.
 The setup menus can be switched to Simplified Chinese on the front page. The
 display, I2C and menu changes that came with the TaishanPi 3M's screen are
 shared by all three boards. They were run on the TaishanPi 3M and, for the
-menus over HDMI, on the CM5-IO; on the ROCK 4D they have only been built.
+menus over HDMI, on the CM5-IO. The ROCK 4D has not run them yet.
 
 ### LCKFB TaishanPi 3M
 
@@ -176,9 +176,10 @@ TaishanPi 3M has no RTC driver, so the clock is wrong until it syncs.
   FUSB302), which stopped Windows bugchecking at shutdown, but SuperSpeed
   has not trained there: DRD0's link stays in Rx.Detect. On the TaishanPi 3M
   the firmware does not use the USB-C port at all.
-- The ROCK 4D has not been run with anything merged after 0.2.1. Its 0.4.0
-  image is built only. On the CM5-IO, 0.4.0 has shown its menus and has not
-  started an operating system; 0.2.1 is the last release that did.
+- The 0.4.0 image for the ROCK 4D has not been run on a ROCK 4D yet. What
+  changed since 0.2.1 is code the three boards share, and it has run on the
+  other two. On the CM5-IO, 0.4.0 has shown its menus and has not started an
+  operating system yet.
 - The release images are built from `main`. Some of what is in them has
   booted without being checked for what it is meant to do; that is listed in
   [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
