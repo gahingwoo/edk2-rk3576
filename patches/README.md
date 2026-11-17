@@ -4,7 +4,7 @@
 submodule, pinned by `scripts/setup-host.sh` to edk2-stable202602. Edits made
 inside it are lost when the checkout is reset. Three of the five patches here are
 real fixes, and without them the firmware still builds but misbehaves, so they
-are kept as patch files.
+are kept as patch files.  A sixth adds Chinese strings to the stock menus.
 
 They were first generated against tianocore/edk2 `46548b1` and apply cleanly
 to edk2-stable202602, which is what CI builds against.
@@ -63,6 +63,28 @@ loops long enough to look hung.
 Measures elapsed time with `GetPerformanceCounter()` instead, so the timeout
 means what it says. The error itself still has to be fixed in the host driver
 (`DwcSdhciDxe`); this only stops it from costing minutes.
+
+### `0006-MdeModulePkg-UI-add-zh-Hans-strings.patch`
+
+Adds Simplified Chinese (`zh-Hans`) to the stock setup menus: the front page
+(UiApp), Device Manager, Boot Manager, Boot Maintenance Manager and the Boot
+Discovery Policy form.  String files only, no code.
+
+Every string in each of those files gets a `zh-Hans` entry, including the ones
+that read the same in both languages (baud rates, terminal types).  That is
+not optional: HiiDatabase does not fall back to English for a string that is
+missing in the selected language, and the setup browser draws it as "!".
+`scripts/gen-zh-hans-font.py check` enforces this, and finds the glyphs these
+strings need for `Silicon/Rockchip/Drivers/ZhHansFontDxe`.
+
+The front page's language list takes each language's name from this file
+(`#langdef`), which is why UiApp needs the patch even for the platform's own
+forms to be selectable in Chinese.
+
+Not translated: DisplayEngineDxe / CustomizedDisplayLib (the key-help footer
+and the save / discard pop-ups) and SetupBrowserDxe.  Some of their strings
+are the answer keys the pop-ups compare against ("Y", "N"), so translating
+them is not purely cosmetic.  They stay English in both languages.
 
 ## Optional (`--with-debug`)
 

@@ -468,8 +468,12 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize|0x2000
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxAuthVariableSize|0x2800
 
-  # Default platform supported RFC 4646 languages: (American) English
-  gEfiMdePkgTokenSpaceGuid.PcdUefiVariableDefaultPlatformLangCodes|"en-US"
+  # Setup UI languages: (American) English and Simplified Chinese.  The
+  # ISO 639-2 list must name the same languages in the same order: the
+  # variable driver keeps Lang in step with PlatformLang by position.
+  # zh-Hans needs ZhHansFontDxe for its glyphs.
+  gEfiMdePkgTokenSpaceGuid.PcdUefiVariableDefaultPlatformLangCodes|"en-US;zh-Hans"
+  gEfiMdePkgTokenSpaceGuid.PcdUefiVariableDefaultLangCodes|"engzho"
 
 [PcdsDynamicHii.common.DEFAULT]
   gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut|L"Timeout"|gEfiGlobalVariableGuid|0x0|5 # Variable: L"Timeout"
@@ -580,6 +584,7 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
   MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe.inf
   MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
+  Silicon/Rockchip/Drivers/ZhHansFontDxe/ZhHansFontDxe.inf
   MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
   MdeModulePkg/Universal/SerialDxe/SerialDxe.inf
 
