@@ -211,25 +211,20 @@ LcdGraphicsBlt (
 
   90:  the rotated picture's top edge is the panel's right edge.
   270: the rotated picture's top edge is the panel's left edge.
+
+  The geometry is read once per Blt call into LCD_ROTATION, not per pixel.
 **/
-STATIC
-UINT32 *
-LcdRotatedPixel (
-  IN EFI_GRAPHICS_OUTPUT_PROTOCOL  *This,
-  IN UINTN                         X,
-  IN UINTN                         Y
-  )
-{
-  UINT32  *FrameBuffer = (UINT32 *)This->Mode->FrameBufferBase;
-  UINTN   NativeWidth  = This->Mode->Info->VerticalResolution;
-  UINTN   NativeHeight = This->Mode->Info->HorizontalResolution;
+typedef struct {
+  UINT32     *FrameBuffer;
+  UINTN      NativeWidth;
+  UINTN      NativeHeight;
+  BOOLEAN    Is270;
+} LCD_ROTATION;
 
-  if (LcdGraphicsEffectiveRotation () == 270) {
-    return FrameBuffer + Y + (NativeHeight - 1 - X) * NativeWidth;
-  }
-
-  return FrameBuffer + (NativeWidth - 1 - Y) + X * NativeWidth;
-}
+#define LcdRotatedPixel(This, X, Y)                                              \
+  (Rot.Is270 ?                                                                   \
+   Rot.FrameBuffer + (Y) + (Rot.NativeHeight - 1 - (X)) * Rot.NativeWidth :      \
+   Rot.FrameBuffer + (Rot.NativeWidth - 1 - (Y)) + (X) * Rot.NativeWidth)
 
 EFI_STATUS
 EFIAPI
@@ -247,6 +242,7 @@ LcdGraphicsBltRotated (
   )
 {
   EFI_STATUS  Status;
+  LCD_ROTATION  Rot;
   UINTN       WidthInBytes;
   UINT32      *SourceBuffer;
   UINT32      *DestinationBuffer;
@@ -254,6 +250,11 @@ LcdGraphicsBltRotated (
   UINTN       X;
 
   WidthInBytes = Width * RK_BYTES_PER_PIXEL;
+
+  Rot.FrameBuffer  = (UINT32 *)This->Mode->FrameBufferBase;
+  Rot.NativeWidth  = This->Mode->Info->VerticalResolution;
+  Rot.NativeHeight = This->Mode->Info->HorizontalResolution;
+  Rot.Is270        = (LcdGraphicsEffectiveRotation () == 270);
 
   Status = LcdGraphicsBltCheckParameters (
              This,

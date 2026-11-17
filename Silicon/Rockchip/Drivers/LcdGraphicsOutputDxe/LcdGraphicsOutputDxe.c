@@ -59,6 +59,8 @@ LcdGraphicsEffectiveRotation (
   VOID
   )
 {
+  STATIC BOOLEAN               Known;
+  STATIC UINT16                Cached;
   UINT16                       Rotation;
   ROCKCHIP_DSI_PANEL_PROTOCOL  *Panel;
 
@@ -66,20 +68,29 @@ LcdGraphicsEffectiveRotation (
     return 0;
   }
 
+  //
+  // Work it out once.  The setting is a variable-backed PCD and the panel
+  // is found with LocateProtocol; the rotated Blt asks for every call, and
+  // the first version asked for every pixel, which drew the menus a line at
+  // a time.  Neither input changes without a reset.
+  //
+  if (Known) {
+    return Cached;
+  }
+
+  Cached   = 0;
   Rotation = PcdGet16 (PcdDisplayRotation);
   if ((Rotation == 90) || (Rotation == 270)) {
-    return Rotation;
+    Cached = Rotation;
+  } else if ((Rotation == 0) && mPrimaryIsDsi &&
+             !EFI_ERROR (gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel)) &&
+             ((Panel->Rotation == 90) || (Panel->Rotation == 270)))
+  {
+    Cached = Panel->Rotation;
   }
 
-  if ((Rotation != 0) || !mPrimaryIsDsi) {
-    return 0;
-  }
-
-  if (EFI_ERROR (gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel))) {
-    return 0;
-  }
-
-  return ((Panel->Rotation == 90) || (Panel->Rotation == 270)) ? Panel->Rotation : 0;
+  Known = TRUE;
+  return Cached;
 }
 
 STATIC LCD_INSTANCE  mLcdTemplate = {
