@@ -342,6 +342,19 @@ I2cIomux (
   )
 {
   switch (id) {
+    case 0:
+      /*
+       * i2c0m1_xfer: GPIO0 PC1 (fn 9) = SCL, GPIO0 PC2 (fn 9) = SDA
+       * (rk3576-pinctrl.dtsi; &i2c0 in rk3576-lckfb-tspi-3m-core.dtsi).
+       * I2C0 is in the PMU domain: PCLK_I2C0 and CLK_I2C0 are PMU1CRU
+       * CLKGATE_CON5 bits 1 and 2 (clk-rk3576.c), and Linux gates both when
+       * the bus is idle, so do not count on them being open.
+       */
+      MmioWrite32 (0x27220800 + 5 * 4, (BIT1 | BIT2) << 16);
+      GpioPinSetFunction (0, GPIO_PIN_PC1, 9);
+      GpioPinSetFunction (0, GPIO_PIN_PC2, 9);
+      DEBUG ((DEBUG_INFO, "TSPI-3M I2cIomux: I2C0 (touch) GPIO0 PC1/PC2 fn9, clocks ungated\n"));
+      break;
     case 1:
       GpioPinSetFunction (0, GPIO_PIN_PB2, 11);
       GpioPinSetFunction (0, GPIO_PIN_PB3, 11);

@@ -48,3 +48,5 @@
 
 [Protocols]
   gRockchipDsiPanelProtocolGuid         ## PRODUCES
+  gEfiI2cMasterProtocolGuid             ## SOMETIMES_CONSUMES
+  gEfiDevicePathProtocolGuid            ## SOMETIMES_CONSUMES

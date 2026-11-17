@@ -17,6 +17,8 @@
 
 #include <Uefi.h>
 #include <Protocol/RockchipDsiPanel.h>
+#include <Protocol/DevicePath.h>
+#include <Protocol/I2cMaster.h>
 #include <Library/DebugLib.h>
 #include <Library/GpioLib.h>
 #include <Library/Rk3576PwmLib.h>
@@ -272,6 +274,118 @@ Tspi3mDsiPanelPrepare (
   return EFI_SUCCESS;
 }
 
+/*
+ * Is the screen attached?  The panel cannot be asked, but its touch
+ * controller can: a Goodix GT9271 on I2C0 at 0x5d, whose product ID register
+ * (0x8140, four ASCII characters, "9271") answers when the screen's ribbon
+ * is plugged in.  Armbian's lckfb-tspi-3m-screen script detects the screen
+ * the same way.
+ *
+ * I2cDxe installs one EFI_I2C_MASTER_PROTOCOL per bus on a vendor device
+ * path that ends in the bus number (I2C_DEVICE_PATH there: VENDOR_DEVICE_PATH
+ * followed by a UINTN).
+ */
+#define TOUCH_I2C_BUS      0
+#define TOUCH_I2C_ADDRESS  0x5d
+
+typedef struct {
+  UINTN                OperationCount;
+  EFI_I2C_OPERATION    Operation[2];
+} TSPI3M_I2C_READ_PACKET;
+
+STATIC
+EFI_STATUS
+Tspi3mTouchRead (
+  IN  UINT16  Register,
+  OUT UINT8   *Buffer,
+  IN  UINT32  Length
+  )
+{
+  EFI_STATUS                Status;
+  EFI_HANDLE                *Handles;
+  UINTN                     Count;
+  UINTN                     Index;
+  EFI_DEVICE_PATH_PROTOCOL  *Path;
+  EFI_I2C_MASTER_PROTOCOL   *Master;
+  TSPI3M_I2C_READ_PACKET    Packet;
+  UINT8                     Reg[2];
+  UINTN                     Frequency;
+
+  Status = gBS->LocateHandleBuffer (ByProtocol, &gEfiI2cMasterProtocolGuid, NULL, &Count, &Handles);
+  if (EFI_ERROR (Status)) {
+    return EFI_UNSUPPORTED;               /* no I2C driver in this build */
+  }
+
+  Master = NULL;
+  for (Index = 0; Index < Count; Index++) {
+    Status = gBS->HandleProtocol (Handles[Index], &gEfiDevicePathProtocolGuid, (VOID **)&Path);
+    if (EFI_ERROR (Status) ||
+        (Path->Type != HARDWARE_DEVICE_PATH) || (Path->SubType != HW_VENDOR_DP) ||
+        (*(UINTN *)((UINT8 *)Path + sizeof (VENDOR_DEVICE_PATH)) != TOUCH_I2C_BUS))
+    {
+      continue;
+    }
+
+    Status = gBS->HandleProtocol (Handles[Index], &gEfiI2cMasterProtocolGuid, (VOID **)&Master);
+    if (EFI_ERROR (Status)) {
+      Master = NULL;
+    }
+
+    break;
+  }
+
+  gBS->FreePool (Handles);
+  if (Master == NULL) {
+    return EFI_UNSUPPORTED;
+  }
+
+  Frequency = 100000;
+  Master->SetBusFrequency (Master, &Frequency);
+
+  Reg[0] = (UINT8)(Register >> 8);
+  Reg[1] = (UINT8)Register;
+
+  Packet.OperationCount             = 2;
+  Packet.Operation[0].Flags         = 0;
+  Packet.Operation[0].LengthInBytes = sizeof (Reg);
+  Packet.Operation[0].Buffer        = Reg;
+  Packet.Operation[1].Flags         = I2C_FLAG_READ;
+  Packet.Operation[1].LengthInBytes = Length;
+  Packet.Operation[1].Buffer        = Buffer;
+
+  return Master->StartRequest (Master, TOUCH_I2C_ADDRESS, (EFI_I2C_REQUEST_PACKET *)&Packet, NULL, NULL);
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+Tspi3mDsiPanelDetect (
+  IN ROCKCHIP_DSI_PANEL_PROTOCOL  *This
+  )
+{
+  EFI_STATUS  Status;
+  UINT8       Id[4];
+
+  Status = Tspi3mTouchRead (0x8140, Id, sizeof (Id));
+  if (Status == EFI_UNSUPPORTED) {
+    DEBUG ((DEBUG_INFO, "Tspi3mDsiPanel: no I2C0 master, cannot look for the screen\n"));
+    return EFI_SUCCESS;
+  }
+
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_INFO, "Tspi3mDsiPanel: touch controller did not answer (%r): no screen\n", Status));
+    return EFI_NOT_FOUND;
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "Tspi3mDsiPanel: touch controller ID %02x %02x %02x %02x (\"%c%c%c%c\"): screen attached\n",
+    Id[0], Id[1], Id[2], Id[3],
+    Id[0], Id[1], Id[2], Id[3] ? Id[3] : ' '
+    ));
+  return EFI_SUCCESS;
+}
+
 STATIC ROCKCHIP_DSI_PANEL_PROTOCOL  mTspi3mDsiPanel = {
   .DsiId       = 0,
   .DsiLaneRate = 0,                       /* let the host work it out */
@@ -303,6 +417,7 @@ STATIC ROCKCHIP_DSI_PANEL_PROTOCOL  mTspi3mDsiPanel = {
 
   /* The overlay has rotation = <270>: the screen is used in landscape. */
   .Rotation           = 270,
+  .Detect             = Tspi3mDsiPanelDetect,
 };
 
 EFI_STATUS

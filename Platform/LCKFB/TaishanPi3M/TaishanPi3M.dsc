@@ -60,6 +60,8 @@
   DEFINE RK_AHCI_ENABLE          = FALSE
   DEFINE RK_DW_HDMI_QP_ENABLE    = TRUE
   DEFINE RK_DW_MIPI_DSI2_ENABLE  = TRUE   # the official 800x1280 MIPI DSI screen
+  DEFINE RK_I2C_ENABLE           = TRUE   # I2C0: the screen's touch controller
+  DEFINE RK_860X_REGULATOR_ENABLE = FALSE # no RK860x here; the PMIC is an RK806 on SPI
   DEFINE RK_DISPLAY_ENABLE       = TRUE
   DEFINE RK_AMD_GOP_ENABLE       = FALSE
   DEFINE SECURE_BOOT_ENABLE      = TRUE
@@ -137,6 +139,16 @@
     VOP_OUTPUT_IF_HDMI0,
     VOP_OUTPUT_IF_MIPI0
   })}
+
+  #
+  # I2C.  The base file lists the CM5-IO's PMIC and RTC; this board has
+  # neither on I2C.  The one device the firmware talks to is the Goodix
+  # touch controller of the MIPI DSI screen, on I2C0 at 0x5d
+  # (rk3576-lckfb-tspi-3m-dsi-c41409463.dtsi, &i2c0).
+  #
+  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x5d }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x0 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ FALSE }
 
   # Start the fan on CN2 (PWM2 ch3, see PwmFanIoSetup) at full speed and
   # leave it running into the OS.  Windows has no driver for it and nothing

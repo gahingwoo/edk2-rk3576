@@ -1508,12 +1508,40 @@ DwMipiDsi2ConnectorDisable (
 	return EFI_SUCCESS;
 }
 
+/*
+ * A DSI panel cannot be asked over the link whether it is there.  A board
+ * that can tell some other way (the TaishanPi 3M asks the screen's touch
+ * controller) supplies Detect in the panel protocol.
+ *
+ * For now the answer is only logged and the panel still counts as attached:
+ * the I2C path it uses has not run on hardware yet, and a wrong "absent"
+ * would switch a working screen off.
+ */
+EFI_STATUS
+DwMipiDsi2ConnectorDetect (
+	OUT ROCKCHIP_CONNECTOR_PROTOCOL          *This,
+	OUT DISPLAY_STATE                        *DisplayState
+	)
+{
+	struct dw_mipi_dsi2 *dsi2 = DW_MIPI_DSI2_FROM_CONNECTOR_PROTOCOL(This);
+	ROCKCHIP_DSI_PANEL_PROTOCOL *Panel = dsi2->RockchipDsiPanel;
+	EFI_STATUS Status;
+
+	if (Panel == NULL || Panel->Detect == NULL)
+		return EFI_SUCCESS;
+
+	Status = Panel->Detect(Panel);
+	DEBUG((DEBUG_INFO, "DwMipiDsi2: panel detection says %r (not acted on yet)\n", Status));
+
+	return EFI_SUCCESS;
+}
+
 ROCKCHIP_CONNECTOR_PROTOCOL mDwMipiDsi2ConnectorOps = {
   NULL,
   DwMipiDsi2ConnectorPreInit,
   DwMipiDsi2ConnectorInit,
   NULL,
-  NULL,
+  DwMipiDsi2ConnectorDetect,
   DwMipiDsi2ConnectorGetTiming,
   NULL,
   NULL,

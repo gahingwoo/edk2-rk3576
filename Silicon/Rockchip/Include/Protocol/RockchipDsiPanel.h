@@ -49,6 +49,11 @@ struct _ROCKCHIP_DSI_PANEL_PROTOCOL {
   // An OS that takes the framebuffer over still gets the panel's native scan.
   //
   UINT16                        Rotation;
+  //
+  // Optional.  Says whether the panel is attached: EFI_SUCCESS if it is,
+  // EFI_NOT_FOUND if it is not.  Without it the panel counts as attached.
+  //
+  ROCKCHIP_DSI_PANEL_PREPARE    Detect;
 };
 
 extern EFI_GUID  gRockchipDsiPanelProtocolGuid;
