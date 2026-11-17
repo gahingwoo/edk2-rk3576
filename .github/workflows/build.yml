@@ -62,6 +62,13 @@ jobs:
       - name: Set up host (EDK2, BaseTools, core patches)
         run: yes | scripts/setup-host.sh
 
+      - name: Check zh-Hans strings and glyphs
+        # A zh-Hans string whose glyph is missing from ZhHansFontDxe, or
+        # whose CJK text is not inside \wide ... \narrow, still builds; it
+        # only shows up on screen.  Runs after setup-host so the patched
+        # TianoCore .uni files are checked too.
+        run: python3 scripts/gen-zh-hans-font.py check
+
       - name: Build ${{ matrix.board }}
         run: scripts/build.sh ${{ matrix.board }}
 

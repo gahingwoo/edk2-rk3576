@@ -580,6 +580,7 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
   MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe.inf
   MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
+  Silicon/Rockchip/Drivers/ZhHansFontDxe/ZhHansFontDxe.inf
   MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
   MdeModulePkg/Universal/SerialDxe/SerialDxe.inf
 

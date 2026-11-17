@@ -1,0 +1,41 @@
+#/** @file
+#
+#  Installs the wide glyphs the zh-Hans setup strings need into the HII
+#  database, as a simple-font package.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#  ZhHansGlyphs.c is generated from GNU Unifont and carries Unifont's licence
+#  (OFL-1.1 OR GPL-2.0-or-later WITH Font-exception-2.0), see OFL-1.1.txt.
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = ZhHansFontDxe
+  FILE_GUID                      = 8dbefd8a-b36a-4ff4-a1a3-cef619dd24c3
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = ZhHansFontDxeInitialize
+
+[Sources]
+  ZhHansFontDxe.c
+  ZhHansFontDxe.h
+  ZhHansGlyphs.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  HiiLib
+  MemoryAllocationLib
+  UefiDriverEntryPoint
+
+[Depex]
+  gEfiHiiDatabaseProtocolGuid

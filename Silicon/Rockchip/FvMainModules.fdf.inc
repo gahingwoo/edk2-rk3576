@@ -81,6 +81,7 @@
   INF MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
   INF MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe.inf
   INF MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
+  INF Silicon/Rockchip/Drivers/ZhHansFontDxe/ZhHansFontDxe.inf
   INF MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
   INF MdeModulePkg/Universal/SerialDxe/SerialDxe.inf
 
