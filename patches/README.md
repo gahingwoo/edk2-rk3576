@@ -140,6 +140,26 @@ compares `gYesResponse[0]` / `gNoResponse[0]`), `CONFIRM_OPTION_YES` "Y (y)",
 (`FormDisplay.c` and `Popup.c` compare their `[0]`). The Chinese prompts that
 explain them keep the same Latin letters.
 
+### `0010-DisplayEngine-break-lines-between-CJK-characters-not-inside-words.patch`
+
+Applies on top of 0009. `GetLineByWidth ()`, which wraps prompts, options and
+help text, could only break at a space, else at the last character that fit.
+Chinese has no spaces, so it broke after the last character that fit, and a
+"。" or "，" that did not fit started the next line on its own; a Latin word
+inside Chinese text ("Synchronous") was cut in two the same way.
+
+It now breaks at the last allowed place in the line: before a space as
+before, or between two characters of which one is wide, unless the next line
+would start with closing punctuation (。，、；：！？）」』 and ASCII `) , . : ; ! ?`)
+or this one end with opening punctuation (（「『 and `( [ { <`). Between two
+narrow characters, inside a word, it does not break. Only a run that is
+wider than the whole line (a long URL, a GUID) is still cut where it overflows.
+English text breaks exactly where it did.
+
+Simulated over every zh-Hans string at the help widths of 80, 100, 128 and
+160 columns: lines starting with closing punctuation 36 before, 0 after
+except inside such over-long runs; Latin words split 20 before, 0 after.
+
 ## Optional (`--with-debug`)
 
 ### `0003-DEBUG-PeilessSec-UART-checkpoints.patch`
