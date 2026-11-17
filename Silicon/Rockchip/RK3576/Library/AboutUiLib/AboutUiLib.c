@@ -1,15 +1,20 @@
 /** @file
  *
- *  The "About" page of the RK3576 platform form: what firmware this is,
- *  what board it runs on, what it found, and where it comes from.
+ *  The "About" page: what firmware this is, what board it runs on, what it
+ *  found, and where it comes from.
  *
- *  Every line is one HII string, "<label> <value>", set per language: the
- *  label comes from RK3576DxeHii.uni in that language, the value is read
- *  here.  A value that cannot be read keeps the line's default text from
+ *  A NULL library of UiApp, like DeviceManagerUiLib: its formset has the
+ *  front page class, so UiApp lists it next to Device Manager, Boot Manager
+ *  and Boot Maintenance Manager.  It runs when the setup UI starts, after the
+ *  consoles are connected, so everything can be read then.
+ *
+ *  Every line is one HII string, label plus value, set per language: the
+ *  label comes from AboutUiLibStrings.uni in that language, the value is
+ *  read here.  A value that cannot be read keeps the line's default text from
  *  the .uni file, which says "unknown".  Nothing here is a hard-coded
  *  measurement: memory comes from SMBIOS (as on the front page), the CPU
- *  clocks from SCMI (as CpuPerf.c sets them), the display from the VOP2
- *  CRTC protocol and the GOP, the touch screen from the same test as
+ *  clocks from SCMI (the clocks RK3576Dxe CpuPerf.c sets), the display from
+ *  the VOP2 CRTC protocol and the GOP, the touch screen from the same test as
  *  PlatformBm.c.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
@@ -28,14 +33,19 @@
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/AbsolutePointer.h>
+#include <Protocol/ArmScmiClock2Protocol.h>
+#include <Protocol/DevicePath.h>
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/RockchipCrtcProtocol.h>
 #include <Library/DrmModes.h>
 #include <Protocol/SimpleTextIn.h>
 #include <Protocol/Smbios.h>
+#include <ScmiDefinitions.h>
 
-#include "About.h"
-#include "CpuPerf.h"
+#include "AboutFormSetGuid.h"
+
+extern UINT8  AboutUiLibVfrBin[];
+extern UINT8  AboutUiLibStrings[];
 
 #define ABOUT_TEXT_LENGTH  256
 
@@ -252,14 +262,38 @@ AboutDisplay (
 }
 
 /**
-  Fill in what is only known once the consoles are connected.
+  Read the current rates of the two CPU clusters over SCMI.
+**/
+STATIC
+EFI_STATUS
+AboutCpuClusterRates (
+  OUT UINT64  *LittleHz,
+  OUT UINT64  *BigHz
+  )
+{
+  EFI_STATUS            Status;
+  SCMI_CLOCK2_PROTOCOL  *Clock;
+
+  Status = gBS->LocateProtocol (&gArmScmiClock2ProtocolGuid, NULL, (VOID **)&Clock);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = Clock->RateGet (Clock, SCMI_ARMCLK_L, LittleHz);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  return Clock->RateGet (Clock, SCMI_ARMCLK_B, BigHz);
+}
+
+/**
+  Fill in every value line.
 **/
 STATIC
 VOID
-EFIAPI
-AboutOnAfterConsole (
-  IN EFI_EVENT  Event,
-  IN VOID       *Context
+AboutFillValues (
+  VOID
   )
 {
   CHAR16  Value[ABOUT_TEXT_LENGTH];
@@ -267,9 +301,27 @@ AboutOnAfterConsole (
   UINT64  BigHz;
   UINT64  MemoryMiB;
 
-  gBS->CloseEvent (Event);
+  AboutSetLine (
+    STRING_TOKEN (STR_ABOUT_VERSION),
+    STRING_TOKEN (STR_ABOUT_VERSION_LABEL),
+    (CONST CHAR16 *)PcdGetPtr (PcdFirmwareVersionString),
+    0
+    );
 
-  if (!EFI_ERROR (RK3576GetCpuClusterRates (&LittleHz, &BigHz))) {
+  //
+  // When this file was compiled; scripts/build.sh touches it on every build
+  // so that this moves.
+  //
+  UnicodeSPrint (Value, sizeof (Value), L"%a %a", __DATE__, __TIME__);
+  AboutSetLine (STRING_TOKEN (STR_ABOUT_BUILD), STRING_TOKEN (STR_ABOUT_BUILD_LABEL), Value, 0);
+
+  UnicodeSPrint (Value, sizeof (Value), L"%a", (CHAR8 *)PcdGetPtr (PcdPlatformName));
+  AboutSetLine (STRING_TOKEN (STR_ABOUT_BOARD), STRING_TOKEN (STR_ABOUT_BOARD_LABEL), Value, 0);
+
+  UnicodeSPrint (Value, sizeof (Value), L"%a", (CHAR8 *)PcdGetPtr (PcdPlatformVendorName));
+  AboutSetLine (STRING_TOKEN (STR_ABOUT_VENDOR), STRING_TOKEN (STR_ABOUT_VENDOR_LABEL), Value, 0);
+
+  if (!EFI_ERROR (AboutCpuClusterRates (&LittleHz, &BigHz))) {
     UnicodeSPrint (
       Value,
       sizeof (Value),
@@ -298,43 +350,94 @@ AboutOnAfterConsole (
     );
 }
 
-VOID
-RK3576InitAboutPage (
-  IN EFI_HII_HANDLE  HiiHandle,
-  IN CONST CHAR8     *BuildStamp
+typedef struct {
+  VENDOR_DEVICE_PATH          VendorDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL    End;
+} ABOUT_VENDOR_DEVICE_PATH;
+
+STATIC ABOUT_VENDOR_DEVICE_PATH  mAboutDevicePath = {
+  {
+    {
+      HARDWARE_DEVICE_PATH,
+      HW_VENDOR_DP,
+      {
+        (UINT8)(sizeof (VENDOR_DEVICE_PATH)),
+        (UINT8)((sizeof (VENDOR_DEVICE_PATH)) >> 8)
+      }
+    },
+    RK3576_ABOUT_FORMSET_GUID
+  },
+  {
+    END_DEVICE_PATH_TYPE,
+    END_ENTIRE_DEVICE_PATH_SUBTYPE,
+    {
+      (UINT8)(END_DEVICE_PATH_LENGTH),
+      (UINT8)((END_DEVICE_PATH_LENGTH) >> 8)
+    }
+  }
+};
+
+STATIC EFI_GUID    mAboutFormSetGuid = RK3576_ABOUT_FORMSET_GUID;
+STATIC EFI_HANDLE  mAboutDriverHandle;
+
+EFI_STATUS
+EFIAPI
+AboutUiLibConstructor (
+  IN EFI_HANDLE        ImageHandle,
+  IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  CHAR16      Value[ABOUT_TEXT_LENGTH];
-  EFI_EVENT   Event;
   EFI_STATUS  Status;
 
-  mAboutHiiHandle = HiiHandle;
-
-  AboutSetLine (
-    STRING_TOKEN (STR_ABOUT_VERSION),
-    STRING_TOKEN (STR_ABOUT_VERSION_LABEL),
-    (CONST CHAR16 *)PcdGetPtr (PcdFirmwareVersionString),
-    0
-    );
-
-  UnicodeSPrint (Value, sizeof (Value), L"%a", BuildStamp);
-  AboutSetLine (STRING_TOKEN (STR_ABOUT_BUILD), STRING_TOKEN (STR_ABOUT_BUILD_LABEL), Value, 0);
-
-  UnicodeSPrint (Value, sizeof (Value), L"%a", (CHAR8 *)PcdGetPtr (PcdPlatformName));
-  AboutSetLine (STRING_TOKEN (STR_ABOUT_BOARD), STRING_TOKEN (STR_ABOUT_BOARD_LABEL), Value, 0);
-
-  UnicodeSPrint (Value, sizeof (Value), L"%a", (CHAR8 *)PcdGetPtr (PcdPlatformVendorName));
-  AboutSetLine (STRING_TOKEN (STR_ABOUT_VENDOR), STRING_TOKEN (STR_ABOUT_VENDOR_LABEL), Value, 0);
-
-  Status = gBS->CreateEventEx (
-                  EVT_NOTIFY_SIGNAL,
-                  TPL_CALLBACK,
-                  AboutOnAfterConsole,
-                  NULL,
-                  &gRockchipEventPlatformBmAfterConsoleGuid,
-                  &Event
-                  );
+  mAboutDriverHandle = NULL;
+  Status             = gBS->InstallMultipleProtocolInterfaces (
+                              &mAboutDriverHandle,
+                              &gEfiDevicePathProtocolGuid,
+                              &mAboutDevicePath,
+                              NULL
+                              );
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_WARN, "RK3576Dxe: About page will not show detected hardware: %r\n", Status));
+    DEBUG ((DEBUG_WARN, "AboutUiLib: no About page: %r\n", Status));
+    return EFI_SUCCESS;
   }
+
+  mAboutHiiHandle = HiiAddPackages (
+                      &mAboutFormSetGuid,
+                      mAboutDriverHandle,
+                      AboutUiLibVfrBin,
+                      AboutUiLibStrings,
+                      NULL
+                      );
+  if (mAboutHiiHandle == NULL) {
+    DEBUG ((DEBUG_WARN, "AboutUiLib: no About page: HiiAddPackages failed\n"));
+    return EFI_SUCCESS;
+  }
+
+  AboutFillValues ();
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+AboutUiLibDestructor (
+  IN EFI_HANDLE        ImageHandle,
+  IN EFI_SYSTEM_TABLE  *SystemTable
+  )
+{
+  if (mAboutHiiHandle != NULL) {
+    HiiRemovePackages (mAboutHiiHandle);
+    mAboutHiiHandle = NULL;
+  }
+
+  if (mAboutDriverHandle != NULL) {
+    gBS->UninstallMultipleProtocolInterfaces (
+           mAboutDriverHandle,
+           &gEfiDevicePathProtocolGuid,
+           &mAboutDevicePath,
+           NULL
+           );
+    mAboutDriverHandle = NULL;
+  }
+
+  return EFI_SUCCESS;
 }

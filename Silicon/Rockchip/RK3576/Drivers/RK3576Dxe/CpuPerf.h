@@ -21,19 +21,4 @@ RK3576SetupCpuPerf (
   VOID
   );
 
-/**
-  Read the current rates of the two CPU clusters over SCMI.
-
-  @param[out] LittleHz  ARMCLK_L, the Cortex-A53 cluster.
-  @param[out] BigHz     ARMCLK_B, the Cortex-A72 cluster.
-
-  @retval EFI_SUCCESS    Both were read.
-  @retval Other          The SCMI clock protocol is not there or a read failed.
-**/
-EFI_STATUS
-RK3576GetCpuClusterRates (
-  OUT UINT64  *LittleHz,
-  OUT UINT64  *BigHz
-  );
-
 #endif // RK3576_CPU_PERF_H_

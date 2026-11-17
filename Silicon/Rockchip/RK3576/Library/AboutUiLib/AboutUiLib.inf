@@ -1,0 +1,64 @@
+## @file
+#
+#  The "About" page: firmware version, board, what the firmware found, and
+#  where the firmware comes from.  Linked into UiApp as a NULL library, like
+#  DeviceManagerUiLib, so it is a front page entry of its own; listed in the
+#  DSC after BootMaintenanceManagerUiLib so it comes after that entry.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = AboutUiLib
+  FILE_GUID                      = 7a49694f-89a7-4caa-919c-b2267392c12c
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = NULL|DXE_DRIVER UEFI_APPLICATION
+  CONSTRUCTOR                    = AboutUiLibConstructor
+  DESTRUCTOR                     = AboutUiLibDestructor
+
+[Sources]
+  AboutFormSetGuid.h
+  AboutUiLib.c
+  AboutUiLibVfr.vfr
+  AboutUiLibStrings.uni
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  HiiLib
+  MemoryAllocationLib
+  PcdLib
+  PrintLib
+  UefiBootServicesTableLib
+
+[Guids]
+  gEfiIfrFrontPageGuid                          ## CONSUMES ## GUID (formset class: listed on the front page)
+
+[Protocols]
+  gEfiDevicePathProtocolGuid                    ## PRODUCES
+  gArmScmiClock2ProtocolGuid                    ## SOMETIMES_CONSUMES
+  gEfiSmbiosProtocolGuid                        ## SOMETIMES_CONSUMES
+  gEfiGraphicsOutputProtocolGuid                ## SOMETIMES_CONSUMES
+  gRockchipCrtcProtocolGuid                     ## SOMETIMES_CONSUMES
+  gEfiAbsolutePointerProtocolGuid               ## SOMETIMES_CONSUMES
+  gEfiSimpleTextInProtocolGuid                  ## SOMETIMES_CONSUMES
+
+[FixedPcd]
+  gRockchipTokenSpaceGuid.PcdPlatformName
+  gRockchipTokenSpaceGuid.PcdPlatformVendorName
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString
