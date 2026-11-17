@@ -8,6 +8,7 @@
  *
  **/
 
+#include <Protocol/GraphicsOutput.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 
@@ -673,6 +674,152 @@ FdtFixupUsbDrd0 (
   }
 }
 
+/**
+  In force-GOP mode, describe the picture the firmware left running as a
+  "simple-framebuffer" node under /chosen.
+
+  A kernel finds the same framebuffer through the EFI GOP, but only one that
+  was built with efifb or with SYSFB_SIMPLEFB draws on it; Armbian's is built
+  with neither and showed nothing but the boot loader's last frame.  The
+  device tree node binds simplefb or simpledrm directly.
+
+  The node needs the screen's mode, so it can only be written once the
+  consoles are connected: at ReadyToBoot, and when a device tree override is
+  loaded.  A rotated GOP reports the two dimensions swapped and offers only
+  Blt, while the framebuffer stays in the panel's native scan, which is what
+  an OS gets; describe that.
+**/
+STATIC
+VOID
+FdtFixupSimpleFramebuffer (
+  IN VOID  *Fdt
+  )
+{
+  EFI_GRAPHICS_OUTPUT_PROTOCOL          *Gop;
+  EFI_GRAPHICS_OUTPUT_MODE_INFORMATION  *Info;
+  UINT32                                Width;
+  UINT32                                Height;
+  UINT32                                Stride;
+  UINT64                                Base;
+  UINT64                                Size;
+  UINT32                                Cells[4];
+  UINT32                                Value;
+  CHAR8                                 Name[40];
+  INT32                                 Chosen;
+  INT32                                 Node;
+  INT32                                 Ret;
+
+  if (!PcdGet8 (PcdFdtForceGop)) {
+    return;
+  }
+
+  if (EFI_ERROR (gBS->LocateProtocol (&gEfiGraphicsOutputProtocolGuid, NULL, (VOID **)&Gop)) ||
+      (Gop->Mode == NULL) || (Gop->Mode->Info == NULL) || (Gop->Mode->FrameBufferBase == 0))
+  {
+    return;
+  }
+
+  Info = Gop->Mode->Info;
+  switch (Info->PixelFormat) {
+    case PixelBlueGreenRedReserved8BitPerColor:
+      Width  = Info->HorizontalResolution;
+      Height = Info->VerticalResolution;
+      Stride = Info->PixelsPerScanLine * 4;
+      break;
+    case PixelBltOnly:
+      // Rotated menus: the framebuffer is the native scan, the other way up.
+      Width  = Info->VerticalResolution;
+      Height = Info->HorizontalResolution;
+      Stride = Width * 4;
+      break;
+    default:
+      return;
+  }
+
+  Base = Gop->Mode->FrameBufferBase;
+  Size = (UINT64)Stride * Height;
+
+  Chosen = FdtPathOffset (Fdt, "/chosen");
+  if (Chosen < 0) {
+    return;
+  }
+
+  AsciiSPrint (Name, sizeof (Name), "framebuffer@%lx", Base);
+  if (FdtSubnodeOffset (Fdt, Chosen, Name) >= 0) {
+    return;
+  }
+
+  //
+  // The node has a reg, so /chosen needs the cells and a ranges to make it
+  // an address in the root's space.  The root of every RK3576 tree is 2/2.
+  //
+  Value = CpuToFdt32 (2);
+  Ret   = FdtSetProp (Fdt, Chosen, "#address-cells", &Value, sizeof (Value));
+  if (Ret >= 0) {
+    Ret = FdtSetProp (Fdt, Chosen, "#size-cells", &Value, sizeof (Value));
+  }
+
+  if (Ret >= 0) {
+    Ret = FdtSetPropEmpty (Fdt, Chosen, "ranges");
+  }
+
+  if (Ret < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: simple-framebuffer: /chosen cells: %a\n", FdtStrerror (Ret)));
+    return;
+  }
+
+  Chosen = FdtPathOffset (Fdt, "/chosen");
+  Node   = FdtAddSubnode (Fdt, Chosen, Name);
+  if (Node < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: simple-framebuffer: add node: %a\n", FdtStrerror (Node)));
+    return;
+  }
+
+  Cells[0] = CpuToFdt32 ((UINT32)(Base >> 32));
+  Cells[1] = CpuToFdt32 ((UINT32)Base);
+  Cells[2] = CpuToFdt32 ((UINT32)(Size >> 32));
+  Cells[3] = CpuToFdt32 ((UINT32)Size);
+
+  // Byte order in memory is B, G, R, X: a little-endian XRGB8888.
+  Ret = FdtSetPropString (Fdt, Node, "compatible", "simple-framebuffer");
+  if (Ret >= 0) {
+    Ret = FdtSetProp (Fdt, Node, "reg", Cells, sizeof (Cells));
+  }
+
+  if (Ret >= 0) {
+    Value = CpuToFdt32 (Width);
+    Ret   = FdtSetProp (Fdt, Node, "width", &Value, sizeof (Value));
+  }
+
+  if (Ret >= 0) {
+    Value = CpuToFdt32 (Height);
+    Ret   = FdtSetProp (Fdt, Node, "height", &Value, sizeof (Value));
+  }
+
+  if (Ret >= 0) {
+    Value = CpuToFdt32 (Stride);
+    Ret   = FdtSetProp (Fdt, Node, "stride", &Value, sizeof (Value));
+  }
+
+  if (Ret >= 0) {
+    Ret = FdtSetPropString (Fdt, Node, "format", "x8r8g8b8");
+  }
+
+  if (Ret < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: simple-framebuffer: properties: %a\n", FdtStrerror (Ret)));
+    return;
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "FdtPlatform: simple-framebuffer %ux%u stride %u at 0x%lx\n",
+    Width,
+    Height,
+    Stride,
+    Base
+    ));
+}
+
 STATIC
 EFI_STATUS
 EFIAPI
@@ -695,6 +842,7 @@ ApplyPlatformFdtFixups (
   FdtFixupUfsDevices (*Fdt);
   FdtFixupUsbDrd0 (*Fdt);
   FdtFixupChosen (*Fdt);
+  FdtFixupSimpleFramebuffer (*Fdt);
 
   return EFI_SUCCESS;
 }
@@ -1375,8 +1523,21 @@ NotifyReadyToBoot (
   )
 {
   EFI_STATUS  Status;
+  VOID        *Dtb;
 
   gBS->CloseEvent (Event);
+
+  //
+  // The screen has a mode by now, which it did not have when the tree was
+  // installed.
+  //
+  if (!EFI_ERROR (EfiGetSystemConfigurationTable (&gFdtTableGuid, &Dtb)) && (Dtb != NULL)) {
+    FdtFixupSimpleFramebuffer (Dtb);
+  }
+
+  if (!PcdGet8 (PcdFdtSupportOverrides)) {
+    return;
+  }
 
   Status = FdtPlatformBuildOverridePaths ();
   if (EFI_ERROR (Status)) {
@@ -1492,7 +1653,7 @@ FdtPlatformDxeInitialize (
     return EFI_UNSUPPORTED;
   }
 
-  if (PcdGet8 (PcdFdtSupportOverrides)) {
+  if (PcdGet8 (PcdFdtSupportOverrides) || PcdGet8 (PcdFdtForceGop)) {
     Status = gBS->CreateEventEx (
                     EVT_NOTIFY_SIGNAL,                // Type
                     TPL_CALLBACK,                     // NotifyTpl

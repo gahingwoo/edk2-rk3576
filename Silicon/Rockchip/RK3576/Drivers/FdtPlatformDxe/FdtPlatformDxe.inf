@@ -47,6 +47,7 @@
   gEfiEventExitBootServicesGuid
 
 [Protocols]
+  gEfiGraphicsOutputProtocolGuid
   gEfiLoadedImageProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
 
