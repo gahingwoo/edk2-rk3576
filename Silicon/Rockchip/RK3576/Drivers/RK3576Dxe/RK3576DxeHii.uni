@@ -186,9 +186,9 @@
 #string STR_DISPLAY_ROTATION_PROMPT                        #language en-US "Screen Rotation"
 #string STR_DISPLAY_ROTATION_HELP                          #language en-US "Rotate the firmware's menus clockwise. Default follows the screen: a MIPI DSI panel is drawn the way it is mounted, HDMI is not rotated. An operating system still gets the screen's own orientation."
 #string STR_DISPLAY_ROTATION_0                             #language en-US "Default"
-#string STR_DISPLAY_ROTATION_90                            #language en-US "90\u00b0 Clockwise"
-#string STR_DISPLAY_ROTATION_270                           #language en-US "270\u00b0 Clockwise"
-#string STR_DISPLAY_ROTATION_NONE                          #language en-US "0\u00b0 (None)"
+#string STR_DISPLAY_ROTATION_90                            #language en-US "90° Clockwise"
+#string STR_DISPLAY_ROTATION_270                           #language en-US "270° Clockwise"
+#string STR_DISPLAY_ROTATION_NONE                          #language en-US "0° (None)"
 
 #string STR_HDMI_SIGNALING_MODE_PROMPT                     #language en-US "HDMI Signaling"
 #string STR_HDMI_SIGNALING_MODE_HELP                       #language en-US "Choose the HDMI signaling protocol.\n\nAuto - use HDMI if the monitor supports it, otherwise fall back to DVI.\nDVI - force DVI-compatible signaling (no audio, no advanced HDMI features).\nHDMI - force full HDMI signaling."
