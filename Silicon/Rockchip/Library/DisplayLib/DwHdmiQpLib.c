@@ -1212,7 +1212,17 @@ DwHdmiQpConnectorPreInit (
         "[RK3576-HDMI] HPD timeout after %u ms — GPIO4_PC1=%u — enabling bypass (HpdTimeoutFlag=TRUE)\n"
         "[RK3576-HDMI] Hint: ensure the TV is powered on and its HDMI input is selected.\n",
         Elapsed, (Gpio4Ext >> 17) & 1U));
-      Hdmi->HpdTimeoutFlag = TRUE;
+      //
+      // The bypass exists for sinks that never raise HPD: without it a board
+      // whose only output is HDMI shows nothing.  A board that also has a DSI
+      // screen must not take it: "no hot-plug" there means "use the screen",
+      // and forcing HDMI on hides the screen for good.
+      //
+      if (PcdGet32 (PcdDisplayConnectorsMask) & VOP_OUTPUT_IF_MIPI0) {
+        DEBUG ((DEBUG_INFO, "[RK3576-HDMI] no HPD and a DSI connector exists: HDMI stays off\n"));
+      } else {
+        Hdmi->HpdTimeoutFlag = TRUE;
+      }
     }
   }
 
