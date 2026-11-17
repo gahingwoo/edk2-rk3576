@@ -746,9 +746,8 @@ PlatformEarlyInit (
   EFI_STATUS  Status;
 
   /*
-   * Offer the MIPI DSI screen to the display stack.  There is no detection
-   * yet: the connector list in TaishanPi3M.dsc puts HDMI first, so a
-   * connected monitor wins, and the screen is used when HDMI has no hot-plug.
+   * Offer the MIPI DSI screen to the display stack.  Whether it is really
+   * attached is decided later, by the panel's Detect (Tspi3mDsiPanel.c).
    */
   Status = AttachTspi3mDsiPanel ();
   DEBUG ((DEBUG_INFO, "PlatformEarlyInit: DSI panel protocol %r\n", Status));

@@ -883,42 +883,6 @@ static void dw_mipi_dsi2_post_disable(struct dw_mipi_dsi2 *dsi2)
 
 static void rk3576_dsi_clocks_on(void);
 
-/*
- * Bring-up aid: print the DSI host, the D-PHY and the registers around them
- * after the link is enabled, in the offsets of the Linux regmap dump taken
- * from the vendor kernel with a picture on the screen, so the two can be
- * compared line by line.  Zero and the PHY's 0xfa11fa11 filler are skipped.
- * VOP2 is not read here: reads of it have cost the signal on this SoC before.
- */
-static void rk3576_dsi_dump_range(const char *tag, UINTN base, u32 from, u32 to)
-{
-	u32 off, val, n = 0;
-
-	for (off = from; off <= to; off += 4) {
-		val = MmioRead32(base + off);
-		if (val == 0 || val == 0xfa11fa11)
-			continue;
-		DEBUG((DEBUG_INFO, "%a%a %03x=%08x", (n % 6) ? "" : "\n", (n % 6) ? "" : tag, off, val));
-		n++;
-	}
-	DEBUG((DEBUG_INFO, "\n"));
-}
-
-static void rk3576_dsi_dump_state(void)
-{
-	rk3576_dsi_dump_range("DSIHOST", 0x27d80000, 0x000, 0x468);
-	rk3576_dsi_dump_range("DCPHY", 0x2b020000, 0x000, 0x7fc);
-	rk3576_dsi_dump_range("DCPHY", 0x2b020000, 0xbe0, 0xbe8);
-	rk3576_dsi_dump_range("VO0GRF", 0x2601a000, 0x000, 0x040);
-	rk3576_dsi_dump_range("DCPHYGRF", 0x26034000, 0x000, 0x004);
-	DEBUG((DEBUG_INFO,
-	       "DSICRU sel145=%08x sel147=%08x sel151=%08x gate61=%08x gate62=%08x gate64=%08x rst64=%08x pmugate0=%08x pmurst0=%08x pmurst1=%08x\n",
-	       MmioRead32(0x27200544), MmioRead32(0x2720054c), MmioRead32(0x2720055c),
-	       MmioRead32(0x272008f4), MmioRead32(0x272008f8), MmioRead32(0x27200900),
-	       MmioRead32(0x27200b00), MmioRead32(0x27220800), MmioRead32(0x27220a00),
-	       MmioRead32(0x27220a04)));
-}
-
 static int dw_mipi_dsi2_connector_pre_init(ROCKCHIP_CONNECTOR_PROTOCOL *conn,
 					   DISPLAY_STATE *state)
 {
@@ -1488,8 +1452,6 @@ DwMipiDsi2ConnectorEnable (
 	if (ret)
 		return EFI_DEVICE_ERROR;
 
-	rk3576_dsi_dump_state();
-
 	return EFI_SUCCESS;
 }
 
@@ -1513,9 +1475,8 @@ DwMipiDsi2ConnectorDisable (
  * that can tell some other way (the TaishanPi 3M asks the screen's touch
  * controller) supplies Detect in the panel protocol.
  *
- * For now the answer is only logged and the panel still counts as attached:
- * the I2C path it uses has not run on hardware yet, and a wrong "absent"
- * would switch a working screen off.
+ * The answer decides: with the panel absent the connector reports
+ * EFI_NOT_FOUND and the display driver moves on to the next one.
  */
 EFI_STATUS
 DwMipiDsi2ConnectorDetect (
@@ -1531,9 +1492,9 @@ DwMipiDsi2ConnectorDetect (
 		return EFI_SUCCESS;
 
 	Status = Panel->Detect(Panel);
-	DEBUG((DEBUG_INFO, "DwMipiDsi2: panel detection says %r (not acted on yet)\n", Status));
+	DEBUG((DEBUG_INFO, "DwMipiDsi2: panel detection says %r\n", Status));
 
-	return EFI_SUCCESS;
+	return Status;
 }
 
 ROCKCHIP_CONNECTOR_PROTOCOL mDwMipiDsi2ConnectorOps = {

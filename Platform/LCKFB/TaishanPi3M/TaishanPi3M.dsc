@@ -132,12 +132,15 @@
   gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
 
   #
-  # HDMI first, then the MIPI DSI screen.  The DSI connector has no detection
-  # and counts as connected, so it is used whenever HDMI reports no hot-plug.
+  # The MIPI DSI screen first, then HDMI.  The screen is detected through its
+  # touch controller (Tspi3mDsiPanel.c), so this order means: the screen when
+  # it is plugged in, HDMI otherwise, and HDMI behaves as on a board that has
+  # nothing else, forced output for a sink without hot-plug included.
+  # "Display Connectors Priority" in setup changes the order.
   #
   gRK3588TokenSpaceGuid.PcdDisplayConnectors|{CODE({
-    VOP_OUTPUT_IF_HDMI0,
-    VOP_OUTPUT_IF_MIPI0
+    VOP_OUTPUT_IF_MIPI0,
+    VOP_OUTPUT_IF_HDMI0
   })}
 
   #
