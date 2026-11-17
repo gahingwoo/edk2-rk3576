@@ -37,13 +37,15 @@ STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
 // A rotated GOP swaps the two dimensions it reports and only offers Blt,
 // because the framebuffer is still the panel's native scan.  That is fine
 // for the firmware's menus and useless to an OS: Windows and Linux's efifb
-// write the framebuffer themselves.  So the rotation ends at ReadyToBoot,
-// where the GOP goes back to describing the framebuffer as it is.  The boot
-// manager menu is not announced with ReadyToBoot and stays rotated.
+// write the framebuffer themselves.  So the rotation is taken off around
+// every image that ReadyToBoot announces, and put back if that image
+// returns.  The boot manager menu is not announced and stays rotated.
 //
 STATIC LCD_INSTANCE  *mLcdInstance;
 STATIC BOOLEAN       mPrimaryIsDsi;
 STATIC BOOLEAN       mRotationEnded;
+STATIC BOOLEAN       mEndPending;
+STATIC EFI_IMAGE_START  mOriginalStartImage;
 
 STATIC
 VOID
@@ -820,9 +822,29 @@ Exit:
 }
 
 /**
-  End the rotation before an OS loader or an application is started: put the
-  GOP back to the framebuffer's real layout, blank it, and let the console
-  drivers bind again so that they pick the new geometry up.
+  Make the GOP describe the screen for the rotation that is in force now,
+  blank the screen, and let the console drivers bind again so that they pick
+  the new geometry up.
+**/
+STATIC
+VOID
+LcdGraphicsApplyRotation (
+  VOID
+  )
+{
+  EFI_GRAPHICS_OUTPUT_PROTOCOL  *Gop = &mLcdInstance->Gop;
+
+  LcdGraphicsSetModeInfo (Gop, Gop->Mode->Info, &mLcdInstance->DisplayModes[Gop->Mode->Mode], TRUE);
+  ZeroMem ((VOID *)(UINTN)Gop->Mode->FrameBufferBase, Gop->Mode->FrameBufferSize);
+
+  gBS->DisconnectController (mLcdInstance->Handle, NULL, NULL);
+  gBS->ConnectController (mLcdInstance->Handle, NULL, NULL, TRUE);
+}
+
+/**
+  ReadyToBoot says that the next image started is an OS loader or an
+  application, not the firmware's own menu.  Only note it here; the rotation
+  is taken off around that image in LcdGraphicsStartImage().
 **/
 STATIC
 VOID
@@ -832,25 +854,54 @@ LcdGraphicsOutputReadyToBootHandler (
   IN VOID       *Context
   )
 {
-  EFI_GRAPHICS_OUTPUT_PROTOCOL  *Gop;
+  mEndPending = TRUE;
+}
 
-  if ((mLcdInstance == NULL) || mRotationEnded || (LcdGraphicsEffectiveRotation () == 0)) {
-    return;
+/**
+  gBS->StartImage, wrapped.
+
+  The rotation has to be off while something other than the firmware's menu
+  runs, and back on when that something returns: an application leaves, a
+  boot option fails and the boot manager menu comes up again.  Ending it at
+  ReadyToBoot alone left the menus on their side after the first application.
+  There is no event for "the image came back", so the image is bracketed
+  here.  An OS that boots never returns, which is the case that matters.
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+LcdGraphicsStartImage (
+  IN  EFI_HANDLE  ImageHandle,
+  OUT UINTN       *ExitDataSize,
+  OUT CHAR16      **ExitData  OPTIONAL
+  )
+{
+  EFI_STATUS  Status;
+  BOOLEAN     Ended = FALSE;
+
+  if (mEndPending) {
+    mEndPending = FALSE;
+
+    if ((mLcdInstance != NULL) && !mRotationEnded &&
+        (mLcdInstance->Gop.Mode->Mode < mLcdInstance->Gop.Mode->MaxMode) &&
+        (LcdGraphicsEffectiveRotation () != 0))
+    {
+      DEBUG ((DEBUG_INFO, "%a: rotation off for the image being started\n", __func__));
+      mRotationEnded = TRUE;
+      LcdGraphicsApplyRotation ();
+      Ended = TRUE;
+    }
   }
 
-  Gop = &mLcdInstance->Gop;
-  if (Gop->Mode->Mode >= Gop->Mode->MaxMode) {
-    return;
+  Status = mOriginalStartImage (ImageHandle, ExitDataSize, ExitData);
+
+  if (Ended) {
+    DEBUG ((DEBUG_INFO, "%a: image returned (%r), rotation back on\n", __func__, Status));
+    mRotationEnded = FALSE;
+    LcdGraphicsApplyRotation ();
   }
 
-  DEBUG ((DEBUG_INFO, "%a: rotation %u ends here, GOP back to native scan\n", __func__, LcdGraphicsEffectiveRotation ()));
-
-  mRotationEnded = TRUE;
-  LcdGraphicsSetModeInfo (Gop, Gop->Mode->Info, &mLcdInstance->DisplayModes[Gop->Mode->Mode], TRUE);
-  ZeroMem ((VOID *)(UINTN)Gop->Mode->FrameBufferBase, Gop->Mode->FrameBufferSize);
-
-  gBS->DisconnectController (mLcdInstance->Handle, NULL, NULL);
-  gBS->ConnectController (mLcdInstance->Handle, NULL, NULL, TRUE);
+  return Status;
 }
 
 VOID
@@ -905,6 +956,20 @@ LcdGraphicsOutputDxeInitialize (
                &ReadyToBootEvent
                );
     ASSERT_EFI_ERROR (Status);
+
+    //
+    // Put the wrapper in the boot services table.  The table carries a
+    // CRC, so that is redone.
+    //
+    {
+      EFI_TPL  Tpl = gBS->RaiseTPL (TPL_HIGH_LEVEL);
+
+      mOriginalStartImage = gBS->StartImage;
+      gBS->StartImage     = LcdGraphicsStartImage;
+      gBS->Hdr.CRC32      = 0;
+      gBS->CalculateCrc32 (gBS, gBS->Hdr.HeaderSize, &gBS->Hdr.CRC32);
+      gBS->RestoreTPL (Tpl);
+    }
   }
 
   return Status;

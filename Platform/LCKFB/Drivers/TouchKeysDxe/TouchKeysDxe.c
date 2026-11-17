@@ -42,6 +42,7 @@
 #include <Library/UefiBootManagerLib.h>
 #include <Protocol/AbsolutePointer.h>
 #include <Protocol/DevicePath.h>
+#include <Protocol/GraphicsOutput.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/I2cMaster.h>
 #include <Protocol/RockchipDsiPanel.h>
@@ -93,7 +94,8 @@ STATIC EFI_I2C_MASTER_PROTOCOL  *mMaster;
 STATIC EFI_HANDLE               mHandle;
 STATIC EFI_EVENT                mPollEvent;
 STATIC EFI_EVENT                mWaitEvent;
-STATIC UINT16                   mRotation;
+STATIC UINT16                   mRotation;          // what the picture is turned by when it is turned
+STATIC UINT16                   mTouchRotation;     // what it is turned by during the current touch
 
 STATIC EFI_INPUT_KEY  mQueue[KEY_QUEUE_SIZE];
 STATIC UINTN          mQueueHead;
@@ -117,6 +119,12 @@ STATIC EFI_ABSOLUTE_POINTER_MODE   mAbsMode = { 0, 0, 0, 799, 1279, 10, 0 };
 STATIC EFI_ABSOLUTE_POINTER_STATE  mAbsState;
 STATIC BOOLEAN                     mAbsChanged;
 STATIC EFI_EVENT                   mAbsEvent;
+
+STATIC
+UINT16
+TouchCurrentRotation (
+  VOID
+  );
 
 STATIC
 EFI_STATUS
@@ -218,7 +226,7 @@ TouchToPicture (
   OUT INT32  *PictureDy
   )
 {
-  switch (mRotation) {
+  switch (mTouchRotation) {
     case 270:
       *PictureDx = -Dy;
       *PictureDy = Dx;
@@ -287,6 +295,7 @@ TouchPoll (
       mStartX     = mAnchorX = X;
       mStartY     = mAnchorY = Y;
       mDownPolls  = 0;
+      mTouchRotation = TouchCurrentRotation ();
     }
 
     mDownPolls++;
@@ -617,18 +626,27 @@ TouchAddTestOption (
 }
 
 /**
-  The firmware's picture goes back to the panel's own orientation when
-  something is booted (LcdGraphicsOutputDxe); follow it.
+  Is the firmware's picture turned right now?  LcdGraphicsOutputDxe takes
+  the rotation off while an application or an OS loader runs and puts it
+  back afterwards; a rotated GOP is one that reports the panel's two
+  dimensions swapped.  Asked at the start of every touch.
 **/
 STATIC
-VOID
-EFIAPI
-TouchReadyToBoot (
-  IN EFI_EVENT  Event,
-  IN VOID       *Context
+UINT16
+TouchCurrentRotation (
+  VOID
   )
 {
-  mRotation = 0;
+  EFI_GRAPHICS_OUTPUT_PROTOCOL  *Gop;
+
+  if ((mRotation == 0) ||
+      EFI_ERROR (gBS->LocateProtocol (&gEfiGraphicsOutputProtocolGuid, NULL, (VOID **)&Gop)) ||
+      (Gop->Mode == NULL) || (Gop->Mode->Info == NULL))
+  {
+    return mRotation;
+  }
+
+  return (Gop->Mode->Info->HorizontalResolution == mAbsMode.AbsoluteMaxY + 1) ? mRotation : 0;
 }
 
 STATIC
@@ -684,7 +702,6 @@ TouchEndOfDxe (
   UINTN                        Frequency;
   UINT16                       Setting;
   ROCKCHIP_DSI_PANEL_PROTOCOL  *Panel;
-  EFI_EVENT                    ReadyToBootEvent;
 
   gBS->CloseEvent (Event);
 
@@ -763,8 +780,6 @@ TouchEndOfDxe (
   gBS->ConnectController (mHandle, NULL, NULL, TRUE);
 
   TouchAddTestOption ((EFI_HANDLE)Context);
-
-  EfiCreateEventReadyToBootEx (TPL_CALLBACK, TouchReadyToBoot, NULL, &ReadyToBootEvent);
 
   Status = gBS->CreateEvent (EVT_TIMER | EVT_NOTIFY_SIGNAL, TPL_CALLBACK, TouchPoll, NULL, &mPollEvent);
   if (!EFI_ERROR (Status)) {
