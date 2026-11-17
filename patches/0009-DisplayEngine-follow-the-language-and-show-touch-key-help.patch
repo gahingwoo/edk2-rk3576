@@ -1,0 +1,463 @@
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf b/MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+index 07e1914..54887b5 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+@@ -45,6 +45,10 @@
+   HiiLib
+   MemoryAllocationLib
+   CustomizedDisplayLib
++  UefiRuntimeServicesTableLib
++
++[Guids]
++  gEfiGlobalVariableGuid                ## SOMETIMES_CONSUMES   ## Variable:L"PlatformLang"
+ 
+ [Protocols]
+   gEdkiiFormDisplayEngineProtocolGuid   ## PRODUCES
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
+index 9505703..23c5f3f 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
+@@ -9,6 +9,9 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ 
+ #include "FormDisplay.h"
+ 
++#include <Library/UefiRuntimeServicesTableLib.h>
++#include <Guid/GlobalVariable.h>
++
+ //
+ // Search table for UiDisplayMenu()
+ //
+@@ -329,6 +332,87 @@ FreeDisplayStrings (
+   FreePool (gPasswordUnsupported);
+ }
+ 
++//
++// The language the strings above were loaded in.  They are first loaded at
++// driver entry, which can be before the variable services are up, so in no
++// particular language; RefreshDisplayStrings() reloads them when the
++// platform language differs, so the pop-ups follow a language switch.
++//
++STATIC CHAR8  mDisplayStringsLanguage[16];
++
++/**
++  Register one of the default hot keys, replacing the help text it had.
++
++  @param  FormBrowserEx2   The browser extension protocol.
++  @param  ScanCode         SCAN_F9 or SCAN_F10.
++  @param  Action           What the key does.
++  @param  DefaultId        The default store for BROWSER_ACTION_DEFAULT.
++  @param  HelpToken        The help string.
++
++**/
++STATIC
++VOID
++ReRegisterHotKey (
++  IN EDKII_FORM_BROWSER_EXTENSION2_PROTOCOL  *FormBrowserEx2,
++  IN UINT16                                  ScanCode,
++  IN UINT32                                  Action,
++  IN UINT16                                  DefaultId,
++  IN EFI_STRING_ID                           HelpToken
++  )
++{
++  EFI_INPUT_KEY  HotKey;
++  EFI_STRING     NewString;
++
++  NewString = HiiGetString (gHiiHandle, HelpToken, NULL);
++  if (NewString == NULL) {
++    return;
++  }
++
++  HotKey.UnicodeChar = CHAR_NULL;
++  HotKey.ScanCode    = ScanCode;
++  FormBrowserEx2->RegisterHotKey (&HotKey, BROWSER_ACTION_UNREGISTER, 0, NULL);
++  FormBrowserEx2->RegisterHotKey (&HotKey, Action, DefaultId, NewString);
++  FreePool (NewString);
++}
++
++/**
++  Reload the display strings, and the F9 / F10 help text, if the platform
++  language has changed since they were loaded.
++
++**/
++STATIC
++VOID
++RefreshDisplayStrings (
++  VOID
++  )
++{
++  CHAR8                                   Language[sizeof (mDisplayStringsLanguage)];
++  UINTN                                   Size;
++  EFI_STATUS                              Status;
++  EDKII_FORM_BROWSER_EXTENSION2_PROTOCOL  *FormBrowserEx2;
++
++  ZeroMem (Language, sizeof (Language));
++  Size   = sizeof (Language) - 1;
++  Status = gRT->GetVariable (L"PlatformLang", &gEfiGlobalVariableGuid, NULL, &Size, Language);
++  if (EFI_ERROR (Status) || (AsciiStrCmp (Language, mDisplayStringsLanguage) == 0)) {
++    return;
++  }
++
++  FreeDisplayStrings ();
++  InitializeDisplayStrings ();
++  CopyMem (mDisplayStringsLanguage, Language, sizeof (Language));
++
++  //
++  // The browser keeps its own copy of the hot key help, so it is replaced
++  // too.  The current form still shows the old text; the next one does not.
++  //
++  Status = gBS->LocateProtocol (&gEdkiiFormBrowserEx2ProtocolGuid, NULL, (VOID **)&FormBrowserEx2);
++  if (!EFI_ERROR (Status)) {
++    ReRegisterHotKey (FormBrowserEx2, SCAN_F10, BROWSER_ACTION_SUBMIT, 0, STRING_TOKEN (FUNCTION_TEN_STRING));
++    ReRegisterHotKey (FormBrowserEx2, SCAN_F9, BROWSER_ACTION_DEFAULT, EFI_HII_DEFAULT_CLASS_STANDARD, STRING_TOKEN (FUNCTION_NINE_STRING));
++  }
++}
++
+ /**
+   Get prompt string id from the opcode data buffer.
+ 
+@@ -4160,6 +4244,8 @@ FormDisplay (
+   gUserInput = UserInputData;
+   gFormData  = FormData;
+ 
++  RefreshDisplayStrings ();
++
+   //
+   // Process the status info first.
+   //
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplayStr.uni b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplayStr.uni
+index 5e3c35a..d9e764f 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplayStr.uni
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplayStr.uni
+@@ -18,6 +18,7 @@
+ 
+ #langdef en-US "English"
+ #langdef fr-FR "Français"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string UNKNOWN_STRING                 #language en-US  "!"
+                                        #language fr-FR  "!"
+@@ -132,3 +133,71 @@
+ #string INFO_POPUP_STRING              #language en-US  "INFO"
+                                        #language fr-FR  "INFO"
+ 
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string UNKNOWN_STRING                 #language zh-Hans "!"
++#string STATUS_BROWSER_ERROR           #language zh-Hans "\wide浏览器出错，返回！\narrow"
++#string STATUS_BROWSER_FORM_NOT_FOUND  #language zh-Hans "\wide未找到表单，返回！\narrow"
++#string STATUS_BROWSER_NO_SUBMIT_IF    #language zh-Hans "\wide不允许提交，返回！\narrow"
++#string FUNCTION_NINE_STRING           #language zh-Hans "F9=\wide恢复默认值\narrow"
++#string FUNCTION_TEN_STRING            #language zh-Hans "F10=\wide保存\narrow"
++#string SAVE_FAILED                    #language zh-Hans "\wide保存失败\narrow"
++#string NO_SUBMIT_IF_CHECK_FAILED      #language zh-Hans "NO_SUBMIT_IF \wide检查失败。\narrow"
++#string ADJUST_HELP_PAGE_DOWN          #language zh-Hans "\wide更多\narrow (D/d)"
++#string ADJUST_HELP_PAGE_UP            #language zh-Hans "\wide更多\narrow (U/u)"
++#string PROMPT_FOR_PASSWORD            #language zh-Hans "\wide请输入密码\narrow"
++#string PROMPT_FOR_NEW_PASSWORD        #language zh-Hans "\wide请输入新密码\narrow"
++#string CONFIRM_PASSWORD               #language zh-Hans "\wide请确认新密码\narrow"
++#string CONFIRM_ERROR                  #language zh-Hans "\wide两次输入的密码不一致\narrow"
++#string PASSWORD_INVALID               #language zh-Hans "\wide密码错误\narrow"
++#string PRESS_ENTER                    #language zh-Hans "\wide按\narrow ENTER \wide键继续\narrow"
++#string PROMPT_FOR_DATA                #language zh-Hans "\wide请输入数据\narrow"
++#string EMPTY_STRING                   #language zh-Hans ""
++#string MINI_STRING                    #language zh-Hans "\wide请输入足够的字符\narrow"
++#string OPTION_MISMATCH                #language zh-Hans "\wide问题的值与选项的值不匹配！\narrow"
++#string FORM_SUPPRESSED                #language zh-Hans "\wide表单已被隐藏，没有可显示的内容。\narrow"
++#string PROTOCOL_NOT_FOUND             #language zh-Hans "\wide无法将字符串转换为设备路径，不能跳转到目标。\narrow"
++#string DISCARD_OR_JUMP                #language zh-Hans "\wide按\narrow D(d) \wide放弃此表单的更改，按\narrow G(g) \wide转到此表单\narrow"
++#string DISCARD_OR_JUMP_DISCARD        #language zh-Hans "D (d)"
++#string DISCARD_OR_JUMP_JUMP           #language zh-Hans "G (g)"
++#string DISCARD_OR_CHECK               #language zh-Hans "\wide按\narrow D(d) \wide放弃此表单的更改，按\narrow C(c) \wide检查错误\narrow"
++#string DISCARD_OR_CHECK_CHECK         #language zh-Hans "C (c)"
++#string CONFIRM_DISCARD_MESSAGE        #language zh-Hans "\wide放弃配置更改\narrow"
++#string CONFIRM_DEFAULT_MESSAGE        #language zh-Hans "\wide加载默认配置\narrow"
++#string CONFIRM_DEFAULT_MESSAGE_2ND    #language zh-Hans "\wide加载默认配置\narrow"
++#string CONFIRM_SUBMIT_MESSAGE         #language zh-Hans "\wide保存配置更改\narrow"
++#string CONFIRM_SUBMIT_MESSAGE_2ND     #language zh-Hans "\wide保存配置更改\narrow"
++#string CONFIRM_RESET_MESSAGE          #language zh-Hans "\wide重启\narrow"
++#string CONFIRM_RESET_MESSAGE_2ND      #language zh-Hans "\wide重启\narrow"
++#string CONFIRM_EXIT_MESSAGE           #language zh-Hans "\wide退出\narrow"
++#string CONFIRM_EXIT_MESSAGE_2ND       #language zh-Hans "\wide退出\narrow"
++#string CONFIRM_OPTION                 #language zh-Hans "\wide按\narrow 'Y' \wide确认，按\narrow 'N'/'ESC' \wide忽略。\narrow"
++#string CONFIRM_OPTION_YES             #language zh-Hans "Y (y)"
++#string CONFIRM_OPTION_NO              #language zh-Hans "N (n)"
++#string CONFIRM_OPTION_OK              #language zh-Hans "O (o)"
++#string CONFIRM_OPTION_CANCEL          #language zh-Hans "C (c)"
++#string CONFIRM_OPTION_CONNECT         #language zh-Hans "\wide并\narrow"
++#string CONFIRM_OPTION_END             #language zh-Hans "\wide？\narrow"
++#string RECONNECT_FAILED               #language zh-Hans "\wide重新连接控制器失败！\narrow"
++#string RECONNECT_CONFIRM_CHANGES      #language zh-Hans "\wide需要重新连接。请确认更改，然后退出并重新连接\narrow"
++#string RECONNECT_CHANGES_OPTIONS      #language zh-Hans "\wide按\narrow 'Y' \wide保存，按\narrow 'N' \wide放弃\narrow"
++#string RECONNECT_REQUIRED             #language zh-Hans "\wide需要重新连接，请退出并重新连接\narrow"
++#string GET_TIME_FAIL                  #language zh-Hans " \wide获取日期\narrow/\wide时间失败，显示\narrow ??\wide。\narrow"
++#string PASSWORD_NOT_SUPPORTED         #language zh-Hans "\wide不支持！没有\narrow interactive \wide标志或没有\narrow ConfigAccess \wide协议！\narrow"
++#string OK_SELECTABLE_OPTION           #language zh-Hans "[ \wide确定\narrow ]"
++#string CANCEL_SELECTABLE_OPTION       #language zh-Hans "[ \wide取消\narrow ]"
++#string YES_SELECTABLE_OPTION          #language zh-Hans "[ \wide是\narrow ]"
++#string NO_SELECTABLE_OPTION           #language zh-Hans "[ \wide否\narrow ]"
++#string ERROR_POPUP_STRING             #language zh-Hans "\wide错误\narrow"
++#string WARNING_POPUP_STRING           #language zh-Hans "\wide警告\narrow"
++#string INFO_POPUP_STRING              #language zh-Hans "\wide信息\narrow"
+diff --git a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
+index 45fbdaf..0bfc708 100644
+--- a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
++++ b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
+@@ -49,8 +49,11 @@
+ 
+ [Guids]
+   gEfiIfrTianoGuid  ## SOMETIMES_CONSUMES   ## UNDEFINED
++  gEfiGlobalVariableGuid  ## SOMETIMES_CONSUMES   ## Variable:L"PlatformLang"
+ 
+ [Protocols]
++  gEfiAbsolutePointerProtocolGuid  ## SOMETIMES_CONSUMES
++  gEfiSimpleTextInProtocolGuid     ## SOMETIMES_CONSUMES
+ 
+ [Pcd]
+   gEfiMdeModulePkgTokenSpaceGuid.PcdBrowserSubtitleTextColor               ## CONSUMES
+diff --git a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.c b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.c
+index 444c70a..65a192b 100644
+--- a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.c
++++ b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.c
+@@ -69,6 +69,8 @@ DisplayPageFrame (
+     return Status;
+   }
+ 
++  RefreshLibStrings ();
++
+   gClassOfVfr = FORMSET_CLASS_PLATFORM_SETUP;
+ 
+   ProcessExternedOpcode (FormData);
+diff --git a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLibInternal.c b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLibInternal.c
+index bd5b8f5..8a71b20 100644
+--- a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLibInternal.c
++++ b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLibInternal.c
+@@ -704,6 +704,54 @@ LibGetFieldFromNum (
+   return Step;
+ }
+ 
++//
++// What the strings were loaded for.  They are first loaded by the library
++// constructor, which can run before the variable services and before a touch
++// screen driver has started, and RefreshLibStrings() reloads them when either
++// answer has changed, so the key help follows a language switch.
++//
++STATIC CHAR8    mLibStringsLanguage[16];
++STATIC BOOLEAN  mLibStringsTouch;
++
++/**
++  Is there a touch screen that types keys?  It is a device that is both a
++  text input and an absolute pointer; the console splitter's own handle has
++  both too and is left out.
++
++  @retval TRUE   Such a device is present.
++  @retval FALSE  It is not.
++
++**/
++STATIC
++BOOLEAN
++LibHasTouchKeys (
++  VOID
++  )
++{
++  EFI_HANDLE  *Handles;
++  UINTN       Count;
++  UINTN       Index;
++  VOID        *Interface;
++  BOOLEAN     Present;
++
++  if (EFI_ERROR (gBS->LocateHandleBuffer (ByProtocol, &gEfiAbsolutePointerProtocolGuid, NULL, &Count, &Handles))) {
++    return FALSE;
++  }
++
++  Present = FALSE;
++  for (Index = 0; Index < Count; Index++) {
++    if ((Handles[Index] != gST->ConsoleInHandle) &&
++        !EFI_ERROR (gBS->HandleProtocol (Handles[Index], &gEfiSimpleTextInProtocolGuid, &Interface)))
++    {
++      Present = TRUE;
++      break;
++    }
++  }
++
++  FreePool (Handles);
++  return Present;
++}
++
+ /**
+   Initialize the HII String Token to the correct values.
+ 
+@@ -715,11 +763,21 @@ InitializeLibStrings (
+ {
+   mLibUnknownString = L"!";
+ 
+-  gEnterString       = LibGetToken (STRING_TOKEN (ENTER_STRING), mCDLStringPackHandle);
+-  gEnterCommitString = LibGetToken (STRING_TOKEN (ENTER_COMMIT_STRING), mCDLStringPackHandle);
+-  gEnterEscapeString = LibGetToken (STRING_TOKEN (ENTER_ESCAPE_STRING), mCDLStringPackHandle);
+-  gEscapeString      = LibGetToken (STRING_TOKEN (ESCAPE_STRING), mCDLStringPackHandle);
+-  gMoveHighlight     = LibGetToken (STRING_TOKEN (MOVE_HIGHLIGHT), mCDLStringPackHandle);
++  mLibStringsTouch = LibHasTouchKeys ();
++  if (mLibStringsTouch) {
++    gEnterString       = LibGetToken (STRING_TOKEN (ENTER_STRING_TOUCH), mCDLStringPackHandle);
++    gEnterCommitString = LibGetToken (STRING_TOKEN (ENTER_COMMIT_STRING_TOUCH), mCDLStringPackHandle);
++    gEnterEscapeString = LibGetToken (STRING_TOKEN (ENTER_ESCAPE_STRING_TOUCH), mCDLStringPackHandle);
++    gEscapeString      = LibGetToken (STRING_TOKEN (ESCAPE_STRING_TOUCH), mCDLStringPackHandle);
++    gMoveHighlight     = LibGetToken (STRING_TOKEN (MOVE_HIGHLIGHT_TOUCH), mCDLStringPackHandle);
++  } else {
++    gEnterString       = LibGetToken (STRING_TOKEN (ENTER_STRING), mCDLStringPackHandle);
++    gEnterCommitString = LibGetToken (STRING_TOKEN (ENTER_COMMIT_STRING), mCDLStringPackHandle);
++    gEnterEscapeString = LibGetToken (STRING_TOKEN (ENTER_ESCAPE_STRING), mCDLStringPackHandle);
++    gEscapeString      = LibGetToken (STRING_TOKEN (ESCAPE_STRING), mCDLStringPackHandle);
++    gMoveHighlight     = LibGetToken (STRING_TOKEN (MOVE_HIGHLIGHT), mCDLStringPackHandle);
++  }
++
+   gDecNumericInput   = LibGetToken (STRING_TOKEN (DEC_NUMERIC_INPUT), mCDLStringPackHandle);
+   gHexNumericInput   = LibGetToken (STRING_TOKEN (HEX_NUMERIC_INPUT), mCDLStringPackHandle);
+   gToggleCheckBox    = LibGetToken (STRING_TOKEN (TOGGLE_CHECK_BOX), mCDLStringPackHandle);
+@@ -780,6 +838,38 @@ FreeLibStrings (
+   FreePool (mSpaceBuffer);
+ }
+ 
++/**
++  Reload the HII strings if the platform language, or whether a touch screen
++  that types keys is present, has changed since they were loaded.
++
++**/
++VOID
++RefreshLibStrings (
++  VOID
++  )
++{
++  CHAR8       Language[sizeof (mLibStringsLanguage)];
++  UINTN       Size;
++  EFI_STATUS  Status;
++
++  ZeroMem (Language, sizeof (Language));
++  Size   = sizeof (Language) - 1;
++  Status = gRT->GetVariable (L"PlatformLang", &gEfiGlobalVariableGuid, NULL, &Size, Language);
++  if (EFI_ERROR (Status)) {
++    return;
++  }
++
++  if ((AsciiStrCmp (Language, mLibStringsLanguage) == 0) &&
++      (LibHasTouchKeys () == mLibStringsTouch))
++  {
++    return;
++  }
++
++  FreeLibStrings ();
++  InitializeLibStrings ();
++  CopyMem (mLibStringsLanguage, Language, sizeof (Language));
++}
++
+ /**
+   Wait for a key to be pressed by user.
+ 
+diff --git a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLibInternal.h b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLibInternal.h
+index a9ac17c..f3dcb53 100644
+--- a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLibInternal.h
++++ b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLibInternal.h
+@@ -14,6 +14,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ 
+ #include <Protocol/SimpleTextOut.h>
+ #include <Protocol/SimpleTextIn.h>
++#include <Protocol/AbsolutePointer.h>
+ #include <Protocol/FormBrowser2.h>
+ #include <Protocol/FormBrowserEx2.h>
+ #include <Protocol/DisplayProtocol.h>
+@@ -27,6 +28,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ #include <Protocol/DevicePathFromText.h>
+ 
+ #include <Guid/MdeModuleHii.h>
++#include <Guid/GlobalVariable.h>
+ #include <Guid/HiiPlatformSetupFormset.h>
+ #include <Guid/HiiFormMapMethodGuid.h>
+ 
+@@ -222,6 +224,16 @@ FreeLibStrings (
+   VOID
+   );
+ 
++/**
++  Reload the HII strings if the platform language, or whether a touch screen
++  that types keys is present, has changed since they were loaded.
++
++**/
++VOID
++RefreshLibStrings (
++  VOID
++  );
++
+ /**
+   Wait for a key to be pressed by user.
+ 
+diff --git a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.uni b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.uni
+index 3f2efa5..d9233eb 100644
+--- a/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.uni
++++ b/MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.uni
+@@ -18,6 +18,7 @@
+ 
+ #langdef en-US "English"
+ #langdef fr-FR "Français"
++#langdef zh-Hans "\wide简体中文\narrow"
+ 
+ #string ENTER_STRING                   #language en-US  "<Enter>=Select Entry"
+                                        #language fr-FR  "<Enter>=Choisir l'Entrée"
+@@ -55,3 +56,49 @@
+                                        #language fr-FR  "Enregistrer les modifications et quitter?"
+ #string ARE_YOU_SURE                   #language en-US  "Press 'Y' to save and exit, 'N' to discard and exit, 'ESC' to cancel."
+                                        #language fr-FR  "Pressez 'Y' pour sauvegarder et quitter, 'N' de se défaire et de sortie"
++
++//
++// The same with a touch screen that types keys (a device that is both a
++// text input and an absolute pointer): what the fingers do goes next to the key.
++//
++#string ENTER_STRING_TOUCH             #language en-US  "<Enter>/tap=Select Entry"
++#string ENTER_COMMIT_STRING_TOUCH      #language en-US  "<Enter>/tap=Complete Entry"
++#string ENTER_ESCAPE_STRING_TOUCH      #language en-US  "Esc/2 fingers=Exit Entry"
++#string ESCAPE_STRING_TOUCH            #language en-US  "Esc/2 fingers=Exit"
++#string MOVE_HIGHLIGHT_TOUCH           #language en-US  "/drag=Move Highlight"
++
++//
++// Simplified Chinese.
++//
++// Every run of CJK text is bracketed by \wide ... \narrow.  The setup
++// browser counts screen columns from those markers, not from the glyphs,
++// so a CJK character outside them overprints the text that follows.
++// Every string needs a zh-Hans entry, even when it is the same as the
++// English: a missing one is drawn as a lone !, not as English.
++// After changing this text run  scripts/gen-zh-hans-font.py check  and,
++// if it asks for it,  generate  to update the glyphs in edk2-rk3576's ZhHansFontDxe.
++//
++
++#string ENTER_STRING                   #language zh-Hans "<Enter>=\wide选择条目\narrow"
++#string ENTER_COMMIT_STRING            #language zh-Hans "<Enter>=\wide完成输入\narrow"
++#string ENTER_ESCAPE_STRING            #language zh-Hans "Esc=\wide退出输入\narrow"
++#string ESCAPE_STRING                  #language zh-Hans "Esc=\wide退出\narrow"
++#string ADJUST_NUMBER                  #language zh-Hans "+/- =\wide调整数值\narrow"
++#string PLUS_STRING                    #language zh-Hans "+ =\wide上移选项\narrow"
++#string MINUS_STRING                   #language zh-Hans "- =\wide下移选项\narrow"
++#string MOVE_HIGHLIGHT                 #language zh-Hans "=\wide移动光标\narrow"
++#string DEC_NUMERIC_INPUT              #language zh-Hans "\wide有效输入为\narrow 0123456789"
++#string HEX_NUMERIC_INPUT              #language zh-Hans "\wide有效输入为\narrow 0-9 a-f"
++#string TOGGLE_CHECK_BOX               #language zh-Hans "<Spacebar>\wide切换复选框\narrow"
++#string NV_UPDATE_MESSAGE              #language zh-Hans "\wide配置已更改\narrow"
++#string INPUT_ERROR_MESSAGE            #language zh-Hans "!!"
++#string EMPTY_STRING                   #language zh-Hans ""
++#string ARE_YOU_SURE_YES               #language zh-Hans "Y"
++#string ARE_YOU_SURE_NO                #language zh-Hans "N"
++#string SAVE_CHANGES                   #language zh-Hans "\wide更改尚未保存。保存更改并退出吗？\narrow"
++#string ARE_YOU_SURE                   #language zh-Hans "\wide按\narrow 'Y' \wide保存并退出，按\narrow 'N' \wide放弃更改并退出，按\narrow 'ESC' \wide取消。\narrow"
++#string ENTER_STRING_TOUCH             #language zh-Hans "<Enter>/\wide轻点\narrow=\wide选择条目\narrow"
++#string ENTER_COMMIT_STRING_TOUCH      #language zh-Hans "<Enter>/\wide轻点\narrow=\wide完成输入\narrow"
++#string ENTER_ESCAPE_STRING_TOUCH      #language zh-Hans "Esc/\wide双指\narrow=\wide退出输入\narrow"
++#string ESCAPE_STRING_TOUCH            #language zh-Hans "Esc/\wide双指\narrow=\wide退出\narrow"
++#string MOVE_HIGHLIGHT_TOUCH           #language zh-Hans "/\wide拖动\narrow=\wide移动光标\narrow"

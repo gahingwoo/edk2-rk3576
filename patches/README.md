@@ -82,10 +82,7 @@ The front page's language list takes each language's name from this file
 (`#langdef`), which is why UiApp needs the patch even for the platform's own
 forms to be selectable in Chinese.
 
-Not translated: DisplayEngineDxe / CustomizedDisplayLib (the key-help footer
-and the save / discard pop-ups) and SetupBrowserDxe.  Some of their strings
-are the answer keys the pop-ups compare against ("Y", "N"), so translating
-them is not purely cosmetic.  They stay English in both languages.
+The setup browser's own strings (key help, pop-ups) are in 0009.
 
 ### `0007-zh-Hans-strings-for-the-Device-Manager-forms.patch`
 
@@ -110,11 +107,38 @@ only wrote PlatformLang, so those entries kept the old language until the
 next boot. After a language change the menu is now built again
 (`UpdateFrontPageForm ()`), which takes the titles in the new language; the
 browser reparses the form when it sees the update. This was chosen over
-storing each title per language because it is two lines in the callback
-and covers every copied entry at once.
+storing each title per language because it is one call in the callback and
+covers every copied entry at once.
 
 The banner lines (CPU, memory, firmware version) are data from SMBIOS and
 PCDs, the same in every language, and are not rebuilt.
+
+### `0009-DisplayEngine-follow-the-language-and-show-touch-key-help.patch`
+
+DisplayEngineDxe and CustomizedDisplayLib (the key help bar at the bottom,
+the save / discard / reset pop-ups, the F9 / F10 hints) in Simplified
+Chinese, and two code changes:
+
+- Both load their strings once, at driver entry. DisplayEngineDxe's depex
+  does not include the variable services, so that can be before PlatformLang
+  is readable, and it is never redone after "Select Language". Now
+  `FormDisplay ()` and `DisplayPageFrame ()` reload them when PlatformLang
+  differs from the language they were loaded in, and the F9 / F10 hot keys
+  are registered again with the new help text.
+- With a touch screen that types keys (a device that is both a text input and
+  an absolute pointer, other than the console splitter; TouchKeysDxe on the
+  TaishanPi 3M) the key help names the gestures too: `<Enter>/tap=Select
+  Entry`, `Esc/2 fingers=Exit`, `/drag=Move Highlight`. Without one the bar
+  is exactly as before. All of these fit the bar's columns at 80 columns.
+
+Left as they are, because their first character is the key the pop-up waits
+for: `ARE_YOU_SURE_YES` "Y", `ARE_YOU_SURE_NO` "N" (`ConfirmDataChange ()`
+compares `gYesResponse[0]` / `gNoResponse[0]`), `CONFIRM_OPTION_YES` "Y (y)",
+`CONFIRM_OPTION_NO` "N (n)", `CONFIRM_OPTION_OK` "O (o)",
+`CONFIRM_OPTION_CANCEL` "C (c)", `DISCARD_OR_JUMP_DISCARD` "D (d)",
+`DISCARD_OR_JUMP_JUMP` "G (g)" and `DISCARD_OR_CHECK_CHECK` "C (c)"
+(`FormDisplay.c` and `Popup.c` compare their `[0]`). The Chinese prompts that
+explain them keep the same Latin letters.
 
 ## Optional (`--with-debug`)
 
