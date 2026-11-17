@@ -20,6 +20,8 @@
 
 #include <Guid/GlobalVariable.h>
 
+#include <Protocol/FirmwareVolume2.h>
+#include <Protocol/LoadedImage.h>
 #include <Protocol/RockchipDsiPanel.h>
 
 #include "LcdGraphicsOutputDxe.h"
@@ -38,13 +40,13 @@ STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
 // because the framebuffer is still the panel's native scan.  That is fine
 // for the firmware's menus and useless to an OS: Windows and Linux's efifb
 // write the framebuffer themselves.  So the rotation is taken off around
-// every image that ReadyToBoot announces, and put back if that image
-// returns.  The boot manager menu is not announced and stays rotated.
+// every application that does not come from the firmware volume, and put
+// back if it returns.  The firmware's own applications (the menus, the
+// Shell, the touch test) draw through Blt and stay rotated.
 //
 STATIC LCD_INSTANCE  *mLcdInstance;
 STATIC BOOLEAN       mPrimaryIsDsi;
 STATIC BOOLEAN       mRotationEnded;
-STATIC BOOLEAN       mEndPending;
 STATIC EFI_IMAGE_START  mOriginalStartImage;
 
 STATIC
@@ -842,30 +844,49 @@ LcdGraphicsApplyRotation (
 }
 
 /**
-  ReadyToBoot says that the next image started is an OS loader or an
-  application, not the firmware's own menu.  Only note it here; the rotation
-  is taken off around that image in LcdGraphicsStartImage().
+  Whether an image is one the rotation has to come off for: an application
+  (not a driver) that was not loaded from a firmware volume.  That is an OS
+  loader, or something run from a disk, which may write the framebuffer
+  directly.
 **/
 STATIC
-VOID
-EFIAPI
-LcdGraphicsOutputReadyToBootHandler (
-  IN EFI_EVENT  Event,
-  IN VOID       *Context
+BOOLEAN
+LcdGraphicsImageWantsNativeScan (
+  IN EFI_HANDLE  ImageHandle
   )
 {
-  mEndPending = TRUE;
+  EFI_LOADED_IMAGE_PROTOCOL  *Image;
+  VOID                       *Fv;
+
+  if (EFI_ERROR (gBS->HandleProtocol (ImageHandle, &gEfiLoadedImageProtocolGuid, (VOID **)&Image))) {
+    return FALSE;
+  }
+
+  if (Image->ImageCodeType != EfiLoaderCode) {
+    return FALSE;
+  }
+
+  if ((Image->DeviceHandle != NULL) &&
+      !EFI_ERROR (gBS->HandleProtocol (Image->DeviceHandle, &gEfiFirmwareVolume2ProtocolGuid, &Fv)))
+  {
+    return FALSE;
+  }
+
+  return TRUE;
 }
 
 /**
   gBS->StartImage, wrapped.
 
-  The rotation has to be off while something other than the firmware's menu
-  runs, and back on when that something returns: an application leaves, a
-  boot option fails and the boot manager menu comes up again.  Ending it at
-  ReadyToBoot alone left the menus on their side after the first application.
-  There is no event for "the image came back", so the image is bracketed
-  here.  An OS that boots never returns, which is the case that matters.
+  The rotation has to be off while an OS loader or an application from a
+  disk runs, and back on when it returns: an application leaves, a boot
+  option fails and the boot manager menu comes up again.  There is no event
+  for "the image came back", so the image is bracketed here.  An OS that
+  boots never returns, which is the case that matters.
+
+  ReadyToBoot is not the test: the Shell is started as a boot option too,
+  and it has to stay rotated, while a loader started from the Shell is not
+  announced at all and has to have the rotation off.
 **/
 STATIC
 EFI_STATUS
@@ -879,18 +900,15 @@ LcdGraphicsStartImage (
   EFI_STATUS  Status;
   BOOLEAN     Ended = FALSE;
 
-  if (mEndPending) {
-    mEndPending = FALSE;
-
-    if ((mLcdInstance != NULL) && !mRotationEnded &&
-        (mLcdInstance->Gop.Mode->Mode < mLcdInstance->Gop.Mode->MaxMode) &&
-        (LcdGraphicsEffectiveRotation () != 0))
-    {
-      DEBUG ((DEBUG_INFO, "%a: rotation off for the image being started\n", __func__));
-      mRotationEnded = TRUE;
-      LcdGraphicsApplyRotation ();
-      Ended = TRUE;
-    }
+  if ((mLcdInstance != NULL) && !mRotationEnded &&
+      (mLcdInstance->Gop.Mode->Mode < mLcdInstance->Gop.Mode->MaxMode) &&
+      (LcdGraphicsEffectiveRotation () != 0) &&
+      LcdGraphicsImageWantsNativeScan (ImageHandle))
+  {
+    DEBUG ((DEBUG_INFO, "%a: rotation off for the image being started\n", __func__));
+    mRotationEnded = TRUE;
+    LcdGraphicsApplyRotation ();
+    Ended = TRUE;
   }
 
   Status = mOriginalStartImage (ImageHandle, ExitDataSize, ExitData);
@@ -947,16 +965,6 @@ LcdGraphicsOutputDxeInitialize (
   ASSERT_EFI_ERROR (Status);
 
   {
-    EFI_EVENT  ReadyToBootEvent;
-
-    Status = EfiCreateEventReadyToBootEx (
-               TPL_CALLBACK,
-               LcdGraphicsOutputReadyToBootHandler,
-               NULL,
-               &ReadyToBootEvent
-               );
-    ASSERT_EFI_ERROR (Status);
-
     //
     // Put the wrapper in the boot services table.  The table carries a
     // CRC, so that is redone.

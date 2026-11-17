@@ -111,11 +111,15 @@ STATIC INT32    mAnchorX, mAnchorY;
 STATIC UINTN    mDownPolls;
 
 //
-// The same touches as an absolute pointer, in the panel's native
-// coordinates, for TouchTest and for whatever wants a pointer later.
+// The same touches as an absolute pointer, for TouchTest and for whatever
+// wants a pointer later.  The coordinates are those of the picture: when
+// the GOP is rotated the point is rotated with it and the two maxima are
+// swapped, so that a pointer always lines up with what Blt draws.
 // CurrentZ carries the number of fingers down.
 //
 STATIC EFI_ABSOLUTE_POINTER_MODE   mAbsMode = { 0, 0, 0, 799, 1279, 10, 0 };
+STATIC UINT32                      mNativeMaxX = 799;
+STATIC UINT32                      mNativeMaxY = 1279;
 STATIC EFI_ABSOLUTE_POINTER_STATE  mAbsState;
 STATIC BOOLEAN                     mAbsChanged;
 STATIC EFI_EVENT                   mAbsEvent;
@@ -256,6 +260,21 @@ TouchPoll (
   UINTN  Fingers;
   INT32  X, Y, Dx, Dy;
 
+  //
+  // Between touches, follow the picture: the rotation goes off and on with
+  // the images that are started, and the pointer's range goes with it.
+  //
+  if (!mDown) {
+    mTouchRotation = TouchCurrentRotation ();
+    if (mTouchRotation != 0) {
+      mAbsMode.AbsoluteMaxX = mNativeMaxY;
+      mAbsMode.AbsoluteMaxY = mNativeMaxX;
+    } else {
+      mAbsMode.AbsoluteMaxX = mNativeMaxX;
+      mAbsMode.AbsoluteMaxY = mNativeMaxY;
+    }
+  }
+
   if (EFI_ERROR (TouchTransfer (GT_REG_STATUS, &Status, 1, FALSE))) {
     return;
   }
@@ -281,8 +300,25 @@ TouchPoll (
     X = Point[1] | (Point[2] << 8);
     Y = Point[3] | (Point[4] << 8);
 
-    mAbsState.CurrentX      = (UINT64)X;
-    mAbsState.CurrentY      = (UINT64)Y;
+    //
+    // The inverse of LcdRotatedPixel(): at 270 the picture's top edge is
+    // the panel's left edge, at 90 it is the panel's right edge.
+    //
+    switch (mTouchRotation) {
+      case 270:
+        mAbsState.CurrentX    = (UINT64)((INT32)mNativeMaxY - Y);
+        mAbsState.CurrentY    = (UINT64)X;
+        break;
+      case 90:
+        mAbsState.CurrentX    = (UINT64)Y;
+        mAbsState.CurrentY    = (UINT64)((INT32)mNativeMaxX - X);
+        break;
+      default:
+        mAbsState.CurrentX    = (UINT64)X;
+        mAbsState.CurrentY    = (UINT64)Y;
+        break;
+    }
+
     mAbsState.CurrentZ      = Fingers;
     mAbsState.ActiveButtons = EFI_ABSP_TouchActive;
     mAbsChanged             = TRUE;
@@ -295,7 +331,6 @@ TouchPoll (
       mStartX     = mAnchorX = X;
       mStartY     = mAnchorY = Y;
       mDownPolls  = 0;
-      mTouchRotation = TouchCurrentRotation ();
     }
 
     mDownPolls++;
@@ -646,7 +681,7 @@ TouchCurrentRotation (
     return mRotation;
   }
 
-  return (Gop->Mode->Info->HorizontalResolution == mAbsMode.AbsoluteMaxY + 1) ? mRotation : 0;
+  return (Gop->Mode->Info->HorizontalResolution == mNativeMaxY + 1) ? mRotation : 0;
 }
 
 STATIC
@@ -738,8 +773,8 @@ TouchEndOfDxe (
   }
 
   if ((Panel != NULL) && (Panel->NativeMode.HActive != 0) && (Panel->NativeMode.VActive != 0)) {
-    mAbsMode.AbsoluteMaxX = Panel->NativeMode.HActive - 1;
-    mAbsMode.AbsoluteMaxY = Panel->NativeMode.VActive - 1;
+    mNativeMaxX = Panel->NativeMode.HActive - 1;
+    mNativeMaxY = Panel->NativeMode.VActive - 1;
   }
 
   Status = gBS->CreateEvent (EVT_NOTIFY_WAIT, TPL_NOTIFY, TouchWaitForKey, NULL, &mWaitEvent);

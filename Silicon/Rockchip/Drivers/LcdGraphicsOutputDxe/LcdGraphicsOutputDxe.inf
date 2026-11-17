@@ -46,6 +46,8 @@
   gEfiDevicePathProtocolGuid
   gEfiEdidActiveProtocolGuid
   gEfiEdidDiscoveredProtocolGuid
+  gEfiFirmwareVolume2ProtocolGuid
+  gEfiLoadedImageProtocolGuid
   gEfiGraphicsOutputProtocolGuid
   gRockchipCrtcProtocolGuid
   gRockchipConnectorProtocolGuid
