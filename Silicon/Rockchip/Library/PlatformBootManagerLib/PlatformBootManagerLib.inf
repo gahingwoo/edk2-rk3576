@@ -28,6 +28,7 @@
 [Sources]
   PlatformBm.c
   PlatformBm.h
+  PlatformBmStrings.uni
 
 [Packages]
   EmbeddedPkg/EmbeddedPkg.dec
@@ -45,6 +46,7 @@
   DevicePathLib
   DxeServicesLib
   DxeServicesTableLib
+  HiiLib
   HobLib
   MemoryAllocationLib
   PcdLib

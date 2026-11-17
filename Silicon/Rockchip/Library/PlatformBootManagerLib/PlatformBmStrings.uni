@@ -1,0 +1,25 @@
+/** @file
+ *
+ *  The boot prompt drawn under the logo, in the languages of the setup UI.
+ *
+ *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+ *
+ *  SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ **/
+
+#langdef en-US "English"
+#langdef zh-Hans "\wide简体中文\narrow"
+
+// What the keys do while the logo is up.  The touch version is used when a
+// touch screen that types keys is present (TouchKeysDxe on the TaishanPi 3M),
+// since a board with a screen may have no keyboard at all.
+#string STR_BOOT_PROMPT        #language en-US "Setup (ESC/F2)   Shell (F1)   Reset to MaskROM (F4)   Continue (Enter)"
+#string STR_BOOT_PROMPT_TOUCH  #language en-US "Setup (ESC/F2, or two fingers)   Shell (F1)   MaskROM (F4)   Continue (Enter, or tap)"
+
+/*
+ * Simplified Chinese.  Every run of CJK text is bracketed by \wide ... \narrow,
+ * as in the setup forms; see scripts/gen-zh-hans-font.py.
+ */
+#string STR_BOOT_PROMPT        #language zh-Hans "\wide设置\narrow (ESC/F2)   Shell (F1)   \wide重启到\narrow MaskROM (F4)   \wide继续\narrow (Enter)"
+#string STR_BOOT_PROMPT_TOUCH  #language zh-Hans "\wide设置\narrow (ESC/F2 \wide或双指\narrow)   Shell (F1)   MaskROM (F4)   \wide继续\narrow (Enter \wide或轻点\narrow)"
