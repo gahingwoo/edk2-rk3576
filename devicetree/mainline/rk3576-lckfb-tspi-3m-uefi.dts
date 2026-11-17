@@ -12,6 +12,11 @@
  * GOP" setting) or brings its own device tree.  Touch needs nothing but
  * the mainline goodix driver, and a missing screen only fails its probe.
  *
+ * Added: both USB-A VBUS supplies stay on.  The usb-a-connector nodes name
+ * them, but no driver enables a connector's supply behind a hub, so the
+ * kernel switched them off when it registered the regulators: a system
+ * started from a USB stick lost the stick before it could mount it.
+ *
  * The CM5-IO wrapper forces both USB controllers to
  * host mode and enables the UFS controller; neither has been shown to be
  * needed on this board, and the USB-C port here is described with a FUSB302
@@ -56,4 +61,14 @@
 			rockchip,pins = <0 RK_PD0 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
+};
+
+&vcc_5v0_usb2_host {
+	regulator-always-on;
+	regulator-boot-on;
+};
+
+&vcc_5v0_usb3_host {
+	regulator-always-on;
+	regulator-boot-on;
 };
