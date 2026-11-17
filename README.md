@@ -50,7 +50,7 @@ firmware names from SMBIOS, the Mali-G52.
 | NVMe | yes | yes | not tried (mini-PCIe slot) |
 | USB | yes | yes; USB-C is USB 2.0 in UEFI and Windows | four USB-A ports; USB-C unused |
 | Ethernet | yes | yes, in UEFI, Linux and Windows | yes, in UEFI and Windows |
-| Linux through UEFI | Fedora from NVMe | Fedora from NVMe | not tried |
+| Linux through UEFI | Fedora from NVMe | Fedora from NVMe | boots from a USB stick, [with limits](#linux-on-the-taishanpi-3m) |
 | Windows 11 23H2 | not tried | boots to the desktop | boots to the desktop, GPU driver available |
 
 Serial console: 1500000 8N1.
@@ -87,13 +87,36 @@ with the power off.
   manager shows where touches land.
 - Windows shows its picture on the screen in portrait. Touch does not work
   in Windows yet.
-- Mainline Linux has no driver for this panel. Turn on "Force UEFI GOP
-  Display" (ACPI / Device Tree page, visible when the device tree is handed
-  over) and the kernel keeps the firmware's picture through simpledrm or
-  efifb: a fixed 800x1280 mode without acceleration, and HDMI is then off
-  in Linux. Seen working with an Armbian 7.3 kernel booted from a USB stick.
-  The touch controller is described in the device tree; it has not been seen
-  working under Linux yet.
+
+#### Linux on the TaishanPi 3M
+
+A Linux system starts through this firmware. Tried once, with one image: an
+Ubuntu root filesystem with Armbian's 7.3 kernel, written to a USB stick and
+started from the boot manager. It ran up to its network services. The kernel
+found the eMMC, the SD card, the USB-A ports, Ethernet, the WiFi module and
+the EC20 modem.
+
+The firmware hands over the mainline Linux 7.3 device tree for this board,
+so the kernel has to be about that new. The limits:
+
+- The DSI screen. Mainline Linux has no driver for this panel, so by default
+  Linux shows nothing on it. Turn on "Force UEFI GOP Display" (ACPI / Device
+  Tree page, visible when the device tree is handed over) and the kernel
+  keeps the firmware's picture through simpledrm or efifb. That is a fixed
+  800x1280 mode in portrait, drawn on the CPU, with the backlight at one
+  brightness. While the option is on, the kernel's own display drivers are
+  switched off, so HDMI does not work in Linux, and neither does HDMI audio.
+- A system that brings its own device tree with a panel driver, as Armbian
+  does, can use it instead: with "Support DTB override & overlays" on, the
+  firmware loads `\dtb\rockchip\rk3576-lckfb-tspi-3m.dtb` and
+  `\dtb\overlays\*.dtbo` from the partition it boots. Not tried.
+- Touch. The controller is in the device tree the firmware hands over. It
+  did not show up in that kernel's log, and nobody has looked further.
+- HDMI in Linux with the option off has not been tried on this board. It
+  works that way on the other two.
+- The USB-C port is not set up by the firmware.
+- Installing to the eMMC has not been tried. Windows shares it in the
+  layout this firmware uses, and an installer will not know that.
 
 The TaishanPi 3M used for this work was provided by LCKFB.
 

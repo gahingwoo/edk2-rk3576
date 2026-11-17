@@ -71,7 +71,15 @@ Also seen working, reported from the board: a USB keyboard in the UEFI menus,
 booting from a USB stick, keyboard and mouse in Windows Setup, and Ethernet
 getting a DHCP address in UEFI.
 
-Not tried: Linux through UEFI, PCIe.
+Linux through UEFI: an Ubuntu root filesystem with Armbian's 7.3 kernel
+started from a USB stick and ran up to its network services, once. The
+limits are listed in the
+[README](https://github.com/gahingwoo/edk2-rk3576#linux-on-the-taishanpi-3m). The mainline device tree
+leaves the USB-A VBUS supplies to nobody, and Linux switched them off and
+lost the stick it was booting from; the firmware's copy of the tree marks
+them always-on.
+
+Not tried: PCIe.
 
 ACPI: the image installs ACPI tables next to the device tree, as the CM5-IO
 does (ConfigTableMode ACPI + FDT, switchable in the front-page menu).
