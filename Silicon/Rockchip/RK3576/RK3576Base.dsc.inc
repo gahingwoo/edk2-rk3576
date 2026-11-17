@@ -96,6 +96,10 @@
   # So 88 KB of dead RK3588 code sat in FVMAIN with a loaded gun pointed at
   # DRAM, waiting for the first DSI panel driver.  Off until they are ported.
   #
+  # DwMipiDsi2Lib and the D-PHY under it now carry RK3576's addresses, GRF bits,
+  # clocks and resets; a board with a DSI panel turns RK_DW_MIPI_DSI2_ENABLE on
+  # (TaishanPi3M.dsc).  DwDpLib is still RK3588 only.
+  #
 !ifndef RK_DW_DP_ENABLE
   DEFINE RK_DW_DP_ENABLE            = FALSE
 !endif

@@ -1349,58 +1349,74 @@ Vop2IfConfig (
   CrtcState->DclkOutDiv  = DclkOutDiv;
 
   if (OutputIf & VOP_OUTPUT_IF_MIPI0) {
-    if (CrtcState->CrtcID == 2) {
-      Val = 0;
-    } else {
-      Val = 1;
-    }
+    /*
+     * RK3576: MIPI DSI has its own interface register, RK3576_MIPI0_IF_CTRL,
+     * with the layout of RK3576_HDMI0_IF_CTRL below.  The RK3588 code that
+     * stood here wrote RK3568_DSP_IF_EN (0x28) and the VP's MIPI_CTRL, which
+     * on RK3576 are other registers (0x28 is SYS_PORT_CTRL_IMD).
+     *
+     * Reference: the vendor 6.1 kernel driving the TaishanPi 3M's 800x1280
+     * panel from VP2 reads MIPI0_IF_CTRL = 0x8010003b: CFG_DONE_IMD, PCLK_DIV
+     * (set for a port with pixel rate 1, which VP2 is and VP0 is not),
+     * PIN_POL 3, MUX 2, CLK_OUT_EN, EN.  The same without PCLK_DIV and with
+     * the port number in MUX is written here.
+     *
+     * The pixel clock comes from the CRU, not from a PHY as with HDMI:
+     * DCLK_VPx_SRC = CPLL / n (CLKSEL_CON145..147: mux [10:8], 1 = CPLL;
+     * divider [7:0]), and DCLK_VPx takes it when its bit in CLKSEL_CON147
+     * [11 + port] is 0.  Linux has CPLL / 15 = 66.67 MHz for the panel's
+     * 71 MHz mode (it rounds down); do the same.
+     */
+    {
+      UINT32  IfCtrl;
+      UINT32  Vp      = CrtcState->CrtcID;
+      UINT32  ClkKhz  = DisplayMode->CrtcClock ? DisplayMode->CrtcClock : DisplayMode->Clock;
+      UINT32  Div;
+      UINT32  SrcGate[3] = { 10, 11, 12 };            /* CLKGATE_CON61 */
+      UINTN   Cru     = 0x27200000;
 
-    if (ConnectorState->OutputFlags & ROCKCHIP_OUTPUT_MIPI_DS_MODE) {
-      Vop2MaskWrite (
-        Vop2->BaseAddress,
-        RK3568_DSP_IF_CTRL,
-        EN_MASK,
-        RK3588_MIPI_DSI0_MODE_SEL_SHIFT,
-        1,
-        FALSE
-        );
-    }
+      if ((Vp > 2) || (ClkKhz == 0)) {
+        return 0;
+      }
 
-    Vop2MaskWrite (
-      Vop2->BaseAddress,
-      RK3568_DSP_IF_EN,
-      EN_MASK,
-      RK3588_MIPI0_EN_SHIFT,
-      1,
-      FALSE
-      );
-    Vop2MaskWrite (Vop2->BaseAddress, RK3568_DSP_IF_EN, 1, RK3588_MIPI0_MUX_SHIFT, Val, FALSE);
-    Vop2MaskWrite (
-      Vop2->BaseAddress,
-      RK3568_DSP_IF_CTRL,
-      3,
-      MIPI0_PIXCLK_DIV_SHIFT,
-      IfPixclkDiv,
-      FALSE
-      );
+      Div = (1000000 + ClkKhz - 1) / ClkKhz;          /* CPLL is 1000 MHz */
+      if ((Div < 1) || (Div > 256)) {
+        DEBUG ((DEBUG_ERROR, "VOP2: MIPI pixel clock %u kHz cannot be made from CPLL\n", ClkKhz));
+        return 0;
+      }
 
-    if (ConnectorState->hold_mode) {
-      Vop2MaskWrite (
-        Vop2->BaseAddress,
-        RK3568_VP0_MIPI_CTRL + VPOffset,
-        EN_MASK,
-        EDPI_TE_EN,
-        TRUE,
-        FALSE
-        );
-      Vop2MaskWrite (
-        Vop2->BaseAddress,
-        RK3568_VP0_MIPI_CTRL + VPOffset,
-        EN_MASK,
-        EDPI_WMS_HOLD_EN,
-        1,
-        FALSE
-        );
+      /* DCLK_VPx_SRC: CPLL, divider Div */
+      MmioWrite32 (Cru + 0x300 + (145 + Vp) * 4, (0x7FFU << 16) | (1U << 8) | (Div - 1));
+      /* DCLK_VPx: take DCLK_VPx_SRC, not the HDMI PHY's pixel clock */
+      MmioWrite32 (Cru + 0x300 + 147 * 4, (1U << (11 + Vp)) << 16);
+      /* ungate DCLK_VPx_SRC (CON61 bits 10..12) and DCLK_VPx
+         (VP0: CON61 bit 13, VP1: CON62 bit 0, VP2: CON62 bit 1) */
+      MmioWrite32 (Cru + 0x800 + 61 * 4, (1U << SrcGate[Vp]) << 16);
+      if (Vp == 0) {
+        MmioWrite32 (Cru + 0x800 + 61 * 4, (1U << 13) << 16);
+      } else {
+        MmioWrite32 (Cru + 0x800 + 62 * 4, (1U << (Vp - 1)) << 16);
+      }
+
+      DEBUG ((
+        DEBUG_INFO,
+        "VOP2: MIPI0 on VP%u, dclk = CPLL/%u = %u kHz (mode %u kHz)\n",
+        Vp,
+        Div,
+        1000000 / Div,
+        ClkKhz
+        ));
+
+      IfCtrl  = (1U << RK3576_DSP_IF_EN_BIT) | (1U << RK3576_DSP_IF_CLK_OUT_EN_BIT);
+      IfCtrl |= (1U << RK3576_DSP_IF_CFG_DONE_IMD_BIT);
+      IfCtrl |= ((Vp & RK3576_DSP_IF_MUX_MASK) << RK3576_DSP_IF_MUX_SHIFT);
+      IfCtrl |= (3U << RK3576_DSP_IF_DCLK_DIV_SHIFT);  /* PIN_POL as Linux has it */
+      if (Vp == 2) {
+        IfCtrl |= (1U << RK3576_DSP_IF_PCLK_DIV_BIT);
+      }
+
+      MmioWrite32 (Vop2->BaseAddress + RK3576_MIPI0_IF_CTRL, IfCtrl);
+      DEBUG ((DEBUG_INFO, "VOP2: MIPI0_IF_CTRL = 0x%08x\n", IfCtrl));
     }
   }
 

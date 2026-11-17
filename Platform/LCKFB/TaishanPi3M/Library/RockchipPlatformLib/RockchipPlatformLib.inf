@@ -23,6 +23,7 @@
 
 [Sources]
   RockchipPlatformLib.c
+  Tspi3mDsiPanel.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -40,6 +41,10 @@
   PcdLib
   Rk3576PwmLib
   TimerLib
+  UefiBootServicesTableLib
 
 [FixedPcd]
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs
+
+[Protocols]
+  gRockchipDsiPanelProtocolGuid         ## PRODUCES

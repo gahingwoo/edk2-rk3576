@@ -1369,10 +1369,13 @@ samsung_mipi_dphy_data_lane_timing_init(struct samsung_mipi_dcphy *samsung)
 
 	timing = samsung_mipi_dphy_get_timing(samsung);
 
-	phy_write(samsung, COMBO_MD0_ANA_CON0, 0x7133);
-	phy_write(samsung, COMBO_MD1_ANA_CON0, 0x7133);
-	phy_write(samsung, COMBO_MD2_ANA_CON0, 0x7133);
-	phy_write(samsung, DPHY_MD3_ANA_CON0, 0x7133);
+	/* RK3576: data lanes 43 ohm (0x7100), clock lane 52 ohm (0x7133 above).
+	 * RK3588 had 0x7133 on all five; the values here are what the vendor
+	 * kernel leaves in the PHY while it drives the panel. */
+	phy_write(samsung, COMBO_MD0_ANA_CON0, 0x7100);
+	phy_write(samsung, COMBO_MD1_ANA_CON0, 0x7100);
+	phy_write(samsung, COMBO_MD2_ANA_CON0, 0x7100);
+	phy_write(samsung, DPHY_MD3_ANA_CON0, 0x7100);
 
 	if (lane_hs_rate >= 1500) {
 		phy_write(samsung, COMBO_MD0_ANA_CON1, 0x0001);
@@ -1794,25 +1797,20 @@ static const struct rockchip_phy_funcs samsung_mipi_dcphy_funcs = {
 	.set_mode = samsung_mipi_dcphy_set_mode,
 };
 
+/*
+ * RK3576: phy@2b020000, rockchip,grf = <&mipidcphy_grf> (syscon@26034000).
+ * m_phy reset is SRST_M_MIPI_DCPHY, vendor ID 0x80013 = PMU1CRU SOFTRST_CON1
+ * bit 3; reset() adds the offset to CRU_BASE (0x27200000), and PMU1CRU is
+ * CRU_BASE + 0x20000.
+ */
 struct samsung_mipi_dcphy mMipiDcPhy[] = {
 	{
 		.Signature = SAMSUNG_MIPI_DCPHY_SIGNATURE,
-		.base = 0xfeda0000,
-		.grf = 0xfd5e8000,
+		.base = 0x2b020000,
+		.grf = 0x26034000,
 		.id = 0,
 		.lanes = 4,
-		.m_phy_rst	= { 0x30A10, 3 }, /* mresetn_mipi_dcphy0 */
-		.phy = {
-			.funcs = &samsung_mipi_dcphy_funcs
-		},
-	},
-	{
-		.Signature = SAMSUNG_MIPI_DCPHY_SIGNATURE,
-		.base = 0xfedb0000,
-		.grf = 0xfd5ec000,
-		.id = 1,
-		.lanes = 4,
-		.m_phy_rst	= { 0x30A10, 5 }, /* mresetn_mipi_dcphy1 */
+		.m_phy_rst	= { 0x20A04, 3 }, /* mresetn_mipi_dcphy */
 		.phy = {
 			.funcs = &samsung_mipi_dcphy_funcs
 		},

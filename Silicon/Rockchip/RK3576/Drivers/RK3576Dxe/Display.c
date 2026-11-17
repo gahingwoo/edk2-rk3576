@@ -200,6 +200,30 @@ InitializeDisplayVariables (
                            &Size,
                            &ConnectorsPriority
                            ) : EFI_NOT_FOUND;
+  //
+  // A saved order from an older firmware lists only the connectors that
+  // firmware knew.  LcdGraphicsOutputDxe drops a connector the order does not
+  // name, so a board that gains one (the TaishanPi 3M's DSI screen) would
+  // never use it.  Seed again when the saved order misses a connector.
+  //
+  if (!EFI_ERROR (Status)) {
+    for (Index = 0; Index < ConnectorsCount; Index++) {
+      UINTN  Slot;
+
+      for (Slot = 0; Slot < ARRAY_SIZE (ConnectorsPriority.Order); Slot++) {
+        if (ConnectorsPriority.Order[Slot] == Connectors[Index]) {
+          break;
+        }
+      }
+
+      if (Slot == ARRAY_SIZE (ConnectorsPriority.Order)) {
+        DEBUG ((DEBUG_INFO, "Display: saved connector order lacks 0x%x, seeding again\n", Connectors[Index]));
+        Status = EFI_NOT_FOUND;
+        break;
+      }
+    }
+  }
+
   if (EFI_ERROR (Status)) {
     ZeroMem (&ConnectorsPriority, sizeof (ConnectorsPriority));
     CopyMem (&ConnectorsPriority.Order, Connectors, ConnectorsCount * sizeof (*Connectors));

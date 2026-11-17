@@ -174,7 +174,8 @@
 
 #define CMD_PKT_STATUS_TIMEOUT_US	1000
 #define MODE_STATUS_TIMEOUT_US		20000
-#define SYS_CLK				351000000LL
+/* RK3576: CLK_DSIHOST0 = GPLL 1188 MHz / 5, set in rk3576_dsi_clocks_on() */
+#define SYS_CLK				237600000LL
 #define PSEC_PER_SEC			1000000000000LL
 #define USEC_PER_SEC			1000000L
 #define MSEC_PER_SEC			1000L
@@ -890,6 +891,8 @@ static int dw_mipi_dsi2_connector_pre_init(ROCKCHIP_CONNECTOR_PROTOCOL *conn,
 
 	conn_state->Type = DRM_MODE_CONNECTOR_DSI;
 
+	rk3576_dsi_clocks_on();
+
 	device = dsi2->device;
 	if (!device)
 		return -ENODEV;
@@ -1469,30 +1472,59 @@ ROCKCHIP_CONNECTOR_PROTOCOL mDwMipiDsi2ConnectorOps = {
   NULL
 };
 
-static const u32 rk3588_dsi0_grf_reg_fields[MAX_FIELDS] = {
-	[TXREQCLKHS_EN]		= GRF_REG_FIELD(0x0000, 11, 11),
-	[GATING_EN]		= GRF_REG_FIELD(0x0000, 10, 10),
-	[IPI_SHUTDN]		= GRF_REG_FIELD(0x0000,  9,  9),
-	[IPI_COLORM]		= GRF_REG_FIELD(0x0000,  8,  8),
-	[IPI_COLOR_DEPTH]	= GRF_REG_FIELD(0x0000,  4,  7),
-	[IPI_FORMAT]		= GRF_REG_FIELD(0x0000,  0,  3),
+/*
+ * RK3576: one DSI host; its interface bits are in VO0_GRF_SOC_CON10 (0x28).
+ * From the vendor 6.1 kernel (dw-mipi-dsi2-rockchip.c, rk3576_dsi_grf_reg_fields).
+ * That kernel driving the TaishanPi 3M panel reads 0x0500 there: colour
+ * depth 5 (24 bit), format 0 (RGB).
+ */
+static const u32 rk3576_dsi_grf_reg_fields[MAX_FIELDS] = {
+	[TXREQCLKHS_EN]		= GRF_REG_FIELD(0x0028,  1,  1),
+	[GATING_EN]		= GRF_REG_FIELD(0x0028,  0,  0),
+	[IPI_SHUTDN]		= GRF_REG_FIELD(0x0028,  3,  3),
+	[IPI_COLORM]		= GRF_REG_FIELD(0x0028,  2,  2),
+	[IPI_COLOR_DEPTH]	= GRF_REG_FIELD(0x0028,  8, 11),
+	[IPI_FORMAT]		= GRF_REG_FIELD(0x0028,  4,  7),
 };
 
-static const u32 rk3588_dsi1_grf_reg_fields[MAX_FIELDS] = {
-	[TXREQCLKHS_EN]		= GRF_REG_FIELD(0x0004, 11, 11),
-	[GATING_EN]		= GRF_REG_FIELD(0x0004, 10, 10),
-	[IPI_SHUTDN]		= GRF_REG_FIELD(0x0004,  9,  9),
-	[IPI_COLORM]		= GRF_REG_FIELD(0x0004,  8,  8),
-	[IPI_COLOR_DEPTH]	= GRF_REG_FIELD(0x0004,  4,  7),
-	[IPI_FORMAT]		= GRF_REG_FIELD(0x0004,  0,  3),
+static const struct dw_mipi_dsi2_plat_data rk3576_mipi_dsi2_plat_data = {
+	.dsi0_grf_reg_fields = rk3576_dsi_grf_reg_fields,
+	.dsi1_grf_reg_fields = rk3576_dsi_grf_reg_fields,
+	.dphy_max_bit_rate_per_lane = 2500000000ULL,
+	.cphy_max_symbol_rate_per_lane = 1700000000ULL,
 };
 
-static const struct dw_mipi_dsi2_plat_data rk3588_mipi_dsi2_plat_data = {
-	.dsi0_grf_reg_fields = rk3588_dsi0_grf_reg_fields,
-	.dsi1_grf_reg_fields = rk3588_dsi1_grf_reg_fields,
-	.dphy_max_bit_rate_per_lane = 4500000000ULL,
-	.cphy_max_symbol_rate_per_lane = 2000000000ULL,
-};
+/*
+ * Bus clocks and resets of the DSI host and of the D-PHY.  Linux turns these
+ * on through its clock and reset frameworks; nothing in the firmware does.
+ * Register numbers from the vendor kernel's clk-rk3576.c; all are hiword-mask
+ * registers.
+ *
+ *   CLK_DSIHOST0   CLKSEL_CON151  mux [9:7] (0 = GPLL), divider [6:0]
+ *                  CLKGATE_CON64  bit 6
+ *   PCLK_DSIHOST0  CLKGATE_CON64  bit 5
+ *   SRST_P_DSIHOST0  SOFTRST_CON64  bit 5
+ *   PCLK_MIPI_DCPHY  PMU1CRU CLKGATE_CON0  bit 2
+ *   SRST_P_MIPI_DCPHY, SRST_P_DCPHY_GRF  PMU1CRU SOFTRST_CON0  bits 2, 3
+ *   SRST_S_MIPI_DCPHY  PMU1CRU SOFTRST_CON1  bit 4  (m_phy is bit 3, in the PHY)
+ *
+ * The vendor reset IDs are (register index * 16 + bit) counted from
+ * CRU + 0xa00, so 0x80002 is register 0x8000, which is PMU1CRU + 0xa00.
+ */
+#define RK3576_CRU		0x27200000UL
+#define RK3576_PMU1CRU		0x27220000UL
+
+static void rk3576_dsi_clocks_on(void)
+{
+	regmap_write(RK3576_CRU, 0x300 + 151 * 4, (0x3ffU << 16) | (0 << 7) | 4);
+	regmap_write(RK3576_CRU, 0x800 + 64 * 4, (BIT(5) | BIT(6)) << 16);
+	regmap_write(RK3576_CRU, 0xa00 + 64 * 4, BIT(5) << 16);
+
+	regmap_write(RK3576_PMU1CRU, 0x800, BIT(2) << 16);
+	regmap_write(RK3576_PMU1CRU, 0xa00, (BIT(2) | BIT(3)) << 16);
+	regmap_write(RK3576_PMU1CRU, 0xa04, BIT(4) << 16);
+	udelay(100);
+}
 
 static ssize_t dw_mipi_dsi2_host_transfer(struct mipi_dsi_host *host,
 					 const struct mipi_dsi_msg *msg)
@@ -1549,20 +1581,14 @@ static int dw_mipi_dsi2_child_post_bind(struct dw_mipi_dsi2 *dsi2)
 	return 0;
 }
 
+/* RK3576: dsi@27d80000, rockchip,grf = <&vo0_grf> (syscon@2601a000) */
 struct dw_mipi_dsi2 mRk3588MipiDsi[] = {
 	{
-		.base = 0xfde20000,
-		.grf = RK3588_VOP_GRF_BASE,
+		.base = 0x27d80000,
+		.grf = 0x2601a000,
 		.id = 0,
 		.output_if = VOP_OUTPUT_IF_MIPI0,
-		.pdata = &rk3588_mipi_dsi2_plat_data,
-	},
-	{
-		.base = 0xfde30000,
-		.grf = RK3588_VOP_GRF_BASE,
-		.id = 1,
-		.output_if = VOP_OUTPUT_IF_MIPI1,
-		.pdata = &rk3588_mipi_dsi2_plat_data,
+		.pdata = &rk3576_mipi_dsi2_plat_data,
 	},
 };
 

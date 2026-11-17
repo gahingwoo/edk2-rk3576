@@ -59,6 +59,7 @@
   # RK3576 here.
   DEFINE RK_AHCI_ENABLE          = FALSE
   DEFINE RK_DW_HDMI_QP_ENABLE    = TRUE
+  DEFINE RK_DW_MIPI_DSI2_ENABLE  = TRUE   # the official 800x1280 MIPI DSI screen
   DEFINE RK_DISPLAY_ENABLE       = TRUE
   DEFINE RK_AMD_GOP_ENABLE       = FALSE
   DEFINE SECURE_BOOT_ENABLE      = TRUE
@@ -127,6 +128,15 @@
 
   # 0x80000000 = NATIVE: follow the sink's EDID, as on the other two boards.
   gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
+
+  #
+  # HDMI first, then the MIPI DSI screen.  The DSI connector has no detection
+  # and counts as connected, so it is used whenever HDMI reports no hot-plug.
+  #
+  gRK3588TokenSpaceGuid.PcdDisplayConnectors|{CODE({
+    VOP_OUTPUT_IF_HDMI0,
+    VOP_OUTPUT_IF_MIPI0
+  })}
 
   # Start the fan on CN2 (PWM2 ch3, see PwmFanIoSetup) at full speed and
   # leave it running into the OS.  Windows has no driver for it and nothing

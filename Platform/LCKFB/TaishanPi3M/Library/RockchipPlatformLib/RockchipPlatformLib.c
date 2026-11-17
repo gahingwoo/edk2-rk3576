@@ -38,6 +38,12 @@
 #include <Soc.h>
 #include <VarStoreData.h>
 
+EFI_STATUS
+EFIAPI
+AttachTspi3mDsiPanel (
+  VOID
+  );
+
 /*
  * RK806 PMIC voltage init for the TaishanPi 3M.
  *
@@ -724,6 +730,15 @@ PlatformEarlyInit (
   VOID
   )
 {
+  EFI_STATUS  Status;
+
+  /*
+   * Offer the MIPI DSI screen to the display stack.  There is no detection
+   * yet: the connector list in TaishanPi3M.dsc puts HDMI first, so a
+   * connected monitor wins, and the screen is used when HDMI has no hot-plug.
+   */
+  Status = AttachTspi3mDsiPanel ();
+  DEBUG ((DEBUG_INFO, "PlatformEarlyInit: DSI panel protocol %r\n", Status));
 }
 
 /*
