@@ -25,6 +25,7 @@
 #include <Library/UefiBootManagerLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Protocol/AbsolutePointer.h>
 #include <Protocol/BootManagerPolicy.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/EsrtManagement.h>
@@ -45,6 +46,52 @@
 #include "PlatformBm.h"
 
 #define BOOT_PROMPT  L"Setup (ESC/F2)   Shell (F1)   Reset to MaskROM (F4)   Continue (Enter)"
+//
+// The same with a touch screen that types keys (TouchKeysDxe on the
+// TaishanPi 3M): what the fingers do goes into the prompt, since a board
+// with a screen may have no keyboard at all.
+//
+#define BOOT_PROMPT_TOUCH  L"Setup (ESC/F2, or double-tap)   Shell (F1)   MaskROM (F4)   Continue (Enter, or tap)"
+
+/**
+  Is there a touch screen that acts as a keyboard?  It is the one device
+  that is both a text input and an absolute pointer; the console splitter's
+  own handle has both too and is left out.
+**/
+STATIC
+BOOLEAN
+PlatformHasTouchKeys (
+  VOID
+  )
+{
+  STATIC BOOLEAN  Known;
+  STATIC BOOLEAN  Present;
+  EFI_HANDLE      *Handles;
+  UINTN           Count;
+  UINTN           Index;
+  VOID            *Interface;
+
+  if (Known) {
+    return Present;
+  }
+
+  Known = TRUE;
+  if (EFI_ERROR (gBS->LocateHandleBuffer (ByProtocol, &gEfiAbsolutePointerProtocolGuid, NULL, &Count, &Handles))) {
+    return FALSE;
+  }
+
+  for (Index = 0; Index < Count; Index++) {
+    if ((Handles[Index] != gST->ConsoleInHandle) &&
+        !EFI_ERROR (gBS->HandleProtocol (Handles[Index], &gEfiSimpleTextInProtocolGuid, &Interface)))
+    {
+      Present = TRUE;
+      break;
+    }
+  }
+
+  FreePool (Handles);
+  return Present;
+}
 
 #define DP_NODE_LEN(Type)  { (UINT8)sizeof (Type), (UINT8)(sizeof (Type) >> 8) }
 
@@ -1260,7 +1307,7 @@ PlatformBootManagerAfterConsole (
         );
     }
 
-    Print (BOOT_PROMPT);
+    Print (PlatformHasTouchKeys () ? BOOT_PROMPT_TOUCH : BOOT_PROMPT);
   } else if (FirmwareVerLength > 0) {
     Status = gBS->HandleProtocol (
                     gST->ConsoleOutHandle,
@@ -1399,7 +1446,7 @@ PlatformBootManagerWaitCallback (
   Status = BootLogoUpdateProgress (
              White.Pixel,
              Black.Pixel,
-             BOOT_PROMPT,
+             PlatformHasTouchKeys () ? BOOT_PROMPT_TOUCH : BOOT_PROMPT,
              White.Pixel,
              (Timeout - TimeoutRemain) * 100 / Timeout,
              0

@@ -92,6 +92,7 @@
   gEfiLoadedImageProtocolGuid
   gEfiPciRootBridgeIoProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
+  gEfiAbsolutePointerProtocolGuid
   gEfiSimpleTextInProtocolGuid
   gEsrtManagementProtocolGuid
   gEfiSmbiosProtocolGuid

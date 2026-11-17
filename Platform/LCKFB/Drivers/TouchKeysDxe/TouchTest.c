@@ -17,7 +17,8 @@
  *  It is started as a boot option, so the firmware's picture is already back
  *  in the panel's native orientation and coordinates map one to one.
  *
- *  Leave with Q on a keyboard, or by putting three fingers down.
+ *  Leave with Esc on a keyboard or with a double tap (TouchKeysDxe turns a
+ *  double tap, and two fingers, into Esc).
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
@@ -176,8 +177,13 @@ TouchTestMain (
   Print (L"  Touch Test\n\n");
   Print (L"  screen %u x %u, touch 0..%lu x 0..%lu\n", W, H, MaxX, MaxY);
   Print (L"  red = (0,0)  green = (maxX,0)\n  blue = (0,maxY)  white = (maxX,maxY)\n\n");
-  Print (L"  Touch the red corner: expect about 0, 0.\n");
-  Print (L"  Q or three fingers to leave.\n\n");
+  Print (L"  Touch the red corner: expect about 0, 0.\n\n");
+  Print (L"  Leave: Esc, or double-tap the screen.\n\n");
+  Print (L"  Touch in the menus:\n");
+  Print (L"    drag        move the highlight\n");
+  Print (L"    tap         select (Enter)\n");
+  Print (L"    double tap  back (Esc)\n");
+  Print (L"    2 fingers   back (Esc)\n\n");
   if ((W != MaxX + 1) || (H != MaxY + 1)) {
     Print (L"  Screen and touch sizes differ: dots are scaled.\n\n");
   }
@@ -194,9 +200,10 @@ TouchTestMain (
     }
 
     if (Which == 1) {
-      // Touches also arrive as keys (TouchKeysDxe); only Q leaves.
+      // Touches also arrive as keys (TouchKeysDxe): taps as Enter, drags as
+      // arrows, and a double tap or two fingers as Esc, which leaves.
       if (!EFI_ERROR (gST->ConIn->ReadKeyStroke (gST->ConIn, &Key)) &&
-          ((Key.UnicodeChar == L'q') || (Key.UnicodeChar == L'Q')))
+          (Key.ScanCode == SCAN_ESC))
       {
         break;
       }
@@ -208,12 +215,8 @@ TouchTestMain (
       continue;
     }
 
-    if (State.CurrentZ >= 3) {
-      break;
-    }
-
     if ((State.ActiveButtons & EFI_ABSP_TouchActive) == 0) {
-      gST->ConOut->SetCursorPosition (gST->ConOut, 0, 15);
+      gST->ConOut->SetCursorPosition (gST->ConOut, 0, 21);
       Print (L"  released                              ");
       DEBUG ((DEBUG_INFO, "TouchTest: released\n"));
       continue;
@@ -224,7 +227,7 @@ TouchTestMain (
     Fill (Gop, X - DOT / 2, Y - DOT / 2, DOT, DOT, 255, 255, 0);
 
     Reports++;
-    gST->ConOut->SetCursorPosition (gST->ConOut, 0, 15);
+    gST->ConOut->SetCursorPosition (gST->ConOut, 0, 21);
     Print (L"  X = %4lu  Y = %4lu  fingers = %lu      ", State.CurrentX, State.CurrentY, State.CurrentZ);
     if ((Reports % 5) == 1) {
       DEBUG ((DEBUG_INFO, "TouchTest: X=%lu Y=%lu fingers=%lu\n", State.CurrentX, State.CurrentY, State.CurrentZ));

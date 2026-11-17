@@ -10,8 +10,13 @@
  *    drag               an arrow key for every STEP pixels moved, in the
  *                       direction of the drag as the picture is turned
  *    tap                Enter
- *    long press         Esc
+ *    double tap         Esc
  *    two fingers        Esc
+ *
+ *  A tap waits DOUBLE_TAP_POLLS for a second one before it becomes Enter;
+ *  that is the price of the double tap.  A long press used to be Esc and is
+ *  not any more: it fired by accident, and the touch test needs a finger that
+ *  can rest on the screen.
  *
  *  It is a console input device like any other, so an OS loader that reads
  *  keys from the firmware (GRUB, the Windows boot manager) gets them too.
@@ -60,7 +65,7 @@
 #define POLL_100NS         (20 * 10000)      // 20 ms
 #define STEP_PIXELS        70                // one arrow key per this much drag
 #define TAP_SLOP_PIXELS    25                // movement still counted as a tap
-#define LONG_PRESS_POLLS   35                // 0.7 s
+#define DOUBLE_TAP_POLLS    16                // 0.32 s between two taps
 #define KEY_QUEUE_SIZE     16
 #define MAX_NOTIFY         16
 
@@ -108,7 +113,9 @@ STATIC BOOLEAN  mMoved;
 STATIC BOOLEAN  mTwoFingers;
 STATIC INT32    mStartX, mStartY;
 STATIC INT32    mAnchorX, mAnchorY;
-STATIC UINTN    mDownPolls;
+STATIC UINTN    mTick;                // counts polls
+STATIC BOOLEAN  mTapPending;          // one tap seen, waiting to see if a second follows
+STATIC UINTN    mTapTick;
 
 //
 // The same touches as an absolute pointer, in the panel's native
@@ -256,17 +263,20 @@ TouchPoll (
   UINTN  Fingers;
   INT32  X, Y, Dx, Dy;
 
+  mTick++;
+
+  // A single tap that no second tap followed is Enter.
+  if (mTapPending && !mDown && (mTick - mTapTick > DOUBLE_TAP_POLLS)) {
+    mTapPending = FALSE;
+    TouchQueueKey (SCAN_NULL, CHAR_CARRIAGE_RETURN);
+  }
+
   if (EFI_ERROR (TouchTransfer (GT_REG_STATUS, &Status, 1, FALSE))) {
     return;
   }
 
   if ((Status & 0x80) == 0) {
-    // No new report.  A finger that stays down keeps reporting, so this is
-    // only the gap between two reports.
-    if (mDown) {
-      mDownPolls++;
-    }
-
+    // No new report: the gap between two reports of a finger that stays down.
     return;
   }
 
@@ -294,11 +304,9 @@ TouchPoll (
       mTwoFingers = FALSE;
       mStartX     = mAnchorX = X;
       mStartY     = mAnchorY = Y;
-      mDownPolls  = 0;
       mTouchRotation = TouchCurrentRotation ();
     }
 
-    mDownPolls++;
     if (Fingers >= 2) {
       mTwoFingers = TRUE;
     }
@@ -306,6 +314,12 @@ TouchPoll (
     TouchToPicture (X - mAnchorX, Y - mAnchorY, &Dx, &Dy);
 
     if (!mTwoFingers) {
+      if (((ABS (Dy) >= STEP_PIXELS) || (ABS (Dx) >= STEP_PIXELS)) && mTapPending) {
+        // The touch after a tap turned into a drag: the tap was a tap.
+        mTapPending = FALSE;
+        TouchQueueKey (SCAN_NULL, CHAR_CARRIAGE_RETURN);
+      }
+
       if ((ABS (Dy) >= STEP_PIXELS) && (ABS (Dy) >= ABS (Dx))) {
         TouchQueueKey ((Dy > 0) ? SCAN_DOWN : SCAN_UP, 0);
         mMoved   = TRUE;
@@ -328,12 +342,16 @@ TouchPoll (
     gBS->SignalEvent (mAbsEvent);
 
     if (mTwoFingers) {
+      mTapPending = FALSE;
       TouchQueueKey (SCAN_ESC, 0);
     } else if (!mMoved) {
-      if (mDownPolls >= LONG_PRESS_POLLS) {
+      if (mTapPending) {
+        // second tap in time: a double tap
+        mTapPending = FALSE;
         TouchQueueKey (SCAN_ESC, 0);
       } else {
-        TouchQueueKey (SCAN_NULL, CHAR_CARRIAGE_RETURN);
+        mTapPending = TRUE;
+        mTapTick    = mTick;
       }
     }
   }
