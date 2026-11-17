@@ -7,6 +7,7 @@
 **/
 
 #langdef en-US  "English"
+#langdef zh-Hans "\wide简体中文\narrow"
 
 #string STR_NULL                                           #language en-US ""
 
@@ -23,3 +24,29 @@
 #string STR_NETWORK_STACK_PXE_BOOT_STATE_HELP              #language en-US "Enable or disable the UEFI PXE boot support."
 #string STR_NETWORK_STACK_HTTP_BOOT_STATE_PROMPT           #language en-US " HTTP Boot"
 #string STR_NETWORK_STACK_HTTP_BOOT_STATE_HELP             #language en-US "Enable or disable the UEFI HTTP boot support."
+
+/*
+ * Simplified Chinese.
+ *
+ * Every run of CJK text is bracketed by \wide ... \narrow.  The setup
+ * browser counts screen columns from those markers, not from the glyphs,
+ * so a CJK character outside them overprints the text that follows.
+ * Every string needs a zh-Hans entry, even when it is the same as the
+ * English: a missing one is drawn as a lone !, not as English.
+ * After changing this text run  scripts/gen-zh-hans-font.py check  and,
+ * if it asks for it,  generate  to update the glyphs in ZhHansFontDxe.
+ */
+
+#string STR_NULL                                           #language zh-Hans ""
+#string STR_FORM_SET_TITLE                                 #language zh-Hans "\wide网络协议栈配置\narrow"
+#string STR_FORM_SET_TITLE_HELP                            #language zh-Hans "\wide配置网络协议栈支持。\narrow"
+#string STR_NETWORK_STACK_STATE_PROMPT                     #language zh-Hans "\wide网络协议栈\narrow"
+#string STR_NETWORK_STACK_STATE_HELP                       #language zh-Hans "\wide启用或禁用\narrow UEFI \wide网络协议栈。\narrow"
+#string STR_NETWORK_STACK_IPV4_STATE_PROMPT                #language zh-Hans " IPv4 \wide协议栈\narrow"
+#string STR_NETWORK_STACK_IPV4_STATE_HELP                  #language zh-Hans "\wide启用或禁用\narrow UEFI IPv4 \wide网络协议栈。\narrow"
+#string STR_NETWORK_STACK_IPV6_STATE_PROMPT                #language zh-Hans " IPv6 \wide协议栈\narrow"
+#string STR_NETWORK_STACK_IPV6_STATE_HELP                  #language zh-Hans "\wide启用或禁用\narrow UEFI IPv6 \wide网络协议栈。\narrow"
+#string STR_NETWORK_STACK_PXE_BOOT_STATE_PROMPT            #language zh-Hans " PXE \wide启动\narrow"
+#string STR_NETWORK_STACK_PXE_BOOT_STATE_HELP              #language zh-Hans "\wide启用或禁用\narrow UEFI PXE \wide启动支持。\narrow"
+#string STR_NETWORK_STACK_HTTP_BOOT_STATE_PROMPT           #language zh-Hans " HTTP \wide启动\narrow"
+#string STR_NETWORK_STACK_HTTP_BOOT_STATE_HELP             #language zh-Hans "\wide启用或禁用\narrow UEFI HTTP \wide启动支持。\narrow"
