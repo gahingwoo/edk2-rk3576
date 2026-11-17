@@ -300,6 +300,9 @@ STATIC ROCKCHIP_DSI_PANEL_PROTOCOL  mTspi3mDsiPanel = {
   },
 
   .Prepare            = Tspi3mDsiPanelPrepare,
+
+  /* The overlay has rotation = <270>: the screen is used in landscape. */
+  .Rotation           = 270,
 };
 
 EFI_STATUS

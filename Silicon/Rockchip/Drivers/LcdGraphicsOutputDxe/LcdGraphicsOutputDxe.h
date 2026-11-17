@@ -92,9 +92,17 @@ LcdGraphicsBlt (
   IN UINTN                              Delta       OPTIONAL
   );
 
+/**
+  The rotation the firmware applies to its own drawing right now: 0, 90 or 270.
+**/
+UINT16
+LcdGraphicsEffectiveRotation (
+  VOID
+  );
+
 EFI_STATUS
 EFIAPI
-LcdGraphicsBlt90 (
+LcdGraphicsBltRotated (
   IN EFI_GRAPHICS_OUTPUT_PROTOCOL       *This,
   IN OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *BltBuffer  OPTIONAL,
   IN EFI_GRAPHICS_OUTPUT_BLT_OPERATION  BltOperation,

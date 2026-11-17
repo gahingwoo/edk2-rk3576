@@ -20,9 +20,67 @@
 
 #include <Guid/GlobalVariable.h>
 
+#include <Protocol/RockchipDsiPanel.h>
+
 #include "LcdGraphicsOutputDxe.h"
 
 STATIC EFI_CPU_ARCH_PROTOCOL  *mCpu;
+
+//
+// Rotation of the firmware's own drawing.
+//
+// The setting (PcdDisplayRotation, "Screen Rotation" in setup):
+//   0    default: a DSI panel's own mounting rotation, nothing on HDMI
+//   1    none
+//   90, 270
+//
+// A rotated GOP swaps the two dimensions it reports and only offers Blt,
+// because the framebuffer is still the panel's native scan.  That is fine
+// for the firmware's menus and useless to an OS: Windows and Linux's efifb
+// write the framebuffer themselves.  So the rotation ends at ReadyToBoot,
+// where the GOP goes back to describing the framebuffer as it is.  The boot
+// manager menu is not announced with ReadyToBoot and stays rotated.
+//
+STATIC LCD_INSTANCE  *mLcdInstance;
+STATIC BOOLEAN       mPrimaryIsDsi;
+STATIC BOOLEAN       mRotationEnded;
+
+STATIC
+VOID
+LcdGraphicsSetModeInfo (
+  IN  EFI_GRAPHICS_OUTPUT_PROTOCOL          *This,
+  OUT EFI_GRAPHICS_OUTPUT_MODE_INFORMATION  *Info,
+  IN  CONST DISPLAY_MODE                    *DisplayMode,
+  IN  BOOLEAN                               Update
+  );
+
+UINT16
+LcdGraphicsEffectiveRotation (
+  VOID
+  )
+{
+  UINT16                       Rotation;
+  ROCKCHIP_DSI_PANEL_PROTOCOL  *Panel;
+
+  if (mRotationEnded) {
+    return 0;
+  }
+
+  Rotation = PcdGet16 (PcdDisplayRotation);
+  if ((Rotation == 90) || (Rotation == 270)) {
+    return Rotation;
+  }
+
+  if ((Rotation != 0) || !mPrimaryIsDsi) {
+    return 0;
+  }
+
+  if (EFI_ERROR (gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel))) {
+    return 0;
+  }
+
+  return ((Panel->Rotation == 90) || (Panel->Rotation == 270)) ? Panel->Rotation : 0;
+}
 
 STATIC LCD_INSTANCE  mLcdTemplate = {
   LCD_INSTANCE_SIGNATURE,
@@ -697,6 +755,10 @@ LcdGraphicsOutputInit (
     goto Exit;
   }
 
+  mLcdInstance  = Instance;
+  mPrimaryIsDsi = (DisplayState->ConnectorState.OutputInterface &
+                   (VOP_OUTPUT_IF_MIPI0 | VOP_OUTPUT_IF_MIPI1)) != 0;
+
   Status = SetupDisplay (DisplayState);
   if (EFI_ERROR (Status)) {
     goto Exit;
@@ -746,6 +808,40 @@ Exit:
   return Status;
 }
 
+/**
+  End the rotation before an OS loader or an application is started: put the
+  GOP back to the framebuffer's real layout, blank it, and let the console
+  drivers bind again so that they pick the new geometry up.
+**/
+STATIC
+VOID
+EFIAPI
+LcdGraphicsOutputReadyToBootHandler (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  EFI_GRAPHICS_OUTPUT_PROTOCOL  *Gop;
+
+  if ((mLcdInstance == NULL) || mRotationEnded || (LcdGraphicsEffectiveRotation () == 0)) {
+    return;
+  }
+
+  Gop = &mLcdInstance->Gop;
+  if (Gop->Mode->Mode >= Gop->Mode->MaxMode) {
+    return;
+  }
+
+  DEBUG ((DEBUG_INFO, "%a: rotation %u ends here, GOP back to native scan\n", __func__, LcdGraphicsEffectiveRotation ()));
+
+  mRotationEnded = TRUE;
+  LcdGraphicsSetModeInfo (Gop, Gop->Mode->Info, &mLcdInstance->DisplayModes[Gop->Mode->Mode], TRUE);
+  ZeroMem ((VOID *)(UINTN)Gop->Mode->FrameBufferBase, Gop->Mode->FrameBufferSize);
+
+  gBS->DisconnectController (mLcdInstance->Handle, NULL, NULL);
+  gBS->ConnectController (mLcdInstance->Handle, NULL, NULL, TRUE);
+}
+
 VOID
 EFIAPI
 LcdGraphicsOutputEndOfDxeEventHandler (
@@ -788,6 +884,18 @@ LcdGraphicsOutputDxeInitialize (
                   );
   ASSERT_EFI_ERROR (Status);
 
+  {
+    EFI_EVENT  ReadyToBootEvent;
+
+    Status = EfiCreateEventReadyToBootEx (
+               TPL_CALLBACK,
+               LcdGraphicsOutputReadyToBootHandler,
+               NULL,
+               &ReadyToBootEvent
+               );
+    ASSERT_EFI_ERROR (Status);
+  }
+
   return Status;
 }
 
@@ -800,11 +908,11 @@ LcdGraphicsSetModeInfo (
   IN  BOOLEAN                               Update
   )
 {
-  UINT16  Rotation = PcdGet16 (PcdDisplayRotation);
+  UINT16  Rotation = LcdGraphicsEffectiveRotation ();
 
   This->Mode->Info->Version = 0;
 
-  if ((Rotation == 90)) {
+  if ((Rotation == 90) || (Rotation == 270)) {
     //
     // Swap the reported resolution and only allow Blt operations.
     //
@@ -822,7 +930,8 @@ LcdGraphicsSetModeInfo (
   if (Update) {
     switch (Rotation) {
       case 90:
-        This->Blt = LcdGraphicsBlt90;
+      case 270:
+        This->Blt = LcdGraphicsBltRotated;
         break;
 
       default:

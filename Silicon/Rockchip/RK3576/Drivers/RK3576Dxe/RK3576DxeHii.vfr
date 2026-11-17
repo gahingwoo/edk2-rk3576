@@ -517,8 +517,10 @@ formset
           help        = STRING_TOKEN(STR_DISPLAY_ROTATION_HELP),
           flags       = NUMERIC_SIZE_2 | INTERACTIVE | RESET_REQUIRED,
           default     = FixedPcdGet16 (PcdDisplayRotationDefault),
-          option text = STRING_TOKEN(STR_DISPLAY_ROTATION_0),  value = 0,  flags = 0;
-          option text = STRING_TOKEN(STR_DISPLAY_ROTATION_90), value = 90, flags = 0;
+          option text = STRING_TOKEN(STR_DISPLAY_ROTATION_0),    value = 0,   flags = 0;
+          option text = STRING_TOKEN(STR_DISPLAY_ROTATION_NONE), value = 1,   flags = 0;
+          option text = STRING_TOKEN(STR_DISPLAY_ROTATION_90),   value = 90,  flags = 0;
+          option text = STRING_TOKEN(STR_DISPLAY_ROTATION_270),  value = 270, flags = 0;
         endoneof;
 
         suppressif (get(DisplayConnectorsMask) & (VOP_OUTPUT_IF_HDMI0 | VOP_OUTPUT_IF_HDMI1)) == 0;

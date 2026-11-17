@@ -204,9 +204,36 @@ LcdGraphicsBlt (
   return EFI_SUCCESS;
 }
 
+/**
+  Address in the framebuffer of the pixel that is (X, Y) on the rotated
+  screen.  The framebuffer is the panel's native scan, NativeWidth wide; the
+  mode the GOP reports has the two dimensions swapped.
+
+  90:  the rotated picture's top edge is the panel's right edge.
+  270: the rotated picture's top edge is the panel's left edge.
+**/
+STATIC
+UINT32 *
+LcdRotatedPixel (
+  IN EFI_GRAPHICS_OUTPUT_PROTOCOL  *This,
+  IN UINTN                         X,
+  IN UINTN                         Y
+  )
+{
+  UINT32  *FrameBuffer = (UINT32 *)This->Mode->FrameBufferBase;
+  UINTN   NativeWidth  = This->Mode->Info->VerticalResolution;
+  UINTN   NativeHeight = This->Mode->Info->HorizontalResolution;
+
+  if (LcdGraphicsEffectiveRotation () == 270) {
+    return FrameBuffer + Y + (NativeHeight - 1 - X) * NativeWidth;
+  }
+
+  return FrameBuffer + (NativeWidth - 1 - Y) + X * NativeWidth;
+}
+
 EFI_STATUS
 EFIAPI
-LcdGraphicsBlt90 (
+LcdGraphicsBltRotated (
   IN EFI_GRAPHICS_OUTPUT_PROTOCOL       *This,
   IN OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *BltBuffer  OPTIONAL,
   IN EFI_GRAPHICS_OUTPUT_BLT_OPERATION  BltOperation,
@@ -220,17 +247,13 @@ LcdGraphicsBlt90 (
   )
 {
   EFI_STATUS  Status;
-  UINT32      *FrameBuffer;
-  UINT32      HorizontalResolution;
   UINTN       WidthInBytes;
   UINT32      *SourceBuffer;
   UINT32      *DestinationBuffer;
   UINTN       Y;
   UINTN       X;
 
-  FrameBuffer          = (UINT32 *)This->Mode->FrameBufferBase;
-  HorizontalResolution = This->Mode->Info->VerticalResolution;
-  WidthInBytes         = Width * RK_BYTES_PER_PIXEL;
+  WidthInBytes = Width * RK_BYTES_PER_PIXEL;
 
   Status = LcdGraphicsBltCheckParameters (
              This,
@@ -254,9 +277,7 @@ LcdGraphicsBlt90 (
 
       for (Y = 0; Y < Height; Y++) {
         for (X = 0; X < Width; X++) {
-          DestinationBuffer = FrameBuffer +
-                              (HorizontalResolution - 1 - (DestinationY + Y)) +
-                              (DestinationX + X) * HorizontalResolution;
+          DestinationBuffer = LcdRotatedPixel (This, DestinationX + X, DestinationY + Y);
 
           *DestinationBuffer = *SourceBuffer;
         }
@@ -271,9 +292,7 @@ LcdGraphicsBlt90 (
 
       for (Y = 0; Y < Height; Y++) {
         for (X = 0; X < Width; X++) {
-          SourceBuffer = FrameBuffer +
-                         (HorizontalResolution - 1 - (SourceY + Y)) +
-                         (SourceX + X) * HorizontalResolution;
+          SourceBuffer = LcdRotatedPixel (This, SourceX + X, SourceY + Y);
 
           DestinationBuffer = (UINT32 *)((UINTN)BltBuffer +
                                          (DestinationY + Y) * Delta +
@@ -296,9 +315,7 @@ LcdGraphicsBlt90 (
                                     (SourceY + Y) * Delta +
                                     (SourceX + X) * RK_BYTES_PER_PIXEL);
 
-          DestinationBuffer = FrameBuffer +
-                              (HorizontalResolution - 1 - (DestinationY + Y)) +
-                              (DestinationX + X) * HorizontalResolution;
+          DestinationBuffer = LcdRotatedPixel (This, DestinationX + X, DestinationY + Y);
 
           *DestinationBuffer = *SourceBuffer;
         }
@@ -310,13 +327,9 @@ LcdGraphicsBlt90 (
       if (SourceY < DestinationY) {
         for (Y = Height; Y-- > 0;) {
           for (X = 0; X < Width; X++) {
-            SourceBuffer = FrameBuffer +
-                           (HorizontalResolution - 1 - (SourceY + Y)) +
-                           (SourceX + X) * HorizontalResolution;
+            SourceBuffer = LcdRotatedPixel (This, SourceX + X, SourceY + Y);
 
-            DestinationBuffer = FrameBuffer +
-                                (HorizontalResolution - 1 - (DestinationY + Y)) +
-                                (DestinationX + X) * HorizontalResolution;
+            DestinationBuffer = LcdRotatedPixel (This, DestinationX + X, DestinationY + Y);
 
             *DestinationBuffer = *SourceBuffer;
           }
@@ -324,13 +337,9 @@ LcdGraphicsBlt90 (
       } else {
         for (Y = 0; Y < Height; Y++) {
           for (X = 0; X < Width; X++) {
-            SourceBuffer = FrameBuffer +
-                           (HorizontalResolution - 1 - (SourceY + Y)) +
-                           (SourceX + X) * HorizontalResolution;
+            SourceBuffer = LcdRotatedPixel (This, SourceX + X, SourceY + Y);
 
-            DestinationBuffer = FrameBuffer +
-                                (HorizontalResolution - 1 - (DestinationY + Y)) +
-                                (DestinationX + X) * HorizontalResolution;
+            DestinationBuffer = LcdRotatedPixel (This, DestinationX + X, DestinationY + Y);
 
             *DestinationBuffer = *SourceBuffer;
           }

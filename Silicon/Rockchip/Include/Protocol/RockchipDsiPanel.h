@@ -43,6 +43,12 @@ struct _ROCKCHIP_DSI_PANEL_PROTOCOL {
   DISPLAY_MODE                  NativeMode;
 
   ROCKCHIP_DSI_PANEL_PREPARE    Prepare;
+  //
+  // How the panel is mounted: the clockwise rotation, in degrees, that the
+  // firmware applies to its own drawing so that it is upright (0, 90 or 270).
+  // An OS that takes the framebuffer over still gets the panel's native scan.
+  //
+  UINT16                        Rotation;
 };
 
 extern EFI_GUID  gRockchipDsiPanelProtocolGuid;

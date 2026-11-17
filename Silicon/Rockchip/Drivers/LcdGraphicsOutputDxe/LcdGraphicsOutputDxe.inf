@@ -49,9 +49,11 @@
   gEfiGraphicsOutputProtocolGuid
   gRockchipCrtcProtocolGuid
   gRockchipConnectorProtocolGuid
+  gRockchipDsiPanelProtocolGuid
 
 [Guids]
   gEfiEndOfDxeEventGroupGuid
+  gEfiEventReadyToBootGuid
 
 [Pcd]
   gRK3588TokenSpaceGuid.PcdDisplayModePreset
