@@ -188,3 +188,14 @@ git diff -- path/File.c > ../../patches/000N-what-it-does.patch
 
 Name it `NNNN-DEBUG-...` if it is tracing rather than a fix. That prefix is
 what `apply.sh` keys on to decide whether it is opt-in.
+
+### `0011-TerminalDxe-send-non-ASCII-text-as-UTF-8.patch`
+
+The serial console is a TTYTERM terminal, and for every terminal type but
+VT-UTF8 `TerminalConOutOutputString ()` turned a character that is neither
+ASCII nor a box or arrow glyph into `?`. With the menus in Chinese the
+serial console showed rows of question marks. Such characters are now sent
+as UTF-8, and an East Asian wide character advances the driver's cursor by
+two columns, as it does on a terminal and on the graphics console. English
+output is unchanged. Switching the terminal type to VT-UTF8 was not an
+option: its function keys differ, and `PlatformBm.c` asserts TTYTERM.

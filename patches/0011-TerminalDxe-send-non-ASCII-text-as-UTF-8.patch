@@ -1,0 +1,52 @@
+diff --git a/MdeModulePkg/Universal/Console/TerminalDxe/TerminalConOut.c b/MdeModulePkg/Universal/Console/TerminalDxe/TerminalConOut.c
+index 10d6695397..43d8e22f51 100644
+--- a/MdeModulePkg/Universal/Console/TerminalDxe/TerminalConOut.c
++++ b/MdeModulePkg/Universal/Console/TerminalDxe/TerminalConOut.c
+@@ -234,6 +234,47 @@ TerminalConOutOutputString (
+       case TerminalTypeVt400:
+       case TerminalTypeSCO:
+ 
++        //
++        // A character that is neither ASCII nor one of the box and arrow
++        // glyphs used to come out as '?', which turned a menu in another
++        // language into a screen of question marks on the serial console.
++        // Send it as UTF-8 instead: every terminal emulator in use today
++        // reads UTF-8, and English output is ASCII either way.
++        //
++        if ((*WString >= 0x80) &&
++            !TerminalIsValidTextGraphics (*WString, &GraphicChar, &AsciiChar))
++        {
++          UnicodeToUtf8 (*WString, &Utf8Char, &ValidBytes);
++          Length = ValidBytes;
++          Status = TerminalDevice->SerialIo->Write (
++                                               TerminalDevice->SerialIo,
++                                               &Length,
++                                               (UINT8 *)&Utf8Char
++                                               );
++          if (EFI_ERROR (Status)) {
++            goto OutputError;
++          }
++
++          //
++          // An East Asian wide character takes two columns on the terminal,
++          // as it does on the graphics console.  Count the second one here;
++          // the first is counted below like any other character.
++          //
++          if ((((*WString >= 0x1100) && (*WString <= 0x115F)) ||
++               ((*WString >= 0x2E80) && (*WString <= 0xA4CF)) ||
++               ((*WString >= 0xAC00) && (*WString <= 0xD7A3)) ||
++               ((*WString >= 0xF900) && (*WString <= 0xFAFF)) ||
++               ((*WString >= 0xFE30) && (*WString <= 0xFE4F)) ||
++               ((*WString >= 0xFF00) && (*WString <= 0xFF60)) ||
++               ((*WString >= 0xFFE0) && (*WString <= 0xFFE6))) &&
++              (Mode->CursorColumn < (INT32)(MaxColumn - 2)))
++          {
++            Mode->CursorColumn++;
++          }
++
++          break;
++        }
++
+         if (!TerminalIsValidTextGraphics (*WString, &GraphicChar, &AsciiChar)) {
+           //
+           // If it's not a graphic character convert Unicode to ASCII.
