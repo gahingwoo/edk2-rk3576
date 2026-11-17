@@ -100,6 +100,22 @@ boot drivers append to their help line once at start, VlanConfigDxe's whole
 "VLAN Configuration (MAC:...)" help line, and Secure Boot's
 "Enabled"/"Disabled" state, which is a C literal.
 
+### `0008-UiApp-rebuild-the-front-page-after-a-language-change.patch`
+
+The front page lists the other menus (Device Manager, Boot Manager, Boot
+Maintenance Manager, and any driver formset of the front page class) by
+copying their titles into its own strings when the page is built, in the
+language current then, with one text for every language. "Select Language"
+only wrote PlatformLang, so those entries kept the old language until the
+next boot. After a language change the menu is now built again
+(`UpdateFrontPageForm ()`), which takes the titles in the new language; the
+browser reparses the form when it sees the update. This was chosen over
+storing each title per language because it is two lines in the callback
+and covers every copied entry at once.
+
+The banner lines (CPU, memory, firmware version) are data from SMBIOS and
+PCDs, the same in every language, and are not rebuilt.
+
 ## Optional (`--with-debug`)
 
 ### `0003-DEBUG-PeilessSec-UART-checkpoints.patch`
