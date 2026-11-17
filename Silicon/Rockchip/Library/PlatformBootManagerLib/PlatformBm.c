@@ -18,8 +18,10 @@
 #include <Library/BootLogoLib.h>
 #include <Library/CapsuleLib.h>
 #include <Guid/GlobalVariable.h>
+#include <Guid/MdeModuleHii.h>
 #include <Library/DevicePathLib.h>
 #include <Library/DxeServicesTableLib.h>
+#include <Library/HiiLib.h>
 #include <Library/HobLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiBootManagerLib.h>
@@ -52,6 +54,17 @@
 // with a screen may have no keyboard at all.
 //
 #define BOOT_PROMPT_TOUCH  L"Setup (ESC/F2, or two fingers)   Shell (F1)   MaskROM (F4)   Continue (Enter, or tap)"
+
+//
+// The two prompts above are what the serial console gets, through Print (),
+// which cannot draw Chinese.  The copy under the logo comes from
+// PlatformBmStrings.uni instead, in the language being shown.
+//
+extern UINT8  PlatformBootManagerLibStrings[];
+
+STATIC EFI_GUID  mPlatformBmStringsGuid = {
+  0x49e466f8, 0x3197, 0x4e68, { 0x94, 0x6d, 0xd6, 0x7e, 0xb1, 0x8e, 0x00, 0x7e }
+};
 
 /**
   Is there a touch screen that acts as a keyboard?  It is the one device
@@ -91,6 +104,77 @@ PlatformHasTouchKeys (
 
   FreePool (Handles);
   return Present;
+}
+
+/**
+  The boot prompt for under the logo, in the platform language.
+
+  BootLogoUpdateProgress () centres its title as StrLen () narrow cells.  A
+  wide character takes two, and the \wide / \narrow markers take none, so
+  the string is given as many leading NARROW_CHARs (drawn as nothing) as it
+  has wide characters beyond its markers, and is centred again.
+
+  @return The prompt.  Never NULL; falls back to the English literals.
+**/
+STATIC
+CONST CHAR16 *
+PlatformBmLogoPrompt (
+  VOID
+  )
+{
+  STATIC CHAR16   *Prompt;
+  EFI_HII_HANDLE  HiiHandle;
+  CHAR16          *Text;
+  UINTN           Index;
+  UINTN           Wide;
+  UINTN           Markers;
+  UINTN           Pad;
+  BOOLEAN         InWide;
+
+  if (Prompt != NULL) {
+    return Prompt;
+  }
+
+  HiiHandle = HiiAddPackages (&mPlatformBmStringsGuid, NULL, PlatformBootManagerLibStrings, NULL);
+  Text      = NULL;
+  if (HiiHandle != NULL) {
+    Text = HiiGetString (
+             HiiHandle,
+             PlatformHasTouchKeys () ? STRING_TOKEN (STR_BOOT_PROMPT_TOUCH) : STRING_TOKEN (STR_BOOT_PROMPT),
+             NULL
+             );
+  }
+
+  if (Text == NULL) {
+    return PlatformHasTouchKeys () ? BOOT_PROMPT_TOUCH : BOOT_PROMPT;
+  }
+
+  Wide    = 0;
+  Markers = 0;
+  InWide  = FALSE;
+  for (Index = 0; Text[Index] != L'\0'; Index++) {
+    if ((Text[Index] == WIDE_CHAR) || (Text[Index] == NARROW_CHAR)) {
+      InWide = (BOOLEAN)(Text[Index] == WIDE_CHAR);
+      Markers++;
+    } else if (InWide) {
+      Wide++;
+    }
+  }
+
+  Pad    = (Wide > Markers) ? Wide - Markers : 0;
+  Prompt = AllocatePool ((Pad + Index + 1) * sizeof (CHAR16));
+  if (Prompt == NULL) {
+    FreePool (Text);
+    return PlatformHasTouchKeys () ? BOOT_PROMPT_TOUCH : BOOT_PROMPT;
+  }
+
+  for (Index = 0; Index < Pad; Index++) {
+    Prompt[Index] = NARROW_CHAR;
+  }
+
+  StrCpyS (&Prompt[Pad], StrLen (Text) + 1, Text);
+  FreePool (Text);
+  return Prompt;
 }
 
 #define DP_NODE_LEN(Type)  { (UINT8)sizeof (Type), (UINT8)(sizeof (Type) >> 8) }
@@ -1446,7 +1530,7 @@ PlatformBootManagerWaitCallback (
   Status = BootLogoUpdateProgress (
              White.Pixel,
              Black.Pixel,
-             PlatformHasTouchKeys () ? BOOT_PROMPT_TOUCH : BOOT_PROMPT,
+             (CHAR16 *)PlatformBmLogoPrompt (),
              White.Pixel,
              (Timeout - TimeoutRemain) * 100 / Timeout,
              0

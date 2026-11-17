@@ -230,6 +230,14 @@ def collect(edk2):
 
     def check_file(label, lines, full):
         langdefs, strings = parse_uni(lines)
+        # BaseTools' UNI parser knows \n, \r, \t, \", \', \\, \wide,
+        # \narrow, \nbr and \xHHHH\ -- not \uHHHH, which it leaves in the
+        # string as six characters.  Write the character itself instead.
+        for name, lang, text, no in strings:
+            if re.search(r"\\u[0-9A-Fa-f]{4}", text.replace("\\\\", "")):
+                problems.append("%s:%d %s (%s): \\u escapes are not "
+                                "understood by the UNI compiler and show "
+                                "literally" % (label, no, name or "?", lang))
         has_lang = LANG in langdefs or any(s[1] == LANG for s in strings)
         if not has_lang:
             return

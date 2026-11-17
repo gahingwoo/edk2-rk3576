@@ -1,0 +1,37 @@
+diff --git a/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c b/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c
+index 24f9f1e..f296d4f 100644
+--- a/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c
++++ b/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c
+@@ -39,6 +39,14 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ #define FRONT_PAGE_KEY_LANGUAGE  0x1002
+ #define FRONT_PAGE_KEY_DRIVER    0x2000
+ 
++//
++// FrontPage.c: builds the front page's menu again.
++//
++VOID
++UpdateFrontPageForm (
++  VOID
++  );
++
+ typedef struct {
+   EFI_STRING_ID    PromptId;
+   EFI_STRING_ID    HelpId;
+@@ -225,6 +233,17 @@ UiSupportLibCallbackHandler (
+ 
+       case FRONT_PAGE_KEY_LANGUAGE:
+         *Status = LanguageChangeHandler (Value);
++        if (!EFI_ERROR (*Status)) {
++          //
++          // The entries for other formsets (Device Manager, Boot Manager, ...)
++          // are copies of their titles, taken in the language current when
++          // the menu was built and stored for every language.  Build it again
++          // so they follow the language just selected; the browser reparses
++          // the form when it sees the update.
++          //
++          UpdateFrontPageForm ();
++        }
++
+         break;
+ 
+       case FRONT_PAGE_KEY_RESET:
