@@ -464,6 +464,20 @@ FdtFixupVopDevices (
     DCLK_VP1,
     DCLK_VP2,
     PCLK_VOP_ROOT,
+    //
+    // A MIPI DSI screen the firmware lit: the DSI host, its D-PHY and the
+    // PWM behind the backlight.  The mainline device tree has the first two
+    // disabled and no node at all for the third, so nothing else holds
+    // their clocks, and "clk: Disabling unused clocks" took the picture
+    // away and left the backlight on.  Their power domain, PD_VO0, is a
+    // child of PD_VOP and goes unmanaged with it.
+    //
+    PCLK_DSIHOST0,
+    CLK_DSIHOST0,
+    PCLK_MIPI_DCPHY,
+    CLK_PHY_REF_SRC,
+    CLK_PWM2,
+    PCLK_PWM2,
   };
 
   UINTN  Index;

@@ -6,7 +6,13 @@
  * unchanged.  Anything the firmware needs on top of it goes here, so the
  * mainline file can be replaced by a newer one without a merge.
  *
- * Nothing is added yet.  The CM5-IO wrapper forces both USB controllers to
+ * Added: the GT9271 touch controller of LCKFB's 800x1280 DSI screen.  The
+ * screen itself is not described: mainline has no init sequence for this
+ * panel, so an OS either keeps the picture the firmware left (the "force
+ * GOP" setting) or brings its own device tree.  Touch needs nothing but
+ * the mainline goodix driver, and a missing screen only fails its probe.
+ *
+ * The CM5-IO wrapper forces both USB controllers to
  * host mode and enables the UFS controller; neither has been shown to be
  * needed on this board, and the USB-C port here is described with a FUSB302
  * and role switching that a forced host mode would override.
@@ -15,3 +21,39 @@
  */
 
 #include "rk3576-lckfb-tspi-3m.dts"
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0m1_xfer>;
+	clock-frequency = <400000>;
+	status = "okay";
+
+	touchscreen@5d {
+		compatible = "goodix,gt9271";
+		reg = <0x5d>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PC5 IRQ_TYPE_LEVEL_LOW>;
+		irq-gpios = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
+		/*
+		 * The line resets the chip when low, but the goodix driver
+		 * writes 0 to reset and 1 to release, so this is ACTIVE_HIGH
+		 * like on every other board using it.
+		 */
+		reset-gpios = <&gpio0 RK_PD0 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&touch_int &touch_rst>;
+	};
+};
+
+&pinctrl {
+	touch {
+		/* The interrupt line needs a pull-up and the board has none. */
+		touch_int: touch-int {
+			rockchip,pins = <0 RK_PC5 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+
+		touch_rst: touch-rst {
+			rockchip,pins = <0 RK_PD0 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+};
