@@ -1417,6 +1417,22 @@ Vop2IfConfig (
 
       MmioWrite32 (Vop2->BaseAddress + RK3576_MIPI0_IF_CTRL, IfCtrl);
       DEBUG ((DEBUG_INFO, "VOP2: MIPI0_IF_CTRL = 0x%08x\n", IfCtrl));
+
+      /*
+       * Port clock dividers, as mainline's rk3576_set_intf_mux() has them
+       * for anything that is not YUV420: the clock coming in is the pixel
+       * clock, dclk_out is not divided, and dclk_core is divided by two on
+       * a port that handles two pixels per clock (VP0) and not at all on
+       * VP1 and VP2.  Vop2CalcCruConfig() above is RK3588 arithmetic: it
+       * asked for twice the pixel clock and /4 on both, which with the
+       * clock really supplied here leaves the port at a quarter of its rate.
+       * (The vendor kernel on VP2 reads VP2_CLK_CTRL = 0.)
+       */
+      DclkCoreDiv            = (Vp == 0) ? 1 : 0;
+      DclkOutDiv             = 0;
+      CrtcState->DclkCoreDiv = DclkCoreDiv;
+      CrtcState->DclkOutDiv  = DclkOutDiv;
+      DEBUG ((DEBUG_INFO, "VOP2: VP%u_CLK_CTRL core div %u, out div %u\n", Vp, DclkCoreDiv, DclkOutDiv));
     }
   }
 
