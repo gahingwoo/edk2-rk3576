@@ -160,6 +160,29 @@ Simulated over every zh-Hans string at the help widths of 80, 100, 128 and
 160 columns: lines starting with closing punctuation 36 before, 0 after
 except inside such over-long runs; Latin words split 20 before, 0 after.
 
+### `0013-DisplayEngine-select-the-statement-a-mouse-clicks.patch`
+
+Applies on top of 0009 and 0010, and after 0012 when that is there; it
+touches none of their lines. A mouse click in the menus used to be Enter,
+which opened the highlighted entry and not the one under the pointer.
+Now, while the display engine waits for input, a left click picks what it
+lands on: on a statement it moves the highlight there, and on the
+highlighted statement it is Enter. The same holds for the options of a
+one-of popup and the buttons of a Yes/No popup. A click on anything else
+(blank rows, help text, the title, the key bar) does nothing. Right click
+and the wheel stay keys (Esc, Up, Down).
+
+The display engine does not know where a pointer is. The new
+`PointerClick.c` looks for `DISPLAY_POINTER_CLICK_PROTOCOL`, which
+OnScreenKeyboardDxe installs: it tells the driver while it waits
+(`SetReading`), and gets each click as the text cell it landed on
+(`WaitForClick`, `GetClick`). The driver works that cell out from the
+picture, the console's columns and rows and GraphicsConsole's 8x19 cells
+centred in it, so the rotation is already accounted for. With no such
+protocol nothing changes. The structure is also defined in
+`Silicon/Rockchip/Include/Protocol/RockchipOnScreenKeyboard.h`; the two must
+stay the same.
+
 ## Optional (`--with-debug`)
 
 ### `0003-DEBUG-PeilessSec-UART-checkpoints.patch`

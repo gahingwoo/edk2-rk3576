@@ -21,7 +21,9 @@
  *             through protocol notifications.  A mouse gets a cursor.
  *             Outside the keyboard a mouse also stands in for the menu keys:
  *             the wheel is Up and Down, a left click Enter, a right click
- *             Esc.
+ *             Esc.  While the setup browser waits for input (patch 0013),
+ *             a left click goes to it instead, as the text cell under the
+ *             pointer, and it picks the statement there.
  *
  *    touch    a touch screen driver that already turns touches into keys
  *             (TouchKeysDxe on the TaishanPi 3M) names its pointer through
@@ -161,6 +163,13 @@ STATIC BOOLEAN  mTouchOwned;
 STATIC INT32  mLastCursorRow = -1;
 
 STATIC BOOLEAN  mCursorPlaced;
+
+// clicks for the setup browser
+STATIC EFI_EVENT  mClickEvent;
+STATIC BOOLEAN    mClickReading;
+STATIC BOOLEAN    mClickPending;
+STATIC UINTN      mClickColumn;
+STATIC UINTN      mClickRow;
 
 STATIC
 VOID
@@ -872,6 +881,145 @@ STATIC ROCKCHIP_ON_SCREEN_KEYBOARD_PROTOCOL  mOskProtocol = {
 };
 
 //
+// Clicks for the setup browser
+//
+
+STATIC
+EFI_STATUS
+EFIAPI
+OskGetClick (
+  IN  DISPLAY_POINTER_CLICK_PROTOCOL  *This,
+  OUT UINTN                           *Column,
+  OUT UINTN                           *Row
+  )
+{
+  EFI_TPL     Tpl;
+  EFI_STATUS  Status;
+
+  if ((Column == NULL) || (Row == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Tpl    = gBS->RaiseTPL (TPL_NOTIFY);
+  Status = EFI_NOT_READY;
+  if (mClickPending) {
+    *Column       = mClickColumn;
+    *Row          = mClickRow;
+    mClickPending = FALSE;
+    Status        = EFI_SUCCESS;
+  }
+
+  gBS->RestoreTPL (Tpl);
+  return Status;
+}
+
+STATIC
+VOID
+EFIAPI
+OskSetReading (
+  IN DISPLAY_POINTER_CLICK_PROTOCOL  *This,
+  IN BOOLEAN                         Reading
+  )
+{
+  EFI_TPL  Tpl;
+
+  Tpl           = gBS->RaiseTPL (TPL_NOTIFY);
+  mClickReading = Reading;
+  if (Reading) {
+    // a click from before belongs to no one now
+    mClickPending = FALSE;
+  }
+
+  gBS->RestoreTPL (Tpl);
+}
+
+STATIC
+VOID
+EFIAPI
+OskWaitForClick (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  if (mClickPending) {
+    gBS->SignalEvent (Event);
+  }
+}
+
+STATIC DISPLAY_POINTER_CLICK_PROTOCOL  mClickProtocol = {
+  DISPLAY_POINTER_CLICK_REVISION,
+  NULL,
+  OskGetClick,
+  OskSetReading
+};
+
+STATIC EFI_GUID  mClickProtocolGuid = DISPLAY_POINTER_CLICK_PROTOCOL_GUID;
+
+/**
+  The text cell under a point of the picture, as GraphicsConsole lays the
+  console out: 8 x 19 cells, the grid centred in the picture.  The point
+  is in the picture's own coordinates, so the rotation is already in it.
+**/
+STATIC
+BOOLEAN
+OskTextCell (
+  IN  INT32  X,
+  IN  INT32  Y,
+  OUT UINTN  *Column,
+  OUT UINTN  *Row
+  )
+{
+  EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL  *Out;
+  UINTN                            Columns, Rows;
+  INT32                            X0, Y0;
+
+  Out = gST->ConOut;
+  if ((Out == NULL) || (Out->Mode == NULL) ||
+      EFI_ERROR (Out->QueryMode (Out, (UINTN)Out->Mode->Mode, &Columns, &Rows)) ||
+      (Columns * 8 > mOskScreenW) || (Rows * 19 > mOskScreenH))
+  {
+    return FALSE;
+  }
+
+  X0 = (INT32)((mOskScreenW - Columns * 8) / 2);
+  Y0 = (INT32)((mOskScreenH - Rows * 19) / 2);
+  if ((X < X0) || (Y < Y0) || (X >= X0 + (INT32)(Columns * 8)) || (Y >= Y0 + (INT32)(Rows * 19))) {
+    return FALSE;
+  }
+
+  *Column = (UINTN)(X - X0) / 8;
+  *Row    = (UINTN)(Y - Y0) / 19;
+  return TRUE;
+}
+
+/**
+  A left click off the keyboard: to the setup browser while it reads
+  input, as Enter otherwise.
+**/
+STATIC
+VOID
+OskClickOffKeyboard (
+  IN INT32  X,
+  IN INT32  Y
+  )
+{
+  UINTN  Column, Row;
+
+  if (!mClickReading) {
+    OskQueueKey (SCAN_NULL, CHAR_CARRIAGE_RETURN);
+    return;
+  }
+
+  // outside the text grid there is nothing to click on
+  if (OskTextCell (X, Y, &Column, &Row)) {
+    mClickColumn  = Column;
+    mClickRow     = Row;
+    mClickPending = TRUE;
+    gBS->SignalEvent (mClickEvent);
+  }
+}
+
+//
 // Mice
 //
 
@@ -1012,8 +1160,7 @@ OskMouseButtons (
 
   if (Left && !Mouse->Left) {
     if (!OskPress (mOskCursorX, mOskCursorY)) {
-      // not on the keyboard: a menu key
-      OskQueueKey (SCAN_NULL, CHAR_CARRIAGE_RETURN);
+      OskClickOffKeyboard (mOskCursorX, mOskCursorY);
     }
   } else if (!Left && Mouse->Left) {
     OskPressMove (mOskCursorX, mOskCursorY);
@@ -1361,6 +1508,13 @@ OnScreenKeyboardEntry (
   mTextIn.WaitForKey     = mWaitEvent;
   mTextInEx.WaitForKeyEx = mWaitEvent;
 
+  Status = gBS->CreateEvent (EVT_NOTIFY_WAIT, TPL_NOTIFY, OskWaitForClick, NULL, &mClickEvent);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  mClickProtocol.WaitForClick = mClickEvent;
+
   Status = gBS->CreateEvent (EVT_TIMER | EVT_NOTIFY_SIGNAL, TPL_CALLBACK, OskPoll, NULL, &mPollEvent);
   if (EFI_ERROR (Status)) {
     return Status;
@@ -1372,6 +1526,8 @@ OnScreenKeyboardEntry (
                   &Handle,
                   &gRockchipOnScreenKeyboardProtocolGuid,
                   &mOskProtocol,
+                  &mClickProtocolGuid,
+                  &mClickProtocol,
                   NULL
                   );
   if (EFI_ERROR (Status)) {

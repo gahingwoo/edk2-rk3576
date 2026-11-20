@@ -73,4 +73,47 @@ struct _ROCKCHIP_ON_SCREEN_KEYBOARD_PROTOCOL {
 
 extern EFI_GUID  gRockchipOnScreenKeyboardProtocolGuid;
 
+//
+// Mouse clicks for the setup browser, as text cells.
+//
+// The display engine (patches/0013) cannot tell where a pointer is; the
+// keyboard driver can.  So the keyboard driver installs this protocol, and
+// while the display engine waits for input it calls SetReading (TRUE): a
+// left click off the keyboard then comes to it as the text cell it landed
+// on, instead of as Enter.  At any other time (the Shell, GRUB, the boot
+// menu application) a click stays Enter.
+//
+// This is a copy of DISPLAY_POINTER_CLICK_PROTOCOL in
+// MdeModulePkg/Universal/DisplayEngineDxe/PointerClick.h, which the patch
+// adds; the GUID and the layout must stay the same on both sides.
+//
+#define DISPLAY_POINTER_CLICK_PROTOCOL_GUID \
+  { 0x5b0d2c6e, 0x8e41, 0x4b7a, { 0x9f, 0x13, 0x2a, 0x6c, 0x70, 0x4e, 0xd1, 0x95 } }
+
+#define DISPLAY_POINTER_CLICK_REVISION  1
+
+typedef struct _DISPLAY_POINTER_CLICK_PROTOCOL DISPLAY_POINTER_CLICK_PROTOCOL;
+
+typedef
+EFI_STATUS
+(EFIAPI *DISPLAY_POINTER_GET_CLICK)(
+  IN  DISPLAY_POINTER_CLICK_PROTOCOL  *This,
+  OUT UINTN                           *Column,
+  OUT UINTN                           *Row
+  );
+
+typedef
+VOID
+(EFIAPI *DISPLAY_POINTER_SET_READING)(
+  IN DISPLAY_POINTER_CLICK_PROTOCOL  *This,
+  IN BOOLEAN                         Reading
+  );
+
+struct _DISPLAY_POINTER_CLICK_PROTOCOL {
+  UINT32                         Revision;
+  EFI_EVENT                      WaitForClick;
+  DISPLAY_POINTER_GET_CLICK      GetClick;
+  DISPLAY_POINTER_SET_READING    SetReading;
+};
+
 #endif
