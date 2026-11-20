@@ -4,14 +4,14 @@
  *
  *  Ctrl+Alt+F12 on a keyboard (either Ctrl, either Alt), or F12 on the
  *  serial console, saves the picture to the first writable FAT file
- *  system, as \screenshots\YYYYMMDD-HHMMSS.png:
+ *  system, as \uefi-screenshots\YYYYMMDD-HHMMSS.png:
  *
  *    1. a USB stick,
  *    2. any other removable medium (an SD card),
  *    3. anything else that is writable (the ESP on the eMMC or an NVMe).
  *
  *  When the clock has not been set (a year before 2025) the name is a
- *  counter instead, \screenshots\shot-NNNN.png.
+ *  counter instead, \uefi-screenshots\shot-NNNN.png.
  *
  *  The picture is the GOP's current mode, read with Blt, so it is what
  *  the firmware draws: on the TaishanPi 3M the rotated landscape menus come
@@ -69,7 +69,7 @@
 
 #include "lodepng.h"
 
-#define SHOT_DIRECTORY      L"screenshots"
+#define SHOT_DIRECTORY      L"uefi-screenshots"
 #define STATUS_SIDE         32
 #define STATUS_SHOW_US      (400 * 1000)
 #define MAX_COUNTER         9999
