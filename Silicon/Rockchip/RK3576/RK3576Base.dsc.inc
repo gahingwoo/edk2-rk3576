@@ -470,6 +470,8 @@
   gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutputDefault|FALSE
   gRK3588TokenSpaceGuid.PcdDisplayRotationDefault|0
   gRK3588TokenSpaceGuid.PcdHdmiSignalingModeDefault|$(HDMI_SIGNALING_MODE_AUTO)
+  # a USB stick, then an SD card, then internal storage (SCREENSHOT_TARGET_ANY)
+  gRK3588TokenSpaceGuid.PcdScreenshotTargetDefault|0
 
   #
   # Network stack runtime defaults
