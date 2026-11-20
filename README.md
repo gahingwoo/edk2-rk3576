@@ -55,6 +55,13 @@ to Simplified Chinese on the front page.
 HWiNFO on the TaishanPi 3M under Windows: eight cores, 3838 MB, the board and
 firmware names from SMBIOS, the Mali-G52.
 
+Screenshots of the firmware itself: press Ctrl+Alt+F12 on a keyboard, or F12
+on the serial console, while a FAT formatted USB stick is plugged in. The
+picture is saved as `\uefi-screenshots\YYYYMMDD-HHMMSS.png` (`shot-NNNN.png` when
+the clock is not set) on the stick, else on an SD card, else on the ESP. A
+green square flashes in the top left corner when it is saved, yellow when
+there is nowhere to write, red when it failed; the serial log has the path.
+
 ## Boards
 
 | | Radxa ROCK 4D | ArmSoM CM5-IO | LCKFB TaishanPi 3M |

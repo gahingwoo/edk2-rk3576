@@ -1,0 +1,62 @@
+## @file
+#  Screenshots of the display as PNG files: Ctrl+Alt+F12 on a keyboard, F12
+#  on the serial console.  Saved under \uefi-screenshots on a USB stick, else on
+#  another removable medium, else on any writable FAT file system.
+#
+#  lodepng.c and lodepng.h are LodePNG (zlib licence) as built for UEFI by
+#  LongSoft's CrScreenshotDxe, unchanged.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = ScreenshotDxe
+  FILE_GUID                      = 12e45120-8bf6-4633-ba00-111a900e6ebd
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = ScreenshotDxeEntry
+
+[Sources]
+  ScreenshotDxe.c
+  lodepng.c
+  lodepng.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  MemoryAllocationLib
+  PrintLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Protocols]
+  gEfiBlockIoProtocolGuid               ## SOMETIMES_CONSUMES
+  gEfiDevicePathProtocolGuid            ## CONSUMES
+  gEfiGraphicsOutputProtocolGuid        ## CONSUMES
+  gEfiSimpleFileSystemProtocolGuid      ## CONSUMES
+  gEfiSimpleTextInputExProtocolGuid     ## CONSUMES
+
+[Guids]
+  gEfiEventExitBootServicesGuid
+
+[BuildOptions]
+  # LodePNG's switch for its UEFI build (allocation through boot services,
+  # no decoder, no disk or C library use)
+  GCC:*_*_*_CC_FLAGS = -DLODEPNG_UEFI_MODE
+
+[Depex]
+  # the screenshot event is created at entry; RegisterKeyNotify needs nothing more
+  gEfiTimerArchProtocolGuid
