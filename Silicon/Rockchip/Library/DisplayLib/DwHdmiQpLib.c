@@ -238,6 +238,7 @@ STATIC EFI_GUID  mRkDisplayDiagGuid = {
 #include <Library/uboot-env.h>
 
 #include <Protocol/RockchipConnectorProtocol.h>
+#include <Protocol/RockchipDsiPanel.h>
 
 #include <VarStoreData.h>
 
@@ -1165,17 +1166,38 @@ DwHdmiQpConnectorPreInit (
   //     regardless of which input is selected).  If EDID fails, the driver
   //     falls back to 1080p60.
   {
-    CONST UINTN  HPD_WAIT_TIMEOUT_MS = 5000;  /* 5 seconds */
-    CONST UINTN  HPD_POLL_MS         = 100;   /* poll every 100 ms */
-    UINTN        Elapsed             = 0;
-    BOOLEAN      HpdHigh             = FALSE;
+    UINTN        HpdWaitTimeoutMs = 5000;  /* 5 seconds */
+    CONST UINTN  HPD_POLL_MS      = 100;   /* poll every 100 ms */
+    UINTN        Elapsed          = 0;
+    BOOLEAN      HpdHigh          = FALSE;
     UINT32       HpdStatus;
+    ROCKCHIP_DSI_PANEL_PROTOCOL  *Panel;
+
+    //
+    // A DSI screen that says it is attached is what the firmware will show
+    // its picture on.  Waiting five seconds for a TV that may not be there
+    // then only delays every boot, so look at HPD once and move on.  An HDMI
+    // monitor that is already up still gets its HPD seen and is used as
+    // well when duplicate output is on; the forced-connected bypass below
+    // is not armed, so a missing monitor does not take the screen's place.
+    //
+    if (!EFI_ERROR (gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel)) &&
+        (Panel->Detect != NULL) && !EFI_ERROR (Panel->Detect (Panel)))
+    {
+      HpdStatus = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
+      Hdmi->HpdTimeoutFlag = FALSE;
+      DEBUG ((DEBUG_INFO,
+        "[RK3576-HDMI] DSI screen attached: no HPD wait, HPD is %a\n",
+        ((HpdStatus & RK3576_HDMI_LEVEL_INT) != 0) ? "HIGH" : "LOW"));
+      HpdWaitTimeoutMs = 0;
+      HpdHigh          = TRUE;   /* skips the timeout handling below */
+    }
 
     DEBUG ((DEBUG_INFO,
       "[RK3576-HDMI] Waiting up to %u s for HPD (TV may need time to initialise) ...\n",
-      HPD_WAIT_TIMEOUT_MS / 1000));
+      HpdWaitTimeoutMs / 1000));
 
-    while (Elapsed < HPD_WAIT_TIMEOUT_MS) {
+    while (Elapsed < HpdWaitTimeoutMs) {
       HpdStatus = MmioRead32 (RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
       if ((HpdStatus & RK3576_HDMI_LEVEL_INT) != 0) {
         HpdHigh = TRUE;
