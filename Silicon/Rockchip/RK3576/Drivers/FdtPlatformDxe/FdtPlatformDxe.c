@@ -820,6 +820,55 @@ FdtFixupSimpleFramebuffer (
     ));
 }
 
+/**
+  Keep the USB-A ports powered under the OS.
+
+  The mainline TaishanPi 3M tree names its two USB-A VBUS regulators only
+  from usb-a-connector nodes, and no driver enables a connector's supply
+  behind a hub, so Linux switched them off and lost the USB stick it was
+  booting from.  The firmware's own tree carries regulator-always-on; a
+  tree loaded from the boot partition may not, so the properties are set
+  here on whichever tree is handed over.
+**/
+STATIC
+VOID
+FdtFixupUsbAVbus (
+  IN VOID  *Fdt
+  )
+{
+  STATIC CONST CHAR8  *Regulators[] = {
+    "/regulator-vcc-5v0-usb2-host",
+    "/regulator-vcc-5v0-usb3-host",
+  };
+
+  UINTN  Index;
+  INT32  Node;
+  INT32  Ret;
+
+  if (!FixedPcdGetBool (PcdFdtUsbAVbusAlwaysOn)) {
+    return;
+  }
+
+  for (Index = 0; Index < ARRAY_SIZE (Regulators); Index++) {
+    Node = FdtPathOffset (Fdt, Regulators[Index]);
+    if (Node < 0) {
+      DEBUG ((DEBUG_WARN, "FdtPlatform: no %a in this tree, USB-A VBUS left as it is\n", Regulators[Index]));
+      continue;
+    }
+
+    Ret = FdtSetPropEmpty (Fdt, Node, "regulator-always-on");
+    if (Ret >= 0) {
+      Ret = FdtSetPropEmpty (Fdt, Node, "regulator-boot-on");
+    }
+
+    if (Ret < 0) {
+      DEBUG ((DEBUG_ERROR, "FdtPlatform: %a always-on: %a\n", Regulators[Index], FdtStrerror (Ret)));
+    } else {
+      DEBUG ((DEBUG_INFO, "FdtPlatform: %a kept on\n", Regulators[Index]));
+    }
+  }
+}
+
 STATIC
 EFI_STATUS
 EFIAPI
@@ -841,6 +890,7 @@ ApplyPlatformFdtFixups (
   FdtFixupNorFlashDevices (*Fdt);
   FdtFixupUfsDevices (*Fdt);
   FdtFixupUsbDrd0 (*Fdt);
+  FdtFixupUsbAVbus (*Fdt);
   FdtFixupChosen (*Fdt);
   FdtFixupSimpleFramebuffer (*Fdt);
 

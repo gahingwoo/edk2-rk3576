@@ -62,6 +62,7 @@
 [Protocols]
   gRockchipConnectorProtocolGuid
   gRockchipCrtcProtocolGuid
+  gRockchipDsiPanelProtocolGuid
 
 [Depex]
   gRockchipPlatformConfigAppliedProtocolGuid

@@ -86,6 +86,15 @@
 
 ################################################################################
 [PcdsFixedAtBuild.common]
+  # The firmware leaves the USB-C port's VBUS off, so nothing can appear on
+  # it: do not spend five seconds of every boot waiting for a device there.
+  gRK3576TokenSpaceGuid.PcdUsbCDeviceWaitMs|0
+
+  # Keep USB-A powered under Linux even with a device tree from the boot
+  # partition that lacks regulator-always-on (older Armbian and plain
+  # mainline trees for this board).
+  gRK3576TokenSpaceGuid.PcdFdtUsbAVbusAlwaysOn|TRUE
+
   # SMBIOS identification
   gRockchipTokenSpaceGuid.PcdPlatformName|"TaishanPi 3M"
   gRockchipTokenSpaceGuid.PcdPlatformVendorName|"LCKFB"
