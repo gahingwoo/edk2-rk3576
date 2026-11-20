@@ -45,6 +45,7 @@ typedef struct {
 #define OSK_ACT_MOVE   4
 #define OSK_ACT_FLOAT  5      // docked full width <-> floating
 #define OSK_ACT_ALPHA  6      // next opacity level
+#define OSK_ACT_SHOT   7      // a screenshot, through ScreenshotDxe
 
 //
 // Opacity levels, out of 256.  Labels are always drawn opaque.
@@ -76,7 +77,8 @@ typedef struct {
 #define OSK_ICON_OPACITY  2
 #define OSK_ICON_MOVE     3
 #define OSK_ICON_HIDE     4
-#define OSK_ICONS         4
+#define OSK_ICON_CAMERA   5     // only when ScreenshotDxe is there
+#define OSK_ICONS         5
 
 #define OSK_MAX_KEYS  96
 
@@ -197,6 +199,7 @@ extern INT32    mOskCursorX;
 extern INT32    mOskCursorY;
 extern UINTN    mOskDirect;         // depth of images that may write the framebuffer themselves
 extern BOOLEAN  mOskGone;           // ExitBootServices has happened
+extern BOOLEAN  mOskHiddenForShot;  // off the screen while a screenshot is read
 
 extern UINT32   mOskScreenW;
 extern UINT32   mOskScreenH;
