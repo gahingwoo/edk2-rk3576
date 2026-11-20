@@ -533,6 +533,7 @@
   gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutput|L"DisplayDuplicateOutput"|gRK3576DxeFormSetGuid|0x0|FALSE
   gRK3588TokenSpaceGuid.PcdDisplayRotation|L"DisplayRotation"|gRK3576DxeFormSetGuid|0x0|0
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode|L"HdmiSignalingMode"|gRK3576DxeFormSetGuid|0x0|0
+  gRK3588TokenSpaceGuid.PcdScreenshotTarget|L"ScreenshotTarget"|gRK3576DxeFormSetGuid|0x0|gRK3588TokenSpaceGuid.PcdScreenshotTargetDefault
 
 ################################################################################
 #

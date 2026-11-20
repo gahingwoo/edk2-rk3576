@@ -157,6 +157,14 @@ typedef struct {
 #define HDMI_SIGNALING_MODE_DVI   1
 #define HDMI_SIGNALING_MODE_HDMI  2
 
+//
+// Where ScreenshotDxe saves (PcdScreenshotTarget, variable ScreenshotTarget).
+//
+#define SCREENSHOT_TARGET_ANY       0   // a USB stick, then an SD card, then internal storage
+#define SCREENSHOT_TARGET_USB       1
+#define SCREENSHOT_TARGET_SD        2
+#define SCREENSHOT_TARGET_INTERNAL  3
+
 #pragma pack ()
 
 #endif // __VARSTORE_DATA_H__

@@ -201,6 +201,13 @@
   #
   gRK3588TokenSpaceGuid.PcdHdmiAudioPreset|FALSE|BOOLEAN|0x00010809
 
+  #
+  # Where ScreenshotDxe saves (setup "Save Screenshots To"): 0 a USB stick,
+  # then an SD card, then internal storage; 1 USB only; 2 SD only;
+  # 3 internal storage only.  SCREENSHOT_TARGET_* in RK3576 VarStoreData.h.
+  #
+  gRK3588TokenSpaceGuid.PcdScreenshotTargetDefault|0|UINT8|0x0001080A
+
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   #
   # Shared display PCDs — runtime-settable (the board DSCs bind these as
@@ -232,3 +239,4 @@
   gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutput|FALSE|BOOLEAN|0x00000806
   gRK3588TokenSpaceGuid.PcdDisplayRotation|0|UINT16|0x00000807
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode|0|UINT8|0x00000808
+  gRK3588TokenSpaceGuid.PcdScreenshotTarget|0|UINT8|0x0000080A

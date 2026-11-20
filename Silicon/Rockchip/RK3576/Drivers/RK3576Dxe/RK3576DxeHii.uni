@@ -199,6 +199,17 @@
 #string STR_HDMI_SIGNALING_MODE_HDMI                       #language en-US "HDMI"
 
 /*
+ * Screenshots (ScreenshotDxe)
+ */
+#string STR_SCREENSHOT_SUBTITLE                            #language en-US "Screenshots"
+#string STR_SCREENSHOT_TARGET_PROMPT                       #language en-US "Save Screenshots To"
+#string STR_SCREENSHOT_TARGET_HELP                         #language en-US "Where a screenshot of the display is saved. Take one with Ctrl+Alt+F12 on a keyboard, F12 on the serial console, or the camera icon on the on-screen keyboard. It is saved as \\uefi-screenshots\\YYYYMMDD-HHMMSS.png on a FAT formatted medium, and a green square flashes in the top left corner.\n\nWith one kind of medium chosen, no other is used: when it is missing, a yellow square flashes and nothing is saved. Applies at once."
+#string STR_SCREENSHOT_TARGET_ANY                          #language en-US "USB stick, then SD card, then internal storage"
+#string STR_SCREENSHOT_TARGET_USB                          #language en-US "USB stick only"
+#string STR_SCREENSHOT_TARGET_SD                           #language en-US "SD card only"
+#string STR_SCREENSHOT_TARGET_INTERNAL                     #language en-US "Internal storage only (eMMC, NVMe)"
+
+/*
  * ComboPHY mode configuration
  */
 
@@ -379,6 +390,13 @@
 #string STR_HDMI_SIGNALING_MODE_AUTO                       #language zh-Hans "\wide自动\narrow"
 #string STR_HDMI_SIGNALING_MODE_DVI                        #language zh-Hans "DVI"
 #string STR_HDMI_SIGNALING_MODE_HDMI                       #language zh-Hans "HDMI"
+#string STR_SCREENSHOT_SUBTITLE                            #language zh-Hans "\wide截图\narrow"
+#string STR_SCREENSHOT_TARGET_PROMPT                       #language zh-Hans "\wide截图保存位置\narrow"
+#string STR_SCREENSHOT_TARGET_HELP                         #language zh-Hans "\wide显示画面截图的保存位置。截图方法：键盘按\narrow Ctrl+Alt+F12\wide，串口控制台按\narrow F12\wide，或点屏幕键盘上的相机图标。图片保存为\narrow FAT \wide格式存储设备上的\narrow \\uefi-screenshots\\YYYYMMDD-HHMMSS.png\wide，左上角会闪一下绿色方块。\narrow\n\n\wide只选一种设备时不会改用其他设备：该设备不在时闪黄色方块，不保存。设置立即生效。\narrow"
+#string STR_SCREENSHOT_TARGET_ANY                          #language zh-Hans "U\wide盘，其次\narrow SD \wide卡，其次内部存储\narrow"
+#string STR_SCREENSHOT_TARGET_USB                          #language zh-Hans "\wide仅\narrow U\wide盘\narrow"
+#string STR_SCREENSHOT_TARGET_SD                           #language zh-Hans "\wide仅\narrow SD \wide卡\narrow"
+#string STR_SCREENSHOT_TARGET_INTERNAL                     #language zh-Hans "\wide仅内部存储（\narrow eMMC\wide、\narrow NVMe\wide）\narrow"
 #string STR_COMBO_PHY_FORM_TITLE                           #language zh-Hans "ComboPHY \wide模式\narrow"
 #string STR_COMBO_PHY_FORM_HELP                            #language zh-Hans "\wide配置\narrow Naneng Combo PHY \wide控制器。\narrow"
 #string STR_COMBO_PHY_FORM_SUBTITLE                        #language zh-Hans "\wide更改在重启后生效。\narrow"

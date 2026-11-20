@@ -35,6 +35,7 @@
   DebugLib
   DevicePathLib
   MemoryAllocationLib
+  PcdLib
   PrintLib
   TimerLib
   UefiBootServicesTableLib
@@ -51,6 +52,9 @@
 
 [Guids]
   gEfiEventExitBootServicesGuid
+
+[Pcd]
+  gRK3588TokenSpaceGuid.PcdScreenshotTarget      ## CONSUMES (read at every screenshot)
 
 [BuildOptions]
   # LodePNG's switch for its UEFI build (allocation through boot services,

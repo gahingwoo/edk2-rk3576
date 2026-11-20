@@ -7,8 +7,15 @@
  *  system, as \uefi-screenshots\YYYYMMDD-HHMMSS.png:
  *
  *    1. a USB stick,
- *    2. any other removable medium (an SD card),
- *    3. anything else that is writable (the ESP on the eMMC or an NVMe).
+ *    2. an SD card (or another removable medium that is not USB),
+ *    3. internal storage: anything else that is writable (the ESP on the
+ *       eMMC, an NVMe).
+ *
+ *  That order is the default.  "Save Screenshots To" in the platform setup
+ *  (PcdScreenshotTarget, the variable ScreenshotTarget) can limit it to one
+ *  of the three; then a missing medium is not replaced by another one, the
+ *  yellow square shows and the serial log says what was looked for.  The
+ *  setting is read for every screenshot, so a change applies at once.
  *
  *  When the clock has not been set (a year before 2025) the name is a
  *  counter instead, \uefi-screenshots\shot-NNNN.png.
@@ -55,6 +62,7 @@
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/PcdLib.h>
 #include <Library/PrintLib.h>
 #include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -73,6 +81,25 @@
 #define STATUS_SIDE         32
 #define STATUS_SHOW_US      (400 * 1000)
 #define MAX_COUNTER         9999
+
+//
+// Kinds of file system, in the default order.
+//
+#define SHOT_KIND_USB       0
+#define SHOT_KIND_SD        1
+#define SHOT_KIND_INTERNAL  2
+#define SHOT_KINDS          3
+
+//
+// PcdScreenshotTarget, the same values as SCREENSHOT_TARGET_* in the
+// RK3576 VarStoreData.h that the setup form uses.
+//
+#define SHOT_TARGET_ANY       0     // USB, then SD, then internal
+#define SHOT_TARGET_USB       1
+#define SHOT_TARGET_SD        2
+#define SHOT_TARGET_INTERNAL  3
+
+STATIC CONST CHAR8  *mKindName[SHOT_KINDS] = { "USB stick", "SD card", "internal storage" };
 
 STATIC EFI_EVENT                          mShotEvent;
 STATIC BOOLEAN                            mGone;
@@ -171,12 +198,13 @@ ShotShowStatus (
 }
 
 /**
-  How much a file system is preferred: 0 a USB stick, 1 other removable
-  media, 2 the rest.  MAX_UINTN: read only, do not use.
+  What a file system is on: SHOT_KIND_USB (a USB node in its path),
+  SHOT_KIND_SD (an SD node, or another removable medium), else
+  SHOT_KIND_INTERNAL.  MAX_UINTN: read only, do not use.
 **/
 STATIC
 UINTN
-ShotRank (
+ShotKind (
   IN EFI_HANDLE  Handle
   )
 {
@@ -200,12 +228,16 @@ ShotRank (
       if ((DevicePathType (Path) == MESSAGING_DEVICE_PATH) &&
           ((DevicePathSubType (Path) == MSG_USB_DP) || (DevicePathSubType (Path) == MSG_USB_CLASS_DP)))
       {
-        return 0;
+        return SHOT_KIND_USB;
+      }
+
+      if ((DevicePathType (Path) == MESSAGING_DEVICE_PATH) && (DevicePathSubType (Path) == MSG_SD_DP)) {
+        Removable = TRUE;
       }
     }
   }
 
-  return Removable ? 1 : 2;
+  return Removable ? SHOT_KIND_SD : SHOT_KIND_INTERNAL;
 }
 
 /**
@@ -269,15 +301,18 @@ ShotFileName (
 }
 
 /**
-  Write the PNG to the best writable file system.
+  Write the PNG to the best writable file system of the kinds allowed.
 
-  @retval EFI_NOT_FOUND  No writable file system.
+  @param  Allowed  bit N set: SHOT_KIND N may be used; tried in kind order.
+
+  @retval EFI_NOT_FOUND  No writable file system of those kinds.
 **/
 STATIC
 EFI_STATUS
 ShotSave (
   IN  UINT8   *Png,
   IN  UINTN   PngSize,
+  IN  UINT32  Allowed,
   OUT CHAR16  *Where,
   IN  UINTN   WhereSize
   )
@@ -301,9 +336,13 @@ ShotSave (
   }
 
   Status = EFI_NOT_FOUND;
-  for (Rank = 0; Rank <= 2; Rank++) {
+  for (Rank = 0; Rank < SHOT_KINDS; Rank++) {
+    if ((Allowed & (1U << Rank)) == 0) {
+      continue;
+    }
+
     for (Index = 0; Index < Count; Index++) {
-      if (ShotRank (Handles[Index]) != Rank) {
+      if (ShotKind (Handles[Index]) != Rank) {
         continue;
       }
 
@@ -394,6 +433,8 @@ ShotTake (
   UINT64                         Start;
   UINT64                         Captured;
   CHAR16                         Where[256];
+  UINT8                          Target;
+  UINT32                         Allowed;
 
   if (mGone) {
     return;
@@ -452,11 +493,41 @@ ShotTake (
     return;
   }
 
-  Status = ShotSave (Png, PngSize, Where, sizeof (Where));
+  //
+  // Where to, from the setup option, read now so that a change applies at
+  // once.  One kind only means only that kind: no falling back.
+  //
+  Target = PcdGet8 (PcdScreenshotTarget);
+  switch (Target) {
+    case SHOT_TARGET_USB:
+      Allowed = 1U << SHOT_KIND_USB;
+      break;
+    case SHOT_TARGET_SD:
+      Allowed = 1U << SHOT_KIND_SD;
+      break;
+    case SHOT_TARGET_INTERNAL:
+      Allowed = 1U << SHOT_KIND_INTERNAL;
+      break;
+    default:
+      Target  = SHOT_TARGET_ANY;
+      Allowed = (1U << SHOT_KINDS) - 1;
+      break;
+  }
+
+  Status = ShotSave (Png, PngSize, Allowed, Where, sizeof (Where));
   lodepng_free (Png);
 
   if (Status == EFI_NOT_FOUND) {
-    DEBUG ((DEBUG_ERROR, "Screenshot: no writable FAT file system (plug in a USB stick)\n"));
+    if (Target == SHOT_TARGET_ANY) {
+      DEBUG ((DEBUG_ERROR, "Screenshot: not saved, no writable FAT file system on a USB stick, an SD card or internal storage\n"));
+    } else {
+      DEBUG ((
+        DEBUG_ERROR,
+        "Screenshot: not saved, no writable FAT file system on %a, and \"Save Screenshots To\" in the platform setup allows only that\n",
+        mKindName[Target - 1]
+        ));
+    }
+
     ShotShowStatus (Gop, 0xff, 0xff, 0x00);
     return;
   }
