@@ -33,6 +33,7 @@
   DebugLib
   DevicePathLib
   MemoryAllocationLib
+  TimerLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
   UefiLib

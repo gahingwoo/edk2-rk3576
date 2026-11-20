@@ -43,6 +43,21 @@ typedef struct {
 #define OSK_ACT_CAPS   2
 #define OSK_ACT_HIDE   3
 #define OSK_ACT_MOVE   4
+#define OSK_ACT_FLOAT  5      // docked full width <-> floating
+#define OSK_ACT_ALPHA  6      // next opacity level
+
+//
+// Opacity levels, out of 256.  Labels are always drawn opaque.
+//
+#define OSK_ALPHA_LEVELS  4
+
+//
+// Pixels of the keyboard image carry a flag in Reserved: OSK_OPAQUE is
+// drawn as it is at every opacity (labels and their outline, the pressed
+// key, the grip), 0 is blended with the picture underneath.  The flag
+// never reaches the screen.
+//
+#define OSK_OPAQUE  0xFF
 
 typedef struct {
   UINT8           Quarters;     // width, in quarters of a letter key
@@ -73,14 +88,36 @@ extern UINTN      mOskPlaceCount;
 extern BOOLEAN    mOskShift;
 extern BOOLEAN    mOskCaps;
 extern INTN       mOskPressed;      // index into mOskPlace, or -1
+extern BOOLEAN    mOskFloating;     // as laid out now
+extern UINTN      mOskAlphaLevel;   // 0 .. OSK_ALPHA_LEVELS - 1
 
+UINT32
+OskAlpha (
+  VOID
+  );
+
+/**
+  Where the keys go.  Docked: as wide as the screen.  Floating: narrower,
+  with a handle row on top to drag it by.
+**/
 VOID
 OskLayout (
   IN  UINT32    ScreenW,
   IN  UINT32    ScreenH,
+  IN  BOOLEAN   Floating,
+  OUT UINT32    *KeyboardW,
   OUT UINT32    *KeyboardH,
   OUT OSK_RECT  *Toggle,
   OUT UINT32    *CursorScale
+  );
+
+/**
+  Whether a point of the keyboard image is on the handle (floating only).
+**/
+BOOLEAN
+OskHitHandle (
+  IN INT32  X,
+  IN INT32  Y
   );
 
 VOID
@@ -143,6 +180,9 @@ OskRectContains (
 //
 extern UINT8    mOskWantPanel;
 extern BOOLEAN  mOskWantTop;
+extern BOOLEAN  mOskWantFloating;
+extern UINT32   mOskFloatX;         // floating position, 16.16 fraction of the free space
+extern UINT32   mOskFloatY;
 extern BOOLEAN  mOskWantCursor;
 extern INT32    mOskCursorX;
 extern INT32    mOskCursorY;
@@ -151,6 +191,7 @@ extern BOOLEAN  mOskGone;           // ExitBootServices has happened
 
 extern UINT32   mOskScreenW;
 extern UINT32   mOskScreenH;
+extern UINT32   mOskKeyboardW;
 extern UINT32   mOskKeyboardH;
 
 BOOLEAN
@@ -182,6 +223,22 @@ OskOverlayHit (
 VOID
 OskOverlayKeyboardChanged (
   IN INTN  Index
+  );
+
+/**
+  The panel as it is on the screen; FALSE when it is not the keyboard.
+**/
+BOOLEAN
+OskOverlayKeyboardRect (
+  OUT OSK_RECT  *Rect
+  );
+
+/**
+  The opacity changed: draw the keyboard again over the picture.
+**/
+VOID
+OskOverlayAlphaChanged (
+  VOID
   );
 
 VOID

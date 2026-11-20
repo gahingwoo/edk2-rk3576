@@ -37,6 +37,14 @@
  *  moves there by itself when the text cursor of the console would end up
  *  under it.
  *
+ *  Float makes the keyboard about two thirds as wide, with a handle row on
+ *  top to drag it anywhere by (Dock puts it back).  The mode and the place
+ *  are kept for the rest of the boot, the place as a share of the room
+ *  there is, so it survives a mode or rotation change.  The opacity key
+ *  steps through 100, 80, 60 and 40 percent; a key rather than a slider,
+ *  because it takes one tap or click, needs no aim, and cannot be dragged
+ *  by mistake while typing.
+ *
  *  Everything stops at ExitBootServices.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
@@ -104,6 +112,7 @@ typedef struct {
 #define TARGET_NONE    0
 #define TARGET_TOGGLE  1
 #define TARGET_KEY     2
+#define TARGET_HANDLE  3
 
 STATIC OSK_DEVICE_PATH  mDevicePath = {
   {
@@ -140,6 +149,9 @@ STATIC BOOLEAN  mPressActive;
 STATIC UINT8    mPressTarget;
 STATIC BOOLEAN  mPressInside;      // still on the toggle
 STATIC UINTN    mPressPolls;
+STATIC INT32    mDragFromX;        // a drag by the handle: where the pointer
+STATIC INT32    mDragFromY;        // went down, and where the keyboard was
+STATIC OSK_RECT mDragStart;
 
 // touch, as reported by the touch screen driver
 STATIC BOOLEAN  mTouchDown;
@@ -437,7 +449,8 @@ OskFollowTextCursor (
 {
   INT32  Y;
 
-  if (!mOpen || (mOskDirect != 0) || (mOskKeyboardH == 0)) {
+  // a floating keyboard stays where it was put
+  if (!mOpen || mOskWantFloating || (mOskDirect != 0) || (mOskKeyboardH == 0)) {
     return;
   }
 
@@ -553,8 +566,25 @@ OskActivate (
       break;
 
     case OSK_ACT_MOVE:
-      mOskWantTop = (BOOLEAN)!mOskWantTop;
+      // docked: the other edge; floating: the other half, up or down
+      if (mOskWantFloating) {
+        mOskFloatY = 0x10000 - mOskFloatY;
+      } else {
+        mOskWantTop = (BOOLEAN)!mOskWantTop;
+      }
+
       OskSync ();
+      break;
+
+    case OSK_ACT_FLOAT:
+      mOskWantFloating = (BOOLEAN)!mOskWantFloating;
+      mOskPressed      = -1;
+      OskSync ();
+      break;
+
+    case OSK_ACT_ALPHA:
+      mOskAlphaLevel = (mOskAlphaLevel + 1) % OSK_ALPHA_LEVELS;
+      OskOverlayAlphaChanged ();
       break;
 
     default:
@@ -611,12 +641,42 @@ OskPress (
   mPressInside = TRUE;
   if (Hit == OSK_PANEL_TOGGLE) {
     mPressTarget = TARGET_TOGGLE;
+  } else if (OskHitHandle (Ix, Iy) && OskOverlayKeyboardRect (&mDragStart)) {
+    mPressTarget = TARGET_HANDLE;
+    mDragFromX   = X;
+    mDragFromY   = Y;
   } else {
     mPressTarget = TARGET_KEY;
     OskSetPressed (OskHitKey (Ix, Iy));
   }
 
   return TRUE;
+}
+
+/**
+  Drag the floating keyboard: the pointer moved to X, Y.  Kept wholly on
+  the screen, and kept as a fraction of the room there is, so that it
+  stays in the same part of the picture when the mode or the rotation
+  changes.
+**/
+STATIC
+VOID
+OskDragTo (
+  IN INT32  X,
+  IN INT32  Y
+  )
+{
+  INT32  Nx, Ny;
+  INT32  RoomX, RoomY;
+
+  RoomX = (INT32)mOskScreenW - mDragStart.W;
+  RoomY = (INT32)mOskScreenH - mDragStart.H;
+  Nx    = MAX (0, MIN (mDragStart.X + X - mDragFromX, RoomX));
+  Ny    = MAX (0, MIN (mDragStart.Y + Y - mDragFromY, RoomY));
+
+  mOskFloatX = (RoomX > 0) ? (UINT32)(((UINT64)Nx << 16) / (UINT32)RoomX) : 0x8000;
+  mOskFloatY = (RoomY > 0) ? (UINT32)(((UINT64)Ny << 16) / (UINT32)RoomY) : 0x8000;
+  OskSync ();
 }
 
 STATIC
@@ -635,6 +695,8 @@ OskPressMove (
 
   if (mPressTarget == TARGET_TOGGLE) {
     mPressInside = (BOOLEAN)(OskOverlayHit (X, Y, &Ix, &Iy) == OSK_PANEL_TOGGLE);
+  } else if (mPressTarget == TARGET_HANDLE) {
+    OskDragTo (X, Y);
   } else if (mPressTarget == TARGET_KEY) {
     Key = OskKeyAt (X, Y);
     if (Key != mOskPressed) {

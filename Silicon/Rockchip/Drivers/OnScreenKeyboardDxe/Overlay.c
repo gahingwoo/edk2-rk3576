@@ -28,6 +28,15 @@
  *  application draws under a layer while it is up is lost when the layer
  *  goes away; it redraws its own screen soon enough.
  *
+ *  A see-through keyboard (the opacity key) is blended over the shadow, one
+ *  pixel at a time; labels, their outline and the pressed key stay opaque.
+ *  Where the console writes under it, only that part is blended again.
+ *  Without the Blt replacement there is no shadow of the whole picture, so
+ *  the keyboard is blended over what was read back when it went up; on
+ *  every half second redraw, the pixels that are no longer what was put
+ *  there are taken as what the application drew, and become the picture
+ *  under the keyboard.
+ *
  *  The GOP changes under us: GraphicsConsole sets a mode when it starts,
  *  and on the TaishanPi 3M the rotation comes off and on around those
  *  applications, which also clears the screen.  Either replaces the GOP's
@@ -43,6 +52,7 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/DevicePath.h>
 
@@ -52,6 +62,9 @@
 
 UINT8    mOskWantPanel = OSK_PANEL_NONE;
 BOOLEAN  mOskWantTop;
+BOOLEAN  mOskWantFloating;
+UINT32   mOskFloatX = 0x8000;       // centred
+UINT32   mOskFloatY = 0x10000;      // at the bottom
 BOOLEAN  mOskWantCursor;
 INT32    mOskCursorX;
 INT32    mOskCursorY;
@@ -60,6 +73,7 @@ BOOLEAN  mOskGone;
 
 UINT32  mOskScreenW;
 UINT32  mOskScreenH;
+UINT32  mOskKeyboardW;
 UINT32  mOskKeyboardH;
 
 STATIC EFI_GRAPHICS_OUTPUT_PROTOCOL      *mGop;
@@ -77,6 +91,9 @@ STATIC OSK_PIXEL  *mKbdImage;
 STATIC UINTN      mKbdImagePixels;
 STATIC OSK_PIXEL  *mToggleImage;
 STATIC UINTN      mToggleImagePixels;
+STATIC OSK_PIXEL  *mPanelOut;          // what was last put on the screen over the panel
+STATIC UINTN      mPanelOutPixels;
+STATIC BOOLEAN    mPanelOutValid;
 STATIC OSK_RECT   mToggleRect;
 STATIC UINT32     mCursorScale = 1;
 
@@ -284,6 +301,8 @@ OskComposeOne (
   OSK_PIXEL  *Image;
   UINT32     ImageW;
   OSK_PIXEL  *Line;
+  OSK_PIXEL  *Src;
+  UINT32     Alpha;
   UINT8      C;
 
   STATIC CONST OSK_PIXEL  Black = { 0x00, 0x00, 0x00, 0 };
@@ -304,12 +323,25 @@ OskComposeOne (
   if ((mPanelOn != OSK_PANEL_NONE) && OskRectIntersect (I, &mPanelRect, &P)) {
     Image  = (mPanelOn == OSK_PANEL_KEYBOARD) ? mKbdImage : mToggleImage;
     ImageW = (UINT32)mPanelRect.W;
+    Alpha  = (mPanelOn == OSK_PANEL_KEYBOARD) ? OskAlpha () : 256;
     for (Row = 0; Row < P.H; Row++) {
-      CopyMem (
-        mScratch + (UINTN)(P.Y - I->Y + Row) * I->W + (P.X - I->X),
-        Image + (UINTN)(P.Y - mPanelRect.Y + Row) * ImageW + (P.X - mPanelRect.X),
-        (UINTN)P.W * sizeof (OSK_PIXEL)
-        );
+      Line = mScratch + (UINTN)(P.Y - I->Y + Row) * I->W + (P.X - I->X);
+      Src  = Image + (UINTN)(P.Y - mPanelRect.Y + Row) * ImageW + (P.X - mPanelRect.X);
+      for (Col = 0; Col < P.W; Col++) {
+        //
+        // Over the picture as it is without us (the shadow, already in
+        // the scratch buffer), except the pixels marked opaque.
+        //
+        if ((Alpha >= 256) || (Src[Col].Reserved == OSK_OPAQUE)) {
+          Line[Col] = Src[Col];
+        } else {
+          Line[Col].Blue  = (UINT8)((Src[Col].Blue * Alpha + Line[Col].Blue * (256 - Alpha)) >> 8);
+          Line[Col].Green = (UINT8)((Src[Col].Green * Alpha + Line[Col].Green * (256 - Alpha)) >> 8);
+          Line[Col].Red   = (UINT8)((Src[Col].Red * Alpha + Line[Col].Red * (256 - Alpha)) >> 8);
+        }
+
+        Line[Col].Reserved = 0;
+      }
     }
   }
 
@@ -332,6 +364,23 @@ OskComposeOne (
   }
 
   OskDraw (mScratch, EfiBltBufferToVideo, 0, 0, I->X, I->Y, I->W, I->H, (UINTN)I->W * sizeof (OSK_PIXEL));
+
+  //
+  // Without the Blt replacement, keep what went on the screen over the
+  // panel: the next look at the screen tells from it what the
+  // application drew there since.
+  //
+  if (!mHooked && (mPanelOn != OSK_PANEL_NONE) && (mPanelOut != NULL) &&
+      OskRectIntersect (I, &mPanelRect, &P))
+  {
+    for (Row = 0; Row < P.H; Row++) {
+      CopyMem (
+        mPanelOut + (UINTN)(P.Y - mPanelRect.Y + Row) * mPanelRect.W + (P.X - mPanelRect.X),
+        mScratch + (UINTN)(P.Y - I->Y + Row) * I->W + (P.X - I->X),
+        (UINTN)P.W * sizeof (OSK_PIXEL)
+        );
+    }
+  }
 }
 
 STATIC
@@ -525,6 +574,35 @@ OskGrow (
   return *Buffer != NULL;
 }
 
+/**
+  Lay the keyboard out for the screen and the mode (docked or floating)
+  wanted now, and draw its image.  Nothing of ours may be on the screen.
+**/
+STATIC
+BOOLEAN
+OskRelayout (
+  VOID
+  )
+{
+  UINTN  Need;
+
+  OskLayout (mOskScreenW, mOskScreenH, mOskWantFloating, &mOskKeyboardW, &mOskKeyboardH, &mToggleRect, &mCursorScale);
+
+  Need = MAX ((UINTN)mOskKeyboardW * mOskKeyboardH, (UINTN)mToggleRect.W * mToggleRect.H);
+  Need = MAX (Need, (UINTN)OSK_CURSOR_W * OSK_CURSOR_H * mCursorScale * mCursorScale);
+  if (!OskGrow (&mScratch, &mScratchPixels, Need) ||
+      !OskGrow (&mPanelOut, &mPanelOutPixels, Need) ||
+      !OskGrow (&mKbdImage, &mKbdImagePixels, (UINTN)mOskKeyboardW * mOskKeyboardH) ||
+      !OskGrow (&mToggleImage, &mToggleImagePixels, (UINTN)mToggleRect.W * mToggleRect.H))
+  {
+    return FALSE;
+  }
+
+  OskRenderKeyboard (mKbdImage, mOskKeyboardW, mOskKeyboardH);
+  OskRenderToggle (mToggleImage, (UINT32)mToggleRect.W, (UINT32)mToggleRect.H);
+  return TRUE;
+}
+
 STATIC
 BOOLEAN
 OskInit (
@@ -533,7 +611,6 @@ OskInit (
 {
   EFI_STATUS  Status;
   UINT32      W, H;
-  UINTN       Need;
 
   mGop = OskFindGop ();
   if (mGop == NULL) {
@@ -546,27 +623,16 @@ OskInit (
     return FALSE;
   }
 
-  OskLayout (W, H, &mOskKeyboardH, &mToggleRect, &mCursorScale);
-
-  Need = MAX ((UINTN)W * mOskKeyboardH, (UINTN)mToggleRect.W * mToggleRect.H);
-  Need = MAX (Need, (UINTN)OSK_CURSOR_W * OSK_CURSOR_H * mCursorScale * mCursorScale);
-  if (!OskGrow (&mShadow, &mShadowPixels, (UINTN)W * H) ||
-      !OskGrow (&mScratch, &mScratchPixels, Need) ||
-      !OskGrow (&mKbdImage, &mKbdImagePixels, (UINTN)W * mOskKeyboardH) ||
-      !OskGrow (&mToggleImage, &mToggleImagePixels, (UINTN)mToggleRect.W * mToggleRect.H))
-  {
+  mPanelOn    = OSK_PANEL_NONE;
+  mCursorOn   = FALSE;
+  mOskScreenW = W;
+  mOskScreenH = H;
+  if (!OskGrow (&mShadow, &mShadowPixels, (UINTN)W * H) || !OskRelayout ()) {
     return FALSE;
   }
 
-  mOskScreenW      = W;
-  mOskScreenH      = H;
   mModeNumber      = mGop->Mode->Mode;
   mFrameBufferBase = mGop->Mode->FrameBufferBase;
-  mPanelOn         = OSK_PANEL_NONE;
-  mCursorOn        = FALSE;
-
-  OskRenderKeyboard (mKbdImage, W, mOskKeyboardH);
-  OskRenderToggle (mToggleImage, (UINT32)mToggleRect.W, (UINT32)mToggleRect.H);
 
   if (mOskDirect == 0) {
     //
@@ -619,6 +685,36 @@ OskOverlayPrepare (
   return TRUE;
 }
 
+/**
+  OskCompose, and how long it took, for the record: the keyboard drawn
+  in full is the most expensive thing done here.
+**/
+STATIC
+VOID
+OskTimedCompose (
+  IN CONST OSK_RECT  *R,
+  IN CONST CHAR8     *Why
+  )
+{
+  UINT64  Start;
+  UINT64  Ns;
+
+  Start = GetPerformanceCounter ();
+  OskCompose (R);
+  Ns = GetTimeInNanoSecond (GetPerformanceCounter () - Start);
+  if ((mPanelOn == OSK_PANEL_KEYBOARD) && (R->W * R->H == mPanelRect.W * mPanelRect.H)) {
+    DEBUG ((
+      DEBUG_INFO,
+      "OnScreenKeyboard: keyboard %dx%d %a at %u%%, %lu us\n",
+      R->W,
+      R->H,
+      Why,
+      (OskAlpha () * 100 + 128) / 256,
+      Ns / 1000
+      ));
+  }
+}
+
 STATIC
 VOID
 OskPanelOff (
@@ -631,8 +727,9 @@ OskPanelOff (
     return;
   }
 
-  Old      = mPanelRect;
-  mPanelOn = OSK_PANEL_NONE;
+  Old            = mPanelRect;
+  mPanelOn       = OSK_PANEL_NONE;
+  mPanelOutValid = FALSE;
   OskRefresh (&Old);
 }
 
@@ -646,7 +743,49 @@ OskPanelOnAt (
   OskCapture (Rect);
   mPanelOn   = Kind;
   mPanelRect = *Rect;
-  OskCompose (Rect);
+  OskTimedCompose (Rect, "shown");
+  mPanelOutValid = TRUE;
+}
+
+/**
+  The keyboard to another place, same size (a drag).  What it leaves
+  uncovered comes back from the shadow, without drawing the part that
+  stays covered twice.
+**/
+STATIC
+VOID
+OskPanelMove (
+  IN CONST OSK_RECT  *New
+  )
+{
+  OSK_RECT  Old;
+  OSK_RECT  Pieces[MAX_PIECES];
+  OSK_RECT  I;
+  UINTN     Count, Index;
+
+  Old = mPanelRect;
+  OskCapture (New);           // without the Blt replacement only
+  mPanelRect = *New;
+
+  Count = OskOutsideLayers (&Old, Pieces);
+  for (Index = 0; Index < Count; Index++) {
+    OskDraw (
+      mShadow,
+      EfiBltBufferToVideo,
+      Pieces[Index].X,
+      Pieces[Index].Y,
+      Pieces[Index].X,
+      Pieces[Index].Y,
+      Pieces[Index].W,
+      Pieces[Index].H,
+      mOskScreenW * sizeof (OSK_PIXEL)
+      );
+  }
+
+  OskCompose (New);
+  if (mCursorOn && OskRectIntersect (&Old, &mCursorRect, &I)) {
+    OskComposeOne (&I);
+  }
 }
 
 STATIC
@@ -714,14 +853,39 @@ OskOverlaySync (
     return;
   }
 
+  //
+  // Docked and floating are two layouts.  Changing over takes everything
+  // down first, as the keyboard changes size.
+  //
+  if (mOskWantFloating != mOskFloating) {
+    OskCursorOff ();
+    OskPanelOff ();
+    if (!OskRelayout ()) {
+      OskLost ();
+      return;
+    }
+  }
+
   Want.X = Want.Y = Want.W = Want.H = 0;
   if (mOskWantPanel == OSK_PANEL_TOGGLE) {
     Want = mToggleRect;
   } else if (mOskWantPanel == OSK_PANEL_KEYBOARD) {
-    Want.X = 0;
-    Want.Y = mOskWantTop ? 0 : (INT32)(mOskScreenH - mOskKeyboardH);
-    Want.W = (INT32)mOskScreenW;
+    Want.W = (INT32)mOskKeyboardW;
     Want.H = (INT32)mOskKeyboardH;
+    if (mOskFloating) {
+      Want.X = (INT32)(((UINT64)mOskFloatX * (mOskScreenW - mOskKeyboardW) + 0x8000) >> 16);
+      Want.Y = (INT32)(((UINT64)mOskFloatY * (mOskScreenH - mOskKeyboardH) + 0x8000) >> 16);
+    } else {
+      Want.X = 0;
+      Want.Y = mOskWantTop ? 0 : (INT32)(mOskScreenH - mOskKeyboardH);
+    }
+  }
+
+  if ((mPanelOn == OSK_PANEL_KEYBOARD) && (mOskWantPanel == OSK_PANEL_KEYBOARD) &&
+      (Want.W == mPanelRect.W) && (Want.H == mPanelRect.H) &&
+      ((Want.X != mPanelRect.X) || (Want.Y != mPanelRect.Y)))
+  {
+    OskPanelMove (&Want);
   }
 
   if ((mPanelOn != mOskWantPanel) ||
@@ -776,17 +940,17 @@ OskOverlayKeyboardChanged (
   }
 
   if (Index < 0) {
-    OskRenderKeyboard (mKbdImage, mOskScreenW, mOskKeyboardH);
+    OskRenderKeyboard (mKbdImage, mOskKeyboardW, mOskKeyboardH);
     R.X = 0;
     R.Y = 0;
-    R.W = (INT32)mOskScreenW;
+    R.W = (INT32)mOskKeyboardW;
     R.H = (INT32)mOskKeyboardH;
   } else {
     if ((UINTN)Index >= mOskPlaceCount) {
       return;
     }
 
-    OskRenderKey (mKbdImage, mOskScreenW, mOskKeyboardH, (UINTN)Index);
+    OskRenderKey (mKbdImage, mOskKeyboardW, mOskKeyboardH, (UINTN)Index);
     R = mOskPlace[Index].Rect;
   }
 
@@ -796,7 +960,29 @@ OskOverlayKeyboardChanged (
 
   R.X += mPanelRect.X;
   R.Y += mPanelRect.Y;
-  OskCompose (&R);
+  OskTimedCompose (&R, "redrawn");
+}
+
+BOOLEAN
+OskOverlayKeyboardRect (
+  OUT OSK_RECT  *Rect
+  )
+{
+  if (!mReady || (mPanelOn != OSK_PANEL_KEYBOARD)) {
+    return FALSE;
+  }
+
+  *Rect = mPanelRect;
+  return TRUE;
+}
+
+VOID
+OskOverlayAlphaChanged (
+  VOID
+  )
+{
+  // the opacity key shows the level, so the image is drawn again too
+  OskOverlayKeyboardChanged (-1);
 }
 
 /**
@@ -808,11 +994,51 @@ OskOverlayPeriodic (
   VOID
   )
 {
+  UINTN      Count;
+  INT32      Row, Col;
+  OSK_PIXEL  *Now;
+  OSK_PIXEL  *Was;
+  OSK_PIXEL  *Base;
+
   if (!mReady || mHooked || !OskStillValid ()) {
     return;
   }
 
   if (mPanelOn != OSK_PANEL_NONE) {
+    //
+    // Where the screen is not what we put there, the application drew:
+    // that is the picture under the panel now.  So see-through keys show
+    // what it drew, half a second late, and closing puts back its latest
+    // picture rather than the one from when the keyboard opened.
+    //
+    Count = (UINTN)mPanelRect.W * mPanelRect.H;
+    if (mPanelOutValid && (Count <= mScratchPixels) &&
+        !EFI_ERROR (
+           OskDraw (
+             mScratch,
+             EfiBltVideoToBltBuffer,
+             mPanelRect.X,
+             mPanelRect.Y,
+             0,
+             0,
+             mPanelRect.W,
+             mPanelRect.H,
+             (UINTN)mPanelRect.W * sizeof (OSK_PIXEL)
+             )
+           ))
+    {
+      for (Row = 0; Row < mPanelRect.H; Row++) {
+        Now  = mScratch + (UINTN)Row * mPanelRect.W;
+        Was  = mPanelOut + (UINTN)Row * mPanelRect.W;
+        Base = mShadow + (UINTN)(mPanelRect.Y + Row) * mOskScreenW + mPanelRect.X;
+        for (Col = 0; Col < mPanelRect.W; Col++) {
+          if ((Now[Col].Red != Was[Col].Red) || (Now[Col].Green != Was[Col].Green) || (Now[Col].Blue != Was[Col].Blue)) {
+            Base[Col] = Now[Col];
+          }
+        }
+      }
+    }
+
     OskCompose (&mPanelRect);
   }
 
@@ -858,8 +1084,8 @@ OskRectOnScreen (
 /**
   After the shadow changed in R: show the change where no layer is, and
   redraw the cursor where it is over R, as it lets the picture through
-  around the arrow.  The panel is opaque and was not written, so it is
-  still on the screen as it was.
+  around the arrow.  An opaque panel was not written, so it is still on
+  the screen as it was; a see-through one is blended again over R.
 **/
 STATIC
 VOID
@@ -884,6 +1110,16 @@ OskShadowChanged (
       Pieces[Index].H,
       mOskScreenW * sizeof (OSK_PIXEL)
       );
+  }
+
+  //
+  // A see-through keyboard shows the change too: blend that part again.
+  // Only what changed, so a character costs a character.
+  //
+  if ((mPanelOn == OSK_PANEL_KEYBOARD) && (OskAlpha () < 256) &&
+      OskRectIntersect (R, &mPanelRect, &I))
+  {
+    OskComposeOne (&I);
   }
 
   if (mCursorOn && OskRectIntersect (R, &mCursorRect, &I)) {

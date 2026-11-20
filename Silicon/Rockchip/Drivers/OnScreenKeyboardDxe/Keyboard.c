@@ -130,7 +130,9 @@ STATIC CONST OSK_KEY  mRow5[] = {
   ACT (6, OSK_ACT_MOVE, L"Move"),
   SCN (5, SCAN_HOME,      L"Home", NULL, FALSE),
   SCN (5, SCAN_END,       L"End",  NULL, FALSE),
-  CTL (24, L' ', L"", TRUE),
+  CTL (16, L' ', L"", TRUE),
+  ACT (4, OSK_ACT_FLOAT,  L"Float"),
+  ACT (4, OSK_ACT_ALPHA,  L"100%"),
   SCN (4, SCAN_PAGE_UP,   L"PgUp", NULL, TRUE),
   SCN (4, SCAN_PAGE_DOWN, L"PgDn", NULL, TRUE),
   SCN (4, SCAN_LEFT,      mArrowLeft,  L"<", TRUE),
@@ -146,9 +148,27 @@ UINTN      mOskPlaceCount;
 BOOLEAN    mOskShift;
 BOOLEAN    mOskCaps;
 INTN       mOskPressed = -1;
+BOOLEAN    mOskFloating;
+UINTN      mOskAlphaLevel;
 
 STATIC UINT32  mGap;
 STATIC UINT32  mLabelScale = 1;
+STATIC UINT32  mHandleH;
+STATIC UINT32  mImageW;
+
+//
+// 100, 80, 60 and 40 percent.  Below 40 the keys stop being findable.
+//
+STATIC CONST UINT32  mAlpha[OSK_ALPHA_LEVELS]      = { 256, 205, 154, 102 };
+STATIC CONST CHAR16  *mAlphaLabel[OSK_ALPHA_LEVELS] = { L"100%", L"80%", L"60%", L"40%" };
+
+UINT32
+OskAlpha (
+  VOID
+  )
+{
+  return mAlpha[mOskAlphaLevel % OSK_ALPHA_LEVELS];
+}
 
 //
 // Colours, as EFI_GRAPHICS_OUTPUT_BLT_PIXEL: blue, green, red.
@@ -156,10 +176,13 @@ STATIC UINT32  mLabelScale = 1;
 STATIC CONST OSK_PIXEL  mColorBack    = { 0x1c, 0x1a, 0x18, 0 };
 STATIC CONST OSK_PIXEL  mColorKey     = { 0x50, 0x4a, 0x46, 0 };
 STATIC CONST OSK_PIXEL  mColorSpecial = { 0x36, 0x32, 0x30, 0 };
-STATIC CONST OSK_PIXEL  mColorPressed = { 0xd8, 0x98, 0x30, 0 };
+STATIC CONST OSK_PIXEL  mColorPressed = { 0xd8, 0x98, 0x30, OSK_OPAQUE };
 STATIC CONST OSK_PIXEL  mColorLatched = { 0x90, 0x60, 0x20, 0 };
-STATIC CONST OSK_PIXEL  mColorText    = { 0xf4, 0xf4, 0xf4, 0 };
+STATIC CONST OSK_PIXEL  mColorText    = { 0xf4, 0xf4, 0xf4, OSK_OPAQUE };
+STATIC CONST OSK_PIXEL  mColorOutline = { 0x00, 0x00, 0x00, OSK_OPAQUE };
 STATIC CONST OSK_PIXEL  mColorBorder  = { 0x90, 0x90, 0x90, 0 };
+STATIC CONST OSK_PIXEL  mColorHandle  = { 0x48, 0x40, 0x3a, 0 };
+STATIC CONST OSK_PIXEL  mColorGrip    = { 0xc0, 0xc0, 0xc0, OSK_OPAQUE };
 
 //
 // Glyphs, taken from HII once and kept as bit rows.
@@ -393,10 +416,12 @@ OskDrawLabel (
   )
 {
   CONST OSK_GLYPH  *Glyph;
+  CONST CHAR16     *Char;
   UINT32           Scale;
   UINT32           TextW;
-  INT32            X, Y;
+  INT32            X, X0, Y;
   UINT32           Gx, Gy;
+  UINTN            Pass;
 
   Scale = mLabelScale;
   TextW = OskLabelWidth (Label, Scale);
@@ -409,38 +434,60 @@ OskDrawLabel (
     return;
   }
 
-  X = Face->X + (Face->W - (INT32)TextW) / 2;
-  Y = Face->Y + (Face->H - 19 * (INT32)Scale) / 2;
+  X0 = Face->X + (Face->W - (INT32)TextW) / 2;
+  Y  = Face->Y + (Face->H - 19 * (INT32)Scale) / 2;
 
-  for ( ; *Label != 0; Label++) {
-    if (*Label == L' ') {
-      X += 8 * Scale;
-      continue;
-    }
+  //
+  // Twice: a black outline one pixel round every stroke, then the strokes.
+  // Both are opaque, so a label reads the same over a see-through key.
+  //
+  for (Pass = 0; Pass < 2; Pass++) {
+    X = X0;
+    for (Char = Label; *Char != 0; Char++) {
+      if (*Char == L' ') {
+        X += 8 * Scale;
+        continue;
+      }
 
-    Glyph = OskFindGlyph (*Label);
-    if (Glyph == NULL) {
-      return;
-    }
+      Glyph = OskFindGlyph (*Char);
+      if (Glyph == NULL) {
+        return;
+      }
 
-    for (Gy = 0; Gy < Glyph->Height; Gy++) {
-      for (Gx = 0; Gx < Glyph->Width; Gx++) {
-        if ((Glyph->Rows[Gy] & (1 << Gx)) != 0) {
-          OskFill (
-            Image,
-            Width,
-            Height,
-            X + (INT32)(Gx * Scale),
-            Y + (INT32)(Gy * Scale),
-            (INT32)Scale,
-            (INT32)Scale,
-            &mColorText
-            );
+      for (Gy = 0; Gy < Glyph->Height; Gy++) {
+        for (Gx = 0; Gx < Glyph->Width; Gx++) {
+          if ((Glyph->Rows[Gy] & (1 << Gx)) == 0) {
+            continue;
+          }
+
+          if (Pass == 0) {
+            OskFill (
+              Image,
+              Width,
+              Height,
+              X + (INT32)(Gx * Scale) - 1,
+              Y + (INT32)(Gy * Scale) - 1,
+              (INT32)Scale + 2,
+              (INT32)Scale + 2,
+              &mColorOutline
+              );
+          } else {
+            OskFill (
+              Image,
+              Width,
+              Height,
+              X + (INT32)(Gx * Scale),
+              Y + (INT32)(Gy * Scale),
+              (INT32)Scale,
+              (INT32)Scale,
+              &mColorText
+              );
+          }
         }
       }
-    }
 
-    X += Glyph->Width * Scale;
+      X += Glyph->Width * Scale;
+    }
   }
 }
 
@@ -457,11 +504,14 @@ VOID
 OskLayout (
   IN  UINT32    ScreenW,
   IN  UINT32    ScreenH,
+  IN  BOOLEAN   Floating,
+  OUT UINT32    *KeyboardW,
   OUT UINT32    *KeyboardH,
   OUT OSK_RECT  *Toggle,
   OUT UINT32    *CursorScale
   )
 {
+  UINT32         ImageW;
   UINT32         Quarter;
   UINT32         RowH;
   UINT32         Pad;
@@ -477,12 +527,27 @@ OskLayout (
   // the height: six rows then take 40% of it.  Landscape 1280x800 gives
   // keys of 84 x 53, portrait 800x1280 52 x 52, 1920x1080 128 x 72.
   //
-  Quarter = MAX (ScreenW / ROW_UNITS, 4);
-  RowH    = MIN (ScreenH / 15, 4 * Quarter);
-  RowH    = MAX (RowH, 20);
-  Pad     = MAX (RowH / 8, 2);
-  X0      = (ScreenW > ROW_UNITS * Quarter) ? (ScreenW - ROW_UNITS * Quarter) / 2 : 0;
-  mGap    = MAX (Quarter / 6, 1);
+  // Floating: about two thirds of the width, but letter keys no narrower
+  // than 48 pixels (8 mm on the TaishanPi 3M's panel) while the screen
+  // allows.  Landscape 1280x800 gives 832 wide with keys of 52 x 52,
+  // portrait 800x1280 720 wide, 1920x1080 1248 wide.
+  //
+  ImageW = ScreenW;
+  if (Floating) {
+    ImageW = MAX (ScreenW * 65 / 100, ROW_UNITS * 12);
+    ImageW = MIN (ImageW, ScreenW);
+  }
+
+  Quarter  = MAX (ImageW / ROW_UNITS, 4);
+  RowH     = MIN (ScreenH / 15, 4 * Quarter);
+  RowH     = MAX (RowH, 20);
+  Pad      = MAX (RowH / 8, 2);
+  X0       = (ImageW > ROW_UNITS * Quarter) ? (ImageW - ROW_UNITS * Quarter) / 2 : 0;
+  mGap     = MAX (Quarter / 6, 1);
+  mHandleH = Floating ? MAX (RowH * 3 / 4, 28) : 0;
+  mImageW  = ImageW;
+
+  mOskFloating = Floating;
 
   mLabelScale = MAX ((RowH * 2 / 5) / 19, 1);
 
@@ -493,7 +558,7 @@ OskLayout (
       if (mOskPlaceCount < OSK_MAX_KEYS) {
         mOskPlace[mOskPlaceCount].Key    = Key;
         mOskPlace[mOskPlaceCount].Rect.X = (INT32)(X0 + Start * Quarter);
-        mOskPlace[mOskPlaceCount].Rect.Y = (INT32)(Pad + Row * RowH);
+        mOskPlace[mOskPlaceCount].Rect.Y = (INT32)(mHandleH + Pad + Row * RowH);
         mOskPlace[mOskPlaceCount].Rect.W = (INT32)(Key->Quarters * Quarter);
         mOskPlace[mOskPlaceCount].Rect.H = (INT32)RowH;
         mOskPlaceCount++;
@@ -505,13 +570,15 @@ OskLayout (
     ASSERT (Start == ROW_UNITS);
   }
 
-  *KeyboardH = 6 * RowH + 2 * Pad;
+  *KeyboardW = ImageW;
+  *KeyboardH = mHandleH + ROWS * RowH + 2 * Pad;
 
   //
   // The toggle: a small key in the top right corner, kept clear of the
   // corner itself, where the touch test puts a marker to be touched.
   //
-  ToggleH   = MAX (RowH * 4 / 5, 24);
+  // sized from the docked rows, so that it does not change with the mode
+  ToggleH   = MAX (MAX (MIN (ScreenH / 15, 4 * MAX (ScreenW / ROW_UNITS, 4)), 20) * 4 / 5, 24);
   Margin    = MAX (ScreenW / 32, 40);
   Toggle->W = (INT32)(ToggleH * 3 / 2);
   Toggle->H = (INT32)ToggleH;
@@ -522,6 +589,15 @@ OskLayout (
   }
 
   *CursorScale = MAX (ScreenH / 900, 1);
+}
+
+BOOLEAN
+OskHitHandle (
+  IN INT32  X,
+  IN INT32  Y
+  )
+{
+  return mOskFloating && (X >= 0) && (X < (INT32)mImageW) && (Y >= 0) && (Y < (INT32)mHandleH);
 }
 
 INTN
@@ -593,7 +669,11 @@ OskRenderKey (
 
   OskFill (Image, Width, Height, Face.X, Face.Y, Face.W, Face.H, Color);
 
-  if (Key->Label != NULL) {
+  if (Key->Action == OSK_ACT_FLOAT) {
+    Label = mOskFloating ? L"Dock" : L"Float";
+  } else if (Key->Action == OSK_ACT_ALPHA) {
+    Label = mAlphaLabel[mOskAlphaLevel % OSK_ALPHA_LEVELS];
+  } else if (Key->Label != NULL) {
     Label = Key->Label;
     if ((OskLabelWidth (Label, 1) == 0) && (Key->AltLabel != NULL)) {
       Label = Key->AltLabel;
@@ -627,6 +707,29 @@ OskRenderKeyboard (
   // a line along the edge that faces the rest of the picture, both edges
   OskFill (Image, Width, Height, 0, 0, (INT32)Width, 1, &mColorBorder);
   OskFill (Image, Width, Height, 0, (INT32)Height - 1, (INT32)Width, 1, &mColorBorder);
+
+  if (mHandleH != 0) {
+    //
+    // The handle: a bar across the top with a grip in the middle.
+    //
+    INT32  GripW = (INT32)Width / 8;
+    INT32  Line  = MAX ((INT32)mHandleH / 12, 1);
+    INT32  Row;
+
+    OskFill (Image, Width, Height, 1, 1, (INT32)Width - 2, (INT32)mHandleH - 2, &mColorHandle);
+    for (Row = -1; Row <= 1; Row++) {
+      OskFill (
+        Image,
+        Width,
+        Height,
+        ((INT32)Width - GripW) / 2,
+        (INT32)mHandleH / 2 + Row * 3 * Line - Line / 2,
+        GripW,
+        Line,
+        &mColorGrip
+        );
+    }
+  }
 
   for (Index = 0; Index < mOskPlaceCount; Index++) {
     OskRenderKey (Image, Width, Height, Index);
