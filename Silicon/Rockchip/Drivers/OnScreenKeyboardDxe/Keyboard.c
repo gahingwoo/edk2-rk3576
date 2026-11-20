@@ -50,8 +50,7 @@ STATIC CONST OSK_KEY  mRow0[] = {
   SCN (4, SCAN_F10,       L"F10", NULL, FALSE),
   SCN (4, SCAN_F11,       L"F11", NULL, FALSE),
   SCN (4, SCAN_F12,       L"F12", NULL, FALSE),
-  SCN (4, SCAN_DELETE,    L"Del", NULL, TRUE),
-  ACT (4, OSK_ACT_HIDE,   L"Hide"),
+  SCN (8, SCAN_DELETE,    L"Del", NULL, TRUE),
   ROW_END
 };
 
@@ -127,12 +126,9 @@ STATIC CONST OSK_KEY  mRow4[] = {
 };
 
 STATIC CONST OSK_KEY  mRow5[] = {
-  ACT (6, OSK_ACT_MOVE, L"Move"),
-  SCN (5, SCAN_HOME,      L"Home", NULL, FALSE),
-  SCN (5, SCAN_END,       L"End",  NULL, FALSE),
-  CTL (16, L' ', L"", TRUE),
-  ACT (4, OSK_ACT_FLOAT,  L"Float"),
-  ACT (4, OSK_ACT_ALPHA,  L"100%"),
+  SCN (6, SCAN_HOME,      L"Home", NULL, FALSE),
+  SCN (6, SCAN_END,       L"End",  NULL, FALSE),
+  CTL (28, L' ', L"", TRUE),
   SCN (4, SCAN_PAGE_UP,   L"PgUp", NULL, TRUE),
   SCN (4, SCAN_PAGE_DOWN, L"PgDn", NULL, TRUE),
   SCN (4, SCAN_LEFT,      mArrowLeft,  L"<", TRUE),
@@ -142,6 +138,99 @@ STATIC CONST OSK_KEY  mRow5[] = {
 };
 
 STATIC CONST OSK_KEY  *mRows[ROWS] = { mRow0, mRow1, mRow2, mRow3, mRow4, mRow5 };
+
+//
+// The controls, in the bar along the top, left to right.  They are keys
+// like the others (pressed, highlighted and hit the same way), only drawn
+// as pictures and placed in the bar.
+//
+#define ICON(A, I)  { 0, A, FALSE, SCAN_NULL, 0, 0, NULL, NULL, I }
+
+STATIC CONST OSK_KEY  mIcons[OSK_ICONS] = {
+  ICON (OSK_ACT_FLOAT, OSK_ICON_FLOAT),
+  ICON (OSK_ACT_ALPHA, OSK_ICON_OPACITY),
+  ICON (OSK_ACT_MOVE,  OSK_ICON_MOVE),
+  ICON (OSK_ACT_HIDE,  OSK_ICON_HIDE)
+};
+
+//
+// 16 x 16 pictures, X ink.  Opacity is drawn from the level instead.
+//
+STATIC CONST CHAR8  *mPicFloat[16] = {
+  "XXXXXXXXXXXXXXXX",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X...XXXXXXXX...X",
+  "X...XXXXXXXX...X",
+  "X...XXXXXXXX...X",
+  "X...XXXXXXXX...X",
+  "X...XXXXXXXX...X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "XXXXXXXXXXXXXXXX"
+};
+
+STATIC CONST CHAR8  *mPicDock[16] = {
+  "XXXXXXXXXXXXXXXX",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X..............X",
+  "X.XXXXXXXXXXXX.X",
+  "X.XXXXXXXXXXXX.X",
+  "X.XXXXXXXXXXXX.X",
+  "X.XXXXXXXXXXXX.X",
+  "X..............X",
+  "XXXXXXXXXXXXXXXX"
+};
+
+STATIC CONST CHAR8  *mPicMove[16] = {
+  ".......XX.......",
+  "......XXXX......",
+  ".....XXXXXX.....",
+  "....XXXXXXXX....",
+  "...XXXXXXXXXX...",
+  ".......XX.......",
+  ".......XX.......",
+  ".......XX.......",
+  ".......XX.......",
+  ".......XX.......",
+  ".......XX.......",
+  "...XXXXXXXXXX...",
+  "....XXXXXXXX....",
+  ".....XXXXXX.....",
+  "......XXXX......",
+  ".......XX......."
+};
+
+STATIC CONST CHAR8  *mPicHide[16] = {
+  "................",
+  ".XX..........XX.",
+  ".XXX........XXX.",
+  "..XXX......XXX..",
+  "...XXX....XXX...",
+  "....XXX..XXX....",
+  ".....XXXXXX.....",
+  "......XXXX......",
+  "......XXXX......",
+  ".....XXXXXX.....",
+  "....XXX..XXX....",
+  "...XXX....XXX...",
+  "..XXX......XXX..",
+  ".XXX........XXX.",
+  ".XX..........XX.",
+  "................"
+};
 
 OSK_PLACE  mOskPlace[OSK_MAX_KEYS];
 UINTN      mOskPlaceCount;
@@ -155,12 +244,13 @@ STATIC UINT32  mGap;
 STATIC UINT32  mLabelScale = 1;
 STATIC UINT32  mHandleH;
 STATIC UINT32  mImageW;
+STATIC INT32   mIconsX;           // where the icons start in the bar
 
 //
 // 100, 80, 60 and 40 percent.  Below 40 the keys stop being findable.
 //
 STATIC CONST UINT32  mAlpha[OSK_ALPHA_LEVELS]      = { 256, 205, 154, 102 };
-STATIC CONST CHAR16  *mAlphaLabel[OSK_ALPHA_LEVELS] = { L"100%", L"80%", L"60%", L"40%" };
+STATIC CONST UINT32  mAlphaRows[OSK_ALPHA_LEVELS]  = { 14, 11, 8, 6 };   // opacity icon, rows filled of 14
 
 UINT32
 OskAlpha (
@@ -500,6 +590,82 @@ OskIsLetter (
   return (Key->Char >= L'a') && (Key->Char <= L'z');
 }
 
+/**
+  An icon in a key face: a 16 x 16 picture drawn three quarters of the face
+  high (nearest pixel, so any size works), opaque, white with a black
+  outline like the labels.
+**/
+STATIC
+VOID
+OskDrawIcon (
+  IN OSK_PIXEL       *Image,
+  IN UINT32          Width,
+  IN UINT32          Height,
+  IN CONST OSK_RECT  *Face,
+  IN UINT8           Icon
+  )
+{
+  CONST CHAR8  **Pic;
+  INT32        Size;
+  INT32        X0, Y0;
+  INT32        X, Y;
+  INT32        Bx, By;
+  UINTN        Pass;
+  BOOLEAN      Ink;
+  INT32        Fill;
+
+  Size = MAX (MIN (Face->W, Face->H) * 3 / 4, 16);
+  X0   = Face->X + (Face->W - Size) / 2;
+  Y0   = Face->Y + (Face->H - Size) / 2;
+
+  switch (Icon) {
+    case OSK_ICON_FLOAT:
+      Pic = mOskFloating ? mPicDock : mPicFloat;
+      break;
+    case OSK_ICON_MOVE:
+      Pic = mPicMove;
+      break;
+    case OSK_ICON_HIDE:
+      Pic = mPicHide;
+      break;
+    default:
+      Pic = NULL;       // opacity: drawn from the level below
+      break;
+  }
+
+  Fill = (INT32)mAlphaRows[mOskAlphaLevel % OSK_ALPHA_LEVELS];
+
+  for (Pass = 0; Pass < 2; Pass++) {
+    for (Y = 0; Y < Size; Y++) {
+      By = Y * 16 / Size;
+      for (X = 0; X < Size; X++) {
+        Bx = X * 16 / Size;
+        if (Pic != NULL) {
+          Ink = (BOOLEAN)(Pic[By][Bx] == 'X');
+        } else {
+          //
+          // A frame, solid from the bottom up to the level, and above it
+          // the checkerboard that stands for see-through.
+          //
+          Ink = (BOOLEAN)((Bx == 0) || (Bx == 15) || (By == 0) || (By == 15) ||
+                          ((Bx >= 2) && (Bx <= 13) && (By >= 2) && (By <= 13) &&
+                           ((By >= 15 - Fill) || ((((Bx / 2) + (By / 2)) % 2) == 0))));
+        }
+
+        if (!Ink) {
+          continue;
+        }
+
+        if (Pass == 0) {
+          OskFill (Image, Width, Height, X0 + X - 1, Y0 + Y - 1, 3, 3, &mColorOutline);
+        } else {
+          OskFill (Image, Width, Height, X0 + X, Y0 + Y, 1, 1, &mColorText);
+        }
+      }
+    }
+  }
+}
+
 VOID
 OskLayout (
   IN  UINT32    ScreenW,
@@ -544,7 +710,12 @@ OskLayout (
   Pad      = MAX (RowH / 8, 2);
   X0       = (ImageW > ROW_UNITS * Quarter) ? (ImageW - ROW_UNITS * Quarter) / 2 : 0;
   mGap     = MAX (Quarter / 6, 1);
-  mHandleH = Floating ? MAX (RowH * 3 / 4, 28) : 0;
+  //
+  // The bar along the top: the controls at its right end, in both modes,
+  // and in floating mode the handle.  At least 40 pixels high, so that
+  // its icons are 40 pixels square in the rotated landscape picture.
+  //
+  mHandleH = MAX (RowH * 3 / 4, 40);
   mImageW  = ImageW;
 
   mOskFloating = Floating;
@@ -569,6 +740,23 @@ OskLayout (
 
     ASSERT (Start == ROW_UNITS);
   }
+
+  //
+  // The icons, square, at the right end of the bar; the keys' own margin
+  // on the right.
+  //
+  for (Row = 0; Row < OSK_ICONS; Row++) {
+    if (mOskPlaceCount < OSK_MAX_KEYS) {
+      mOskPlace[mOskPlaceCount].Key    = &mIcons[Row];
+      mOskPlace[mOskPlaceCount].Rect.W = (INT32)mHandleH;
+      mOskPlace[mOskPlaceCount].Rect.H = (INT32)mHandleH;
+      mOskPlace[mOskPlaceCount].Rect.X = (INT32)(ImageW - X0) - (INT32)((OSK_ICONS - Row) * mHandleH);
+      mOskPlace[mOskPlaceCount].Rect.Y = 0;
+      mOskPlaceCount++;
+    }
+  }
+
+  mIconsX = (INT32)(ImageW - X0) - (INT32)(OSK_ICONS * mHandleH);
 
   *KeyboardW = ImageW;
   *KeyboardH = mHandleH + ROWS * RowH + 2 * Pad;
@@ -597,7 +785,7 @@ OskHitHandle (
   IN INT32  Y
   )
 {
-  return mOskFloating && (X >= 0) && (X < (INT32)mImageW) && (Y >= 0) && (Y < (INT32)mHandleH);
+  return mOskFloating && (X >= 0) && (X < mIconsX) && (Y >= 0) && (Y < (INT32)mHandleH);
 }
 
 INTN
@@ -669,11 +857,12 @@ OskRenderKey (
 
   OskFill (Image, Width, Height, Face.X, Face.Y, Face.W, Face.H, Color);
 
-  if (Key->Action == OSK_ACT_FLOAT) {
-    Label = mOskFloating ? L"Dock" : L"Float";
-  } else if (Key->Action == OSK_ACT_ALPHA) {
-    Label = mAlphaLabel[mOskAlphaLevel % OSK_ALPHA_LEVELS];
-  } else if (Key->Label != NULL) {
+  if (Key->Icon != OSK_ICON_NONE) {
+    OskDrawIcon (Image, Width, Height, &Face, Key->Icon);
+    return;
+  }
+
+  if (Key->Label != NULL) {
     Label = Key->Label;
     if ((OskLabelWidth (Label, 1) == 0) && (Key->AltLabel != NULL)) {
       Label = Key->AltLabel;
@@ -708,21 +897,22 @@ OskRenderKeyboard (
   OskFill (Image, Width, Height, 0, 0, (INT32)Width, 1, &mColorBorder);
   OskFill (Image, Width, Height, 0, (INT32)Height - 1, (INT32)Width, 1, &mColorBorder);
 
-  if (mHandleH != 0) {
-    //
-    // The handle: a bar across the top with a grip in the middle.
-    //
+  //
+  // The bar across the top, and on a floating keyboard a grip in the
+  // middle of the part that is the handle.
+  //
+  OskFill (Image, Width, Height, 1, 1, (INT32)Width - 2, (INT32)mHandleH - 2, &mColorHandle);
+  if (mOskFloating) {
     INT32  GripW = (INT32)Width / 8;
     INT32  Line  = MAX ((INT32)mHandleH / 12, 1);
     INT32  Row;
 
-    OskFill (Image, Width, Height, 1, 1, (INT32)Width - 2, (INT32)mHandleH - 2, &mColorHandle);
     for (Row = -1; Row <= 1; Row++) {
       OskFill (
         Image,
         Width,
         Height,
-        ((INT32)Width - GripW) / 2,
+        (mIconsX - GripW) / 2,
         (INT32)mHandleH / 2 + Row * 3 * Line - Line / 2,
         GripW,
         Line,

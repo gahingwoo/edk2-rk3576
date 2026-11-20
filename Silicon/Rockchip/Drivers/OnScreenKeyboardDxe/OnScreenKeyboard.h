@@ -68,7 +68,15 @@ typedef struct {
   CHAR16          ShiftChar;
   CONST CHAR16    *Label;       // NULL: the character itself
   CONST CHAR16    *AltLabel;    // used when the font lacks a glyph of Label
+  UINT8           Icon;         // OSK_ICON_*: a control in the bar, drawn as a picture
 } OSK_KEY;
+
+#define OSK_ICON_NONE     0
+#define OSK_ICON_FLOAT    1     // float when docked, dock when floating
+#define OSK_ICON_OPACITY  2
+#define OSK_ICON_MOVE     3
+#define OSK_ICON_HIDE     4
+#define OSK_ICONS         4
 
 #define OSK_MAX_KEYS  96
 
@@ -112,7 +120,8 @@ OskLayout (
   );
 
 /**
-  Whether a point of the keyboard image is on the handle (floating only).
+  Whether a point of the keyboard image is on the bar along the top but on
+  none of its icons: the handle a floating keyboard is dragged by.
 **/
 BOOLEAN
 OskHitHandle (

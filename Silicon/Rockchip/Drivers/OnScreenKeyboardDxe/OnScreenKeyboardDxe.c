@@ -35,17 +35,29 @@
  *  A key is pressed when the finger or the button comes up, on the key it
  *  came up on (sliding off a key cancels it).  Backspace, Delete, Space and
  *  the arrows repeat while held.  Shift applies to the next key; Caps
- *  stays.  Move puts the keyboard at the other edge of the picture; it also
- *  moves there by itself when the text cursor of the console would end up
- *  under it.
+ *  stays.
  *
- *  Float makes the keyboard about two thirds as wide, with a handle row on
- *  top to drag it anywhere by (Dock puts it back).  The mode and the place
- *  are kept for the rest of the boot, the place as a share of the room
- *  there is, so it survives a mode or rotation change.  The opacity key
- *  steps through 100, 80, 60 and 40 percent; a key rather than a slider,
- *  because it takes one tap or click, needs no aim, and cannot be dragged
- *  by mistake while typing.
+ *  The controls are icons at the right end of a bar along the top of the
+ *  keyboard, always in the same place: float or dock, opacity, move and
+ *  hide.
+ *
+ *    float/dock  docked is as wide as the screen, at the bottom or the top
+ *                edge; floating is about two thirds as wide, and the rest
+ *                of the bar is a handle to drag it anywhere by.  The mode
+ *                and the place are kept for the rest of the boot, the place
+ *                as a share of the room there is, so it survives a mode or
+ *                rotation change.
+ *    opacity     steps through 100, 80, 60 and 40 percent; the icon is a
+ *                square filled to the level.  A button rather than a
+ *                slider: one tap or click, no aim, and it cannot be dragged
+ *                by mistake while typing.
+ *    move        docked: the other edge; floating: the other half.
+ *    hide        closes it.
+ *
+ *  Docked, the keyboard starts at the bottom and moves to the other edge by
+ *  itself when the console's text cursor would end up under it.  Once the
+ *  move icon has been used, the edge chosen there stays, for the rest of
+ *  the boot: the keyboard does not move by itself any more.
  *
  *  Everything stops at ExitBootServices.
  *
@@ -163,6 +175,7 @@ STATIC BOOLEAN  mTouchOwned;
 STATIC INT32  mLastCursorRow = -1;
 
 STATIC BOOLEAN  mCursorPlaced;
+STATIC BOOLEAN  mUserEdge;         // the docked edge was chosen with the move icon
 
 // clicks for the setup browser
 STATIC EFI_EVENT  mClickEvent;
@@ -458,8 +471,9 @@ OskFollowTextCursor (
 {
   INT32  Y;
 
-  // a floating keyboard stays where it was put
-  if (!mOpen || mOskWantFloating || (mOskDirect != 0) || (mOskKeyboardH == 0)) {
+  // a floating keyboard stays where it was put, and so does a docked one
+  // whose edge was chosen
+  if (!mOpen || mOskWantFloating || mUserEdge || (mOskDirect != 0) || (mOskKeyboardH == 0)) {
     return;
   }
 
@@ -490,7 +504,10 @@ OskSetOpen (
     // keyboard was last drawn), at the bottom unless the text cursor is
     // there.
     //
-    mOskWantTop = FALSE;
+    if (!mUserEdge) {
+      mOskWantTop = FALSE;
+    }
+
     if (OskOverlayPrepare ()) {
       OskOverlayKeyboardChanged (-1);
       OskFollowTextCursor (TRUE);
@@ -580,6 +597,7 @@ OskActivate (
         mOskFloatY = 0x10000 - mOskFloatY;
       } else {
         mOskWantTop = (BOOLEAN)!mOskWantTop;
+        mUserEdge   = TRUE;
       }
 
       OskSync ();

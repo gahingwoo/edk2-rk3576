@@ -703,8 +703,9 @@ OskTimedCompose (
   OskCompose (R);
   Ns = GetTimeInNanoSecond (GetPerformanceCounter () - Start);
   if ((mPanelOn == OSK_PANEL_KEYBOARD) && (R->W * R->H == mPanelRect.W * mPanelRect.H)) {
+    // DEBUG_VERBOSE: it would land in the middle of the menus on the serial console
     DEBUG ((
-      DEBUG_INFO,
+      DEBUG_VERBOSE,
       "OnScreenKeyboard: keyboard %dx%d %a at %u%%, %lu us\n",
       R->W,
       R->H,
