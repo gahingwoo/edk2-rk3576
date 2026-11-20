@@ -88,6 +88,9 @@ with the power off.
   manager shows where touches land.
 - Windows shows its picture on the screen in portrait. Touch does not work
   in Windows yet.
+- "Shut Down" on the front page, `reset -s` in the UEFI Shell and a shutdown
+  from Windows power the board off. The firmware switches the RK806 PMIC
+  off over I2C1 itself, and arms it for the PSCI call Windows makes.
 
 #### Linux on the TaishanPi 3M
 
@@ -113,7 +116,8 @@ so the kernel has to be about that new. The limits:
   `\dtb\overlays\*.dtbo` from the partition it boots. Seen loading such a
   tree from a USB stick, with the firmware's fixups (force GOP among them)
   applied on top. A tree without `regulator-always-on` on the USB-A VBUS
-  regulators lost that stick under Linux; from 0.4.2 the firmware adds it.
+  regulators lost that stick under Linux; firmware built from `main` after
+  0.4.1 adds it (not yet run with DTB override on).
 - Touch. The controller is in the device tree the firmware hands over. It
   did not show up in that kernel's log, and nobody has looked further.
 - HDMI in Linux with the option off has not been tried on this board. It
