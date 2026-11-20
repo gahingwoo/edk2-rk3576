@@ -427,8 +427,14 @@ I2cInitialise (
                BusRuntimeSupport[Index]
                );
 
+    //
+    // One bus failing to come up (its runtime mapping, say) must not take
+    // the buses already started down with it: returning an error here
+    // unloads the driver under the protocols it has installed.
+    //
     if (EFI_ERROR (Status)) {
-      return Status;
+      DEBUG ((DEBUG_ERROR, "%a: bus %d not started: %r\n", __FUNCTION__, DeviceBusPcd[Index], Status));
+      continue;
     }
   }
 
