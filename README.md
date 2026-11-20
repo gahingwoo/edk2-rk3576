@@ -35,6 +35,21 @@ the TaishanPi 3M boot Windows 11 23H2 from their eMMC, with the drivers from
 | ![Windows 11 on CM5-IO](docs/imgs/cm5io-win11-desktop.jpg) | ![Windows 11 on TaishanPi 3M](docs/imgs/tspi3m-win11-desktop.jpg) |
 | Windows 11 23H2 from the eMMC | Windows 11 23H2 from the eMMC, desktop drawn on the Mali-G52 |
 
+### Firmware menus
+
+Screenshots of the TaishanPi 3M's DSI screen, saved by the firmware itself.
+The menus are drawn in landscape on the portrait panel; they can be switched
+to Simplified Chinese on the front page.
+
+| | |
+|---|---|
+| ![Front page](docs/imgs/tspi3m-uefi-front-page.png) | ![About](docs/imgs/tspi3m-uefi-about.png) |
+| Front page, with Shut Down and About | About: firmware build, board, clocks, what was found at boot |
+| ![Front page in Simplified Chinese](docs/imgs/tspi3m-uefi-front-page-zh.png) | ![Boot Manager](docs/imgs/tspi3m-uefi-boot-manager.png) |
+| The same front page in Simplified Chinese | Boot Manager: eMMC, Touch Test, UEFI Shell, MaskROM, network, a USB stick |
+| ![Platform configuration](docs/imgs/tspi3m-uefi-platform.png) | ![Display settings](docs/imgs/tspi3m-uefi-display.png) |
+| Platform configuration | Display settings |
+
 ![HWiNFO system summary on the TaishanPi 3M](docs/imgs/tspi3m-hwinfo.jpg)
 
 HWiNFO on the TaishanPi 3M under Windows: eight cores, 3838 MB, the board and
