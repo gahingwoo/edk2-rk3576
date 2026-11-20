@@ -20,6 +20,18 @@
  *  registers for the OS and programs its clock divider and pins at boot.
  *  If the write fails, the original ResetSystem runs as before.
  *
+ *  Windows on Arm does not go through ResetSystem: with PSCI in the FADT it
+ *  calls SYSTEM_OFF itself, so its shutdown froze on the last frame while
+ *  "Shut Down" in the firmware's menu worked.  For that path the PMIC has
+ *  to act on PWR_CTRL1 after all.  So at ExitBootServices, and only then,
+ *  GPIO0_A3 is made a GPIO driven low and PWRCTRL1 is set to power off;
+ *  TF-A's SYSTEM_OFF then raises the pin and the PMIC cuts power.  At every
+ *  boot the driver puts PWRCTRL1 back to "null" first thing and logs how it
+ *  found the pin, which tells whether a warm reset (PSCI SYSTEM_RESET, a
+ *  CRU global reset) keeps GPIO0_A3 low.  If it does not, a restart from
+ *  the OS becomes a power-off; the next power-on is a cold start with the
+ *  PMIC back at its defaults.
+ *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -74,11 +86,26 @@
 #define RK806_SLEEP_CONFIG0  0x62
 #define RK806_SYS_CFG3       0x72
 #define RK806_DEV_OFF        BIT0
+#define RK806_PWRCTRL1_FUN   0x07
+#define RK806_FUN_NULL       0
+#define RK806_FUN_POWOFF     2
+
+//
+// GPIO0_A3 = PWR_CTRL1 (RK3576 TRM, PMU0_IOC_GPIO0A_IOMUX_SEL_L), the pin
+// TF-A raises for SYSTEM_OFF (plat/rockchip/rk3576/drivers/pmu/pmu.c).
+//
+#define PMU0_IOC_GPIO0A_IOMUX_SEL_L  0x26040000
+#define GPIO0_BASE                   0x27320000
+#define GPIO_SWPORT_DR_L             0x0000
+#define GPIO_SWPORT_DDR_L            0x0008
+#define GPIO_EXT_PORT                0x0070
+#define GPIO0_A3                     BIT3
 
 STATIC UINTN             mI2cBase;
 STATIC UINT8             mAddress;
 STATIC EFI_RESET_SYSTEM  mOriginalResetSystem;
 STATIC EFI_EVENT         mVirtualAddressChangeEvent;
+STATIC EFI_EVENT         mExitBootServicesEvent;
 
 STATIC
 EFI_STATUS
@@ -245,6 +272,77 @@ Rk806VirtualAddressChange (
 }
 
 /**
+  Arm the PMIC for TF-A's SYSTEM_OFF: GPIO0_A3 low first, then PWRCTRL1 =
+  power off.  Order matters: with the pin high (its reset pull is up) the
+  second write would cut power on the spot.
+**/
+STATIC
+VOID
+EFIAPI
+Rk806ExitBootServices (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  UINT8  Sleep0;
+
+  MmioWrite32 (GPIO0_BASE + GPIO_SWPORT_DR_L, (GPIO0_A3 << 16) | 0);
+  MmioWrite32 (GPIO0_BASE + GPIO_SWPORT_DDR_L, (GPIO0_A3 << 16) | GPIO0_A3);
+  MmioWrite32 (PMU0_IOC_GPIO0A_IOMUX_SEL_L, (0xFU << (12 + 16)) | 0);
+  MicroSecondDelay (10);
+
+  if ((MmioRead32 (GPIO0_BASE + GPIO_EXT_PORT) & GPIO0_A3) != 0) {
+    return;   // the pin does not read low: leave the PMIC alone
+  }
+
+  if (EFI_ERROR (Rk806Read (RK806_SLEEP_CONFIG0, &Sleep0))) {
+    return;
+  }
+
+  Rk806Write (RK806_SLEEP_CONFIG0, (Sleep0 & ~RK806_PWRCTRL1_FUN) | RK806_FUN_POWOFF);
+}
+
+/**
+  First thing at every boot: PWRCTRL1 back to "null", so that nothing the
+  firmware does with GPIO0_A3 can power the board off, and a record of how
+  the pin came out of the reset.
+**/
+STATIC
+VOID
+Rk806DisarmAtBoot (
+  VOID
+  )
+{
+  UINT8   Sleep0;
+  UINT32  Dr, Ddr, Ext, Mux;
+
+  Dr  = MmioRead32 (GPIO0_BASE + GPIO_SWPORT_DR_L);
+  Ddr = MmioRead32 (GPIO0_BASE + GPIO_SWPORT_DDR_L);
+  Ext = MmioRead32 (GPIO0_BASE + GPIO_EXT_PORT);
+  Mux = MmioRead32 (PMU0_IOC_GPIO0A_IOMUX_SEL_L);
+
+  if (EFI_ERROR (Rk806Read (RK806_SLEEP_CONFIG0, &Sleep0))) {
+    DEBUG ((DEBUG_WARN, "Rk806PowerOff: PMIC not answering at entry\n"));
+    return;
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "Rk806PowerOff: at entry SLEEP_CONFIG0 0x%02x, GPIO0_A3 mux %u dir %a out %u level %u\n",
+    Sleep0,
+    (Mux >> 12) & 0xF,
+    ((Ddr & GPIO0_A3) != 0) ? "out" : "in",
+    (Dr & GPIO0_A3) != 0,
+    (Ext & GPIO0_A3) != 0
+    ));
+
+  if ((Sleep0 & RK806_PWRCTRL1_FUN) != RK806_FUN_NULL) {
+    Rk806Write (RK806_SLEEP_CONFIG0, Sleep0 & ~RK806_PWRCTRL1_FUN);
+    DEBUG ((DEBUG_INFO, "Rk806PowerOff: PWRCTRL1 was armed (warm reset kept the board on), set back to null\n"));
+  }
+}
+
+/**
   Say at ReadyToBoot whether the PMIC answers, and how it is set, so that a
   failed power-off can be told apart from a PMIC that is not there.
 **/
@@ -310,7 +408,20 @@ Rk806I2cPowerOffDxeInitialize (
     return Status;
   }
 
+  Rk806DisarmAtBoot ();
+
   EfiCreateEventReadyToBootEx (TPL_CALLBACK, Rk806ReadyToBoot, NULL, &ReadyToBootEvent);
+
+  Status = gBS->CreateEvent (
+                  EVT_SIGNAL_EXIT_BOOT_SERVICES,
+                  TPL_NOTIFY,
+                  Rk806ExitBootServices,
+                  NULL,
+                  &mExitBootServicesEvent
+                  );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   //
   // Wrap ResetSystem.  The table carries a CRC, so that is redone.
