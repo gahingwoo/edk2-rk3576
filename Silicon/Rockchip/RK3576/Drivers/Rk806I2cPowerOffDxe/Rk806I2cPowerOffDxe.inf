@@ -1,0 +1,50 @@
+## @file
+#
+#  Power the board off through an RK806 PMIC on I2C when the OS or the
+#  UEFI Shell asks for a shutdown.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = Rk806I2cPowerOffDxe
+  FILE_GUID                      = 7d3f1c52-9a64-4e8b-b1d0-2f6a5c9e8b47
+  MODULE_TYPE                    = DXE_RUNTIME_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = Rk806I2cPowerOffDxeInitialize
+
+[Sources]
+  Rk806I2cPowerOffDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+  PcdLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gEfiEventVirtualAddressChangeGuid
+
+[FixedPcd]
+  gRK3576TokenSpaceGuid.PcdRk806I2cBase
+  gRK3576TokenSpaceGuid.PcdRk806I2cAddress
+
+[Depex]
+  # After ResetSystemRuntimeDxe has filled gRT->ResetSystem, and after
+  # I2cDxe has set up the bus (pins, clock divider, runtime mapping).
+  gEfiResetArchProtocolGuid AND gEfiI2cMasterProtocolGuid

@@ -153,14 +153,22 @@
   })}
 
   #
-  # I2C.  The base file lists the CM5-IO's PMIC and RTC; this board has
-  # neither on I2C.  The one device the firmware talks to is the Goodix
-  # touch controller of the MIPI DSI screen, on I2C0 at 0x5d
-  # (rk3576-lckfb-tspi-3m-dsi-c41409463.dtsi, &i2c0).
+  # I2C.  The base file lists the CM5-IO's devices; this board's are:
+  #   I2C0 0x5d  the Goodix touch controller of the MIPI DSI screen
+  #              (rk3576-lckfb-tspi-3m-dsi-c41409463.dtsi, &i2c0)
+  #   I2C1 0x23  the RK806 PMIC (&i2c1 in rk3576-lckfb-tspi-3m.dts).  Listed
+  #              so that I2cDxe sets that bus up (pins, clock divider) and
+  #              maps it for runtime; Rk806I2cPowerOffDxe switches the PMIC
+  #              off through it when an OS asks for a shutdown.
   #
-  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x5d }
-  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x0 }
-  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ FALSE }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x5d, 0x23 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x0, 0x1 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ FALSE, TRUE }
+
+  # PSCI SYSTEM_OFF only raises PWR_CTRL1, which the RK806 ignores unless
+  # told otherwise; see Rk806I2cPowerOffDxe.
+  gRK3576TokenSpaceGuid.PcdRk806I2cBase|0x2AC40000
+  gRK3576TokenSpaceGuid.PcdRk806I2cAddress|0x23
 
   # Start the fan on CN2 (PWM2 ch3, see PwmFanIoSetup) at full speed and
   # leave it running into the OS.  Windows has no driver for it and nothing
@@ -207,6 +215,7 @@
   $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
   $(VENDOR_DIRECTORY)/Drivers/TouchKeysDxe/TouchKeysDxe.inf
   $(VENDOR_DIRECTORY)/Drivers/TouchKeysDxe/TouchTest.inf
+  Silicon/Rockchip/RK3576/Drivers/Rk806I2cPowerOffDxe/Rk806I2cPowerOffDxe.inf
 
   # RK3576Dxe, FdtPlatformDxe, the PCIe stack and the GMAC stack are common to
   # every RK3576 board and are declared in RK3576Base.dsc.inc.

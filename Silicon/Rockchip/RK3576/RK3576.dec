@@ -105,6 +105,12 @@
   # pin is held high and the period does not matter.
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|500000|UINT32|0x00010702
 
+  # Rk806I2cPowerOffDxe: the I2C controller and address of an RK806 that
+  # the firmware has to switch off itself at a shutdown (see the driver).
+  # 0 leaves shutdown to PSCI alone.
+  gRK3576TokenSpaceGuid.PcdRk806I2cBase|0|UINT32|0x00010705
+  gRK3576TokenSpaceGuid.PcdRk806I2cAddress|0x23|UINT8|0x00010706
+
   # TRUE: RK3576Dxe starts the TSADC sampling at boot, read-out only (no
   # TSHUT output, no interrupt, no reset; see Rk3576TsadcLib.c), and
   # RK3576AcpiPlatformDxe tells the DSDT's thermal zones it may read it.

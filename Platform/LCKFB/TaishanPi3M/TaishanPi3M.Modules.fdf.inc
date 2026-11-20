@@ -24,3 +24,4 @@
   INF $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
   INF $(VENDOR_DIRECTORY)/Drivers/TouchKeysDxe/TouchKeysDxe.inf
   INF $(VENDOR_DIRECTORY)/Drivers/TouchKeysDxe/TouchTest.inf
+  INF Silicon/Rockchip/RK3576/Drivers/Rk806I2cPowerOffDxe/Rk806I2cPowerOffDxe.inf

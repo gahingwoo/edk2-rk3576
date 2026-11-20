@@ -1,0 +1,72 @@
+diff --git a/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c b/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c
+--- a/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c
++++ b/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c
+@@ -32,6 +32,8 @@
+ //
+ #define PRINTABLE_LANGUAGE_NAME_STRING_ID  0x0001
+ 
++#define FRONT_PAGE_KEY_SHUTDOWN  0x1003   // patches/0012
++
+ #define UI_HII_DRIVER_LIST_SIZE  0x8
+ 
+ #define FRONT_PAGE_KEY_CONTINUE  0x1000
+@@ -192,6 +194,7 @@
+ {
+   if ((QuestionId != FRONT_PAGE_KEY_CONTINUE) &&
+       (QuestionId != FRONT_PAGE_KEY_RESET) &&
++      (QuestionId != FRONT_PAGE_KEY_SHUTDOWN) &&
+       (QuestionId != FRONT_PAGE_KEY_LANGUAGE))
+   {
+     return FALSE;
+@@ -252,6 +255,12 @@
+         //
+         gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
+         *Status = EFI_UNSUPPORTED;
++        break;
++
++      case FRONT_PAGE_KEY_SHUTDOWN:
++        gRT->ResetSystem (EfiResetShutdown, EFI_SUCCESS, 0, NULL);
++        *Status = EFI_UNSUPPORTED;
++        break;
+ 
+       default:
+         break;
+@@ -455,7 +464,7 @@
+ }
+ 
+ /**
+-  Create Reset menu in the front page.
++  Create Reset menu in the front page, and Shut Down after it.
+ 
+   @param[in]    HiiHandle           The hii handle for the Uiapp driver.
+   @param[in]    StartOpCodeHandle   The opcode handle to save the new opcode.
+@@ -475,6 +484,15 @@
+     EFI_IFR_FLAG_CALLBACK,
+     0
+     );
++
++  HiiCreateActionOpCode (
++    StartOpCodeHandle,
++    FRONT_PAGE_KEY_SHUTDOWN,
++    STRING_TOKEN (STR_SHUTDOWN_STRING),
++    STRING_TOKEN (STR_SHUTDOWN_STRING_HELP),
++    EFI_IFR_FLAG_CALLBACK,
++    0
++    );
+ }
+ 
+ /**
+diff --git a/MdeModulePkg/Application/UiApp/FrontPageStrings.uni b/MdeModulePkg/Application/UiApp/FrontPageStrings.uni
+--- a/MdeModulePkg/Application/UiApp/FrontPageStrings.uni
++++ b/MdeModulePkg/Application/UiApp/FrontPageStrings.uni
+@@ -54,6 +54,10 @@
+ #string STR_RESET_STRING               #language en-US  "Reset"
+                                        #language fr-FR  "Réinitialiser"
+ #string STR_RESET_STRING_HELP          #language en-US  "Cold reset (reboots the computer)."
++#string STR_SHUTDOWN_STRING            #language en-US  "Shut Down"
++#string STR_SHUTDOWN_STRING_HELP       #language en-US  "Turns the computer off."
++#string STR_SHUTDOWN_STRING            #language zh-Hans "\wide关机\narrow"
++#string STR_SHUTDOWN_STRING_HELP       #language zh-Hans "\wide关闭计算机。\narrow"
+                                        #language fr-FR  "Réinitialisation à froid (redémarre l'ordinateur)."
+ #string STR_CUSTOMIZE_BANNER_LINE4_LEFT  #language en-US  ""
+                                          #language fr-FR  ""
