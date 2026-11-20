@@ -1,0 +1,58 @@
+## @file
+#  An on-screen keyboard for a board with a touch screen or a mouse and no
+#  keyboard.  Its keys go into ConIn like any keyboard's.  Draws nothing on
+#  a board without a pointer device.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = OnScreenKeyboardDxe
+  FILE_GUID                      = d4ee05b9-f88d-4479-9e1d-bbf299fe6a7b
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = OnScreenKeyboardEntry
+
+[Sources]
+  OnScreenKeyboard.h
+  OnScreenKeyboardDxe.c
+  Keyboard.c
+  Overlay.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gEfiAbsolutePointerProtocolGuid         ## CONSUMES
+  gEfiDevicePathProtocolGuid              ## PRODUCES
+  gEfiFirmwareVolume2ProtocolGuid         ## CONSUMES
+  gEfiGraphicsOutputProtocolGuid          ## SOMETIMES_CONSUMES
+  gEfiHiiFontProtocolGuid                 ## SOMETIMES_CONSUMES
+  gEfiLoadedImageProtocolGuid             ## CONSUMES
+  gEfiSimplePointerProtocolGuid           ## CONSUMES
+  gEfiSimpleTextInProtocolGuid            ## PRODUCES
+  gEfiSimpleTextInputExProtocolGuid       ## PRODUCES
+  gRockchipOnScreenKeyboardProtocolGuid   ## PRODUCES
+
+[Guids]
+  gEfiConsoleInDeviceGuid                 ## PRODUCES
+  gEfiEndOfDxeEventGroupGuid
+  gEfiEventExitBootServicesGuid
+
+# No [Depex]: it then waits for all the architectural protocols, which it
+# needs (timers, and CalculateCrc32 for the StartImage wrapper).

@@ -651,6 +651,7 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   Silicon/Rockchip/Library/DisplayLib/DwMipiDsi2Lib.inf
 !endif
   Silicon/Rockchip/Drivers/LcdGraphicsOutputDxe/LcdGraphicsOutputDxe.inf
+  Silicon/Rockchip/Drivers/OnScreenKeyboardDxe/OnScreenKeyboardDxe.inf
 
 !if $(RK_AMD_GOP_ENABLE) == TRUE
   Drivers/AMD/Gop/AmdGopOpRomOverrideDxe.inf
