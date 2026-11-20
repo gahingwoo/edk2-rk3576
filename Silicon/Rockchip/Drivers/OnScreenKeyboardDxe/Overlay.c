@@ -70,6 +70,7 @@ INT32    mOskCursorX;
 INT32    mOskCursorY;
 UINTN    mOskDirect;
 BOOLEAN  mOskGone;
+BOOLEAN  mOskHiddenForShot;
 
 UINT32  mOskScreenW;
 UINT32  mOskScreenH;
@@ -670,7 +671,7 @@ OskOverlayPrepare (
   VOID
   )
 {
-  if (mOskGone) {
+  if (mOskGone || mOskHiddenForShot) {
     return FALSE;
   }
 
@@ -840,9 +841,10 @@ OskOverlaySync (
   OSK_RECT  Want;
 
   //
-  // Nothing to show: no Blt replacement either, and nothing set up.
+  // Nothing to show: no Blt replacement either, and nothing set up.  The
+  // same while a screenshot is taken.
   //
-  if ((mOskWantPanel == OSK_PANEL_NONE) && !mOskWantCursor) {
+  if (((mOskWantPanel == OSK_PANEL_NONE) && !mOskWantCursor) || mOskHiddenForShot) {
     if (mReady) {
       OskOverlayDetach (TRUE);
     }

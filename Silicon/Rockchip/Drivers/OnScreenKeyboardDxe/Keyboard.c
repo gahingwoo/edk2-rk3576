@@ -19,6 +19,7 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/HiiFont.h>
+#include <Protocol/RockchipScreenshot.h>
 
 #include "OnScreenKeyboard.h"
 
@@ -147,6 +148,7 @@ STATIC CONST OSK_KEY  *mRows[ROWS] = { mRow0, mRow1, mRow2, mRow3, mRow4, mRow5 
 #define ICON(A, I)  { 0, A, FALSE, SCAN_NULL, 0, 0, NULL, NULL, I }
 
 STATIC CONST OSK_KEY  mIcons[OSK_ICONS] = {
+  ICON (OSK_ACT_SHOT,  OSK_ICON_CAMERA),
   ICON (OSK_ACT_FLOAT, OSK_ICON_FLOAT),
   ICON (OSK_ACT_ALPHA, OSK_ICON_OPACITY),
   ICON (OSK_ACT_MOVE,  OSK_ICON_MOVE),
@@ -194,6 +196,25 @@ STATIC CONST CHAR8  *mPicDock[16] = {
   "XXXXXXXXXXXXXXXX"
 };
 
+STATIC CONST CHAR8  *mPicCamera[16] = {
+  "................",
+  "................",
+  ".....XXXXX......",
+  "....XX...XX.....",
+  ".XXXXXXXXXXXXXX.",
+  ".X............X.",
+  ".X....XXXX....X.",
+  ".X...XX..XX...X.",
+  ".X...X....X...X.",
+  ".X...X....X...X.",
+  ".X...XX..XX...X.",
+  ".X....XXXX....X.",
+  ".X............X.",
+  ".XXXXXXXXXXXXXX.",
+  "................",
+  "................"
+};
+
 STATIC CONST CHAR8  *mPicMove[16] = {
   ".......XX.......",
   "......XXXX......",
@@ -239,6 +260,8 @@ BOOLEAN    mOskCaps;
 INTN       mOskPressed = -1;
 BOOLEAN    mOskFloating;
 UINTN      mOskAlphaLevel;
+
+STATIC EFI_GUID  mScreenshotGuid = ROCKCHIP_SCREENSHOT_PROTOCOL_GUID;
 
 STATIC UINT32  mGap;
 STATIC UINT32  mLabelScale = 1;
@@ -628,6 +651,9 @@ OskDrawIcon (
     case OSK_ICON_HIDE:
       Pic = mPicHide;
       break;
+    case OSK_ICON_CAMERA:
+      Pic = mPicCamera;
+      break;
     default:
       Pic = NULL;       // opacity: drawn from the level below
       break;
@@ -687,6 +713,8 @@ OskLayout (
   CONST OSK_KEY  *Key;
   UINT32         ToggleH;
   UINT32         Margin;
+  UINTN          FirstIcon;
+  VOID           *Screenshot;
 
   //
   // Keys as wide as the screen allows, and rows of at most a fifteenth of
@@ -745,7 +773,13 @@ OskLayout (
   // The icons, square, at the right end of the bar; the keys' own margin
   // on the right.
   //
-  for (Row = 0; Row < OSK_ICONS; Row++) {
+  // the camera only when there is something to take the screenshot
+  FirstIcon = 0;
+  if (EFI_ERROR (gBS->LocateProtocol (&mScreenshotGuid, NULL, &Screenshot))) {
+    FirstIcon = 1;
+  }
+
+  for (Row = FirstIcon; Row < OSK_ICONS; Row++) {
     if (mOskPlaceCount < OSK_MAX_KEYS) {
       mOskPlace[mOskPlaceCount].Key    = &mIcons[Row];
       mOskPlace[mOskPlaceCount].Rect.W = (INT32)mHandleH;
@@ -756,7 +790,7 @@ OskLayout (
     }
   }
 
-  mIconsX = (INT32)(ImageW - X0) - (INT32)(OSK_ICONS * mHandleH);
+  mIconsX = (INT32)(ImageW - X0) - (INT32)((OSK_ICONS - FirstIcon) * mHandleH);
 
   *KeyboardW = ImageW;
   *KeyboardH = mHandleH + ROWS * RowH + 2 * Pad;

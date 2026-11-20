@@ -53,6 +53,12 @@
  *                by mistake while typing.
  *    move        docked: the other edge; floating: the other half.
  *    hide        closes it.
+ *    camera      a screenshot (ScreenshotDxe), without the keyboard in it;
+ *                only shown when ScreenshotDxe is in the image.
+ *
+ *  Whenever ScreenshotDxe takes a screenshot, by the camera or by its hot
+ *  key, the keyboard, its toggle and the mouse cursor come off the screen
+ *  first and come back afterwards.
  *
  *  Docked, the keyboard starts at the bottom and moves to the other edge by
  *  itself when the console's text cursor would end up under it.  Once the
@@ -82,6 +88,7 @@
 #include <Protocol/FirmwareVolume2.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/RockchipOnScreenKeyboard.h>
+#include <Protocol/RockchipScreenshot.h>
 #include <Protocol/SimplePointer.h>
 
 #include "OnScreenKeyboard.h"
@@ -176,6 +183,10 @@ STATIC INT32  mLastCursorRow = -1;
 
 STATIC BOOLEAN  mCursorPlaced;
 STATIC BOOLEAN  mUserEdge;         // the docked edge was chosen with the move icon
+
+STATIC EFI_GUID  mScreenshotGuid      = ROCKCHIP_SCREENSHOT_PROTOCOL_GUID;
+STATIC EFI_GUID  mScreenshotStartGuid = ROCKCHIP_SCREENSHOT_START_GROUP_GUID;
+STATIC EFI_GUID  mScreenshotEndGuid   = ROCKCHIP_SCREENSHOT_END_GROUP_GUID;
 
 // clicks for the setup browser
 STATIC EFI_EVENT  mClickEvent;
@@ -546,9 +557,10 @@ OskActivate (
   IN INTN  Index
   )
 {
-  CONST OSK_KEY  *Key;
-  CHAR16         Char;
-  BOOLEAN        Shifted;
+  CONST OSK_KEY                 *Key;
+  CHAR16                        Char;
+  BOOLEAN                       Shifted;
+  ROCKCHIP_SCREENSHOT_PROTOCOL  *Screenshot;
 
   if ((Index < 0) || ((UINTN)Index >= mOskPlaceCount)) {
     return;
@@ -612,6 +624,19 @@ OskActivate (
     case OSK_ACT_ALPHA:
       mOskAlphaLevel = (mOskAlphaLevel + 1) % OSK_ALPHA_LEVELS;
       OskOverlayAlphaChanged ();
+      break;
+
+    case OSK_ACT_SHOT:
+      //
+      // Taken once this TPL is left; the keyboard goes off the screen for
+      // it on its own (OskScreenshotStart).
+      //
+      if (EFI_ERROR (gBS->LocateProtocol (&mScreenshotGuid, NULL, (VOID **)&Screenshot)) ||
+          EFI_ERROR (Screenshot->Take (Screenshot)))
+      {
+        DEBUG ((DEBUG_ERROR, "OnScreenKeyboard: no screenshot driver\n"));
+      }
+
       break;
 
     default:
@@ -1444,6 +1469,41 @@ OskStartImage (
   return Status;
 }
 
+/**
+  A screenshot is about to be read (ScreenshotDxe, at TPL_CALLBACK; this
+  runs at TPL_NOTIFY, before it reads).  Everything off the screen, the
+  picture under it put back, and the Blt left alone until it is done.
+**/
+STATIC
+VOID
+EFIAPI
+OskScreenshotStart (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  if (mOskGone) {
+    return;
+  }
+
+  mOskHiddenForShot = TRUE;
+  OskOverlayDetach (TRUE);
+}
+
+/**
+  The screenshot is read.  The next poll puts everything back.
+**/
+STATIC
+VOID
+EFIAPI
+OskScreenshotEnd (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  mOskHiddenForShot = FALSE;
+}
+
 STATIC
 VOID
 EFIAPI
@@ -1570,6 +1630,9 @@ OnScreenKeyboardEntry (
          &gEfiEventExitBootServicesGuid,
          &Event
          );
+
+  gBS->CreateEventEx (EVT_NOTIFY_SIGNAL, TPL_NOTIFY, OskScreenshotStart, NULL, &mScreenshotStartGuid, &Event);
+  gBS->CreateEventEx (EVT_NOTIFY_SIGNAL, TPL_NOTIFY, OskScreenshotEnd, NULL, &mScreenshotEndGuid, &Event);
 
   gBS->CreateEventEx (
          EVT_NOTIFY_SIGNAL,
