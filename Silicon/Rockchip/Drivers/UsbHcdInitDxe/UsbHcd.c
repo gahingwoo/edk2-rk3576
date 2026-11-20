@@ -758,7 +758,7 @@ UsbHcProtocolNotify (
        * No debug output — this callback fires synchronously inside XhciDxe's
        * InstallProtocolInterface and must not flood the 1.5 Mbaud UART FIFO.
        */
-#define USB_CCS_POLL_MS    5000U   /* max wait for device to appear    */
+#define USB_CCS_POLL_MS    FixedPcdGet32 (PcdUsbCDeviceWaitMs)   /* max wait for device to appear; 0 on a board that does not power the port */
 #define USB_CCS_STABLE_MS  3000U   /* extra settle time once CCS=1     */
       {
         UINTN   HsPortscAddr = RawOpBase + 0x0400U;  /* PORTSC[0] HS port */

@@ -86,6 +86,10 @@
 
 ################################################################################
 [PcdsFixedAtBuild.common]
+  # The firmware leaves the USB-C port's VBUS off, so nothing can appear on
+  # it: do not spend five seconds of every boot waiting for a device there.
+  gRK3576TokenSpaceGuid.PcdUsbCDeviceWaitMs|0
+
   # SMBIOS identification
   gRockchipTokenSpaceGuid.PcdPlatformName|"TaishanPi 3M"
   gRockchipTokenSpaceGuid.PcdPlatformVendorName|"LCKFB"

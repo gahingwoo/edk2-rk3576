@@ -46,6 +46,9 @@
   gRockchipTokenSpaceGuid.PcdDwc3BaseAddresses
   gRockchipTokenSpaceGuid.PcdDwc3Size
 
+[FixedPcd]
+  gRK3576TokenSpaceGuid.PcdUsbCDeviceWaitMs
+
 [Pcd]
   gRK3576TokenSpaceGuid.PcdComboPhy1Mode
 
