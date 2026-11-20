@@ -27,6 +27,7 @@
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -38,6 +39,7 @@
   TimerLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
+  UefiLib
   UefiRuntimeServicesTableLib
 
 [Protocols]

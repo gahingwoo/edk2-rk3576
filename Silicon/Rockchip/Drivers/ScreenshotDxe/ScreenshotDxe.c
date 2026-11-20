@@ -27,6 +27,11 @@
  *  which every terminal emulator sends.  A USB keyboard matches Ctrl and
  *  Alt exactly, so plain F12 on it does nothing.
  *
+ *  Other drivers ask for one through ROCKCHIP_SCREENSHOT_PROTOCOL (the
+ *  on-screen keyboard's camera icon), and the START and END event groups
+ *  around the capture let anything that draws over the picture (that
+ *  keyboard and its mouse cursor) take itself off it first.
+ *
  *  The work is not done in the key notification, which runs at the TPL of
  *  the keyboard driver: that only signals an event at TPL_CALLBACK, where
  *  the file system and the block devices may be used.  Nothing is taken
@@ -53,12 +58,14 @@
 #include <Library/PrintLib.h>
 #include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Protocol/BlockIo.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/SimpleTextInEx.h>
+#include <Protocol/RockchipScreenshot.h>
 
 #include "lodepng.h"
 
@@ -71,6 +78,9 @@ STATIC EFI_EVENT                          mShotEvent;
 STATIC BOOLEAN                            mGone;
 STATIC EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL  *mSplitter;
 STATIC VOID                               *mTextInRegistration;
+STATIC EFI_GUID                           mStartGroup = ROCKCHIP_SCREENSHOT_START_GROUP_GUID;
+STATIC EFI_GUID                           mEndGroup   = ROCKCHIP_SCREENSHOT_END_GROUP_GUID;
+STATIC EFI_GUID                           mProtocolGuid = ROCKCHIP_SCREENSHOT_PROTOCOL_GUID;
 
 /**
   The display's own GOP: the first one with a device path (the console
@@ -407,9 +417,12 @@ ShotTake (
   }
 
   //
-  // The whole picture of the current mode, before anything else is drawn.
+  // The whole picture of the current mode, before anything else is drawn,
+  // and without what other drivers draw over it.
   //
+  EfiEventGroupSignal (&mStartGroup);
   Status = Gop->Blt (Gop, Pixels, EfiBltVideoToBltBuffer, 0, 0, 0, 0, Width, Height, 0);
+  EfiEventGroupSignal (&mEndGroup);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "Screenshot: reading the screen failed: %r\n", Status));
     FreePool (Pixels);
@@ -548,6 +561,25 @@ ShotTextInNotify (
 }
 
 STATIC
+EFI_STATUS
+EFIAPI
+ShotProtocolTake (
+  IN ROCKCHIP_SCREENSHOT_PROTOCOL  *This
+  )
+{
+  if (mGone) {
+    return EFI_UNSUPPORTED;
+  }
+
+  return gBS->SignalEvent (mShotEvent);
+}
+
+STATIC ROCKCHIP_SCREENSHOT_PROTOCOL  mProtocol = {
+  ROCKCHIP_SCREENSHOT_REVISION,
+  ShotProtocolTake
+};
+
+STATIC
 VOID
 EFIAPI
 ShotExitBootServices (
@@ -567,11 +599,15 @@ ScreenshotDxeEntry (
 {
   EFI_STATUS  Status;
   EFI_EVENT   Event;
+  EFI_HANDLE  Handle;
 
   Status = gBS->CreateEvent (EVT_NOTIFY_SIGNAL, TPL_CALLBACK, ShotTake, NULL, &mShotEvent);
   if (EFI_ERROR (Status)) {
     return Status;
   }
+
+  Handle = NULL;
+  gBS->InstallMultipleProtocolInterfaces (&Handle, &mProtocolGuid, &mProtocol, NULL);
 
   gBS->CreateEventEx (
          EVT_NOTIFY_SIGNAL,
