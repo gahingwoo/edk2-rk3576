@@ -1,0 +1,472 @@
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf b/MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+index 54887b58dc..74292425be 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+@@ -30,6 +30,8 @@
+   ProcessOptions.c
+   InputHandler.c
+   Popup.c
++  PointerClick.c
++  PointerClick.h
+ 
+ [Packages]
+   MdePkg/MdePkg.dec
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
+index 503dfef0fc..ce94f25c10 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
+@@ -1644,6 +1644,12 @@ ValueIsScroll (
+   return FALSE;
+ }
+ 
++//
++// Where the last click (UIEventPointer) landed, in text cells.
++//
++STATIC UINTN  mUiClickColumn;
++STATIC UINTN  mUiClickRow;
++
+ /**
+   Wait for a given event to fire, or for an optional timeout to expire.
+ 
+@@ -1662,8 +1668,9 @@ UiWaitForEvent (
+   UINTN          EventNum;
+   UINT64         Timeout;
+   EFI_EVENT      TimerEvent;
+-  EFI_EVENT      WaitList[3];
++  EFI_EVENT      WaitList[4];
+   UI_EVENT_TYPE  EventType;
++  EFI_EVENT      ClickEvent;
+ 
+   TimerEvent = NULL;
+   Timeout    = FormExitTimeout (gFormData);
+@@ -1693,8 +1700,25 @@ UiWaitForEvent (
+     EventNum++;
+   }
+ 
+-  Status = gBS->WaitForEvent (EventNum, WaitList, &Index);
++  //
++  // A pointer click, last, so the indexes above stay what they were.
++  //
++  ClickEvent = PointerClickBegin ();
++  if (ClickEvent != NULL) {
++    WaitList[EventNum] = ClickEvent;
++  }
++
++  Status = gBS->WaitForEvent (EventNum + ((ClickEvent != NULL) ? 1 : 0), WaitList, &Index);
+   ASSERT_EFI_ERROR (Status);
++  PointerClickEnd ();
++
++  if ((ClickEvent != NULL) && (Index == EventNum)) {
++    if (Timeout != 0) {
++      gBS->CloseEvent (TimerEvent);
++    }
++
++    return PointerClickGet (&mUiClickColumn, &mUiClickRow) ? UIEventPointer : UIEventNone;
++  }
+ 
+   switch (Index) {
+     case 0:
+@@ -1724,6 +1748,61 @@ UiWaitForEvent (
+   return EventType;
+ }
+ 
++/**
++  The statement shown at a text cell, found the way the repaint lays the
++  statements out: from TopOfScreen down, each taking its Skip rows (the
++  first less SkipValue), in the prompt and option columns.  NULL for
++  anything else: blank rows, the help text, the title, the key bar.
++**/
++STATIC
++UI_MENU_OPTION *
++UiMenuOptionAt (
++  IN LIST_ENTRY  *TopOfScreen,
++  IN UINTN       SkipValue,
++  IN UINTN       TopRow,
++  IN UINTN       BottomRow,
++  IN UINTN       Column,
++  IN UINTN       Row
++  )
++{
++  LIST_ENTRY      *Link;
++  UI_MENU_OPTION  *MenuOption;
++  UINTN           Left;
++  UINTN           Right;
++  UINTN           Current;
++  UINTN           Lines;
++
++  Left = gStatementDimensions.LeftColumn;
++  if ((gFormData->Attribute & HII_DISPLAY_MODAL) != 0) {
++    Left += gModalSkipColumn;
++  }
++
++  Right = Left + LEFT_SKIPPED_COLUMNS + gPromptBlockWidth + gOptionBlockWidth;
++  if ((TopOfScreen == NULL) || (Column < Left) || (Column >= Right) || (Row < TopRow) || (Row > BottomRow)) {
++    return NULL;
++  }
++
++  Current = TopRow;
++  for (Link = TopOfScreen; Link != &gMenuOption; Link = Link->ForwardLink) {
++    MenuOption = MENU_OPTION_FROM_LINK (Link);
++    Lines      = MenuOption->Skip;
++    if (Link == TopOfScreen) {
++      Lines = (Lines > SkipValue) ? Lines - SkipValue : 0;
++    }
++
++    if ((Row >= Current) && (Row < Current + Lines)) {
++      return MenuOption;
++    }
++
++    Current += Lines;
++    if (Current > BottomRow) {
++      break;
++    }
++  }
++
++  return NULL;
++}
++
+ /**
+   Get question id info from the input opcode header.
+ 
+@@ -3482,6 +3561,33 @@ UiDisplayMenu (
+           break;
+         }
+ 
++        //
++        // A click on a statement highlights it; a click on the highlighted
++        // one is Enter.  Anywhere else it does nothing.
++        //
++        if ((EventType == UIEventPointer) || (EventType == UIEventNone)) {
++          NextMenuOption = NULL;
++          if (EventType == UIEventPointer) {
++            NextMenuOption = UiMenuOptionAt (TopOfScreen, SkipValue, TopRow, BottomRow, mUiClickColumn, mUiClickRow);
++          }
++
++          if ((NextMenuOption == NULL) || !IsSelectable (NextMenuOption)) {
++            ControlFlag = CfReadKey;
++            break;
++          }
++
++          Link = &NextMenuOption->Link;
++          AdjustDateAndTimePosition (TRUE, &Link);
++          if (Link != NewPos) {
++            NewPos      = Link;
++            ControlFlag = CfRefreshHighLight;
++            break;
++          }
++
++          Key.ScanCode    = SCAN_NULL;
++          Key.UnicodeChar = CHAR_CARRIAGE_RETURN;
++        }
++
+         switch (Key.UnicodeChar) {
+           case CHAR_CARRIAGE_RETURN:
+             if ((MenuOption == NULL) || MenuOption->GrayOut || MenuOption->ReadOnly) {
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.h b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.h
+index a7b15a8a45..2a1ccb9209 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.h
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.h
+@@ -25,6 +25,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ 
+ #include <Guid/MdeModuleHii.h>
+ 
++#include "PointerClick.h"
++
+ //
+ // This is the generated header file which includes whatever needs to be exported (strings + IFR)
+ //
+@@ -189,7 +191,8 @@ typedef enum {
+   UIEventNone,
+   UIEventKey,
+   UIEventTimeOut,
+-  UIEventDriver
++  UIEventDriver,
++  UIEventPointer      // a click, at the cell UiWaitForEvent took
+ } UI_EVENT_TYPE;
+ 
+ typedef struct {
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/InputHandler.c b/MdeModulePkg/Universal/DisplayEngineDxe/InputHandler.c
+index b7f2d8a628..e2346ed5bd 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/InputHandler.c
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/InputHandler.c
+@@ -1287,6 +1287,8 @@ GetSelectionInputPopUp (
+   UINTN                          Index2;
+   UINTN                          TopOptionIndex;
+   UINTN                          HighlightOptionIndex;
++  UINTN                          ClickColumn;
++  UINTN                          ClickRow;
+   UINTN                          Start;
+   UINTN                          End;
+   UINTN                          Top;
+@@ -1507,7 +1509,25 @@ GetSelectionInputPopUp (
+       goto TheKey;
+     }
+ 
+-    WaitForKeyStroke (&Key);
++    if (WaitForKeyOrClick (&Key, &ClickColumn, &ClickRow)) {
++      //
++      // A click on an option highlights it; on the highlighted one it is
++      // Enter.  Anywhere else it does nothing.
++      //
++      if ((ClickColumn <= Start) || (ClickColumn + 1 >= End) || (ClickRow <= Top) || (ClickRow >= Bottom) ||
++          (TopOptionIndex + (ClickRow - Top - 1) >= PopUpMenuLines))
++      {
++        continue;
++      }
++
++      if (TopOptionIndex + (ClickRow - Top - 1) != HighlightOptionIndex) {
++        HighlightOptionIndex = TopOptionIndex + (ClickRow - Top - 1);
++        continue;
++      }
++
++      Key.ScanCode    = SCAN_NULL;
++      Key.UnicodeChar = CHAR_CARRIAGE_RETURN;
++    }
+ 
+ TheKey:
+     switch (Key.UnicodeChar) {
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/PointerClick.c b/MdeModulePkg/Universal/DisplayEngineDxe/PointerClick.c
+new file mode 100644
+index 0000000000..cf365f120c
+--- /dev/null
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/PointerClick.c
+@@ -0,0 +1,85 @@
++/** @file
++  Clicks from a pointer, as text cells, for the menus.  See PointerClick.h.
++
++  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
++  SPDX-License-Identifier: BSD-2-Clause-Patent
++
++**/
++
++#include "FormDisplay.h"
++
++STATIC EFI_GUID                        mPointerClickGuid = DISPLAY_POINTER_CLICK_PROTOCOL_GUID;
++STATIC DISPLAY_POINTER_CLICK_PROTOCOL  *mPointerClick;
++
++EFI_EVENT
++PointerClickBegin (
++  VOID
++  )
++{
++  //
++  // Looked for every time: a pointer driver may come after this one, and
++  // the lookup is cheap next to waiting for a person.
++  //
++  if (EFI_ERROR (gBS->LocateProtocol (&mPointerClickGuid, NULL, (VOID **)&mPointerClick)) ||
++      (mPointerClick->Revision < DISPLAY_POINTER_CLICK_REVISION) ||
++      (mPointerClick->WaitForClick == NULL))
++  {
++    mPointerClick = NULL;
++    return NULL;
++  }
++
++  mPointerClick->SetReading (mPointerClick, TRUE);
++  return mPointerClick->WaitForClick;
++}
++
++VOID
++PointerClickEnd (
++  VOID
++  )
++{
++  if (mPointerClick != NULL) {
++    mPointerClick->SetReading (mPointerClick, FALSE);
++  }
++}
++
++BOOLEAN
++PointerClickGet (
++  OUT UINTN  *Column,
++  OUT UINTN  *Row
++  )
++{
++  return (mPointerClick != NULL) &&
++         !EFI_ERROR (mPointerClick->GetClick (mPointerClick, Column, Row));
++}
++
++BOOLEAN
++WaitForKeyOrClick (
++  OUT EFI_INPUT_KEY  *Key,
++  OUT UINTN          *Column,
++  OUT UINTN          *Row
++  )
++{
++  EFI_EVENT   WaitList[2];
++  EFI_STATUS  Status;
++  UINTN       Index;
++
++  while (TRUE) {
++    if (!EFI_ERROR (gST->ConIn->ReadKeyStroke (gST->ConIn, Key))) {
++      return FALSE;
++    }
++
++    WaitList[1] = PointerClickBegin ();
++    if (WaitList[1] == NULL) {
++      WaitForKeyStroke (Key);
++      return FALSE;
++    }
++
++    WaitList[0] = gST->ConIn->WaitForKey;
++    Status      = gBS->WaitForEvent (2, WaitList, &Index);
++    PointerClickEnd ();
++
++    if (!EFI_ERROR (Status) && (Index == 1) && PointerClickGet (Column, Row)) {
++      return TRUE;
++    }
++  }
++}
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/PointerClick.h b/MdeModulePkg/Universal/DisplayEngineDxe/PointerClick.h
+new file mode 100644
+index 0000000000..c7bdbc3222
+--- /dev/null
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/PointerClick.h
+@@ -0,0 +1,99 @@
++/** @file
++  Clicks from a pointer, as text cells, for the menus.
++
++  A platform driver that draws a mouse pointer may install the protocol
++  below.  While the display engine waits for input it says so with
++  SetReading (TRUE); a click then comes as the text cell it landed on,
++  through WaitForClick and GetClick, instead of as a key.  With no such
++  protocol nothing here does anything and the menus read keys only, as
++  before.
++
++  The layout is shared with the platform driver (on Rockchip boards,
++  OnScreenKeyboardDxe); the GUID and the structure must not change on one
++  side only.
++
++  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
++  SPDX-License-Identifier: BSD-2-Clause-Patent
++
++**/
++
++#ifndef POINTER_CLICK_H_
++#define POINTER_CLICK_H_
++
++#define DISPLAY_POINTER_CLICK_PROTOCOL_GUID \
++  { 0x5b0d2c6e, 0x8e41, 0x4b7a, { 0x9f, 0x13, 0x2a, 0x6c, 0x70, 0x4e, 0xd1, 0x95 } }
++
++#define DISPLAY_POINTER_CLICK_REVISION  1
++
++typedef struct _DISPLAY_POINTER_CLICK_PROTOCOL DISPLAY_POINTER_CLICK_PROTOCOL;
++
++/**
++  The click that is waiting, as a text cell of the console (column, row).
++
++  @retval EFI_SUCCESS    A click, now taken.
++  @retval EFI_NOT_READY  None.
++**/
++typedef
++EFI_STATUS
++(EFIAPI *DISPLAY_POINTER_GET_CLICK)(
++  IN  DISPLAY_POINTER_CLICK_PROTOCOL  *This,
++  OUT UINTN                           *Column,
++  OUT UINTN                           *Row
++  );
++
++/**
++  TRUE while the caller waits for input and takes clicks; FALSE when it
++  stops.  Clicks outside that time are the platform's (it may send them
++  as Enter, for instance).
++**/
++typedef
++VOID
++(EFIAPI *DISPLAY_POINTER_SET_READING)(
++  IN DISPLAY_POINTER_CLICK_PROTOCOL  *This,
++  IN BOOLEAN                         Reading
++  );
++
++struct _DISPLAY_POINTER_CLICK_PROTOCOL {
++  UINT32                         Revision;
++  EFI_EVENT                      WaitForClick;
++  DISPLAY_POINTER_GET_CLICK      GetClick;
++  DISPLAY_POINTER_SET_READING    SetReading;
++};
++
++/**
++  Start taking clicks: the event to wait on, or NULL when there is no
++  pointer.  Every call is paired with PointerClickEnd ().
++**/
++EFI_EVENT
++PointerClickBegin (
++  VOID
++  );
++
++VOID
++PointerClickEnd (
++  VOID
++  );
++
++/**
++  The click that woke the wait, if there is one.
++**/
++BOOLEAN
++PointerClickGet (
++  OUT UINTN  *Column,
++  OUT UINTN  *Row
++  );
++
++/**
++  WaitForKeyStroke (), and a click as well when there is a pointer.
++
++  @retval FALSE  Key holds a key.
++  @retval TRUE   A click, at Column, Row; Key is not set.
++**/
++BOOLEAN
++WaitForKeyOrClick (
++  OUT EFI_INPUT_KEY  *Key,
++  OUT UINTN          *Column,
++  OUT UINTN          *Row
++  );
++
++#endif
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c b/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
+index 9954c4e4d5..895a7f1e47 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
+@@ -231,7 +231,8 @@ GetUserSelection (
+   USER_SELECTABLE_OPTION  *SelectableOption;
+   USER_SELECTABLE_OPTION  *HighlightOption;
+   EFI_INPUT_KEY           KeyValue;
+-  EFI_STATUS              Status;
++  UINTN                   ClickColumn;
++  UINTN                   ClickRow;
+ 
+   //
+   // Display user selectable options in gUserSelectableOptions and get the option which user selects.
+@@ -250,8 +251,32 @@ GetUserSelection (
+       return;
+     }
+ 
+-    Status = WaitForKeyStroke (&KeyValue);
+-    ASSERT_EFI_ERROR (Status);
++    if (WaitForKeyOrClick (&KeyValue, &ClickColumn, &ClickRow)) {
++      //
++      // A click on a button highlights it; on the highlighted one it is
++      // Enter.  Anywhere else it does nothing.
++      //
++      for (Link = gUserSelectableOptions.ForwardLink; Link != &gUserSelectableOptions; Link = Link->ForwardLink) {
++        SelectableOption = SELECTABLE_OPTION_FROM_LINK (Link);
++        if ((ClickRow == SelectableOption->OptionRow) && (ClickColumn >= SelectableOption->OptionCol) &&
++            (ClickColumn < SelectableOption->OptionCol + (GetStringWidth (SelectableOption->OptionString) - 2) / 2))
++        {
++          break;
++        }
++      }
++
++      if (Link == &gUserSelectableOptions) {
++        continue;
++      }
++
++      if (Link != HighlightPos) {
++        HighlightPos = Link;
++        continue;
++      }
++
++      KeyValue.ScanCode    = SCAN_NULL;
++      KeyValue.UnicodeChar = CHAR_CARRIAGE_RETURN;
++    }
+ 
+     HighlightOption = SELECTABLE_OPTION_FROM_LINK (HighlightPos);
+     switch (KeyValue.UnicodeChar) {

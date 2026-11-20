@@ -155,6 +155,7 @@
   INF Silicon/Rockchip/Library/DisplayLib/DwMipiDsi2Lib.inf
 !endif
   INF Silicon/Rockchip/Drivers/LcdGraphicsOutputDxe/LcdGraphicsOutputDxe.inf
+  INF Silicon/Rockchip/Drivers/OnScreenKeyboardDxe/OnScreenKeyboardDxe.inf
 !endif
 
 !if $(RK_AMD_GOP_ENABLE) == TRUE

@@ -86,6 +86,12 @@ with the power off.
 - Touch works in the menus as keys: drag moves the highlight, a tap is
   Enter, two fingers or a long press is Esc. "Touch Test" in the boot
   manager shows where touches land.
+- For typing, the small keyboard key near the top right corner opens an
+  on-screen keyboard; Hide on it closes it. Its keys reach setup, the UEFI
+  Shell, GRUB and the Windows boot manager. The same keyboard appears on
+  every board as soon as a USB mouse is plugged in, with a mouse cursor:
+  the wheel is Up and Down, a left click Enter and a right click Esc
+  anywhere off the keyboard. Not run on a board yet.
 - Windows shows its picture on the screen in portrait. Touch does not work
   in Windows yet.
 - "Shut Down" on the front page, `reset -s` in the UEFI Shell and a shutdown

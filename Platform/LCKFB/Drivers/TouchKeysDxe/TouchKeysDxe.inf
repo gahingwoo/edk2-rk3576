@@ -46,10 +46,12 @@
   gEfiSimpleTextInProtocolGuid          ## PRODUCES
   gEfiSimpleTextInputExProtocolGuid     ## PRODUCES
   gRockchipDsiPanelProtocolGuid         ## SOMETIMES_CONSUMES
+  gRockchipOnScreenKeyboardProtocolGuid ## SOMETIMES_CONSUMES
 
 [Guids]
   gEfiConsoleInDeviceGuid               ## PRODUCES
   gEfiEndOfDxeEventGroupGuid
+  gEfiEventExitBootServicesGuid
 
 [Pcd]
   gRK3588TokenSpaceGuid.PcdDisplayRotation

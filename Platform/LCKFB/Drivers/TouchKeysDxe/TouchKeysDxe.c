@@ -16,6 +16,11 @@
  *  It is a console input device like any other, so an OS loader that reads
  *  keys from the firmware (GRUB, the Windows boot manager) gets them too.
  *
+ *  The on-screen keyboard (OnScreenKeyboardDxe) gets every touch report
+ *  first.  A touch that starts on the keyboard or on its toggle key is the
+ *  keyboard's, and makes no gesture here; every other touch is a gesture,
+ *  exactly as without the keyboard.
+ *
  *  The controller is a Goodix GT9271 on I2C0 at 0x5d (the overlay
  *  rk3576-lckfb-tspi-3m-dsi-c41409463.dtsi).  It is polled: status at
  *  0x814E (bit 7 = a report is ready, low nibble = fingers down), the first
@@ -46,6 +51,7 @@
 #include <Protocol/LoadedImage.h>
 #include <Protocol/I2cMaster.h>
 #include <Protocol/RockchipDsiPanel.h>
+#include <Protocol/RockchipOnScreenKeyboard.h>
 #include <Protocol/SimpleTextIn.h>
 #include <Protocol/SimpleTextInEx.h>
 
@@ -96,6 +102,10 @@ STATIC EFI_EVENT                mPollEvent;
 STATIC EFI_EVENT                mWaitEvent;
 STATIC UINT16                   mRotation;          // what the picture is turned by when it is turned
 STATIC UINT16                   mTouchRotation;     // what it is turned by during the current touch
+STATIC BOOLEAN                  mStopped;           // ExitBootServices
+
+STATIC ROCKCHIP_ON_SCREEN_KEYBOARD_PROTOCOL  *mOsk;
+STATIC BOOLEAN                               mOskOwned;  // the current touch is the keyboard's
 
 STATIC EFI_INPUT_KEY  mQueue[KEY_QUEUE_SIZE];
 STATIC UINTN          mQueueHead;
@@ -259,6 +269,11 @@ TouchPoll (
   UINT8  Zero = 0;
   UINTN  Fingers;
   INT32  X, Y, Dx, Dy;
+  BOOLEAN  First;
+
+  if (mStopped) {
+    return;
+  }
 
   //
   // Between touches, follow the picture: the rotation goes off and on with
@@ -324,6 +339,7 @@ TouchPoll (
     mAbsChanged             = TRUE;
     gBS->SignalEvent (mAbsEvent);
 
+    First = !mDown;
     if (!mDown) {
       mDown       = TRUE;
       mMoved      = FALSE;
@@ -331,11 +347,27 @@ TouchPoll (
       mStartX     = mAnchorX = X;
       mStartY     = mAnchorY = Y;
       mDownPolls  = 0;
+      mOskOwned   = FALSE;
     }
 
     mDownPolls++;
     if (Fingers >= 2) {
       mTwoFingers = TRUE;
+    }
+
+    //
+    // The keyboard decides on the first report of a touch whether it is
+    // its own; it keeps that answer to the end of the touch.
+    //
+    if (mOsk != NULL) {
+      if (mOsk->Touch (mOsk, TRUE, mAbsState.CurrentX, mAbsState.CurrentY, mAbsMode.AbsoluteMaxX, mAbsMode.AbsoluteMaxY, Fingers) && First) {
+        mOskOwned = TRUE;
+      }
+    }
+
+    if (mOskOwned) {
+      TouchTransfer (GT_REG_STATUS, &Zero, 1, TRUE);
+      return;
     }
 
     TouchToPicture (X - mAnchorX, Y - mAnchorY, &Dx, &Dy);
@@ -362,7 +394,13 @@ TouchPoll (
     mAbsChanged             = TRUE;
     gBS->SignalEvent (mAbsEvent);
 
-    if (mTwoFingers) {
+    if (mOsk != NULL) {
+      mOsk->Touch (mOsk, FALSE, 0, 0, mAbsMode.AbsoluteMaxX, mAbsMode.AbsoluteMaxY, 0);
+    }
+
+    if (mOskOwned) {
+      mOskOwned = FALSE;
+    } else if (mTwoFingers) {
       TouchQueueKey (SCAN_ESC, 0);
     } else if (!mMoved) {
       if (mDownPolls >= LONG_PRESS_POLLS) {
@@ -724,6 +762,23 @@ TouchFindMaster (
   return Master;
 }
 
+/**
+  The OS takes over: no more I2C traffic, no more keys.
+**/
+STATIC
+VOID
+EFIAPI
+TouchExitBootServices (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  mStopped = TRUE;
+  if (mPollEvent != NULL) {
+    gBS->SetTimer (mPollEvent, TimerCancel, 0);
+  }
+}
+
 STATIC
 VOID
 EFIAPI
@@ -737,6 +792,7 @@ TouchEndOfDxe (
   UINTN                        Frequency;
   UINT16                       Setting;
   ROCKCHIP_DSI_PANEL_PROTOCOL  *Panel;
+  EFI_EVENT                    ExitEvent;
 
   gBS->CloseEvent (Event);
 
@@ -792,6 +848,16 @@ TouchEndOfDxe (
 
   mAbsPointer.WaitForInput = mAbsEvent;
 
+  //
+  // Tell the on-screen keyboard about this screen before the pointer is
+  // installed, so that it never reads the pointer itself.
+  //
+  if (EFI_ERROR (gBS->LocateProtocol (&gRockchipOnScreenKeyboardProtocolGuid, NULL, (VOID **)&mOsk)) ||
+      EFI_ERROR (mOsk->AddTouchScreen (mOsk, &mAbsPointer)))
+  {
+    mOsk = NULL;
+  }
+
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &mHandle,
                   &gEfiDevicePathProtocolGuid,
@@ -821,13 +887,25 @@ TouchEndOfDxe (
     Status = gBS->SetTimer (mPollEvent, TimerPeriodic, POLL_100NS);
   }
 
+  if (!EFI_ERROR (Status)) {
+    gBS->CreateEventEx (
+           EVT_NOTIFY_SIGNAL,
+           TPL_NOTIFY,
+           TouchExitBootServices,
+           NULL,
+           &gEfiEventExitBootServicesGuid,
+           &ExitEvent
+           );
+  }
+
   DEBUG ((
     DEBUG_INFO,
-    "TouchKeys: Goodix \"%c%c%c%c\" on I2C%u, picture rotation %u, polling %r\n",
+    "TouchKeys: Goodix \"%c%c%c%c\" on I2C%u, picture rotation %u, polling %r, on-screen keyboard %a\n",
     Id[0], Id[1], Id[2], Id[3] ? Id[3] : ' ',
     TOUCH_I2C_BUS,
     mRotation,
-    Status
+    Status,
+    (mOsk != NULL) ? "yes" : "no"
     ));
 }
 
