@@ -199,3 +199,12 @@ as UTF-8, and an East Asian wide character advances the driver's cursor by
 two columns, as it does on a terminal and on the graphics console. English
 output is unchanged. Switching the terminal type to VT-UTF8 was not an
 option: its function keys differ, and `PlatformBm.c` asserts TTYTERM.
+
+### `0012-UiApp-add-Shut-Down-to-the-front-page.patch`
+
+Applies on top of 0006 and 0008. Adds "Shut Down" / "关机" under "Reset" on
+the front page, which calls `ResetSystem (EfiResetShutdown)`. On the
+TaishanPi 3M that reaches the PMIC through Rk806I2cPowerOffDxe; on the other
+boards it is the PSCI SYSTEM_OFF it always was. The patch also adds the
+missing `break` after the Reset case, which used to fall through to
+`default`.
