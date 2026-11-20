@@ -54,5 +54,6 @@
   gEfiEndOfDxeEventGroupGuid
   gEfiEventExitBootServicesGuid
 
-# No [Depex]: it then waits for all the architectural protocols, which it
-# needs (timers, and CalculateCrc32 for the StartImage wrapper).
+[Depex]
+  # timers, and CalculateCrc32 for the StartImage wrapper
+  gEfiTimerArchProtocolGuid AND gEfiRuntimeArchProtocolGuid
