@@ -110,7 +110,10 @@ so the kernel has to be about that new. The limits:
 - A system that brings its own device tree with a panel driver, as Armbian
   does, can use it instead: with "Support DTB override & overlays" on, the
   firmware loads `\dtb\rockchip\rk3576-lckfb-tspi-3m.dtb` and
-  `\dtb\overlays\*.dtbo` from the partition it boots. Not tried.
+  `\dtb\overlays\*.dtbo` from the partition it boots. Seen loading such a
+  tree from a USB stick, with the firmware's fixups (force GOP among them)
+  applied on top. A tree without `regulator-always-on` on the USB-A VBUS
+  regulators lost that stick under Linux; from 0.4.2 the firmware adds it.
 - Touch. The controller is in the device tree the firmware hands over. It
   did not show up in that kernel's log, and nobody has looked further.
 - HDMI in Linux with the option off has not been tried on this board. It

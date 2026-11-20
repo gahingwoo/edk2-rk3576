@@ -51,6 +51,9 @@
   gEfiLoadedImageProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
 
+[FixedPcd]
+  gRK3576TokenSpaceGuid.PcdFdtUsbAVbusAlwaysOn
+
 [Pcd]
   gRockchipTokenSpaceGuid.PcdDeviceTreeName
   gRK3576TokenSpaceGuid.PcdConfigTableMode

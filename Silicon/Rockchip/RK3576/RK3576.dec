@@ -119,6 +119,13 @@
   # firmware does not power the port: nothing can appear there.
   gRK3576TokenSpaceGuid.PcdUsbCDeviceWaitMs|5000|UINT32|0x00010703
 
+  # TRUE: mark the USB-A VBUS regulators of the device tree handed to the
+  # OS always-on, also in a tree loaded from the boot partition.  For a
+  # board whose mainline tree names them only in usb-a-connector nodes,
+  # which nothing enables, so Linux switches the ports off when it
+  # registers the regulators and loses a USB stick it is booting from.
+  gRK3576TokenSpaceGuid.PcdFdtUsbAVbusAlwaysOn|FALSE|BOOLEAN|0x00010704
+
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   # Runtime dynamic PCDs (set by RK3576Dxe at DXE phase from *Default FixedAtBuild values)
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode|0|UINT32|0x00000101
