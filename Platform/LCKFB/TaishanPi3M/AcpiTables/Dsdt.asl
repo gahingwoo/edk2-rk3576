@@ -167,6 +167,45 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
       }
     }
 
+    // Goodix GT9271, the touch controller of LCKFB's 800x1280 MIPI DSI
+    // screen, on I2C0 at 0x5d (rk3576-lckfb-tspi-3m-uefi.dts, touchscreen@5d,
+    // which is also where the 400 kHz comes from).  For the woa-rk3576
+    // gt9271 driver, which binds RKCP9271.
+    //
+    // The screen is optional and its controller does not answer without it,
+    // so the device is hidden unless TCHP is 1.  TouchKeysDxe sets it at
+    // ReadyToBoot when the controller answered its product ID read.  It must
+    // stay "Name (TCHP, 0)": the patch turns that one ZeroOp into a OneOp.
+    //
+    // Interrupt: GPIO0_C5 (pin 21 of GPI0), active low.  The controller's
+    // factory configuration pulses it on a falling edge, so it is declared
+    // Edge here, where the device tree says IRQ_TYPE_LEVEL_LOW; an edge is
+    // latched by the GPIO block and a short pulse cannot be missed.  The
+    // board has no pull-up on it, and rk3xgpio does not configure pulls, so
+    // TouchKeysDxe enables the SoC pull-up (dts touch_int, pcfg_pull_up);
+    // PullUp below says the same.  Reset (GPIO0_D0) is not declared: the
+    // GT9xx reset sequence also selects the I2C address from the level of
+    // the interrupt line, and nothing on the Windows side resets the chip.
+    Scope (I2C0) {
+      Device (TCH0) {
+        Name (_HID, "RKCP9271")
+        Name (_UID, 0)
+        Name (TCHP, 0)
+        Name (_CRS, ResourceTemplate () {
+          I2cSerialBusV2 (0x005d, ControllerInitiated, 400000,
+                          AddressingMode7Bit, "\\_SB.I2C0",
+                          0x00, ResourceConsumer, , Exclusive,)
+          GpioInt (Edge, ActiveLow, Exclusive, PullUp, 0, "\\_SB.GPI0") { GPIO_PIN_PC5 }
+        })
+        Method (_STA) {
+          If (TCHP) {
+            Return (0xf)
+          }
+          Return (0x0)
+        }
+      }
+    }
+
     // SPI0..SPI4 (SoC-level; SFC0 is declared disabled)
     include ("Spi.asl")
 
