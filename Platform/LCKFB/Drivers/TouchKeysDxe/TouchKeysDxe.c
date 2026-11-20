@@ -23,6 +23,10 @@
  *  and 0x814E has to be written back to 0 after every report.  Coordinates
  *  are the panel's native ones, 800 x 1280.
  *
+ *  When it finds the controller it also gets it ready for an OS driver: the
+ *  interrupt line gets its pull-up, and the DSDT's touch screen device
+ *  (\_SB.I2C0.TCH0) is made visible.  With no screen both are skipped.
+ *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -32,7 +36,12 @@
 #include <Uefi.h>
 #include <Guid/ConsoleInDevice.h>
 #include <Guid/EventGroup.h>
+#include <IndustryStandard/Acpi.h>
+#include <IndustryStandard/AcpiAml.h>
+#include <Library/AcpiLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/GpioLib.h>
+#include <Library/IoLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
@@ -41,6 +50,7 @@
 #include <Library/DevicePathLib.h>
 #include <Library/UefiBootManagerLib.h>
 #include <Protocol/AbsolutePointer.h>
+#include <Protocol/AcpiSystemDescriptionTable.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/LoadedImage.h>
@@ -724,6 +734,126 @@ TouchFindMaster (
   return Master;
 }
 
+//
+// Windows gets the controller too, through \_SB.I2C0.TCH0 (RKCP9271) in the
+// DSDT, whose _STA is 0 until \_SB.I2C0.TCH0.TCHP is 1.  Only this driver
+// knows whether the screen is there, so it sets TCHP when it found the
+// controller: with no screen, Windows sees no touch device at all.
+//
+// ReadyToBoot, because RK3576AcpiPlatformDxe installs the DSDT at EndOfDxe
+// and the order of two EndOfDxe callbacks is not fixed.  TCHP is "Name (TCHP,
+// 0)", a single ZeroOp after the name, so the patch is one byte, ZeroOp to
+// OneOp, in the installed table, and then the checksum.  Nothing else in the
+// table is touched, and if TCHP is not found nothing is changed at all.
+//
+#define TOUCH_ACPI_PRESENT_NAME  "TCHP"
+
+STATIC
+VOID
+EFIAPI
+TouchReadyToBoot (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  EFI_STATUS                   Status;
+  EFI_ACPI_SDT_PROTOCOL        *AcpiSdt;
+  EFI_ACPI_DESCRIPTION_HEADER  *Dsdt;
+  UINTN                        TableIndex;
+  UINTN                        TableKey;
+  UINT8                        *Aml;
+  UINTN                        Index;
+
+  gBS->CloseEvent (Event);
+
+  Status = gBS->LocateProtocol (&gEfiAcpiSdtProtocolGuid, NULL, (VOID **)&AcpiSdt);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_INFO, "TouchKeys: no ACPI, nothing to tell the OS\n"));
+    return;
+  }
+
+  TableIndex = 0;
+  Status     = AcpiLocateTableBySignature (
+                 AcpiSdt,
+                 EFI_ACPI_6_3_DIFFERENTIATED_SYSTEM_DESCRIPTION_TABLE_SIGNATURE,
+                 &TableIndex,
+                 &Dsdt,
+                 &TableKey
+                 );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_INFO, "TouchKeys: no DSDT (%r)\n", Status));
+    return;
+  }
+
+  Aml = (UINT8 *)Dsdt;
+  for (Index = sizeof (EFI_ACPI_DESCRIPTION_HEADER);
+       Index + 1 + AML_NAME_SEG_SIZE < Dsdt->Length;
+       Index++)
+  {
+    if ((Aml[Index] != AML_NAME_OP) ||
+        (CompareMem (&Aml[Index + 1], TOUCH_ACPI_PRESENT_NAME, AML_NAME_SEG_SIZE) != 0))
+    {
+      continue;
+    }
+
+    //
+    // Not "Name (TCHP, 0)": either a byte that only looks like a NameOp (a
+    // PkgLength of 8 before a reference to TCHP), or the name already set.
+    //
+    if (Aml[Index + 1 + AML_NAME_SEG_SIZE] != AML_ZERO_OP) {
+      continue;
+    }
+
+    Aml[Index + 1 + AML_NAME_SEG_SIZE] = AML_ONE_OP;
+    AcpiUpdateChecksum (Aml, Dsdt->Length);
+    DEBUG ((DEBUG_INFO, "TouchKeys: DSDT %a = 1, touch screen shown to the OS\n", TOUCH_ACPI_PRESENT_NAME));
+    return;
+  }
+
+  DEBUG ((DEBUG_INFO, "TouchKeys: DSDT has no \"Name (%a, 0)\", left alone\n", TOUCH_ACPI_PRESENT_NAME));
+}
+
+//
+// The controller's interrupt line, GPIO0_C5, has no pull-up on the board,
+// and an OS that takes the interrupt needs one (the touch-int pinctrl of
+// rk3576-lckfb-tspi-3m-uefi.dts: RK_FUNC_GPIO, pcfg_pull_up).  RK3576
+// GpioLib has no pull support, so the PMU1 IOC register is written here:
+// GPIO0C_P at IOC + 0x202C (pinctrl-rockchip.c, rk3576_calc_pull_reg_and_bit:
+// RK3576_PULL_GPIO0_BH_OFFSET - 4 + (21 / 8) * 4), two bits per pin, C5 at
+// bits 11:10, 0b11 = pull-up, write-enable in the upper half.
+//
+// Only once the controller has answered at 0x5d: its address is latched by
+// then, so the level of this line no longer selects it.
+//
+#define TOUCH_INT_PULL_REG  (0x26040000UL + 0x202CUL)
+#define TOUCH_INT_PULL_UP   (0x3U << 10)
+#define TOUCH_INT_PULL_WE   (0x3U << (10 + 16))
+
+STATIC
+VOID
+TouchPrepareForOs (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  EFI_EVENT   Event;
+
+  GpioPinSetFunction (0, GPIO_PIN_PC5, 0);
+  MmioWrite32 (TOUCH_INT_PULL_REG, TOUCH_INT_PULL_WE | TOUCH_INT_PULL_UP);
+
+  Status = gBS->CreateEventEx (
+                  EVT_NOTIFY_SIGNAL,
+                  TPL_CALLBACK,
+                  TouchReadyToBoot,
+                  NULL,
+                  &gEfiEventReadyToBootGuid,
+                  &Event
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "TouchKeys: no ReadyToBoot event, the OS will not see the touch screen: %r\n", Status));
+  }
+}
+
 STATIC
 VOID
 EFIAPI
@@ -755,6 +885,8 @@ TouchEndOfDxe (
     mMaster = NULL;
     return;
   }
+
+  TouchPrepareForOs ();
 
   //
   // The rotation of the picture, worked out as LcdGraphicsOutputDxe does:

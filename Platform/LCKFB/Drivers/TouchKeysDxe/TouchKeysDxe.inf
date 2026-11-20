@@ -21,15 +21,19 @@
   TouchKeys.h
 
 [Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   Silicon/Rockchip/RockchipPkg.dec
 
 [LibraryClasses]
+  AcpiLib
   BaseLib
   BaseMemoryLib
   DebugLib
   DevicePathLib
+  GpioLib
+  IoLib
   MemoryAllocationLib
   PcdLib
   UefiBootManagerLib
@@ -39,6 +43,7 @@
 
 [Protocols]
   gEfiAbsolutePointerProtocolGuid       ## PRODUCES
+  gEfiAcpiSdtProtocolGuid               ## SOMETIMES_CONSUMES
   gEfiDevicePathProtocolGuid            ## PRODUCES
   gEfiGraphicsOutputProtocolGuid        ## SOMETIMES_CONSUMES
   gEfiLoadedImageProtocolGuid           ## CONSUMES
@@ -50,6 +55,7 @@
 [Guids]
   gEfiConsoleInDeviceGuid               ## PRODUCES
   gEfiEndOfDxeEventGroupGuid
+  gEfiEventReadyToBootGuid
 
 [Pcd]
   gRK3588TokenSpaceGuid.PcdDisplayRotation
