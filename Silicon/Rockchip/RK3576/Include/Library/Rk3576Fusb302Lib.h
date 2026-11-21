@@ -32,9 +32,10 @@ typedef struct {
   Read which way round the USB-C plug is, measuring as the source this port
   is (data role host, power role source on all our boards).
 
-  Leaves the FUSB302 software-reset, i.e. in its power-on default state, so
-  the OS's driver finds the chip as it would after a cold boot.  Never
-  touches VBUS, never enables the PD transmitter or receiver.
+  Software-resets the FUSB302 at the end.  When a sink was found on one CC
+  line, Rp (default USB current) is then presented on that line, as a host
+  port should; otherwise the chip stays in its power-on default state.
+  Never touches VBUS, PD, toggling, VCONN or the interrupt masks.
 
   @param[in]  Bus   The I2C controller the chip is on.
 

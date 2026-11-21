@@ -25,7 +25,8 @@
  *      nothing.
  *    - FUSB302 (I2C2 0x22, dts:636-673): no Windows driver, and nothing here
  *      runs a Type-C port manager.  The firmware reads it once at
- *      ExitBootServices for the USBDP lane mapping and leaves it reset.
+ *      ExitBootServices for the USBDP lane mapping, then leaves Rp on the
+ *      attached CC line (a sink found) or the chip reset (anything else).
  *    - WiFi on SDIO and Bluetooth on UART6 (dts:789-814, 853-873): the CM5-IO
  *      declares neither, and their power, reset and 32 kHz clock are
  *      sequenced by Linux (sdio_pwrseq, dts:167-175).

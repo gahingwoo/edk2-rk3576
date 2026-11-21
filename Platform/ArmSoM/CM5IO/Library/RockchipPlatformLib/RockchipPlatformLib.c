@@ -465,7 +465,8 @@ UsbPortPowerEnable (
  * the CM5-IO V1.1 schematic.  The schematic footprint also takes a HUSB311
  * (a TCPCI part at another address); on such a board nothing answers at
  * 0x22 and the answer is Unknown, as before.  Rk3576Fusb302Lib does the
- * measurement and leaves the chip reset.
+ * measurement; it leaves Rp on the attached CC line when a sink was found,
+ * the chip reset otherwise.
  *
  * clk_i2c0 is PMU1CRU CLKSEL_CON6 bits 8:7, 3 = xin24m (clk-rk3576.c); its
  * gates are PMU1CRU CLKGATE_CON5 bits 1 (pclk) and 2 (clk).

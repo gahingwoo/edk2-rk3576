@@ -418,8 +418,9 @@ UsbPortPowerEnable (
  * This board's USB-C port (DRD0, both SuperSpeed pairs wired to the USBDP
  * PHY) has an FUSB302BMPX (U40) at 0x22 on I2C2 (dts:636-673; schematic
  * nets I2C2_SCL/SDA_M0_CC_RTC, shared with the HYM8563 RTC only), INT on
- * GPIO0 PB4.  Rk3576Fusb302Lib does the measurement and leaves the chip
- * reset.  It is called from UsbHcd's ExitBootServices handler, which no
+ * GPIO0 PB4.  Rk3576Fusb302Lib does the measurement; it leaves Rp on
+ * the attached CC line when a sink was found, the chip reset otherwise.
+ * It is called from UsbHcd's ExitBootServices handler, which no
  * I2cDxe transfer can interleave with; the RTC's runtime accesses come later
  * and find the controller's clock mux and divider as they were.
  *

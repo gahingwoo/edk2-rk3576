@@ -7,8 +7,9 @@
  *
  *  Called once, from UsbHcd's ExitBootServices handler, before the USBDP
  *  PHY's lanes are muxed.  Nothing else in UEFI drives the chip, and nothing
- *  must be left running in it for the OS: Linux's fusb302 driver starts with
- *  a software reset of its own, and Windows has no driver for it.
+ *  must be left running in it for the OS beyond a source's Rp on the attached
+ *  line: Linux's fusb302 driver starts with a software reset of its own, and
+ *  Windows has no driver for it.
  *
  *  What is done to the chip, in order:
  *
@@ -27,8 +28,14 @@
  *      convention; the USBDP PHY flips its lanes for reverse).  This is
  *      mainline fusb302.c's fusb302_get_src_cc_status() without its toggling
  *      state machine.  Each line has Rp for about 2 ms.
- *   5. Software reset again, whatever the result, so the chip is left as a
- *      cold boot leaves it.
+ *   5. Software reset again, whatever the result.  If a sink was found on
+ *      exactly one line, Rp (80 uA, default USB power, CONTROL0's reset
+ *      value) is then presented on that line only, as a host port should,
+ *      so a sink or dock with its own CC logic sees a stable attach under
+ *      Windows, which has no port manager.  Otherwise (nothing attached, a
+ *      source, Rd on both lines, an I2C error) the chip is left reset, as a
+ *      cold boot leaves it.  Rp is never presented against a source.
+ *      Linux's fusb302 starts with its own software reset either way.
  *
  *  Never written: VBUS (the board's own GPIO switch), the PD transmitter and
  *  receiver (CONTROL1..3, FIFOs), the toggle state machine, VCONN, the
@@ -269,6 +276,7 @@ Rk3576Fusb302GetOrientation (
   BOOLEAN                Ok2;
   BOOLEAN                Cc1;
   BOOLEAN                Cc2;
+  BOOLEAN                Attached;
   CONST CHAR8            *Why;
 
   Base      = Bus->I2cBase;
@@ -355,19 +363,44 @@ Rk3576Fusb302GetOrientation (
 
 Done:
   //
-  // Back to the power-on state for the OS, whatever happened above.
+  // Back to the power-on state, whatever happened above.  Then, only when a
+  // sink was found on exactly one line (never against a source), present Rp
+  // on that line, as a host port should, so a sink or dock with its own CC
+  // logic sees a stable attach under an OS with no port manager (Windows).
+  // CONTROL0 is left at its reset value, HOST_CUR = 01 (80 uA, default USB
+  // power), with INT_MASK set.  Linux's fusb302 software-resets the chip in
+  // its init (tcpm_init -> fusb302_sw_reset) and starts from defaults.
   //
+  Attached = (Result != UsbTypeCOrientationUnknown);
   if (!Fusb302SoftReset (Base)) {
     DEBUG ((DEBUG_ERROR, "%a TypeC: FUSB302 final reset failed\n", Bus->Name));
+    Attached = FALSE;
+  }
+
+  if (Attached &&
+      !(Fusb302Write (Base, FUSB302_POWER, FUSB302_POWER_ALL) &&
+        Fusb302Write (
+          Base,
+          FUSB302_SWITCHES0,
+          (Result == UsbTypeCOrientationNormal) ? FUSB302_SW0_PU_EN1 : FUSB302_SW0_PU_EN2
+          )))
+  {
+    // Rp could not be set: put the chip back to defaults rather than leave
+    // it half-configured.  The orientation itself was measured, keep it.
+    DEBUG ((DEBUG_ERROR, "%a TypeC: could not present Rp, resetting\n", Bus->Name));
+    Fusb302SoftReset (Base);
+    Attached = FALSE;
   }
 
   DEBUG ((
     DEBUG_INFO,
-    "%a TypeC: orientation %a (%a); FUSB302 left reset\n",
+    "%a TypeC: orientation %a (%a); FUSB302 left %a\n",
     Bus->Name,
     (Result == UsbTypeCOrientationNormal) ? "normal" :
     (Result == UsbTypeCOrientationReverse) ? "reverse" : "unknown",
-    Why
+    Why,
+    !Attached ? "reset" :
+    (Result == UsbTypeCOrientationNormal) ? "with Rp on CC1" : "with Rp on CC2"
     ));
 
 Restore:

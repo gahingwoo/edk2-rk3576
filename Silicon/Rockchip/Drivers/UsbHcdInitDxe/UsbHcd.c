@@ -1181,9 +1181,9 @@ Rk3576UsbDpPhyUsb3Init (
   // the LCPLL never locked with all four lanes muxed to USB (3 boots of 3,
   // 0x38), while the other way round it locked within 200 us.
   //
-  // Ask the board (CM5-IO and TaishanPi 3M read their FUSB302, which is
-  // left reset for the OS). If it cannot say, try the unflipped mapping and
-  // then the flipped one and keep whichever locks.
+  // Ask the board (CM5-IO and TaishanPi 3M read their FUSB302 and leave Rp
+  // on the attached line, or the chip reset). If it cannot say, try the
+  // unflipped mapping and then the flipped one and keep whichever locks.
   //
   Orientation = UsbTypeCGetOrientation (0);
   for (Attempt = 1; Attempt <= 4; Attempt++) {
