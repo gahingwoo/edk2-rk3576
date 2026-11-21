@@ -574,9 +574,134 @@ ShotProtocolTake (
   return gBS->SignalEvent (mShotEvent);
 }
 
+/**
+  The picture, as a PNG in memory, for SaveTo ().  The same steps as
+  ShotTake (), which is left as it is.
+**/
+STATIC
+EFI_STATUS
+ShotCapturePng (
+  OUT UINT8   **Png,
+  OUT UINTN   *PngSize,
+  OUT UINT32  *Width,
+  OUT UINT32  *Height
+  )
+{
+  EFI_STATUS                     Status;
+  EFI_GRAPHICS_OUTPUT_PROTOCOL   *Gop;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Pixels;
+  UINT8                          *Rgb;
+  UINTN                          Index;
+  UINTN                          Count;
+  unsigned char                  *Out;
+  size_t                         OutSize;
+  unsigned                       Error;
+
+  Gop = ShotFindGop ();
+  if (Gop == NULL) {
+    return EFI_NOT_FOUND;
+  }
+
+  *Width  = Gop->Mode->Info->HorizontalResolution;
+  *Height = Gop->Mode->Info->VerticalResolution;
+  Count   = (UINTN)*Width * *Height;
+  Pixels  = AllocatePool (Count * sizeof (*Pixels));
+  if (Pixels == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  EfiEventGroupSignal (&mStartGroup);
+  Status = Gop->Blt (Gop, Pixels, EfiBltVideoToBltBuffer, 0, 0, 0, 0, *Width, *Height, 0);
+  EfiEventGroupSignal (&mEndGroup);
+  if (EFI_ERROR (Status)) {
+    FreePool (Pixels);
+    return Status;
+  }
+
+  Rgb = (UINT8 *)Pixels;
+  for (Index = 0; Index < Count; Index++) {
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL  P = Pixels[Index];
+
+    Rgb[Index * 3]     = P.Red;
+    Rgb[Index * 3 + 1] = P.Green;
+    Rgb[Index * 3 + 2] = P.Blue;
+  }
+
+  Out     = NULL;
+  OutSize = 0;
+  Error   = lodepng_encode24 (&Out, &OutSize, Rgb, *Width, *Height);
+  FreePool (Pixels);
+  if ((Error != 0) || (Out == NULL)) {
+    return EFI_DEVICE_ERROR;
+  }
+
+  *Png     = Out;
+  *PngSize = OutSize;
+  return EFI_SUCCESS;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+ShotProtocolSaveTo (
+  IN  ROCKCHIP_SCREENSHOT_PROTOCOL  *This,
+  IN  EFI_FILE_PROTOCOL             *Dir,
+  IN  CONST CHAR16                  *Name,
+  OUT UINT32                        *Width   OPTIONAL,
+  OUT UINT32                        *Height  OPTIONAL
+  )
+{
+  EFI_STATUS         Status;
+  UINT8              *Png;
+  UINTN              PngSize;
+  UINTN              Size;
+  UINT32             W, H;
+  EFI_FILE_PROTOCOL  *File;
+
+  if (mGone) {
+    return EFI_UNSUPPORTED;
+  }
+
+  if ((Dir == NULL) || (Name == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = ShotCapturePng (&Png, &PngSize, &W, &H);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = Dir->Open (Dir, &File, (CHAR16 *)Name, EFI_FILE_MODE_CREATE | EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE, 0);
+  if (!EFI_ERROR (Status)) {
+    Size   = PngSize;
+    Status = File->Write (File, &Size, Png);
+    if (!EFI_ERROR (Status) && (Size != PngSize)) {
+      Status = EFI_VOLUME_FULL;
+    }
+
+    if (EFI_ERROR (Status)) {
+      File->Delete (File);
+    } else {
+      File->Close (File);
+    }
+  }
+
+  lodepng_free (Png);
+  if (Width != NULL) {
+    *Width = W;
+  }
+
+  if (Height != NULL) {
+    *Height = H;
+  }
+
+  return Status;
+}
+
 STATIC ROCKCHIP_SCREENSHOT_PROTOCOL  mProtocol = {
   ROCKCHIP_SCREENSHOT_REVISION,
-  ShotProtocolTake
+  ShotProtocolTake,
+  ShotProtocolSaveTo
 };
 
 STATIC

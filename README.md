@@ -62,6 +62,13 @@ the clock is not set) on the stick, else on an SD card, else on the ESP. A
 green square flashes in the top left corner when it is saved, yellow when
 there is nowhere to write, red when it failed; the serial log has the path.
 
+To report a problem, save a debug report: Device Manager > Debug Report, or
+Ctrl+Alt+F11 (F11 on the serial console). It writes `\uefi-debug\YYYYMMDD-HHMMSS\`
+to the same place: the firmware log of this boot, a summary (firmware,
+board, boot options, display, PCI, USB and storage devices, memory map), the
+ACPI tables, the device tree, and from Device Manager a screenshot of every
+setup page.
+
 ## Boards
 
 | | Radxa ROCK 4D | ArmSoM CM5-IO | LCKFB TaishanPi 3M |
