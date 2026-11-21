@@ -78,7 +78,7 @@
 #define TAP_SLOP_PIXELS    25                // movement still counted as a tap
 #define LONG_PRESS_POLLS   35                // 0.7 s
 #define KEY_QUEUE_SIZE     16
-#define MAX_NOTIFY         16
+#define MAX_NOTIFY         64                // every hotkey and the Shell register here
 
 typedef struct {
   UINTN                OperationCount;
