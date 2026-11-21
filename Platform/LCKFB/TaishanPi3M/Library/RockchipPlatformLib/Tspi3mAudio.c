@@ -74,6 +74,7 @@
 #define AUD_CRU_GATE_CON19        (AUD_CRU_BASE + 0x084C)
 
 #define AUD_IOC_MISC_CON0         0x26046400UL
+#define AUD_IOC_GPIO4B_PULL       0x26046144UL      // VCCIO_IOC GPIO4B_PULL
 
 #define AUD_PMU_BASE              0x27380000UL
 #define AUD_PMU_PWR_CON           (AUD_PMU_BASE + 0x0210)
@@ -299,12 +300,19 @@ Tspi3mAnalogAudioInit (
   // (rk3xgpio does not set pulls).  Amplifier enable: GPIO, off until the
   // codec driver turns it on.
   GpioPinSetFunction (4, GPIO_PIN_PB0, 0);
-  GpioPinSetPull (4, GPIO_PIN_PB0, GPIO_PIN_PULL_UP);
+  //
+  // GpioPinSetPull is a no-op on RK3576 (GpioLib.c), so the pad kept its
+  // reset pull-down: VCCIO_IOC_GPIO4B_PULL read 0x5555 on the board, and
+  // with the jack's external pull-up (R183) the line read low with
+  // headphones in.  Set PB0's field ([1:0], 2'b11 = pull-up) directly,
+  // TRM V1.2 Part 1, VCCIO_IOC 0x26046000 + 0x144, hiword-masked.
+  //
+  MmioWrite32 (AUD_IOC_GPIO4B_PULL, AUD_HIWORD (0x3, 0x3));
   GpioPinSetDirection (4, GPIO_PIN_PB0, GPIO_PIN_INPUT);
   GpioPinSetFunction (4, GPIO_PIN_PB2, 0);
   GpioPinWrite (4, GPIO_PIN_PB2, FALSE);
   GpioPinSetDirection (4, GPIO_PIN_PB2, GPIO_PIN_OUTPUT);
 
-  DEBUG ((DEBUG_INFO, "Tspi3mAudio: SAI1 and I2C3 pins set, headphone jack %a\n",
-          GpioPinRead (4, GPIO_PIN_PB0) ? "high" : "low"));
+  DEBUG ((DEBUG_INFO, "Tspi3mAudio: SAI1 and I2C3 pins set, GPIO4B_PULL 0x%08x, headphone jack %a\n",
+          MmioRead32 (AUD_IOC_GPIO4B_PULL), GpioPinRead (4, GPIO_PIN_PB0) ? "high" : "low"));
 }
