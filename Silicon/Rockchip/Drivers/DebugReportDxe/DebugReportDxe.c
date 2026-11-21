@@ -27,8 +27,11 @@
  *    Device Manager > Debug Report: with all setup pages, or without.
  *    Ctrl+Alt+F11 anywhere (F11 on the serial console, which TerminalDxe
  *    matches without Ctrl and Alt): without the setup pages, which can only
- *    be walked from inside the setup browser.  A square flashes in the top
- *    left corner: green saved, yellow nowhere to write.
+ *    be walked from inside the setup browser.
+ *
+ *  While it collects, "Collecting debug report..." stands in the top left
+ *  corner (Status.c, kept out of the screenshots); then the result, for
+ *  two seconds.
  *
  *  Every part is on its own: one failing is written in README.txt and the
  *  others go on.
@@ -58,8 +61,7 @@
 #include "DebugReport.h"
 #include "DebugReportFormSet.h"
 
-#define STATUS_SIDE     32
-#define STATUS_SHOW_US  (400 * 1000)
+#define RESULT_SHOW_US  (2 * 1000 * 1000)
 
 typedef struct {
   VENDOR_DEVICE_PATH          Vendor;
@@ -111,9 +113,11 @@ ReportRun (
   }
 
   mRunning = TRUE;
-  Status   = ReportOpenDestination (&Dir, Where, WhereSize);
+  StatusShow (mHiiHandle, STRING_TOKEN (STR_STATUS_COLLECTING));
+  Status = ReportOpenDestination (&Dir, Where, WhereSize);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "DebugReport: not saved, no writable FAT file system (plug in a USB stick)\n"));
+    StatusHide ();
     mRunning = FALSE;
     return EFI_NOT_FOUND;
   }
@@ -126,8 +130,18 @@ ReportRun (
   TextAdd (&Parts, "\n\nWhat is in this folder, and how saving each part went:\n\n");
 
   ReportWriteAll (Dir, &Parts);
+
+  //
+  // README.txt now, before the setup pages: a page that never closes must
+  // not cost the rest of the report.  Written again when they are done.
+  //
+  if (Parts.Buffer != NULL) {
+    ReportWriteFile (Dir, L"README.txt", Parts.Buffer, Parts.Length);
+  }
+
   if (Pages) {
-    WalkForms (Dir, mHiiHandle, &Parts);
+    DEBUG ((DEBUG_INFO, "DebugReport: saved to %s, the setup pages next\n", Where));
+    WalkForms (Dir, mHiiHandle, &mFormSetGuid, &Parts);
   } else {
     TextAdd (&Parts, "pages\\                   not asked for (only from Device Manager > Debug Report)\n");
   }
@@ -138,9 +152,24 @@ ReportRun (
 
   TextFree (&Parts);
   Dir->Close (Dir);
+  StatusHide ();
   DEBUG ((DEBUG_INFO, "DebugReport: saved to %s\n", Where));
   mRunning = FALSE;
   return EFI_SUCCESS;
+}
+
+/**
+  How it went, in the top left corner for two seconds.
+**/
+STATIC
+VOID
+ReportShowResult (
+  IN EFI_STATUS  Status
+  )
+{
+  StatusShow (mHiiHandle, EFI_ERROR (Status) ? STRING_TOKEN (STR_NOT_SAVED) : STRING_TOKEN (STR_STATUS_SAVED));
+  gBS->Stall (RESULT_SHOW_US);
+  StatusHide ();
 }
 
 //
@@ -242,6 +271,7 @@ ReportCallback (
   }
 
   Status = ReportRun ((BOOLEAN)(QuestionId == DEBUG_REPORT_QUESTION_ALL), Where, sizeof (Where));
+  ReportShowResult (Status);
   if (EFI_ERROR (Status)) {
     ReportPopUp (STRING_TOKEN (STR_NOT_SAVED), L"");
   } else {
@@ -266,77 +296,6 @@ STATIC EFI_HII_CONFIG_ACCESS_PROTOCOL  mConfigAccess = {
 //
 
 STATIC
-EFI_GRAPHICS_OUTPUT_PROTOCOL *
-ReportFindGop (
-  VOID
-  )
-{
-  EFI_HANDLE                    *Handles;
-  UINTN                         Count;
-  UINTN                         Index;
-  VOID                          *Path;
-  EFI_GRAPHICS_OUTPUT_PROTOCOL  *Gop;
-
-  if (EFI_ERROR (gBS->LocateHandleBuffer (ByProtocol, &gEfiGraphicsOutputProtocolGuid, NULL, &Count, &Handles))) {
-    return NULL;
-  }
-
-  for (Index = 0; Index < Count; Index++) {
-    if (!EFI_ERROR (gBS->HandleProtocol (Handles[Index], &gEfiDevicePathProtocolGuid, &Path)) &&
-        !EFI_ERROR (gBS->HandleProtocol (Handles[Index], &gEfiGraphicsOutputProtocolGuid, (VOID **)&Gop)) &&
-        (Gop->Mode != NULL) && (Gop->Mode->Info != NULL))
-    {
-      FreePool (Handles);
-      return Gop;
-    }
-  }
-
-  FreePool (Handles);
-  return NULL;
-}
-
-/**
-  A square in the top left corner for a moment; what was there is put
-  back.  The same as ScreenshotDxe's.
-**/
-STATIC
-VOID
-ReportShowStatus (
-  IN UINT8  Red,
-  IN UINT8  Green,
-  IN UINT8  Blue
-  )
-{
-  EFI_GRAPHICS_OUTPUT_PROTOCOL   *Gop;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Square;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Saved;
-  UINTN                          Side;
-
-  Gop = ReportFindGop ();
-  if (Gop == NULL) {
-    return;
-  }
-
-  Side  = MIN (STATUS_SIDE, MIN (Gop->Mode->Info->HorizontalResolution, Gop->Mode->Info->VerticalResolution));
-  Saved = AllocatePool (Side * Side * sizeof (*Saved));
-  if (Saved == NULL) {
-    return;
-  }
-
-  Square.Red      = Red;
-  Square.Green    = Green;
-  Square.Blue     = Blue;
-  Square.Reserved = 0;
-  if (!EFI_ERROR (Gop->Blt (Gop, Saved, EfiBltVideoToBltBuffer, 0, 0, 0, 0, Side, Side, 0))) {
-    Gop->Blt (Gop, &Square, EfiBltVideoFill, 0, 0, 0, 0, Side, Side, 0);
-    gBS->Stall (STATUS_SHOW_US);
-    Gop->Blt (Gop, Saved, EfiBltBufferToVideo, 0, 0, 0, 0, Side, Side, 0);
-  }
-
-  FreePool (Saved);
-}
-
-STATIC
 VOID
 EFIAPI
 ReportHotKeyRun (
@@ -352,13 +311,7 @@ ReportHotKeyRun (
   }
 
   Status = ReportRun (FALSE, Where, sizeof (Where));
-  if (Status == EFI_NOT_FOUND) {
-    ReportShowStatus (0xff, 0xff, 0x00);
-  } else if (EFI_ERROR (Status)) {
-    ReportShowStatus (0xff, 0x00, 0x00);
-  } else {
-    ReportShowStatus (0x00, 0xff, 0x00);
-  }
+  ReportShowResult (Status);
 }
 
 STATIC
@@ -470,6 +423,8 @@ DebugReportEntry (
   if (EFI_ERROR (Status)) {
     return Status;
   }
+
+  StatusInit ();
 
   Status = gBS->CreateEvent (EVT_NOTIFY_SIGNAL, TPL_CALLBACK, ReportHotKeyRun, NULL, &mHotKeyEvent);
   if (EFI_ERROR (Status)) {

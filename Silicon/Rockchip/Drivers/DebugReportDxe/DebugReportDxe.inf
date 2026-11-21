@@ -22,6 +22,7 @@
   DebugReportDxe.c
   Report.c
   FormWalk.c
+  Status.c
   DebugReport.vfr
   DebugReportStrings.uni
 
@@ -53,6 +54,7 @@
   gEfiDevicePathProtocolGuid            ## PRODUCES
   gEfiFormBrowser2ProtocolGuid          ## CONSUMES
   gEfiGraphicsOutputProtocolGuid        ## CONSUMES
+  gEfiHiiFontProtocolGuid               ## CONSUMES
   gEfiHiiConfigAccessProtocolGuid       ## PRODUCES
   gEfiHiiDatabaseProtocolGuid           ## CONSUMES
   gEfiPciIoProtocolGuid                 ## CONSUMES

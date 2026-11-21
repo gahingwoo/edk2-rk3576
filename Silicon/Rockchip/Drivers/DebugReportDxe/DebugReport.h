@@ -131,7 +131,28 @@ VOID
 WalkForms (
   IN     EFI_FILE_PROTOCOL  *Dir,
   IN     EFI_HII_HANDLE     Skip,
+  IN     CONST EFI_GUID     *SkipFormSet,
   IN OUT REPORT_TEXT        *Parts
+  );
+
+//
+// Status.c: a line of text in the top left corner, kept out of
+// screenshots.
+//
+EFI_STATUS
+StatusInit (
+  VOID
+  );
+
+VOID
+StatusShow (
+  IN EFI_HII_HANDLE  Handle,
+  IN EFI_STRING_ID   Token
+  );
+
+VOID
+StatusHide (
+  VOID
   );
 
 #endif
