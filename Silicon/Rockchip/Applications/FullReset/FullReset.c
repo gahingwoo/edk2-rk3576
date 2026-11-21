@@ -9,7 +9,7 @@
  *  they are in, rather than deleted one at a time through SetVariable().
  *  See Include/Guid/FullResetRequest.h.
  *
- *  Started from the front page (patches/0014) and by the F9 hotkey that
+ *  Started from the front page (patches/0016) and by the F9 hotkey that
  *  PlatformBootManagerLib registers, which also works from a serial
  *  terminal while the boot countdown runs.
  *
