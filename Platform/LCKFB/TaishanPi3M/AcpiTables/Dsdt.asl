@@ -40,10 +40,11 @@
  *    - WiFi on SDIO and Bluetooth on UART6 (dts:789-814, 853-873): the CM5-IO
  *      declares neither, and their power, reset and 32 kHz clock are
  *      sequenced by Linux (sdio_pwrseq, dts:167-175).
- *    - Analog audio.  The mainline tree has HDMI audio on SAI6 only
- *      (dts:315-323, 774-777); LCKFB's vendor tree adds an ES8388 on I2C3.
- *      The CM5-IO does not include Es8388.asl or I2s.asl either.  SAI6 for
- *      HDMI is declared, but only when PcdHdmiAudioPreset is TRUE.
+ *    - Audio, unless asked for.  The mainline tree has HDMI audio on SAI6
+ *      only (dts:315-323, 774-777); SAI6 is declared only when
+ *      PcdHdmiAudioPreset is TRUE.  LCKFB's vendor tree adds an ES8388 on
+ *      I2C3 and SAI1 (as Armbian's board patch carries it); SAI1 and the
+ *      codec are declared only when PcdAnalogAudioPreset is TRUE.
  *    - The LED (GPIO0_A0, dts:47-52), the ADC key (dts:30-42) and HDMI: not
  *      declared on the CM5-IO either.
  *
@@ -257,9 +258,41 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
 #if FixedPcdGetBool (PcdHdmiAudioPreset)
     // SAI6, the HDMI audio interface (hdmi_sound and sai6, dts:315-323,
     // 774-777).  Only with the firmware's HDMI audio preset, which sets its
-    // clocks and the HDMI controller's audio path; see Sai.asl.  The ES8388
-    // of LCKFB's vendor tree is still left out.
+    // clocks and the HDMI controller's audio path; see Sai.asl.
     include ("Sai.asl")
+#endif
+
+#if FixedPcdGetBool (PcdAnalogAudioPreset)
+    // The ES8388 headphone codec.  Not in the mainline device tree; the
+    // wiring is LCKFB's vendor tree as Armbian's board patch carries it
+    // (rockchip64-7.3/board-lckfb-tspi-3m-01-onboard-hardware.patch):
+    //
+    //   es8388: audio-codec@11 on &i2c3 (i2c3m0_xfer), MCLK from
+    //     CLK_SAI1_MCLKOUT_TO_IO at 12.288 MHz on sai1m0_mclk.
+    //   &sai1: sai1m0_lrck, _sclk, _sdi0, _sdo2,
+    //     rockchip,sai-tx-route = <2 1 0 3> (lane 0 out on SDO2).
+    //   es8388_sound: simple-audio-card, i2s, mclk-fs 256, cpu sai1,
+    //     hp-det-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH> (pull-up),
+    //     aux hp_amp: enable-gpios = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>,
+    //     LOUT1/ROUT1 -> amplifier -> headphones; LINPUT1/2 onboard mic,
+    //     RINPUT1/2 headset mic.
+    //
+    // The board library (Tspi3mAnalogAudioInit) powers PD_AUDIO, sets
+    // mclk_sai1 and the MCLK output, muxes the SAI1 and I2C3 pins, ungates
+    // the I2C3 and GPIO4 clocks and puts the pull-up on the jack-detect line.
+#define BOARD_SAI1_TX_ROUTE       0x2103
+#define BOARD_SAI1_RX_ROUTE       0
+    include ("Sai1.asl")
+
+#define BOARD_CODEC_I2C           "\\_SB.I2C3"
+#define BOARD_CODEC_I2C_ADDR      0x11
+#define BOARD_CODEC_GPIO          "\\_SB.GPI4"
+#define BOARD_CODEC_GPIO_PIN      GPIO_PIN_PB0
+#define BOARD_CODEC_AMP_GPIO      "\\_SB.GPI4"
+#define BOARD_CODEC_AMP_GPIO_PIN  GPIO_PIN_PB2
+    Scope (I2C3) {
+      include ("Es8388.asl")
+    }
 #endif
   }
 }

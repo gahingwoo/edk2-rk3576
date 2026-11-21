@@ -24,6 +24,7 @@
 [Sources]
   RockchipPlatformLib.c
   Tspi3mDsiPanel.c
+  Tspi3mAudio.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -45,6 +46,7 @@
 
 [FixedPcd]
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset
 
 [Protocols]
   gRockchipDsiPanelProtocolGuid         ## PRODUCES

@@ -162,6 +162,14 @@
   gRK3588TokenSpaceGuid.PcdHdmiAudioPreset|TRUE
 
   #
+  # Analog audio: the ES8388 on I2C3 and SAI1 (headphone jack through an
+  # amplifier, onboard microphone).  Tspi3mAudio.c powers PD_AUDIO, sets
+  # mclk_sai1 = 12.288 MHz and the pins; the DSDT publishes \_SB.SAI1 and
+  # \_SB.I2C3.ES83 for the woa-rk3576 audio drivers.  Not run on hardware.
+  #
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset|TRUE
+
+  #
   # I2C.  The base file lists the CM5-IO's devices; this board's are:
   #   I2C0 0x5d  the Goodix touch controller of the MIPI DSI screen
   #              (rk3576-lckfb-tspi-3m-dsi-c41409463.dtsi, &i2c0)
