@@ -103,7 +103,7 @@
 #define REDRAW_POLLS        25            // layers again, while an application owns the framebuffer
 #define FOLLOW_POLLS        10            // look where the text cursor is
 #define KEY_QUEUE_SIZE      32
-#define MAX_NOTIFY          16
+#define MAX_NOTIFY          64            // every hotkey and the Shell register here
 #define MAX_MICE            8
 #define MAX_TOUCH_SCREENS   2
 #define MOUSE_DIVISOR       1200          // counts x screen width / this = pixels
