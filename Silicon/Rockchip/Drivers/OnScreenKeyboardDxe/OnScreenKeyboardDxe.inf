@@ -36,6 +36,7 @@
   TimerLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
+  UefiRuntimeServicesTableLib
   UefiLib
 
 [Protocols]

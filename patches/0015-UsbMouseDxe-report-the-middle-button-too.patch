@@ -1,0 +1,142 @@
+diff --git a/MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouse.c b/MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouse.c
+index e85eb4a6e6..a4dc41e2d7 100644
+--- a/MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouse.c
++++ b/MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouse.c
+@@ -8,6 +8,25 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ 
+ #include "UsbMouse.h"
+ 
++STATIC EFI_GUID  mUsbMouseButtonsProtocolGuid = USB_MOUSE_BUTTONS_PROTOCOL_GUID;
++
++/**
++  USB_MOUSE_BUTTONS_PROTOCOL.GetButtons: the buttons of the last report.
++**/
++STATIC
++UINT32
++EFIAPI
++UsbMouseGetButtons (
++  IN USB_MOUSE_BUTTONS_PROTOCOL  *This
++  )
++{
++  USB_MOUSE_DEV  *UsbMouseDevice;
++
++  // CR () is a conditional expression; it cannot take ->Field directly
++  UsbMouseDevice = USB_MOUSE_DEV_FROM_BUTTONS_PROTOCOL (This);
++  return UsbMouseDevice->Buttons;
++}
++
+ EFI_DRIVER_BINDING_PROTOCOL  gUsbMouseDriverBinding = {
+   USBMouseDriverBindingSupported,
+   USBMouseDriverBindingStart,
+@@ -290,6 +309,24 @@ USBMouseDriverBindingStart (
+     goto ErrorExit;
+   }
+ 
++  //
++  // The middle button too, for whoever wants it.  Not having it is no
++  // reason to fail.
++  //
++  UsbMouseDevice->ButtonsProtocol.Revision   = 1;
++  UsbMouseDevice->ButtonsProtocol.GetButtons = UsbMouseGetButtons;
++  if (EFI_ERROR (
++        gBS->InstallProtocolInterface (
++               &Controller,
++               &mUsbMouseButtonsProtocolGuid,
++               EFI_NATIVE_INTERFACE,
++               &UsbMouseDevice->ButtonsProtocol
++               )
++        ))
++  {
++    UsbMouseDevice->ButtonsProtocol.GetButtons = NULL;
++  }
++
+   //
+   // The next step would be submitting Asynchronous Interrupt Transfer on this mouse device.
+   // After that we will be able to get key data from it. Thus this is deemed as
+@@ -322,6 +359,10 @@ USBMouseDriverBindingStart (
+     //
+     // If submit error, uninstall that interface
+     //
++    if (UsbMouseDevice->ButtonsProtocol.GetButtons != NULL) {
++      gBS->UninstallProtocolInterface (Controller, &mUsbMouseButtonsProtocolGuid, &UsbMouseDevice->ButtonsProtocol);
++    }
++
+     gBS->UninstallProtocolInterface (
+            Controller,
+            &gEfiSimplePointerProtocolGuid,
+@@ -443,6 +484,10 @@ USBMouseDriverBindingStop (
+            NULL
+            );
+ 
++  if (UsbMouseDevice->ButtonsProtocol.GetButtons != NULL) {
++    gBS->UninstallProtocolInterface (Controller, &mUsbMouseButtonsProtocolGuid, &UsbMouseDevice->ButtonsProtocol);
++  }
++
+   Status = gBS->UninstallProtocolInterface (
+                   Controller,
+                   &gEfiSimplePointerProtocolGuid,
+@@ -825,6 +870,7 @@ OnMouseInterruptComplete (
+ 
+   UsbMouseDevice->StateChanged = TRUE;
+ 
++  UsbMouseDevice->Buttons                  = *(UINT8 *)Data;
+   UsbMouseDevice->State.LeftButton         = (BOOLEAN)((*(UINT8 *)Data & BIT0) != 0);
+   UsbMouseDevice->State.RightButton        = (BOOLEAN)((*(UINT8 *)Data & BIT1) != 0);
+   UsbMouseDevice->State.RelativeMovementX += *((INT8 *)Data + 1);
+diff --git a/MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouse.h b/MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouse.h
+index 6766831df4..9f98a4c9e7 100644
+--- a/MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouse.h
++++ b/MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouse.h
+@@ -26,6 +26,33 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ 
+ #include <IndustryStandard/Usb.h>
+ 
++//
++// All the buttons of the last report, the middle one included, which
++// EFI_SIMPLE_POINTER_STATE has no room for.  Installed next to the Simple
++// Pointer protocol on the same handle.  A pointer driver that wants the
++// middle button (OnScreenKeyboardDxe on Rockchip boards) has a copy of this
++// definition.
++//
++#define USB_MOUSE_BUTTONS_PROTOCOL_GUID \
++  { 0xf77e47f3, 0x6563, 0x4755, { 0x80, 0x25, 0xc8, 0x31, 0x52, 0x1e, 0xb3, 0xcd } }
++
++typedef struct _USB_MOUSE_BUTTONS_PROTOCOL USB_MOUSE_BUTTONS_PROTOCOL;
++
++/**
++  The buttons now: bit 0 left, bit 1 right, bit 2 middle, as in the boot
++  protocol report.
++**/
++typedef
++UINT32
++(EFIAPI *USB_MOUSE_GET_BUTTONS)(
++  IN USB_MOUSE_BUTTONS_PROTOCOL  *This
++  );
++
++struct _USB_MOUSE_BUTTONS_PROTOCOL {
++  UINT32                   Revision;
++  USB_MOUSE_GET_BUTTONS    GetButtons;
++};
++
+ #define CLASS_HID       3
+ #define SUBCLASS_BOOT   1
+ #define PROTOCOL_MOUSE  2
+@@ -77,6 +104,8 @@ typedef struct {
+   BOOLEAN                         StateChanged;
+   USB_MOUSE_BUTTON_DATA           PrivateData;
+   EFI_UNICODE_STRING_TABLE        *ControllerNameTable;
++  UINT8                           Buttons;
++  USB_MOUSE_BUTTONS_PROTOCOL      ButtonsProtocol;
+ } USB_MOUSE_DEV;
+ 
+ ///
+@@ -104,6 +133,9 @@ typedef struct {
+ #define USB_MOUSE_DEV_FROM_MOUSE_PROTOCOL(a) \
+     CR(a, USB_MOUSE_DEV, SimplePointerProtocol, USB_MOUSE_DEV_SIGNATURE)
+ 
++#define USB_MOUSE_DEV_FROM_BUTTONS_PROTOCOL(a) \
++    CR(a, USB_MOUSE_DEV, ButtonsProtocol, USB_MOUSE_DEV_SIGNATURE)
++
+ //
+ // Global Variables
+ //

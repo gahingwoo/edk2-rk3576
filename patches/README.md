@@ -183,6 +183,30 @@ protocol nothing changes. The structure is also defined in
 `Silicon/Rockchip/Include/Protocol/RockchipOnScreenKeyboard.h`; the two must
 stay the same.
 
+### `0014-DisplayEngine-a-middle-click-selects-at-once.patch`
+
+Applies after 0013 and touches none of its lines, so that `apply.sh` still
+finds 0013 applied. A middle click on a statement selects it at once,
+where a left click only moves the highlight there. The click comes in as
+any other (0013) and moves the highlight; when the menu next waits,
+`UiDisplayMenu ()` asks `DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL`
+(OnScreenKeyboardDxe) whether that click was a middle one, and if so, and
+the highlight did move, selects the statement as Enter would. On a
+statement that was already highlighted a click is Enter anyway. In the
+one-of and Yes/No popups a middle click behaves like a left one. Without
+the protocol nothing changes. The definition is copied in
+`RockchipOnScreenKeyboard.h`.
+
+### `0015-UsbMouseDxe-report-the-middle-button-too.patch`
+
+`EFI_SIMPLE_POINTER_STATE` has a left and a right button only, so
+UsbMouseDxe, which binds every USB mouse before UsbMouseAbsolutePointerDxe
+can, dropped the middle button. It now also installs
+`USB_MOUSE_BUTTONS_PROTOCOL` on the mouse's handle, whose `GetButtons ()`
+returns the button byte of the last report (bit 2 the middle button).
+Nothing else changes; failing to install it is not an error. The
+definition is copied in `RockchipOnScreenKeyboard.h`.
+
 ## Optional (`--with-debug`)
 
 ### `0003-DEBUG-PeilessSec-UART-checkpoints.patch`

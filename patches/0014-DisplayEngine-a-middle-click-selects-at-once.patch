@@ -1,0 +1,96 @@
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
+index ce94f25c10..06949328b5 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/FormDisplay.c
+@@ -2938,6 +2938,50 @@ DisplayOneMenu (
+   return EFI_SUCCESS;
+ }
+ 
++//
++// A middle click: select the statement it lands on at once.  The click
++// itself comes as any other click (PointerClick.c) and moves the
++// highlight; the pointer driver then answers TRUE, once, when asked
++// whether that click was one to act on, and the statement is selected
++// as Enter would.  With no such driver the answer is always FALSE.
++// The pointer driver has a copy of this definition.
++//
++#define DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL_GUID \
++  { 0x0cce83d2, 0x5f6e, 0x4079, { 0xba, 0xc7, 0x03, 0x16, 0x94, 0x61, 0x51, 0xf0 } }
++
++typedef struct _DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL;
++
++typedef
++BOOLEAN
++(EFIAPI *DISPLAY_POINTER_TAKE_ACTIVATE)(
++  IN DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL  *This
++  );
++
++struct _DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL {
++  UINT32                           Revision;
++  DISPLAY_POINTER_TAKE_ACTIVATE    TakeActivate;
++};
++
++STATIC EFI_GUID  mUiClickActivateGuid = DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL_GUID;
++
++/**
++  Whether the last click was one to act on at once; asking clears it.
++**/
++STATIC
++BOOLEAN
++UiClickActivates (
++  VOID
++  )
++{
++  DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL  *Activate;
++
++  if (EFI_ERROR (gBS->LocateProtocol (&mUiClickActivateGuid, NULL, (VOID **)&Activate))) {
++    return FALSE;
++  }
++
++  return Activate->TakeActivate (Activate);
++}
++
+ /**
+   Display menu and wait for user to select one menu option, then return it.
+   If AutoBoot is enabled, then if user doesn't select any option,
+@@ -3000,10 +3044,12 @@ UiDisplayMenu (
+   UINT16                         BottomLineWidth;
+   EFI_STRING_ID                  HelpInfo;
+   UI_EVENT_TYPE                  EventType;
++  LIST_ENTRY                     *ClickFrom;     // the highlight when the last wait began
+   BOOLEAN                        SkipHighLight;
+   EFI_HII_VALUE                  *StatementValue;
+ 
+   EventType        = UIEventNone;
++  ClickFrom        = NULL;
+   Status           = EFI_SUCCESS;
+   HelpString       = NULL;
+   HelpHeaderString = NULL;
+@@ -3518,10 +3564,27 @@ UiDisplayMenu (
+       case CfPrepareToReadKey:
+         ControlFlag     = CfReadKey;
+         ScreenOperation = UiNoOperation;
++
++        //
++        // A middle click moved the highlight to a statement: select it now,
++        // as Enter would.  The question is asked every time so that the
++        // answer never outlives the click it is about.
++        //
++        if (UiClickActivates () && (ClickFrom != NULL) && (NewPos != ClickFrom) &&
++            (MenuOption != NULL) && (&MenuOption->Link == NewPos) && IsSelectable (MenuOption) &&
++            !MenuOption->GrayOut && !MenuOption->ReadOnly)
++        {
++          ControlFlag     = CfScreenOperation;
++          ScreenOperation = UiSelect;
++          gDirection      = 0;
++        }
++
++        ClickFrom = NULL;
+         break;
+ 
+       case CfReadKey:
+         ControlFlag = CfScreenOperation;
++        ClickFrom   = NewPos;
+ 
+         //
+         // Wait for user's selection

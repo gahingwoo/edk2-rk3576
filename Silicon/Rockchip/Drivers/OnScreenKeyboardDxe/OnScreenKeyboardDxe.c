@@ -23,7 +23,9 @@
  *             the wheel is Up and Down, a left click Enter, a right click
  *             Esc.  While the setup browser waits for input (patch 0013),
  *             a left click goes to it instead, as the text cell under the
- *             pointer, and it picks the statement there.
+ *             pointer, and it picks the statement there.  A middle click
+ *             (patches 0014 and 0015) picks it and selects it at once; in
+ *             the Shell or GRUB a middle click is Enter, like a left one.
  *
  *    touch    a touch screen driver that already turns touches into keys
  *             (TouchKeysDxe on the TaishanPi 3M) names its pointer through
@@ -42,8 +44,9 @@
  *  hide.
  *
  *    float/dock  docked is as wide as the screen, at the bottom or the top
- *                edge; floating is about two thirds as wide, and the rest
- *                of the bar is a handle to drag it anywhere by.  The mode
+ *                edge; floating is about two thirds as wide.  The rest of
+ *                the bar, with its two rows of grip dots, is a handle in
+ *                both: dragging a docked keyboard by it undocks it.  The mode
  *                and the place are kept for the rest of the boot, the place
  *                as a share of the room there is, so it survives a mode or
  *                rotation change.
@@ -82,6 +85,7 @@
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Protocol/AbsolutePointer.h>
 #include <Protocol/DevicePath.h>
@@ -124,6 +128,8 @@ typedef struct {
   BOOLEAN       Absolute;
   BOOLEAN       Left;
   BOOLEAN       Right;
+  BOOLEAN       Middle;
+  USB_MOUSE_BUTTONS_PROTOCOL  *Buttons;    // the middle button of a Simple Pointer mouse, if UsbMouseDxe has it
   BOOLEAN       HaveZ;
   UINT64        LastZ;
   INT32         AccX;
@@ -173,6 +179,7 @@ STATIC UINTN    mPressPolls;
 STATIC INT32    mDragFromX;        // a drag by the handle: where the pointer
 STATIC INT32    mDragFromY;        // went down, and where the keyboard was
 STATIC OSK_RECT mDragStart;
+STATIC BOOLEAN  mDragDocked;       // the drag started on a docked keyboard
 
 // touch, as reported by the touch screen driver
 STATIC BOOLEAN  mTouchDown;
@@ -184,6 +191,13 @@ STATIC INT32  mLastCursorRow = -1;
 STATIC BOOLEAN  mCursorPlaced;
 STATIC BOOLEAN  mUserEdge;         // the docked edge was chosen with the move icon
 
+//
+// The size chosen with the size icon, kept across boots.  Under the
+// keyboard's own device GUID; not part of any setup form.
+//
+#define OSK_SIZE_VARIABLE  L"OnScreenKeyboardSize"
+STATIC EFI_GUID  mOskVariableGuid = ON_SCREEN_KEYBOARD_DEVICE_GUID;
+
 STATIC EFI_GUID  mScreenshotGuid      = ROCKCHIP_SCREENSHOT_PROTOCOL_GUID;
 STATIC EFI_GUID  mScreenshotStartGuid = ROCKCHIP_SCREENSHOT_START_GROUP_GUID;
 STATIC EFI_GUID  mScreenshotEndGuid   = ROCKCHIP_SCREENSHOT_END_GROUP_GUID;
@@ -192,6 +206,8 @@ STATIC EFI_GUID  mScreenshotEndGuid   = ROCKCHIP_SCREENSHOT_END_GROUP_GUID;
 STATIC EFI_EVENT  mClickEvent;
 STATIC BOOLEAN    mClickReading;
 STATIC BOOLEAN    mClickPending;
+STATIC BOOLEAN    mClickPendingActivates;   // the click waiting is a middle click
+STATIC BOOLEAN    mClickActivates;          // the click taken last was; asked once
 STATIC UINTN      mClickColumn;
 STATIC UINTN      mClickRow;
 
@@ -626,6 +642,24 @@ OskActivate (
       OskOverlayAlphaChanged ();
       break;
 
+    case OSK_ACT_SIZE:
+      //
+      // Small, Medium, Large and round again, from the size in use (the
+      // default one included).  Kept in a variable, so it is the size
+      // next boot as well.
+      //
+      mOskWantSize = (UINT8)((mOskSize + 1) % OSK_SIZES);
+      mOskPressed  = -1;
+      gRT->SetVariable (
+             OSK_SIZE_VARIABLE,
+             &mOskVariableGuid,
+             EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+             sizeof (mOskWantSize),
+             &mOskWantSize
+             );
+      OskSync ();
+      break;
+
     case OSK_ACT_SHOT:
       //
       // Taken once this TPL is left; the keyboard goes off the screen for
@@ -697,6 +731,7 @@ OskPress (
     mPressTarget = TARGET_HANDLE;
     mDragFromX   = X;
     mDragFromY   = Y;
+    mDragDocked  = (BOOLEAN)!mOskWantFloating;
   } else {
     mPressTarget = TARGET_KEY;
     OskSetPressed (OskHitKey (Ix, Iy));
@@ -706,10 +741,15 @@ OskPress (
 }
 
 /**
-  Drag the floating keyboard: the pointer moved to X, Y.  Kept wholly on
-  the screen, and kept as a fraction of the room there is, so that it
+  Drag the keyboard by its bar: the pointer moved to X, Y.  Kept wholly
+  on the screen, and kept as a fraction of the room there is, so that it
   stays in the same part of the picture when the mode or the rotation
   changes.
+
+  A docked keyboard comes loose once the pointer has moved a little: it
+  floats from then on, with the point of the bar that was grabbed under
+  the pointer (as far along the narrower bar as it was along the wide
+  one).  Nothing has to be switched on first.
 **/
 STATIC
 VOID
@@ -718,8 +758,35 @@ OskDragTo (
   IN INT32  Y
   )
 {
-  INT32  Nx, Ny;
-  INT32  RoomX, RoomY;
+  INT32     Nx, Ny;
+  INT32     RoomX, RoomY;
+  INT32     GrabX, GrabY;
+  INT32     DockW;
+  OSK_RECT  Now;
+
+  if (mDragDocked) {
+    if (ABS (X - mDragFromX) + ABS (Y - mDragFromY) < 12) {
+      return;
+    }
+
+    GrabX            = mDragFromX - mDragStart.X;
+    GrabY            = mDragFromY - mDragStart.Y;
+    DockW            = MAX (mDragStart.W, 1);
+    mDragDocked      = FALSE;
+    mOskWantFloating = TRUE;
+    mOskPressed      = -1;
+    OskSync ();
+    if (!OskOverlayKeyboardRect (&Now)) {
+      return;
+    }
+
+    // where the floating keyboard is, as if the drag had begun on it
+    mDragStart   = Now;
+    mDragStart.X = X - (INT32)(((INT64)GrabX * Now.W) / DockW);
+    mDragStart.Y = Y - MIN (GrabY, Now.H - 1);
+    mDragFromX   = X;
+    mDragFromY   = Y;
+  }
 
   RoomX = (INT32)mOskScreenW - mDragStart.W;
   RoomY = (INT32)mOskScreenH - mDragStart.H;
@@ -840,6 +907,7 @@ OskAddTouchScreen (
   }
 
   mTouchScreen[mTouchScreenCount++] = Pointer;
+  mOskHasTouch                      = TRUE;
   DEBUG ((DEBUG_INFO, "OnScreenKeyboard: touch screen added\n"));
   OskStartPolling ();
   return EFI_SUCCESS;
@@ -946,15 +1014,41 @@ OskGetClick (
   Tpl    = gBS->RaiseTPL (TPL_NOTIFY);
   Status = EFI_NOT_READY;
   if (mClickPending) {
-    *Column       = mClickColumn;
-    *Row          = mClickRow;
-    mClickPending = FALSE;
-    Status        = EFI_SUCCESS;
+    *Column         = mClickColumn;
+    *Row            = mClickRow;
+    mClickPending   = FALSE;
+    mClickActivates = mClickPendingActivates;
+    Status          = EFI_SUCCESS;
   }
 
   gBS->RestoreTPL (Tpl);
   return Status;
 }
+
+STATIC
+BOOLEAN
+EFIAPI
+OskTakeActivate (
+  IN DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL  *This
+  )
+{
+  EFI_TPL  Tpl;
+  BOOLEAN  Activates;
+
+  Tpl             = gBS->RaiseTPL (TPL_NOTIFY);
+  Activates       = mClickActivates;
+  mClickActivates = FALSE;
+  gBS->RestoreTPL (Tpl);
+  return Activates;
+}
+
+STATIC DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL  mClickActivateProtocol = {
+  1,
+  OskTakeActivate
+};
+
+STATIC EFI_GUID  mClickActivateGuid = DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL_GUID;
+STATIC EFI_GUID  mUsbMouseButtonsGuid = USB_MOUSE_BUTTONS_PROTOCOL_GUID;
 
 STATIC
 VOID
@@ -970,7 +1064,8 @@ OskSetReading (
   mClickReading = Reading;
   if (Reading) {
     // a click from before belongs to no one now
-    mClickPending = FALSE;
+    mClickPending   = FALSE;
+    mClickActivates = FALSE;
   }
 
   gBS->RestoreTPL (Tpl);
@@ -1042,8 +1137,9 @@ OskTextCell (
 STATIC
 VOID
 OskClickOffKeyboard (
-  IN INT32  X,
-  IN INT32  Y
+  IN INT32    X,
+  IN INT32    Y,
+  IN BOOLEAN  Activates
   )
 {
   UINTN  Column, Row;
@@ -1055,9 +1151,10 @@ OskClickOffKeyboard (
 
   // outside the text grid there is nothing to click on
   if (OskTextCell (X, Y, &Column, &Row)) {
-    mClickColumn  = Column;
-    mClickRow     = Row;
-    mClickPending = TRUE;
+    mClickColumn           = Column;
+    mClickRow              = Row;
+    mClickPending          = TRUE;
+    mClickPendingActivates = Activates;
     gBS->SignalEvent (mClickEvent);
   }
 }
@@ -1127,6 +1224,11 @@ OskScanProtocol (
     mMice[mMouseCount].Handle    = Handles[Index];
     mMice[mMouseCount].Interface = Interface;
     mMice[mMouseCount].Absolute  = Absolute;
+    if (!Absolute &&
+        EFI_ERROR (gBS->HandleProtocol (Handles[Index], &mUsbMouseButtonsGuid, (VOID **)&mMice[mMouseCount].Buttons)))
+    {
+      mMice[mMouseCount].Buttons = NULL;
+    }
     mMouseCount++;
     DEBUG ((DEBUG_INFO, "OnScreenKeyboard: %a pointer added\n", Absolute ? "absolute" : "relative"));
   }
@@ -1196,14 +1298,15 @@ VOID
 OskMouseButtons (
   IN OSK_MOUSE  *Mouse,
   IN BOOLEAN    Left,
-  IN BOOLEAN    Right
+  IN BOOLEAN    Right,
+  IN BOOLEAN    Middle
   )
 {
   INT32  Ix, Iy;
 
   if (Left && !Mouse->Left) {
     if (!OskPress (mOskCursorX, mOskCursorY)) {
-      OskClickOffKeyboard (mOskCursorX, mOskCursorY);
+      OskClickOffKeyboard (mOskCursorX, mOskCursorY, FALSE);
     }
   } else if (!Left && Mouse->Left) {
     OskPressMove (mOskCursorX, mOskCursorY);
@@ -1216,8 +1319,16 @@ OskMouseButtons (
     OskQueueKey (SCAN_ESC, 0);
   }
 
-  Mouse->Left  = Left;
-  Mouse->Right = Right;
+  // middle: off the keyboard only; on it, it does nothing
+  if (Middle && !Mouse->Middle &&
+      (OskOverlayHit (mOskCursorX, mOskCursorY, &Ix, &Iy) == OSK_PANEL_NONE))
+  {
+    OskClickOffKeyboard (mOskCursorX, mOskCursorY, TRUE);
+  }
+
+  Mouse->Left   = Left;
+  Mouse->Right  = Right;
+  Mouse->Middle = Middle;
 }
 
 STATIC
@@ -1251,6 +1362,16 @@ OskPollMouse (
 
   Moved = FALSE;
   if (!Mouse->Absolute) {
+    //
+    // UsbMouseDxe installs the buttons protocol just after the Simple
+    // Pointer one, so it may not have been there when the mouse was found.
+    //
+    if ((Mouse->Buttons == NULL) &&
+        EFI_ERROR (gBS->HandleProtocol (Mouse->Handle, &mUsbMouseButtonsGuid, (VOID **)&Mouse->Buttons)))
+    {
+      Mouse->Buttons = NULL;
+    }
+
     Simple = Mouse->Interface;
     if (EFI_ERROR (Simple->GetState (Simple, &SimpleState))) {
       return;
@@ -1277,7 +1398,12 @@ OskPollMouse (
     }
 
     OskWheel (SimpleState.RelativeMovementZ);
-    OskMouseButtons (Mouse, SimpleState.LeftButton, SimpleState.RightButton);
+    OskMouseButtons (
+      Mouse,
+      SimpleState.LeftButton,
+      SimpleState.RightButton,
+      (BOOLEAN)((Mouse->Buttons != NULL) && ((Mouse->Buttons->GetButtons (Mouse->Buttons) & BIT2) != 0))
+      );
     return;
   }
 
@@ -1308,7 +1434,8 @@ OskPollMouse (
   OskMouseButtons (
     Mouse,
     (BOOLEAN)((AbsState.ActiveButtons & EFI_ABSP_TouchActive) != 0),
-    (BOOLEAN)((AbsState.ActiveButtons & EFI_ABS_AltActive) != 0)
+    (BOOLEAN)((AbsState.ActiveButtons & EFI_ABS_AltActive) != 0),
+    (BOOLEAN)((AbsState.ActiveButtons & BIT2) != 0)    // UsbMouseAbsolutePointerDxe passes the middle button on
     );
 }
 
@@ -1539,8 +1666,17 @@ OskEndOfDxe (
   )
 {
   EFI_STATUS  Status;
+  UINTN       Size;
 
   gBS->CloseEvent (Event);
+
+  // the size chosen last time, if it is one
+  Size = sizeof (mOskWantSize);
+  if (EFI_ERROR (gRT->GetVariable (OSK_SIZE_VARIABLE, &mOskVariableGuid, NULL, &Size, &mOskWantSize)) ||
+      (mOskWantSize >= OSK_SIZES))
+  {
+    mOskWantSize = OSK_SIZE_AUTO;
+  }
 
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &mHandle,
@@ -1606,6 +1742,8 @@ OnScreenKeyboardEntry (
                   &mOskProtocol,
                   &mClickProtocolGuid,
                   &mClickProtocol,
+                  &mClickActivateGuid,
+                  &mClickActivateProtocol,
                   NULL
                   );
   if (EFI_ERROR (Status)) {

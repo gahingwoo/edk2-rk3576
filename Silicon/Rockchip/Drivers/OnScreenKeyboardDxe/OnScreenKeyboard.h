@@ -46,6 +46,7 @@ typedef struct {
 #define OSK_ACT_FLOAT  5      // docked full width <-> floating
 #define OSK_ACT_ALPHA  6      // next opacity level
 #define OSK_ACT_SHOT   7      // a screenshot, through ScreenshotDxe
+#define OSK_ACT_SIZE   8      // next keyboard size
 
 //
 // Opacity levels, out of 256.  Labels are always drawn opaque.
@@ -78,7 +79,18 @@ typedef struct {
 #define OSK_ICON_MOVE     3
 #define OSK_ICON_HIDE     4
 #define OSK_ICON_CAMERA   5     // only when ScreenshotDxe is there
-#define OSK_ICONS         5
+#define OSK_ICON_SIZE     6
+#define OSK_ICONS         6
+
+//
+// Keyboard sizes: the widest a letter key may be.  OSK_SIZE_AUTO picks one
+// from the screen width.
+//
+#define OSK_SIZE_SMALL   0
+#define OSK_SIZE_MEDIUM  1
+#define OSK_SIZE_LARGE   2
+#define OSK_SIZES        3
+#define OSK_SIZE_AUTO    0xFF
 
 #define OSK_MAX_KEYS  96
 
@@ -100,6 +112,9 @@ extern BOOLEAN    mOskCaps;
 extern INTN       mOskPressed;      // index into mOskPlace, or -1
 extern BOOLEAN    mOskFloating;     // as laid out now
 extern UINTN      mOskAlphaLevel;   // 0 .. OSK_ALPHA_LEVELS - 1
+extern UINT8      mOskSize;         // OSK_SIZE_*, as laid out (never AUTO)
+extern UINT8      mOskWantSize;     // OSK_SIZE_*, or OSK_SIZE_AUTO
+extern BOOLEAN    mOskHasTouch;     // a touch screen: keys stay finger sized
 
 UINT32
 OskAlpha (
@@ -123,7 +138,7 @@ OskLayout (
 
 /**
   Whether a point of the keyboard image is on the bar along the top but on
-  none of its icons: the handle a floating keyboard is dragged by.
+  none of its icons: the handle the keyboard is dragged by, docked or not.
 **/
 BOOLEAN
 OskHitHandle (
