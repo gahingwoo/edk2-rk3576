@@ -35,6 +35,7 @@
 #include <Guid/SystemNvDataGuid.h>
 #include <Guid/VariableFormat.h>
 #include <Guid/EventGroup.h>
+#include <Guid/FullResetRequest.h>
 
 #include "RkFvbDxe.h"
 
@@ -994,6 +995,100 @@ FvbVirtualNotifyEvent (
   return;
 }
 
+/**
+  Look for the one-shot full reset request (Guid/FullResetRequest.h) in the
+  store as loaded, without the variable driver, which has not started yet.
+
+  Only a store with a valid header is searched, and only variables in the
+  "added" state count, which is how the variable driver itself decides what
+  is live.
+**/
+STATIC
+BOOLEAN
+FvbFullResetRequested (
+  IN FVB_DEVICE  *FlashInstance
+  )
+{
+  STATIC CONST CHAR16         Name[] = FULL_RESET_REQUEST_NAME;
+  EFI_FIRMWARE_VOLUME_HEADER  *FwVolHeader;
+  VARIABLE_STORE_HEADER       *StoreHeader;
+  BOOLEAN                     AuthFormat;
+  UINTN                       HeaderSize;
+  UINTN                       Ptr;
+  UINTN                       End;
+  UINT16                      StartId;
+  UINT8                       State;
+  UINT32                      Attributes;
+  UINTN                       NameSize;
+  UINTN                       DataSize;
+  EFI_GUID                    *VendorGuid;
+  UINTN                       NamePtr;
+  UINTN                       DataPtr;
+  UINT32                      Value;
+
+  if (EFI_ERROR (FvbValidateFvHeader (FlashInstance))) {
+    return FALSE;
+  }
+
+  FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)FlashInstance->RegionBaseAddress;
+  StoreHeader = (VARIABLE_STORE_HEADER *)((UINTN)FwVolHeader + FwVolHeader->HeaderLength);
+  AuthFormat  = CompareGuid (&StoreHeader->Signature, &gEfiAuthenticatedVariableGuid);
+  HeaderSize  = AuthFormat ? sizeof (AUTHENTICATED_VARIABLE_HEADER) : sizeof (VARIABLE_HEADER);
+
+  Ptr = HEADER_ALIGN ((UINTN)(StoreHeader + 1));
+  End = (UINTN)StoreHeader + StoreHeader->Size;
+
+  while (Ptr + HeaderSize <= End) {
+    if (AuthFormat) {
+      AUTHENTICATED_VARIABLE_HEADER  *Var = (AUTHENTICATED_VARIABLE_HEADER *)Ptr;
+
+      StartId    = Var->StartId;
+      State      = Var->State;
+      Attributes = Var->Attributes;
+      NameSize   = Var->NameSize;
+      DataSize   = Var->DataSize;
+      VendorGuid = &Var->VendorGuid;
+    } else {
+      VARIABLE_HEADER  *Var = (VARIABLE_HEADER *)Ptr;
+
+      StartId    = Var->StartId;
+      State      = Var->State;
+      Attributes = Var->Attributes;
+      NameSize   = Var->NameSize;
+      DataSize   = Var->DataSize;
+      VendorGuid = &Var->VendorGuid;
+    }
+
+    if (StartId != VARIABLE_DATA) {
+      break;        // the end of the variables: erased space follows
+    }
+
+    NamePtr = Ptr + HeaderSize;
+    if ((NameSize > End - NamePtr) || (DataSize > End - NamePtr - NameSize - GET_PAD_SIZE (NameSize))) {
+      break;        // damaged; the variable driver will deal with it
+    }
+
+    DataPtr = NamePtr + NameSize + GET_PAD_SIZE (NameSize);
+
+    if (  ((State == VAR_ADDED) || (State == (VAR_ADDED & VAR_IN_DELETED_TRANSITION)))
+       && (Attributes == FULL_RESET_REQUEST_ATTRIBUTES)
+       && CompareGuid (VendorGuid, &gRockchipFullResetRequestGuid)
+       && (NameSize == sizeof (Name))
+       && (CompareMem ((VOID *)NamePtr, Name, NameSize) == 0)
+       && (DataSize == sizeof (Value)))
+    {
+      CopyMem (&Value, (VOID *)DataPtr, sizeof (Value));
+      if (Value == FULL_RESET_REQUEST_VALUE) {
+        return TRUE;
+      }
+    }
+
+    Ptr = HEADER_ALIGN (DataPtr + DataSize);
+  }
+
+  return FALSE;
+}
+
 STATIC
 EFI_STATUS
 FvbPrepareFvHeader (
@@ -1222,6 +1317,21 @@ FvbConfigureFlashInstance (
                   );
   if (EFI_ERROR (Status)) {
     return Status;
+  }
+
+  //
+  // Reset All Settings asked for an empty store.  Erasing the buffer makes
+  // its header invalid, so FvbPrepareFvHeader() below erases the store
+  // region (on SPI NOR, the flash too) and formats it, exactly as on the
+  // first boot of a freshly flashed board.  On SD/eMMC the empty store is
+  // written back to the medium at EndOfDxe, over the "nvdata" image and
+  // nothing else.  The request is erased with the rest, so it fires once;
+  // should that write fail, the medium still carries the request and the
+  // next boot tries again.
+  //
+  if (FvbFullResetRequested (FlashInstance)) {
+    DEBUG ((DEBUG_WARN, "%a: full reset requested: erasing the UEFI variable store\n", __func__));
+    SetMem ((VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize, 0xFF);
   }
 
   Status = FvbPrepareFvHeader (FlashInstance);

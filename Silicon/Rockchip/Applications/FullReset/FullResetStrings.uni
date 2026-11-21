@@ -1,0 +1,26 @@
+/** @file
+ *
+ *  Strings of the Reset All Settings confirmation.
+ *
+ *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+ *
+ *  SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ **/
+
+#langdef en-US "English"
+#langdef zh-Hans "\wide简体中文\narrow"
+
+#string STR_FULL_RESET_CONFIRM  #language en-US "Reset all UEFI settings?\n\nThis erases the whole UEFI variable store:\nevery setup setting, the language, all boot\noptions and the boot order, the boot timeout,\nand the Secure Boot keys, if any are enrolled.\n\nThe board then restarts and sets itself up\nas it did on its first boot. This cannot be\nundone."
+#string STR_FULL_RESET_FAILED   #language en-US "The reset could not be requested, so nothing\nwas changed. The variable store may be full\nor not writable."
+#string STR_FULL_RESET_PRESS_Y    #language en-US "Press Y to reset, any other key to cancel."
+#string STR_FULL_RESET_PRESS_ANY  #language en-US "Press any key."
+
+/*
+ * Simplified Chinese.  Every run of CJK text is bracketed by \wide ... \narrow;
+ * see scripts/gen-zh-hans-font.py.
+ */
+#string STR_FULL_RESET_CONFIRM  #language zh-Hans "\wide重置所有\narrow UEFI \wide设置？\narrow\n\n\wide这会清空整个\narrow UEFI \wide变量存储：所有设置项、\narrow\n\wide语言、全部启动项和启动顺序、启动等待时间，\narrow\n\wide以及已登记的安全启动密钥（如果有）。\narrow\n\n\wide之后主板重启，像首次启动时一样重新配置。\narrow\n\wide此操作无法撤销。\narrow"
+#string STR_FULL_RESET_FAILED   #language zh-Hans "\wide无法发出重置请求，没有做任何更改。\narrow\n\wide变量存储可能已满或不可写。\narrow"
+#string STR_FULL_RESET_PRESS_Y    #language zh-Hans "\wide按\narrow Y \wide重置，按其他键取消。\narrow"
+#string STR_FULL_RESET_PRESS_ANY  #language zh-Hans "\wide按任意键。\narrow"

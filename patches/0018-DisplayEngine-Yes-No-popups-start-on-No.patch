@@ -1,0 +1,26 @@
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c b/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
+index 895a7f1..a6de51e 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
+@@ -238,6 +238,21 @@ GetUserSelection (
+   // Display user selectable options in gUserSelectableOptions and get the option which user selects.
+   //
+   HighlightPos = gUserSelectableOptions.ForwardLink;
++  //
++  // A Yes/No question starts on No: these popups confirm something that
++  // cannot be undone (erase all settings, delete a key), and a stray Enter
++  // must not answer Yes.
++  //
++  if ((PopupType == EfiHiiPopupTypeYesNo) || (PopupType == EfiHiiPopupTypeYesNoCancel)) {
++    for (Link = gUserSelectableOptions.ForwardLink; Link != &gUserSelectableOptions; Link = Link->ForwardLink) {
++      SelectableOption = SELECTABLE_OPTION_FROM_LINK (Link);
++      if (SelectableOption->OptionType == EfiHiiPopupSelectionNo) {
++        HighlightPos = Link;
++        break;
++      }
++    }
++  }
++
+   do {
+     for (Link = gUserSelectableOptions.ForwardLink; Link != &gUserSelectableOptions; Link = Link->ForwardLink) {
+       SelectableOption = SELECTABLE_OPTION_FROM_LINK (Link);

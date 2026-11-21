@@ -1,0 +1,196 @@
+diff --git a/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c b/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c
+index 61fe606..e02a4ba 100644
+--- a/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c
++++ b/MdeModulePkg/Application/UiApp/FrontPageCustomizedUiSupport.c
+@@ -13,6 +13,10 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ 
+ #include <Protocol/HiiConfigAccess.h>
+ #include <Protocol/HiiString.h>
++#include <Pi/PiFirmwareFile.h>   // patches/0014: for FirmwareVolume2.h
++#include <Pi/PiFirmwareVolume.h>
++#include <Protocol/FirmwareVolume2.h>
++#include <Protocol/LoadedImage.h>
+ 
+ #include <Library/HiiLib.h>
+ #include <Library/DebugLib.h>
+@@ -34,6 +38,18 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
+ 
+ #define FRONT_PAGE_KEY_SHUTDOWN  0x1003   // patches/0012
+ 
++//
++// patches/0014: Reset All Settings, which starts the platform's FullReset
++// application from the firmware volume UiApp itself was loaded from.  The
++// application asks, and does the work; the entry is only shown when the
++// application is there.
++//
++#define FRONT_PAGE_KEY_FULL_RESET  0x1004
++
++STATIC CONST EFI_GUID  mFullResetAppFileGuid = {
++  0x4bdbb2bd, 0x8c5c, 0x4400, { 0xbc, 0xca, 0x0f, 0xd7, 0x3a, 0x11, 0xed, 0x49 }
++};
++
+ #define UI_HII_DRIVER_LIST_SIZE  0x8
+ 
+ #define FRONT_PAGE_KEY_CONTINUE  0x1000
+@@ -164,6 +180,72 @@ LanguageChangeHandler (
+   return EFI_SUCCESS;
+ }
+ 
++/**
++  The device path of the FullReset application in the firmware volume this
++  application was loaded from, or NULL if it is not there.  (patches/0014)
++**/
++STATIC
++EFI_DEVICE_PATH_PROTOCOL *
++UiFullResetAppDevicePath (
++  VOID
++  )
++{
++  EFI_STATUS                         Status;
++  EFI_LOADED_IMAGE_PROTOCOL          *LoadedImage;
++  EFI_FIRMWARE_VOLUME2_PROTOCOL      *Fv;
++  MEDIA_FW_VOL_FILEPATH_DEVICE_PATH  FileNode;
++  UINTN                              Size;
++  EFI_FV_FILETYPE                    Type;
++  EFI_FV_FILE_ATTRIBUTES             Attributes;
++  UINT32                             AuthenticationStatus;
++
++  Status = gBS->HandleProtocol (gImageHandle, &gEfiLoadedImageProtocolGuid, (VOID **)&LoadedImage);
++  if (EFI_ERROR (Status)) {
++    return NULL;
++  }
++
++  Status = gBS->HandleProtocol (LoadedImage->DeviceHandle, &gEfiFirmwareVolume2ProtocolGuid, (VOID **)&Fv);
++  if (EFI_ERROR (Status)) {
++    return NULL;
++  }
++
++  Status = Fv->ReadFile (Fv, &mFullResetAppFileGuid, NULL, &Size, &Type, &Attributes, &AuthenticationStatus);
++  if (EFI_ERROR (Status)) {
++    return NULL;
++  }
++
++  EfiInitializeFwVolDevicepathNode (&FileNode, &mFullResetAppFileGuid);
++  return AppendDevicePathNode (DevicePathFromHandle (LoadedImage->DeviceHandle), (EFI_DEVICE_PATH_PROTOCOL *)&FileNode);
++}
++
++/**
++  Start the FullReset application.  (patches/0014)
++**/
++STATIC
++VOID
++UiStartFullResetApp (
++  VOID
++  )
++{
++  EFI_STATUS                Status;
++  EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
++  EFI_HANDLE                ImageHandle;
++
++  DevicePath = UiFullResetAppDevicePath ();
++  if (DevicePath == NULL) {
++    return;
++  }
++
++  Status = gBS->LoadImage (FALSE, gImageHandle, DevicePath, NULL, 0, &ImageHandle);
++  FreePool (DevicePath);
++  if (EFI_ERROR (Status)) {
++    DEBUG ((DEBUG_ERROR, "%a: cannot load FullReset: %r\n", __func__, Status));
++    return;
++  }
++
++  gBS->StartImage (ImageHandle, NULL, NULL);
++}
++
+ /**
+   This function processes the results of changes in configuration.
+ 
+@@ -195,6 +277,7 @@ UiSupportLibCallbackHandler (
+   if ((QuestionId != FRONT_PAGE_KEY_CONTINUE) &&
+       (QuestionId != FRONT_PAGE_KEY_RESET) &&
+       (QuestionId != FRONT_PAGE_KEY_SHUTDOWN) &&
++      (QuestionId != FRONT_PAGE_KEY_FULL_RESET) &&
+       (QuestionId != FRONT_PAGE_KEY_LANGUAGE))
+   {
+     return FALSE;
+@@ -262,6 +345,13 @@ UiSupportLibCallbackHandler (
+         *Status = EFI_UNSUPPORTED;
+         break;
+ 
++      case FRONT_PAGE_KEY_FULL_RESET:
++        //
++        // Returns only if the user said No, or the request failed.
++        //
++        UiStartFullResetApp ();
++        break;
++
+       default:
+         break;
+     }
+@@ -464,7 +554,8 @@ UiCreateEmptyLine (
+ }
+ 
+ /**
+-  Create Reset menu in the front page, and Shut Down after it.
++  Create Reset menu in the front page, and Shut Down and Reset All Settings
++  after it.
+ 
+   @param[in]    HiiHandle           The hii handle for the Uiapp driver.
+   @param[in]    StartOpCodeHandle   The opcode handle to save the new opcode.
+@@ -476,6 +567,8 @@ UiCreateResetMenu (
+   IN VOID            *StartOpCodeHandle
+   )
+ {
++  EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
++
+   HiiCreateActionOpCode (
+     StartOpCodeHandle,
+     FRONT_PAGE_KEY_RESET,
+@@ -493,6 +586,19 @@ UiCreateResetMenu (
+     EFI_IFR_FLAG_CALLBACK,
+     0
+     );
++
++  DevicePath = UiFullResetAppDevicePath ();
++  if (DevicePath != NULL) {
++    FreePool (DevicePath);
++    HiiCreateActionOpCode (
++      StartOpCodeHandle,
++      FRONT_PAGE_KEY_FULL_RESET,
++      STRING_TOKEN (STR_FULL_RESET_STRING),
++      STRING_TOKEN (STR_FULL_RESET_STRING_HELP),
++      EFI_IFR_FLAG_CALLBACK,
++      0
++      );
++  }
+ }
+ 
+ /**
+diff --git a/MdeModulePkg/Application/UiApp/FrontPageStrings.uni b/MdeModulePkg/Application/UiApp/FrontPageStrings.uni
+index 0468b15..e4037b2 100644
+--- a/MdeModulePkg/Application/UiApp/FrontPageStrings.uni
++++ b/MdeModulePkg/Application/UiApp/FrontPageStrings.uni
+@@ -59,6 +59,10 @@
+ #string STR_SHUTDOWN_STRING            #language zh-Hans "\wide关机\narrow"
+ #string STR_SHUTDOWN_STRING_HELP       #language zh-Hans "\wide关闭计算机。\narrow"
+                                        #language fr-FR  "Réinitialisation à froid (redémarre l'ordinateur)."
++#string STR_FULL_RESET_STRING          #language en-US  "Reset All Settings"
++#string STR_FULL_RESET_STRING_HELP     #language en-US  "Erases every UEFI setting, boot option and Secure Boot key, then restarts as on the first boot. Asks first."
++#string STR_FULL_RESET_STRING          #language zh-Hans "\wide重置所有设置\narrow"
++#string STR_FULL_RESET_STRING_HELP     #language zh-Hans "\wide清除所有\narrow UEFI \wide设置、启动项和安全启动密钥，然后像首次启动一样重启。操作前会先确认。\narrow"
+ #string STR_CUSTOMIZE_BANNER_LINE4_LEFT  #language en-US  ""
+                                          #language fr-FR  ""
+ #string STR_CUSTOMIZE_BANNER_LINE4_RIGHT #language en-US  ""
+diff --git a/MdeModulePkg/Application/UiApp/UiApp.inf b/MdeModulePkg/Application/UiApp/UiApp.inf
+index 3b9e048..4b1cb46 100644
+--- a/MdeModulePkg/Application/UiApp/UiApp.inf
++++ b/MdeModulePkg/Application/UiApp/UiApp.inf
+@@ -62,6 +62,8 @@
+ [Protocols]
+   gEfiSmbiosProtocolGuid                        ## CONSUMES
+   gEfiHiiConfigAccessProtocolGuid               ## CONSUMES
++  gEfiFirmwareVolume2ProtocolGuid               ## CONSUMES ## patches/0014
++  gEfiLoadedImageProtocolGuid                   ## CONSUMES ## patches/0014
+ 
+ [FeaturePcd]
+ 

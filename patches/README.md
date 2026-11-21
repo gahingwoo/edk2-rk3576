@@ -255,3 +255,22 @@ TaishanPi 3M that reaches the PMIC through Rk806I2cPowerOffDxe; on the other
 boards it is the PSCI SYSTEM_OFF it always was. The patch also adds the
 missing `break` after the Reset case, which used to fall through to
 `default`.
+
+### `0016-UiApp-add-Reset-All-Settings-to-the-front-page.patch`
+
+Applies on top of 0012. Adds "Reset All Settings" / "重置所有设置" under
+"Shut Down". The entry starts the platform's FullReset application
+(`Silicon/Rockchip/Applications/FullReset`, FILE_GUID
+`4bdbb2bd-8c5c-4400-bcca-0fd73a11ed49`) from the firmware volume UiApp was
+loaded from, and is only shown when that file is there. The application
+asks, and does the work; the patch holds no platform logic.
+
+### `0018-DisplayEngine-Yes-No-popups-start-on-No.patch`
+
+Applies on top of 0013. A Yes/No (or Yes/No/Cancel) popup from the HII
+popup protocol used to open with Yes highlighted, so a stray Enter answered
+Yes. These popups confirm what cannot be undone: Reset All Settings, which
+erases the whole variable store, and deleting Secure Boot keys. They now
+open with No highlighted; Y, N, the arrows and a click work as before. The
+protocol has no way for a caller to choose the default (the selection is an
+output only), so this is the one place to do it.
