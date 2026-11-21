@@ -108,6 +108,25 @@ PY
     head -c "$NV_SIZE" /dev/zero | tr '\0' '\377' > "$WORK/nvdata.bin"
     NVDATA_ARGS=(--nvdata "$NV_LOAD")
     info "NV store: $NV_SIZE bytes in the FIT, loaded to $NV_LOAD"
+
+    # The runtime variable store (RK3576.fdf, PcdRkFvbRuntimeStoreBase) is
+    # DRAM that has to come through a reset untouched.  The SPL puts its DTB
+    # right after the EDK2 payload and grows it while fixing it up (8 KB
+    # here, 64 KB of margin), so a larger FV or DTB would land on the store
+    # without any error: the next boot would only drop the record as damaged.
+    read -r RT_BASE FV_BASE < <(python3 - "$ROOT/Silicon/Rockchip/RK3576/RK3576.fdf" <<'PY'
+import re, sys
+t = open(sys.argv[1]).read()
+base = int(re.search(r'^BaseAddress\s*=\s*(0x[0-9A-Fa-f]+)', t, re.M).group(1), 16)
+def region(pcd):
+    m = re.search(r'^(0x[0-9A-Fa-f]+)\|(0x[0-9A-Fa-f]+)\s*\n[^\n]*' + pcd, t, re.M)
+    return int(m.group(1), 16)
+print(base + region('PcdRkFvbRuntimeStoreBase'), base + region('PcdFvBaseAddress'))
+PY
+    )
+    DTB_END=$(( FV_BASE + $(stat -c %s "$FV") + $(stat -c %s "$WORK/$DEVICE_TREE_NAME.dtb") + 0x10000 ))
+    [ "$DTB_END" -le "$RT_BASE" ] || \
+        die "the SPL's DTB would reach the runtime variable store ($(printf '0x%x > 0x%x' "$DTB_END" "$RT_BASE"))"
 fi
 python3 "$ROOT/scripts/lib/gen_fit_its.py" "$WORK" "$DEVICE_TREE_NAME" "$BL31_ENTRY" "${NVDATA_ARGS[@]}"
 [ -f "$WORK/${DEVICE_TREE_NAME}_EFI.its" ] || die "gen_fit_its.py produced no ITS"
