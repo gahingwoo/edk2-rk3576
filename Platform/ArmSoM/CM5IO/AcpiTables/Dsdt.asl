@@ -145,5 +145,12 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // preset, which sets its clocks; see Sai.asl.
     include ("Sai.asl")
 #endif
+
+    // SoC temperature: TSADC channels 0-2 as thermal zones TZ00..TZ02, with
+    // a 115 C _CRT below the 120 C hardware TSHUT the firmware arms
+    // (PcdTsadcEnable in CM5IO.dsc).  The fan and its active trip points on
+    // TZ01 are in Fan.asl, a separate SSDT installed only when fan control is
+    // enabled in setup.
+    include ("Thermal.asl")
   }
 }

@@ -31,9 +31,9 @@
  *    _AC0 75.0 C  FAN2 100%
  *    below all     -     0%
  *
- *  No _CRT and no _HOT: the code to temperature conversion has not been
- *  checked against a thermometer on this board, and a wrong reading at or
- *  above _CRT makes Windows shut down.  No hysteresis either: OSPM re-reads
+ *  No _CRT or _HOT here: the zones' _CRT (115 C) is in Thermal.asl, in
+ *  the DSDT, and is there whether or not this table is installed; below it
+ *  the firmware arms the 120 C hardware TSHUT.  No hysteresis: OSPM re-reads
  *  the trip points only on Notify 0x81, and none is sent; near a trip point
  *  the fan can change speed at most once per _TZP poll (5 s).
  *
