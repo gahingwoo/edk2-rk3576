@@ -344,12 +344,24 @@
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
   ReportStatusCodeLib|MdeModulePkg/Library/RuntimeDxeReportStatusCodeLib/RuntimeDxeReportStatusCodeLib.inf
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibNull/DxeCapsuleLibNull.inf
-!ifndef CONFIG_NO_DEBUGLIB
-  DebugLib|MdeModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
-!endif
-!if $(TARGET) != RELEASE
+  #
+  # Runtime drivers always get the DebugLib that stops printing at
+  # ExitBootServices, in every build target.
+  #
+  # This used to be chosen by two conditions that both missed on RK3576:
+  # RK3576Base.dsc.inc DEFINEs CONFIG_NO_DEBUGLIB (to FALSE, but !ifndef only
+  # asks whether it is defined), and the images are built RELEASE.  So every
+  # runtime driver fell through to BaseDebugLibSerialPort from
+  # [LibraryClasses.common].  Upstream gets away with that because its
+  # RELEASE PcdDebugPropertyMask is 0; RK3576Base.dsc.inc sets 0x2F so the
+  # RELEASE images still log, and then any DEBUG() reached after
+  # ExitBootServices writes the UART at 0x2AD40000.  That page is not in the
+  # runtime memory map, so the OS takes the fault.  The first one an OS hits
+  # is the DEBUG_INFO line in ResetSystemRuntimeDxe, which is why Linux
+  # logged "Unable to handle paging request in EFI runtime service" at
+  # reboot.
+  #
   DebugLib|MdePkg/Library/DxeRuntimeDebugLibSerialPort/DxeRuntimeDebugLibSerialPort.inf
-!endif
   VariablePolicyLib|MdeModulePkg/Library/VariablePolicyLib/VariablePolicyLibRuntimeDxe.inf
 FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
 
