@@ -25,6 +25,7 @@
   ConfigTable.c
   Gpu.c
   Npu.c
+  Vdec.c
   RK3576DxeHii.vfr
   RK3576DxeHii.uni
 
@@ -100,6 +101,7 @@
   gRK3576TokenSpaceGuid.PcdAcpiNpuDefault
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress
+  gRK3576TokenSpaceGuid.PcdAcpiVdecDefault
   # Display connector list is set in ROCK4D.dsc using the RK3588 tokenspace
   # (same TokenSpace the DwHdmiQpLib / Vop2Dxe library set reads from).
   gRK3588TokenSpaceGuid.PcdDisplayConnectors
@@ -138,6 +140,7 @@
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq
   gRK3576TokenSpaceGuid.PcdAcpiNpu
+  gRK3576TokenSpaceGuid.PcdAcpiVdec
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath

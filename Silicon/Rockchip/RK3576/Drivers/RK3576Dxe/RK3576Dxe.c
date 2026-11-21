@@ -37,6 +37,7 @@
 #include "ConfigTable.h"
 #include "Gpu.h"
 #include "Npu.h"
+#include "Vdec.h"
 #include "CpuPerf.h"
 #include "Display.h"
 #include "ComboPhy.h"
@@ -448,6 +449,16 @@ RK3576EntryPoint (
         DEBUG ((DEBUG_ERROR, "RK3576Dxe: NPU: EndOfDxe event failed: %r, NPU left off\n", Status));
       }
     }
+  }
+
+  /*
+   * The video decoder, only if setup asks for it and the OS gets ACPI: the
+   * Windows driver (woa-rk3576 vdpu383) is its only user.  Off by default.
+   */
+  if ((PcdGet8 (PcdAcpiVdec) != 0) &&
+      ((PcdGet32 (PcdConfigTableMode) & CONFIG_TABLE_MODE_ACPI) != 0))
+  {
+    RK3576VdecPowerOn ();
   }
 
   /* Initialize status LED */

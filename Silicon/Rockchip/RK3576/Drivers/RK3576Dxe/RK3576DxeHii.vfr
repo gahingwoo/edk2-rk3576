@@ -159,6 +159,11 @@ formset
       name  = AcpiNpuSupported,
       guid  = RK3576DXE_FORMSET_GUID;
 
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = AcpiVdec,
+      guid  = RK3576DXE_FORMSET_GUID;
+
     //
     // CPU
     //
@@ -363,6 +368,15 @@ formset
               option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
             endoneof;
           endif;
+
+          oneof varid = AcpiVdec,
+            prompt      = STRING_TOKEN(STR_ACPI_VDEC_PROMPT),
+            help        = STRING_TOKEN(STR_ACPI_VDEC_HELP),
+            flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+            default     = FixedPcdGet8 (PcdAcpiVdecDefault),
+            option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+            option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+          endoneof;
         endif;
 
         suppressif (get(ConfigTableMode.Mode) & CONFIG_TABLE_MODE_FDT) == 0;

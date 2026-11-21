@@ -447,6 +447,12 @@ AcpiDsdtFixupStatus (
 // NPU off would still report no device.
 //
 #define NPU_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'N', 'P', 'U', ' ', ' ', ' ')
+// The video decoder SSDT (Vdec.asl, OEM table ID "RKVDEC") is installed only
+// when the decoder is enabled in setup (PcdAcpiVdec); RK3576Dxe powers the
+// decoder under the same condition.  Its _STA also reads the power domain, so
+// a table installed with the domain off would still report no device.
+//
+#define VDEC_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'V', 'D', 'E', 'C', ' ', ' ')
 
 STATIC
 BOOLEAN
@@ -486,6 +492,17 @@ AcpiTableCheck (
     }
 
     DEBUG ((DEBUG_INFO, "AcpiPlatform: NPU on, installing its SSDT\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == VDEC_SSDT_OEM_TABLE_ID))
+  {
+    if (PcdGet8 (PcdAcpiVdec) == 0) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: video decoder off in setup, its SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_INFO, "AcpiPlatform: video decoder on, installing its SSDT\n"));
   }
 
   return TRUE;
