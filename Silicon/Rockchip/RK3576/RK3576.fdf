@@ -174,8 +174,9 @@ READ_LOCK_STATUS   = TRUE
   # ACPI Support — deliberately NOT listed here.
   #
   # RK3576AcpiPlatformDxe is only in [Components] for the platforms that enable
-  # ACPI (CM5IO, NanoPi-M5); referencing it from this shared FDF would fail the
-  # FDT-only builds. Platforms that want it add it to their own
+  # ACPI (today all three: CM5IO, ROCK4D, TaishanPi3M); referencing it from
+  # this shared FDF would fail a board built without ACPI tables. Platforms
+  # that want it add it to their own
   # <Platform>.Modules.fdf.inc, which is included at RK_PLATFORM_FVMAIN_MODULES
   # below — see Platform/ArmSoM/CM5IO/CM5IO.Modules.fdf.inc.
   #

@@ -74,7 +74,7 @@ there is nowhere to write, red when it failed; the serial log has the path.
 | USB | yes | yes; USB-C is USB 2.0 in UEFI and Windows | four USB-A ports; USB-C unused |
 | Ethernet | yes | yes, in UEFI, Linux and Windows | yes, in UEFI and Windows; not checked in Linux |
 | Linux through UEFI | Fedora from NVMe | Fedora from NVMe | boots from a USB stick, [with limits](#linux-on-the-taishanpi-3m) |
-| Windows 11 23H2 | not tried | boots to the desktop | boots to the desktop, GPU driver available |
+| Windows 11 23H2 | not tried; ACPI tables built from `main` after 0.4.1, not run | boots to the desktop | boots to the desktop, GPU driver available |
 
 Serial console: 1500000 8N1.
 
@@ -215,6 +215,11 @@ TaishanPi 3M has no RTC driver, so the clock is wrong until it syncs.
   changed since 0.2.1 is code the three boards share, and it has run on the
   other two. On the CM5-IO, 0.4.0 has shown its menus and has not started an
   operating system yet.
+- The ROCK 4D image is built with ACPI tables next to the device tree
+  (ConfigTableMode ACPI + FDT, as on the other two boards) from `main` after
+  0.4.1. Before that it was device tree only, so a Windows boot had nothing
+  to run on. Neither the tables nor the image with them has been run on a
+  ROCK 4D; see [Hardware](docs/HARDWARE.md#radxa-rock-4d).
 - The release images are built from `main`. Some of what is in them has
   booted without being checked for what it is meant to do; that is listed in
   [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
