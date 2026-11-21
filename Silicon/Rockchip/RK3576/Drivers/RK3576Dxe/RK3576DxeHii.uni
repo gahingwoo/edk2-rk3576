@@ -211,6 +211,10 @@
 #string STR_SCREENSHOT_TARGET_SD                           #language en-US "SD card only"
 #string STR_SCREENSHOT_TARGET_INTERNAL                     #language en-US "Internal storage only"
 
+#string STR_NETWORK_SUBTITLE                               #language en-US "Network"
+#string STR_NETWORK_TIME_SYNC_PROMPT                       #language en-US "Network Time Sync"
+#string STR_NETWORK_TIME_SYNC_HELP                         #language en-US "At boot, when a network cable is connected, set the clock from an NTP time server: the ones the DHCP server names first, then pool.ntp.org and time.cloudflare.com, then fixed addresses of Cloudflare and Google. It runs in the background while the boot menu counts down, gives up when there is no answer within 8 seconds, and never delays booting. The clock is kept in UTC.\n\nApplies at the next boot."
+
 /*
  * ComboPHY mode configuration
  */
@@ -401,6 +405,9 @@
 #string STR_SCREENSHOT_TARGET_USB                          #language zh-Hans "\wide仅\narrow U\wide盘\narrow"
 #string STR_SCREENSHOT_TARGET_SD                           #language zh-Hans "\wide仅\narrow SD \wide卡\narrow"
 #string STR_SCREENSHOT_TARGET_INTERNAL                     #language zh-Hans "\wide仅内部存储\narrow"
+#string STR_NETWORK_SUBTITLE                               #language zh-Hans "\wide网络\narrow"
+#string STR_NETWORK_TIME_SYNC_PROMPT                       #language zh-Hans "\wide网络对时\narrow"
+#string STR_NETWORK_TIME_SYNC_HELP                         #language zh-Hans "\wide启动时如已接好网线，就从\narrow NTP \wide时间服务器校准时钟：先用\narrow DHCP \wide服务器给出的服务器，再用\narrow pool.ntp.org \wide和\narrow time.cloudflare.com\wide，最后用\narrow Cloudflare \wide和\narrow Google \wide的固定地址。在启动菜单倒计时期间后台进行，\narrow8 \wide秒内没有结果就放弃，不会拖慢启动。时钟按\narrow UTC \wide保存。\narrow\n\n\wide下次启动时生效。\narrow"
 #string STR_COMBO_PHY_FORM_TITLE                           #language zh-Hans "ComboPHY \wide模式\narrow"
 #string STR_COMBO_PHY_FORM_HELP                            #language zh-Hans "\wide配置\narrow Naneng Combo PHY \wide控制器。\narrow"
 #string STR_COMBO_PHY_FORM_SUBTITLE                        #language zh-Hans "\wide更改在重启后生效。\narrow"

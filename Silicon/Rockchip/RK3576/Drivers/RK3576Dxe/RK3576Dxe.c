@@ -324,6 +324,28 @@ SetupScreenshotVariables (
   }
 }
 
+/**
+  The same for NetworkTimeSync (NetworkTimeSyncDxe reads it through
+  PcdNetworkTimeSync): only 0 and 1 mean anything.
+**/
+STATIC
+VOID
+SetupNetworkTimeSyncVariables (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       Size;
+  UINT8       Var8;
+
+  Size   = sizeof (Var8);
+  Status = gRT->GetVariable (L"NetworkTimeSync", &gRK3576DxeFormSetGuid, NULL, &Size, &Var8);
+  if (EFI_ERROR (Status) || (Var8 > 1)) {
+    Status = PcdSet8S (PcdNetworkTimeSync, FixedPcdGet8 (PcdNetworkTimeSyncDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+}
+
 EFI_STATUS
 EFIAPI
 RK3576EntryPoint (
@@ -373,6 +395,9 @@ RK3576EntryPoint (
 
   /* Where ScreenshotDxe saves */
   SetupScreenshotVariables ();
+
+  /* Whether NetworkTimeSyncDxe sets the clock from NTP */
+  SetupNetworkTimeSyncVariables ();
 
   /* Read the cluster clocks we were handed, and apply the configured rates */
   RK3576SetupCpuPerf ();
