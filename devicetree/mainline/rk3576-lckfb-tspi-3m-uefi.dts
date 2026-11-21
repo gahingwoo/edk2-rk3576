@@ -28,9 +28,9 @@
  * consumer, so that a kernel with the driver keeps the PWM clock on and the
  * fan where the firmware left it, and does not take control of it.
  *
- * Added from Armbian's board patch: the GPU (panfrost), and the mini-PCIe
- * slot's 3.3 V supply kept on and its reset released, so an EC20 4G module
- * in it powers up.
+ * Added from Armbian's board patch: the GPU's supply, clocks and OPPs (left
+ * disabled, see &gpu below), and the mini-PCIe slot's 3.3 V supply kept on
+ * and its reset released, so an EC20 4G module in it powers up.
  *
  * Added: the ES8388 headphone codec on I2C3 and SAI1, as a simple-audio-card
  * with jack detection (GPIO4 PB0) and the headphone amplifier enable (GPIO4
@@ -506,9 +506,32 @@
 	};
 };
 
+/*
+ * The GPU is described but left disabled.  With it enabled, Armbian edge
+ * 7.3.4 booted through this firmware probed panfrost and then took an
+ * SError in panfrost_job_timedout, twice, 37 s and 281 s after boot: a GPU
+ * job hung, and the reset path read GPU registers that no longer answered.
+ * The cause is not known.  One difference from a U-Boot boot of the same
+ * kernel is the BL31: Armbian's U-Boot uses Rockchip's v1.20, this firmware
+ * the open-source TF-A v2.14, whose SCMI_CLK_GPU moves the GPU onto its
+ * PVTPLL above 200 MHz.  Until the cause is known, a GPU that can bring the
+ * system down is worse than none.  Everything else a working GPU needs is here, so
+ * enabling it is this one status.
+ */
 &gpu {
 	mali-supply = <&vdd_gpu_s0>;
-	status = "okay";
+	status = "disabled";
+};
+
+/*
+ * The GPU power domain's supply.  A kernel with Leonard Lausen's
+ * "pmdomain: rockchip: Manage the RK3576 GPU domain supply" (Armbian 7.4)
+ * turns vdd_gpu_s0 on before it powers the domain; without it, the domain
+ * failed to power up on the NanoPi M5.  Older kernels ignore the property.
+ * The node has no label in rk3576.dtsi.
+ */
+&{/soc/power-management@27380000/power-controller/power-domain@4} {
+	domain-supply = <&vdd_gpu_s0>;
 };
 
 /*
