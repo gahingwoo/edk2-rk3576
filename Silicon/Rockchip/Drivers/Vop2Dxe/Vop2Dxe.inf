@@ -25,6 +25,7 @@
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
 
 [LibraryClasses]
   TimerLib
@@ -32,13 +33,24 @@
   DebugLib
   BaseLib
   BaseMemoryLib
+  FdtLib
   MemoryAllocationLib
+  PcdLib
   RockchipDisplayLib
+  UefiBootServicesTableLib
   UefiDriverEntryPoint
+  UefiLib
   CruLib
+
+[Guids]
+  gFdtTableGuid
 
 [Protocols]
   gRockchipCrtcProtocolGuid
+  gExitBootServicesOsNotifyProtocolGuid
+
+[Pcd]
+  gRK3576TokenSpaceGuid.PcdFdtForceGop
 
 [Depex]
   TRUE
