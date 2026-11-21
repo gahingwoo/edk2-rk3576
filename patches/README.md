@@ -274,3 +274,10 @@ erases the whole variable store, and deleting Secure Boot keys. They now
 open with No highlighted; Y, N, the arrows and a click work as before. The
 protocol has no way for a caller to choose the default (the selection is an
 output only), so this is the one place to do it.
+### `0017-FileExplorerLib-add-zh-Hans-strings.patch`
+
+Independent of the others. The file explorer ("Boot From File", "Add Boot
+Option", "Add Driver Option") had no zh-Hans strings, so with the menus in
+Chinese its title and its "new file" / "new folder" entries stayed English.
+Every string gets a zh-Hans entry, in the same \wide ... \narrow form as
+0006 and 0007. The file keeps its CRLF line endings.
