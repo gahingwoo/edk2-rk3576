@@ -16,10 +16,16 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/RockchipDisplayLib.h>
 #include <Library/CruLib.h>
+#include <Library/FdtLib.h>
+#include <Library/PcdLib.h>
+#include <Library/UefiLib.h>
 
 #include <Library/MediaBusFormat.h>
 #include <Library/DrmModes.h>
 
+#include <Guid/Fdt.h>
+
+#include <Protocol/ExitBootServicesOsNotify.h>
 #include <Protocol/RockchipCrtcProtocol.h>
 
 #include "Vop2Dxe.h"
@@ -3922,6 +3928,255 @@ Vop2DscCfgDone (
   }
 }
 
+/* ==========================================================================
+ *  Handing a MIPI DSI screen over to Linux's own display driver
+ *
+ *  With force GOP off, Linux binds rockchip-drm and dw-mipi-dsi2 to the
+ *  screen this firmware lit.  On the TaishanPi 3M it then reported the panel
+ *  connected, showed nothing, and logged "POST_BUF_EMPTY irq err at vp2"
+ *  twice a second; the same kernel booted by U-Boot, which never touches
+ *  VOP2, lights the screen.  So the difference is what this firmware leaves
+ *  running, and these are the parts of it Linux never undoes (mainline
+ *  rockchip_drm_vop2.c and rockchip_vop2_reg.c, 7.3):
+ *
+ *  - Linux creates a CRTC only for a video port with an endpoint in the
+ *    device tree, and the DSI overlay routes the screen through VP2.  The
+ *    port lit here (VP0) has no CRTC, so nothing ever disables it: it keeps
+ *    scanning and keeps its window.
+ *
+ *  - That window is Esmart0.  It is also VP2's primary plane in Linux
+ *    (Armbian rk3576-0011 promotes it, VP2 has no other), so the window Linux
+ *    composites from is still enabled on a running VP0 with this firmware's
+ *    framebuffer address in it, behind an IOMMU Linux turns on in
+ *    vop2_enable().
+ *
+ *  - rk3576_set_intf_mux() read-modify-writes MIPI0_IF_CTRL and clears
+ *    DCLK_SEL_OUT, PCLK_DIV and MUX before setting them, but only ORs PIN_POL
+ *    in.  This firmware leaves PIN_POL = 3 (both syncs active high); the
+ *    panel mode Linux uses is NHSYNC | NVSYNC, which it would write as 0 on a
+ *    U-Boot boot and cannot write over a 3.
+ *
+ *  So the teardown is mainline's own crtc disable, for the port Linux does
+ *  not know about:
+ *
+ *    1. The window off: vop2_plane_atomic_disable() -> vop2_win_disable(),
+ *       WIN_EN = 0 (and CLUSTER_EN = 0 for a cluster window).
+ *    2. The port to standby: vop2_crtc_atomic_disable() writes VP_DSP_CTRL =
+ *       STANDBY and nothing else, then waits up to 50 ms for DSP_HOLD_VALID,
+ *       because "we must wait standby complete when we want to disable aclk,
+ *       if not, memory bus maybe dead".  Same here, so the window's DMA has
+ *       stopped before Linux attaches the IOMMU.
+ *    3. MIPI0_IF_CTRL back to disabled, with CFG_DONE_IMD so it applies now:
+ *       EN, CLK_OUT_EN, MUX and PIN_POL all 0, which is what U-Boot leaves.
+ *       Linux sets EN, CLK_OUT_EN, MUX = 2 and its own PIN_POL on top.
+ *
+ *  Not touched, because Linux resets them itself: the DSI host
+ *  (dw_mipi_dsi2_probe() asserts its "apb" reset, SRST_P_DSIHOST0, and
+ *  pre_enable soft-resets it), the DC-PHY (samsung_mipi_dcphy_power_on()
+ *  pulses "apb" and holds "m_phy" in reset while it reconfigures), the panel
+ *  (its driver pulses reset-gpios) and the VO0 GRF DSI bits (this firmware
+ *  writes only IPI_COLOR_DEPTH, which Linux writes too).  The clocks stay as
+ *  they are: Linux reparents and rates dclk_vp2 itself, and gates what it
+ *  does not use.
+ *
+ *  Gated so that the cases that need the scanout keep it:
+ *    - only a Linux kernel (the OS type the ExitBootServices hook works out);
+ *      Windows' display driver takes the running VP0 over, and an unknown
+ *      loader may still be drawing;
+ *    - only with force GOP off; with it on, Linux shows this framebuffer
+ *      through simple-framebuffer and VOP2's nodes are disabled;
+ *    - only when the device tree the kernel is handed has the DSI host
+ *      enabled, i.e. a native driver will take the screen.  Without that a
+ *      kernel with efifb or simpledrm draws into the running scanout, and
+ *      stopping it would leave the screen dark.
+ *  Only ever armed by a screen on MIPI0; an HDMI-only boot never registers
+ *  the handler and is unchanged.
+ * ========================================================================== */
+
+#define RK3576_VP_INT_RAW_STATUS(Vp)   (0xAC + (Vp) * 0x10)
+#define RK3576_VP_INT_DSP_HOLD_VALID   BIT6
+#define RK3576_VP_DSP_CTRL_STANDBY     BIT31
+#define RK3576_DSP_HOLD_TIMEOUT_US     50000
+#define RK3576_DSP_HOLD_POLL_US        100
+
+typedef struct {
+  BOOLEAN          Armed;
+  VOP2             *Vop2;
+  UINT32           Vp;
+  VOP2_WIN_DATA    *Win;
+} VOP2_DSI_HANDOFF;
+
+STATIC VOP2_DSI_HANDOFF  mDsiHandoff;
+
+/**
+  Will the kernel's device tree bind a native driver to the DSI host?
+
+  Looked up by compatible, so the mainline (/soc/dsi@27d80000) and vendor
+  layouts both match.  "okay", "ok" or no status at all means enabled.
+**/
+STATIC
+BOOLEAN
+Vop2DsiHandoffFdtHasDsi (
+  VOID
+  )
+{
+  VOID         *Fdt;
+  INT32        Node;
+  CONST CHAR8  *Status;
+  INT32        Length;
+
+  if (EFI_ERROR (EfiGetSystemConfigurationTable (&gFdtTableGuid, &Fdt)) ||
+      (Fdt == NULL) || (FdtCheckHeader (Fdt) != 0))
+  {
+    return FALSE;
+  }
+
+  for (Node = FdtNodeOffsetByCompatible (Fdt, -1, "rockchip,rk3576-mipi-dsi2");
+       Node >= 0;
+       Node = FdtNodeOffsetByCompatible (Fdt, Node, "rockchip,rk3576-mipi-dsi2"))
+  {
+    Status = FdtGetProp (Fdt, Node, "status", &Length);
+    if ((Status == NULL) ||
+        (AsciiStrCmp (Status, "okay") == 0) ||
+        (AsciiStrCmp (Status, "ok") == 0))
+    {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+STATIC
+VOID
+EFIAPI
+Vop2DsiHandoffOsHandler (
+  IN EXIT_BOOT_SERVICES_OS_CONTEXT  *Context
+  )
+{
+  VOP2           *Vop2;
+  VOP2_WIN_DATA  *Win;
+  UINT32         Vp;
+  UINT32         VPOffset;
+  UINT32         Waited;
+  BOOLEAN        Held;
+
+  if (!mDsiHandoff.Armed) {
+    return;
+  }
+
+  if (Context->OsType != ExitBootServicesOsLinux) {
+    DEBUG ((DEBUG_INFO, "VOP2: DSI handoff: not a Linux kernel, VP%u left scanning\n", mDsiHandoff.Vp));
+    return;
+  }
+
+  if (PcdGet8 (PcdFdtForceGop)) {
+    DEBUG ((DEBUG_INFO, "VOP2: DSI handoff: force GOP on, VP%u left scanning for simple-framebuffer\n", mDsiHandoff.Vp));
+    return;
+  }
+
+  if (!Vop2DsiHandoffFdtHasDsi ()) {
+    DEBUG ((DEBUG_INFO, "VOP2: DSI handoff: no enabled DSI host in the device tree, VP%u left scanning\n", mDsiHandoff.Vp));
+    return;
+  }
+
+  Vop2     = mDsiHandoff.Vop2;
+  Win      = mDsiHandoff.Win;
+  Vp       = mDsiHandoff.Vp;
+  VPOffset = Vp * 0x100;
+
+  //
+  // 1. The window off.  Window registers are shadowed and latch on this
+  //    port's config-done, written below together with the standby.
+  //
+  if (Win != NULL) {
+    if (Win->Type == CLUSTER_LAYER) {
+      Vop2MaskWrite (Vop2->BaseAddress, RK3568_CLUSTER0_WIN0_CTRL0 + Win->RegOffset, EN_MASK, WIN_EN_SHIFT, 0, FALSE);
+      Vop2MaskWrite (Vop2->BaseAddress, RK3568_CLUSTER0_CTRL + Win->RegOffset, EN_MASK, CLUSTER_EN_SHIFT, 0, FALSE);
+    } else {
+      Vop2MaskWrite (Vop2->BaseAddress, RK3568_ESMART0_REGION0_CTRL + Win->RegOffset, EN_MASK, WIN_EN_SHIFT, 0, FALSE);
+    }
+  }
+
+  //
+  // 2. The port to standby, as vop2_crtc_atomic_disable() writes it: the
+  //    whole register, STANDBY alone.  It takes effect at the end of the
+  //    current frame, which DSP_HOLD_VALID reports (raw status, so no
+  //    interrupt enable is needed; cleared before and after, as mainline's
+  //    vop2_crtc_enable_irq() clears it).
+  //
+  MmioWrite32 (Vop2->BaseAddress + RK3568_VP0_INT_CLR + Vp * 0x10, (RK3576_VP_INT_DSP_HOLD_VALID << 16) | RK3576_VP_INT_DSP_HOLD_VALID);
+  Vop2Writel (Vop2->BaseAddress, RK3568_VP0_DSP_CTRL + VPOffset, RK3576_VP_DSP_CTRL_STANDBY);
+  Vop2Writel (Vop2->BaseAddress, RK3568_REG_CFG_DONE, CFG_DONE_EN | BIT (Vp) | (BIT (Vp) << 16));
+
+  Held = FALSE;
+  for (Waited = 0; Waited < RK3576_DSP_HOLD_TIMEOUT_US; Waited += RK3576_DSP_HOLD_POLL_US) {
+    if ((MmioRead32 (Vop2->BaseAddress + RK3576_VP_INT_RAW_STATUS (Vp)) & RK3576_VP_INT_DSP_HOLD_VALID) != 0) {
+      Held = TRUE;
+      break;
+    }
+
+    MicroSecondDelay (RK3576_DSP_HOLD_POLL_US);
+  }
+
+  MmioWrite32 (Vop2->BaseAddress + RK3568_VP0_INT_CLR + Vp * 0x10, (RK3576_VP_INT_DSP_HOLD_VALID << 16) | RK3576_VP_INT_DSP_HOLD_VALID);
+
+  //
+  // 3. The MIPI interface detached from the port: everything 0, applied
+  //    immediately.
+  //
+  Vop2Writel (Vop2->BaseAddress, RK3576_MIPI0_IF_CTRL, 1U << RK3576_DSP_IF_CFG_DONE_IMD_BIT);
+
+  DEBUG ((
+    DEBUG_INFO,
+    "VOP2: DSI handoff to Linux: %a off, VP%u standby %a %u us, MIPI0_IF_CTRL = 0x%08x\n",
+    (Win != NULL) ? Win->Name : "no window",
+    Vp,
+    Held ? "after" : "NOT confirmed after",
+    Waited,
+    1U << RK3576_DSP_IF_CFG_DONE_IMD_BIT
+    ));
+}
+
+/**
+  Remember the port and window a MIPI DSI screen was lit with, and have the
+  ExitBootServices hook call Vop2DsiHandoffOsHandler().
+
+  Called from Vop2Enable, which runs at BDS when the console is connected,
+  long after ExitBootServicesHookDxe has installed its protocol; registering
+  here rather than from a depex keeps this driver's dispatch unchanged.
+**/
+STATIC
+VOID
+Vop2DsiHandoffArm (
+  IN VOP2        *Vop2,
+  IN CRTC_STATE  *CrtcState
+  )
+{
+  EFI_STATUS                             Status;
+  EXIT_BOOT_SERVICES_OS_NOTIFY_PROTOCOL  *Notify;
+
+  mDsiHandoff.Vop2 = Vop2;
+  mDsiHandoff.Vp   = CrtcState->CrtcID;
+  mDsiHandoff.Win  = Vop2FindWinByPhysID (Vop2, Vop2->VpPlaneMask[CrtcState->CrtcID].PrimaryPlaneId);
+
+  if (mDsiHandoff.Armed) {
+    return;                               /* a mode change: same handler */
+  }
+
+  Status = gBS->LocateProtocol (&gExitBootServicesOsNotifyProtocolGuid, NULL, (VOID **)&Notify);
+  if (!EFI_ERROR (Status)) {
+    Status = Notify->RegisterHandler (Notify, Vop2DsiHandoffOsHandler);
+  }
+
+  if (EFI_ERROR (Status) && (Status != EFI_ALREADY_STARTED)) {
+    DEBUG ((DEBUG_WARN, "VOP2: DSI handoff: cannot hook ExitBootServices (%r); Linux gets a running VP%u\n", Status, CrtcState->CrtcID));
+    return;
+  }
+
+  mDsiHandoff.Armed = TRUE;
+}
+
 EFI_STATUS
 Vop2Enable (
   IN  ROCKCHIP_CRTC_PROTOCOL  *This,
@@ -4183,6 +4438,18 @@ Vop2Enable (
  #ifdef DEBUG_DUMP_REG
   Vop2DumpRegisters (DisplayState, Vop2FindWinByPhysID (Vop2, Vop2->VpPlaneMask[CrtcState->CrtcID].PrimaryPlaneId));
  #endif
+
+  //
+  // A DSI screen alone on its port: stop it at ExitBootServices when Linux's
+  // own driver will take it (see "Handing a MIPI DSI screen over" above).
+  // A port that also feeds HDMI is left alone.
+  //
+  if ((Vop2->Version == VOP_VERSION_RK3576) &&
+      ((DisplayState->ConnectorState.OutputInterface & VOP_OUTPUT_IF_MIPI0) != 0) &&
+      ((DisplayState->ConnectorState.OutputInterface & ~VOP_OUTPUT_IF_MIPI0) == 0))
+  {
+    Vop2DsiHandoffArm (Vop2, CrtcState);
+  }
 
   return EFI_SUCCESS;
 }
