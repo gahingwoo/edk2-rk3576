@@ -210,7 +210,8 @@
 
   # FDT + ACPI both installed (0x3).  Linux keeps using the mainline DTS;
   # ACPI-only OSes (Windows on Arm, FreeBSD) get the RK3576 tables.
-  # ROCK 4D is FDT-only.  Switchable at runtime in the front-page menu.
+  # The ROCK 4D and the TaishanPi 3M install both too.  Switchable at
+  # runtime in the front-page menu.
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_ACPI_FDT)
 
   # TSADC sampling and the hardware thermal shutdown: a CRU (chip) reset at
@@ -293,7 +294,7 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
 
   # RK3576 ACPI platform driver — patches MCFG/IORT and the PCI0/PCI1 _STA
   # from the live ComboPHY mode; runs only when ConfigTableMode has the ACPI bit.
-  # Board-level because only this carrier enables ACPI.
+  # Board-level because only the boards with ACPI tables carry it.
   Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
 
   # RK3576Dxe, FdtPlatformDxe, the PCIe stack and the GMAC stack are common to

@@ -140,8 +140,25 @@
   # CM5-IO uses rgmii-rxid with a 0x21 MAC-side TX delay.
   gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0
 
-  # FDT only -- no ACPI tables are built into this image.
-  gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_FDT)
+  # FDT + ACPI both installed (0x3), as on the CM5-IO and the TaishanPi 3M.
+  # Linux keeps booting from the mainline device tree: with a real DTB
+  # present, arm64 Linux only uses ACPI when told to (acpi=force), so its
+  # behaviour does not change.  An ACPI OS (Windows on Arm) gets AcpiTables/.
+  # Switchable at runtime in the front-page menu (ACPI / Device Tree).  The
+  # ACPI tables have NOT been run with any operating system on this board.
+  #
+  # A variable store written by an older image can still hold
+  # ConfigTableMode = Devicetree if that form was ever saved; the setting
+  # shown in the menu is the one in force.
+  gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_ACPI_FDT)
+
+  # Hide \_SB.PCI0 from ACPI when the PCIe link did not train in UEFI.  The
+  # FPC connector needs an M.2 adapter, and with no adapter or no drive on it
+  # PciHostBridgeInit.c leaves pcie0 held in reset; without this the DSDT
+  # would still point the OS at that controller's DBI.  As on the
+  # TaishanPi 3M; off on the CM5-IO, whose M.2 slot is the case the
+  # PCI0/PCI1 rules were measured with.
+  gRK3576TokenSpaceGuid.PcdAcpiPcieRequireRootBridge|TRUE
 
   # TSADC sampling and the hardware thermal shutdown: a CRU (chip) reset at
   # 120 C plus trim, armed only after the readings check out (Rk3576TsadcLib.c).
@@ -167,8 +184,8 @@
 
 ################################################################################
 [Components.common]
-  # ACPI tables — disabled: FDT-only build.
-  # $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
+  # ACPI tables, installed alongside the DTB (PcdConfigTableModeDefault above)
+  $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
 
   # Board-specific Device Tree (Vendor = pre-compiled DTB)
   $(PLATFORM_DIRECTORY)/DeviceTree/Vendor.inf
@@ -179,8 +196,11 @@
   # Splash screen logo
   $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
 
-  # This board builds FDT-only, so RK3576AcpiPlatformDxe and AcpiTables.inf
-  # are deliberately absent -- CM5-IO declares them, this one does not.
-  #
+  # Patches the DSDT and MCFG at boot: PCI0/PCI1 _STA from the ComboPHY mode
+  # and the root bridges UEFI produced, ECAM layout per OS, SD removability.
+  # Does nothing unless ConfigTableMode has the ACPI bit.  Listed per board
+  # because only the boards with ACPI tables carry it.
+  Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
+
   # RK3576Dxe, FdtPlatformDxe, the PCIe stack and the GMAC stack are common to
   # every RK3576 board and are declared in RK3576Base.dsc.inc.

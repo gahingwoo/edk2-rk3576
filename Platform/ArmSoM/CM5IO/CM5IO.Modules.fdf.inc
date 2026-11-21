@@ -17,7 +17,7 @@
   #
   # It lives here rather than in the shared RK3576.fdf because it is only in
   # [Components] for the platforms that enable ACPI; referencing it from the
-  # shared FDF would break the FDT-only builds (ROCK4D, CM5Waveshare*).
+  # shared FDF would break any board built without ACPI tables.
   # The driver itself no-ops unless ConfigTableMode has the ACPI bit set.
   INF Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
 

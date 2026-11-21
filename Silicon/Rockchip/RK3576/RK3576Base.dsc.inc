@@ -418,8 +418,8 @@
 
   #
   # ACPI / Device Tree support flags and default values.
-  # PcdConfigTableModeDefault is board-level: CM5-IO ships ACPI+FDT for
-  # Windows on Arm, ROCK 4D is FDT-only.
+  # PcdConfigTableModeDefault is board-level; all three boards ship ACPI+FDT
+  # today.
   #
   # ECAM compat mode.  AUTO picks NXPMX6 for Windows, which claims
   # PCIE_BUS_COUNT buses of ECAM from PCIE_CFG_BASE -- measured on CM5-IO

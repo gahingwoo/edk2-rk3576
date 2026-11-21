@@ -31,7 +31,21 @@ Because the SoC is ARMv8.0, Windows 11 24H2 and later cannot run on it.
 | Firmware lives on | 16 MB SPI NOR. v1.12 boards use an XMC XM25QU128C, earlier ones a Macronix part; the SPL supports both from 0.2.1 on. |
 | MaskROM port | The upper USB 3.0 USB-A port (the USB-C port carries power only) |
 | Storage | UFS, microSD, NVMe over PCIe. No eMMC. |
+| PCIe | pcie0 on combphy0, to a 16-pin FPC connector; an NVMe drive needs an M.2 adapter on it. PERST# GPIO2_B4, 3.3 V switch GPIO2_D3. |
+| USB | The USB-C connector is power input only. DRD0 is the upper USB 3.0 port (USBDP PHY lanes 0 and 1), DRD1 an FE1.1s hub for the other three USB-A ports and the USB WiFi, plus the lower port's SuperSpeed through combphy1. |
+| Ethernet PHY | Realtek RTL8211F-CG at MDIO address 1, 25 MHz from the SoC, `rgmii-id`. The firmware writes only its LED register. |
 | Tested SKU | 12 GB LPDDR5 |
+
+ACPI: the image installs ACPI tables next to the device tree, as the CM5-IO
+does (ConfigTableMode ACPI + FDT, switchable in the front-page menu). Before
+that the ROCK 4D was device tree only. The SoC tables are the shared ones the
+other two boards build. The DSDT (`Platform/Radxa/ROCK4D/AcpiTables/Dsdt.asl`)
+is the CM5-IO's minus the eMMC (this board has none; its pins are the SPI
+NOR's) and the disabled XHC2 and SATA stubs; UFS is not described, having no
+Windows driver. Its comments give the device tree line or schematic page for
+each board value. The PCIe root complex is hidden from ACPI when its link does
+not train in UEFI. **None of it has been run on a ROCK 4D**, with or without
+an operating system; it compiles, which is all that is known.
 
 ## ArmSoM CM5-IO
 
