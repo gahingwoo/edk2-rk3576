@@ -1791,6 +1791,17 @@ FvbDiskNvDumpResetHandler (
   )
 {
   FvbDiskNvDumpHandler ();
+
+  //
+  // A reset before ExitBootServices whose dump did not reach the medium
+  // (no boot disk found yet, or the write failed) would lose this boot's
+  // variable writes, including a Reset All Settings request.  Keep them in
+  // the runtime store, exactly as for a reset an OS makes: the next boot
+  // applies them on top of the same store, or drops them by the same rules.
+  //
+  if (mFvbDevice->DiskDataInvalidated && (mFvbDevice->RuntimeStoreBase != 0)) {
+    FvbRuntimeStoreUpdate (mFvbDevice);
+  }
 }
 
 STATIC
