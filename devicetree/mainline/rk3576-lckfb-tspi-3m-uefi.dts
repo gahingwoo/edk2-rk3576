@@ -12,6 +12,14 @@
  * GOP" setting) or brings its own device tree.  Touch needs nothing but
  * the mainline goodix driver, and a missing screen only fails its probe.
  *
+ * Added: the ES8388 headphone codec on I2C3 and SAI1, as a simple-audio-card
+ * with jack detection (GPIO4 PB0) and the headphone amplifier enable (GPIO4
+ * PB2).  Taken unchanged from Armbian's board patch
+ * (rockchip64-7.3/board-lckfb-tspi-3m-01-onboard-hardware.patch), whose
+ * device tree gave audible headphone output on this board with Linux 7.3.4
+ * booted through this firmware.  Mainline describes only HDMI audio.  None
+ * of it is in the ACPI tables' way: Windows gets the codec from the DSDT.
+ *
  * Added: both USB-A VBUS supplies stay on.  The usb-a-connector nodes name
  * them, but no driver enables a connector's supply behind a hub, so the
  * kernel switched them off when it registered the regulators: a system
@@ -71,4 +79,94 @@
 &vcc_5v0_usb3_host {
 	regulator-always-on;
 	regulator-boot-on;
+};
+
+/ {
+	hp_amp: headphone-amplifier {
+		compatible = "simple-audio-amplifier";
+		enable-gpios = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hp_ctl>;
+		sound-name-prefix = "Headphone Amp";
+	};
+
+	es8388_sound: es8388-sound {
+		compatible = "simple-audio-card";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hp_det>;
+		simple-audio-card,name = "rockchip-es8388";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,aux-devs = <&hp_amp>;
+		simple-audio-card,hp-det-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
+		simple-audio-card,routing =
+			"Headphones", "Headphone Amp OUTL",
+			"Headphones", "Headphone Amp OUTR",
+			"Headphone Amp INL", "LOUT1",
+			"Headphone Amp INR", "ROUT1",
+			"LINPUT1", "Onboard Microphone",
+			"LINPUT2", "Onboard Microphone",
+			"RINPUT1", "Headset Microphone",
+			"RINPUT2", "Headset Microphone";
+		simple-audio-card,widgets =
+			"Headphone", "Headphones",
+			"Microphone", "Onboard Microphone",
+			"Microphone", "Headset Microphone";
+
+		simple-audio-card,codec {
+			sound-dai = <&es8388>;
+			system-clock-frequency = <12288000>;
+		};
+
+		simple-audio-card,cpu {
+			sound-dai = <&sai1>;
+		};
+	};
+};
+
+&i2c3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3m0_xfer>;
+	status = "okay";
+
+	es8388: audio-codec@11 {
+		compatible = "everest,es8388", "everest,es8328";
+		reg = <0x11>;
+		#sound-dai-cells = <0>;
+		clocks = <&cru CLK_SAI1_MCLKOUT_TO_IO>;
+		assigned-clocks = <&cru CLK_SAI1_MCLKOUT_TO_IO>;
+		assigned-clock-rates = <12288000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sai1m0_mclk>;
+		AVDD-supply = <&vcca_3v3_s0>;
+		DVDD-supply = <&vcc_3v3_s0>;
+		HPVDD-supply = <&vcca_3v3_s0>;
+		PVDD-supply = <&vcc_3v3_s0>;
+	};
+};
+
+&pinctrl {
+	headphone {
+		hp_det: hp-det {
+			rockchip,pins = <4 RK_PB0 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+
+		hp_ctl: hp-ctl {
+			rockchip,pins = <4 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+};
+
+/*
+ * Only SDO2 reaches the codec's DAC input.  The route puts the first data
+ * lane (the stereo pair a 2-channel stream uses) on SDO2.
+ */
+&sai1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sai1m0_lrck
+		     &sai1m0_sclk
+		     &sai1m0_sdi0
+		     &sai1m0_sdo2>;
+	rockchip,sai-tx-route = <2 1 0 3>;
+	status = "okay";
 };

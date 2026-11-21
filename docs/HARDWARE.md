@@ -128,5 +128,10 @@ checked for what it is meant to do**:
   clk_audio_frac_1 with the MCLK output to the codec, and muxes the pins.
   The wiring comes from LCKFB's vendor tree as Armbian's board patch
   carries it; the mainline tree has no ES8388 node. Not run on a board.
+  For Linux the firmware's own device tree
+  (`rk3576-lckfb-tspi-3m-uefi.dts`) describes the same codec, SAI1 and
+  amplifier as a simple-audio-card, copied from Armbian's board patch, so
+  no DTB override is needed for the headphone jack. That does not depend
+  on `PcdAnalogAudioPreset`.
   The CM5-IO's ES8388 (I2C0, SAI1, a 3-pin header and no jack) is not
   described.
