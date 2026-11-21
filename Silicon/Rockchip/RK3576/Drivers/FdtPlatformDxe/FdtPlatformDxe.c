@@ -10,6 +10,7 @@
 
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/LoadedImage.h>
+#include <Protocol/RockchipDsiPanel.h>
 #include <Protocol/SimpleFileSystem.h>
 
 #include <Library/BaseLib.h>
@@ -440,6 +441,14 @@ FdtFixupVopDevices (
     "/soc/hdmiphy@2b000000",   // Samsung HDPTX PHY — disable to prevent probe hang
     "/display-subsystem",
     //
+    // HDMI audio: its codec is the HDMI controller disabled above, so the
+    // card can never bind, and SAI6 sits in PD_VO0 under PD_VOP, which is
+    // disabled below; on the TaishanPi 3M it failed its probe with
+    // -ETIMEDOUT.  The firmware's HDMI audio preset is for Windows only.
+    //
+    "/hdmi-sound",
+    "/soc/sai@27d50000",
+    //
     // Disable the PD_VOP power-domain DT node so that rockchip-pm-domain does
     // NOT register it (or its children, including PD_USB) with genpd.
     //
@@ -866,6 +875,236 @@ FdtFixupUsbAVbus (
     } else {
       DEBUG ((DEBUG_INFO, "FdtPlatform: %a kept on\n", Regulators[Index]));
     }
+  }
+}
+
+/**
+  The DSI host that has a panel@0 child, or a negative libfdt error.
+
+  Looked up again after every change to the tree: a property that changes
+  size moves every node behind it, so no offset survives a write.
+**/
+STATIC
+INT32
+FdtFindDsiWithPanel (
+  IN  VOID   *Fdt,
+  OUT INT32  *PanelNode
+  )
+{
+  INT32  Dsi;
+
+  for (Dsi = FdtNodeOffsetByCompatible (Fdt, -1, "rockchip,rk3576-mipi-dsi2");
+       Dsi >= 0;
+       Dsi = FdtNodeOffsetByCompatible (Fdt, Dsi, "rockchip,rk3576-mipi-dsi2"))
+  {
+    *PanelNode = FdtSubnodeOffset (Fdt, Dsi, "panel@0");
+    if (*PanelNode >= 0) {
+      return Dsi;
+    }
+  }
+
+  return -FDT_ERR_NOTFOUND;
+}
+
+/**
+  The first phandle in a property, or 0.
+**/
+STATIC
+UINT32
+FdtGetFirstPhandle (
+  IN VOID         *Fdt,
+  IN INT32        Node,
+  IN CONST CHAR8  *Property
+  )
+{
+  CONST UINT32  *Cells;
+  INT32         Length;
+
+  Cells = FdtGetProp (Fdt, Node, Property, &Length);
+  if ((Cells == NULL) || (Length < (INT32)sizeof (UINT32))) {
+    return 0;
+  }
+
+  return Fdt32ToCpu (Cells[0]);
+}
+
+STATIC
+INT32
+FdtSetPhandleStatus (
+  IN VOID     *Fdt,
+  IN UINT32   Phandle,
+  IN BOOLEAN  Enable
+  )
+{
+  INT32  Node;
+
+  Node = FdtNodeOffsetByPhandle (Fdt, Phandle);
+  if (Node < 0) {
+    return Node;
+  }
+
+  return FdtSetPropString (Fdt, Node, "status", Enable ? "okay" : "disabled");
+}
+
+/**
+  The MIPI DSI screen, if the board has one and it is attached.
+
+  The board's device tree describes the panel under the DSI host
+  (panel@0) and its backlight, written disabled, because whether the screen
+  is there is only known once the firmware has asked it: the board's
+  ROCKCHIP_DSI_PANEL_PROTOCOL Detect.  So this runs at ReadyToBoot, after
+  the consoles are connected, on the firmware's own tree.  A tree loaded
+  from the boot partition is the user's and is not changed.
+
+  - The backlight and its PWM channel: on when the screen is attached and
+    either the firmware lit it (the OS keeps that picture) or the OS will
+    drive the screen natively.  With force GOP on and the screen not lit
+    (HDMI was the screen), a backlight with nothing behind it stays off.
+    Its default-brightness-level becomes the level the firmware used, so
+    pwm-backlight starts where the firmware left it.
+  - The DSI host and its D-PHY: on only when the screen is attached and
+    force GOP is off.  With force GOP on, the OS shows the firmware's
+    framebuffer and FdtFixupVopDevices has disabled the VOP under it; a
+    panel driver probing would reset the panel.
+
+  Boards without the protocol, or whose tree has no panel@0 under a DSI
+  host, are left alone.
+**/
+STATIC
+VOID
+FdtFixupDsiPanel (
+  IN VOID  *Fdt
+  )
+{
+  EFI_STATUS                   Status;
+  ROCKCHIP_DSI_PANEL_PROTOCOL  *Panel;
+  BOOLEAN                      Attached;
+  BOOLEAN                      Native;
+  BOOLEAN                      Backlight;
+  INT32                        Dsi;
+  INT32                        PanelNode;
+  INT32                        Node;
+  UINT32                       PhyPhandle;
+  UINT32                       BacklightPhandle;
+  UINT32                       PwmPhandle;
+  CONST UINT32                 *Cells;
+  INT32                        Length;
+  UINT32                       Percent;
+  UINT32                       Min;
+  UINT32                       Max;
+  UINT32                       Steps;
+  UINT32                       Target;
+  UINT32                       Level;
+  INT32                        Ret;
+
+  Status = gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel);
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  Dsi = FdtFindDsiWithPanel (Fdt, &PanelNode);
+  if (Dsi < 0) {
+    DEBUG ((DEBUG_INFO, "FdtPlatform: DSI panel: none described in this tree\n"));
+    return;
+  }
+
+  PhyPhandle       = FdtGetFirstPhandle (Fdt, Dsi, "phys");
+  BacklightPhandle = FdtGetFirstPhandle (Fdt, PanelNode, "backlight");
+  PwmPhandle       = 0;
+  if (BacklightPhandle != 0) {
+    Node = FdtNodeOffsetByPhandle (Fdt, BacklightPhandle);
+    if (Node >= 0) {
+      PwmPhandle = FdtGetFirstPhandle (Fdt, Node, "pwms");
+    }
+  }
+
+  Attached  = (Panel->Detect == NULL) || !EFI_ERROR (Panel->Detect (Panel));
+  Native    = !PcdGet8 (PcdFdtForceGop);
+  Backlight = Attached && (Native || (Panel->BacklightPercent != 0));
+
+  //
+  // The DSI host and the D-PHY in its "phys".
+  //
+  Ret = FdtSetPropString (Fdt, Dsi, "status", (Attached && Native) ? "okay" : "disabled");
+  if ((Ret >= 0) && (PhyPhandle != 0)) {
+    Ret = FdtSetPhandleStatus (Fdt, PhyPhandle, Attached && Native);
+  }
+
+  if (Ret < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: DSI panel: DSI host status: %a\n", FdtStrerror (Ret)));
+  }
+
+  if (BacklightPhandle == 0) {
+    DEBUG ((DEBUG_INFO, "FdtPlatform: DSI panel: attached=%u native=%u, no backlight\n", Attached, Native));
+    return;
+  }
+
+  //
+  // The backlight the panel names, and the PWM channel in its "pwms".
+  //
+  Ret = FdtSetPhandleStatus (Fdt, BacklightPhandle, Backlight);
+  if ((Ret >= 0) && (PwmPhandle != 0)) {
+    Ret = FdtSetPhandleStatus (Fdt, PwmPhandle, Backlight);
+  }
+
+  if (Ret < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: DSI panel: backlight status: %a\n", FdtStrerror (Ret)));
+    return;
+  }
+
+  //
+  // Start at the firmware's level.  Only the two-entry interpolated form,
+  // brightness-levels = <min max> with num-interpolated-steps = <n>, is
+  // understood: level i is min + i * (max - min) / n, out of max.  Any
+  // other table keeps its default.
+  //
+  Percent = Panel->BacklightPercent;
+  if (Percent == 0) {
+    Percent = PcdGet8 (PcdDisplayBrightness);
+  }
+
+  Percent = MIN (MAX (Percent, 1), 100);
+
+  Node = FdtNodeOffsetByPhandle (Fdt, BacklightPhandle);
+  if (Node < 0) {
+    return;
+  }
+
+  Cells = FdtGetProp (Fdt, Node, "brightness-levels", &Length);
+  if ((Cells == NULL) || (Length != 2 * sizeof (UINT32))) {
+    return;
+  }
+
+  Min   = Fdt32ToCpu (Cells[0]);
+  Max   = Fdt32ToCpu (Cells[1]);
+  Cells = FdtGetProp (Fdt, Node, "num-interpolated-steps", &Length);
+  if ((Cells == NULL) || (Length != sizeof (UINT32)) || (Max <= Min)) {
+    return;
+  }
+
+  Steps  = Fdt32ToCpu (Cells[0]);
+  Target = (Max * Percent + 50) / 100;
+  if (Target <= Min) {
+    Level = 0;
+  } else {
+    Level = MIN (((Target - Min) * Steps + (Max - Min) / 2) / (Max - Min), Steps);
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "FdtPlatform: DSI panel: attached=%u native=%u, backlight %a at %u%% (level %u of %u)\n",
+    Attached,
+    Native,
+    Backlight ? "on" : "off",
+    Percent,
+    Level,
+    Steps
+    ));
+
+  Level = CpuToFdt32 (Level);
+  Ret   = FdtSetProp (Fdt, Node, "default-brightness-level", &Level, sizeof (Level));
+  if (Ret < 0) {
+    DEBUG ((DEBUG_ERROR, "FdtPlatform: DSI panel: default-brightness-level: %a\n", FdtStrerror (Ret)));
   }
 }
 
@@ -1583,6 +1822,14 @@ NotifyReadyToBoot (
   //
   if (!EFI_ERROR (EfiGetSystemConfigurationTable (&gFdtTableGuid, &Dtb)) && (Dtb != NULL)) {
     FdtFixupSimpleFramebuffer (Dtb);
+
+    //
+    // Only the firmware's own tree: overrides are installed after this, from
+    // NotifyLoadedImage, and are left as the user wrote them.
+    //
+    if (Dtb == mPlatformFdt) {
+      FdtFixupDsiPanel (Dtb);
+    }
   }
 
   if (!PcdGet8 (PcdFdtSupportOverrides)) {
@@ -1703,17 +1950,19 @@ FdtPlatformDxeInitialize (
     return EFI_UNSUPPORTED;
   }
 
-  if (PcdGet8 (PcdFdtSupportOverrides) || PcdGet8 (PcdFdtForceGop)) {
-    Status = gBS->CreateEventEx (
-                    EVT_NOTIFY_SIGNAL,                // Type
-                    TPL_CALLBACK,                     // NotifyTpl
-                    NotifyReadyToBoot,                // NotifyFunction
-                    NULL,                             // NotifyContext
-                    &gEfiEventReadyToBootGuid,        // EventGroup
-                    &Event                            // Event
-                    );
-    ASSERT_EFI_ERROR (Status);
-  }
+  //
+  // Always: FdtFixupDsiPanel needs the connected consoles as well, and a
+  // board without a DSI panel returns from it at once.
+  //
+  Status = gBS->CreateEventEx (
+                  EVT_NOTIFY_SIGNAL,                  // Type
+                  TPL_CALLBACK,                       // NotifyTpl
+                  NotifyReadyToBoot,                  // NotifyFunction
+                  NULL,                               // NotifyContext
+                  &gEfiEventReadyToBootGuid,          // EventGroup
+                  &Event                              // Event
+                  );
+  ASSERT_EFI_ERROR (Status);
 
   Status = gBS->CreateEventEx (
                   EVT_NOTIFY_SIGNAL,                  // Type

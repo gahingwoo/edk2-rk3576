@@ -49,10 +49,10 @@ here is from one board. The board was provided by LCKFB.
 | Ethernet PHY | Maxio MAE0621A-Q3C, ID `7b74.4412`, at MDIO address 1 and answering address 0. Delays are set by straps: RX delay in the PHY, TX delay `0x24` in the MAC. The firmware writes nothing to it. |
 | USB-A | Four ports behind an onboard hub on DRD1 |
 | USB-C | FUSB302 on I²C2. The firmware does not switch VBUS on. |
-| DSI screen | LCKFB's 800x1280 screen, part C41409463: ILI9881C panel on DSI, reset on GPIO2_B4, backlight on PWM2 channel 2 (GPIO3_C5), mounted so that landscape is the panel's left edge up. Lit by the firmware; an OS gets it in portrait. |
+| DSI screen | LCKFB's 800x1280 screen, part C41409463: ILI9881C panel on DSI, reset on GPIO2_B4, backlight on PWM2 channel 2 (GPIO3_C5), mounted so that landscape is the panel's left edge up. Lit by the firmware; an OS gets it in portrait. When the screen answers, the firmware's device tree enables its pwm-backlight at the setup brightness and, with force GOP off, the DSI host and panel (`rocknix,generic-dsi`, so an Armbian kernel); see `FdtFixupDsiPanel`. |
 | Touch | Goodix GT9271 at 0x5d on I²C0 (GPIO0_C1, GPIO0_C2). The firmware reads it for the menus and uses its presence to tell whether the screen is attached. It never writes the controller's configuration. |
 | HDMI | GPIO4_C6 enables the level shifters. HPD reaches the SoC through two transistor stages (Q17, Q16), so it is not inverted: measured from Linux, GPIO4_C1 reads 1 with a monitor attached and 0 without, and follows the cable at once. The connector's 5 V comes from the system rail through a diode and is not switched. |
-| Fan | 2-pin connector CN2 on PWM2 channel 3 (GPIO3_D0), high = on, switched on its supply by a P-MOSFET. The firmware starts it at 100% (`PcdPwmFanSpeedDefault`) and leaves it running; at 60% the 2 kHz switching was audible, so partial duty now runs at 25 kHz (`PcdPwmFanPeriodNs`, not yet heard on the board). Under Windows the fan stays at 100% unless "Fan Control by ACPI Thermal Zone" is enabled in setup (off by default), which installs AcpiTables/Fan.asl: 40/70/100% above 45/60/75 C on the big core zone. Under Linux, `pwm-fan` takes it over. |
+| Fan | 2-pin connector CN2 on PWM2 channel 3 (GPIO3_D0), high = on, switched on its supply by a P-MOSFET. The firmware starts it at 100% (`PcdPwmFanSpeedDefault`) and leaves it running; at 60% the 2 kHz switching was audible, so partial duty now runs at 25 kHz (`PcdPwmFanPeriodNs`, not yet heard on the board). Under Windows the fan stays at 100% unless "Fan Control by ACPI Thermal Zone" is enabled in setup (off by default), which installs AcpiTables/Fan.asl: 40/70/100% above 45/60/75 C on the big core zone. Under Linux, `pwm-fan` takes it over when the device tree has one; the firmware's own tree describes the PWM channel but no `pwm-fan`, so the fan stays where the firmware left it. |
 | Tested SKU | 4 GB LPDDR5, 64 GB eMMC |
 
 Seen working: SPL from eMMC loading the FIT from SD, TF-A v2.14, the UEFI
@@ -128,5 +128,10 @@ checked for what it is meant to do**:
   clk_audio_frac_1 with the MCLK output to the codec, and muxes the pins.
   The wiring comes from LCKFB's vendor tree as Armbian's board patch
   carries it; the mainline tree has no ES8388 node. Not run on a board.
+  For Linux the firmware's own device tree
+  (`rk3576-lckfb-tspi-3m-uefi.dts`) describes the same codec, SAI1 and
+  amplifier as a simple-audio-card, copied from Armbian's board patch, so
+  no DTB override is needed for the headphone jack. That does not depend
+  on `PcdAnalogAudioPreset`.
   The CM5-IO's ES8388 (I2C0, SAI1, a 3-pin header and no jack) is not
   described.
