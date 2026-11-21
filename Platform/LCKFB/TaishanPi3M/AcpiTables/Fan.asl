@@ -26,10 +26,19 @@
  *  power resource FPR0..FPR2.  The power resources only set a bit in FNST;
  *  the fan speed is the one for the highest bit that is set:
  *
- *    _AC2 45.0 C  FAN0  40%
- *    _AC1 60.0 C  FAN1  70%
- *    _AC0 75.0 C  FAN2 100%
- *    below all     -     0%
+ *    _AC2 45.0 C  FAN0  100%
+ *    _AC1 60.0 C  FAN1  100%
+ *    _AC0 75.0 C  FAN2  100%
+ *    below all     -      0%
+ *
+ *  Every level is 100%: this fan does not run usefully at partial duty.
+ *  Measured on the board under the vendor kernel (2026-11-16, LCKFB's fan):
+ *  at 25 kHz, 78% was noisy, 59% sometimes stopped and did not restart and
+ *  39% never started; at 2 kHz every duty ran but mid-range whined.  The
+ *  Linux device trees for this board were changed to the same thing
+ *  (cooling-levels = <0 255 255 255 255>).  The three levels are kept, not
+ *  folded into one, so that a fan that does take partial duty only needs
+ *  FDL0/FDL1 changed.
  *
  *  No _CRT or _HOT here: the zones' _CRT (115 C) is in Thermal.asl, in
  *  the DSDT, and is there whether or not this table is installed; below it
@@ -80,8 +89,8 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
     Name (FNST, 7)  // bit n: FPRn on
 
     // Duty in percent for each level, FAN0..FAN2, and with all off
-    Name (FDL0, 40)
-    Name (FDL1, 70)
+    Name (FDL0, 100)
+    Name (FDL1, 100)
     Name (FDL2, 100)
     Name (FDLO, 0)
 

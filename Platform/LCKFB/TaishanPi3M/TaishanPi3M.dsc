@@ -194,15 +194,14 @@
   # simply held high.
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
 
-  # 40000 ns = 25 kHz, above hearing, for when the fan runs at partial duty
-  # (only with ACPI fan control on; at 100% the pin is held high and the
-  # period changes nothing).  The fan is a 2-pin fan switched on its supply by
-  # a P-MOSFET (Q12, driven by Q13), not a 4-pin fan with a PWM input: 25 kHz
-  # on the supply of a brushless fan can make it stall or run unevenly at low
-  # duty, and the transistor stage may not switch cleanly at 40 us.  If it
-  # does, set this back to 500000 (2 kHz, what the device trees use).
-  # 24 MHz PWM clock, so 960 counts per period.
-  gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|40000
+  # 500000 ns = 2 kHz, what the device trees use.  This was 40000 (25 kHz),
+  # never run on the board; measured since under the vendor kernel
+  # (2026-11-16), 25 kHz stalls this fan at partial duty (59% sometimes
+  # stopped, 39% never started), and 2 kHz runs at every duty.  Both the
+  # firmware default and every ACPI fan level are 100%, where the pin is
+  # held high and the period changes nothing; it only matters if a partial
+  # level is ever brought back.
+  gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|500000
 
   # TSADC read-out for the DSDT's thermal zones (Thermal.asl) and the
   # hardware thermal shutdown: a CRU (chip) reset at 120 C plus trim, armed
