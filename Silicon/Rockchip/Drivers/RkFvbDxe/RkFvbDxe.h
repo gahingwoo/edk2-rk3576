@@ -64,7 +64,36 @@ typedef struct {
   EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL    FvbProtocol;
 
   FVB_DEVICE_PATH                        DevicePath;
+
+  //
+  // SD/eMMC only: where variable writes made after ExitBootServices are
+  // kept until the next boot commits them (PcdRkFvbRuntimeStoreBase, 0 when
+  // not in use), whether writes go there now, and the CRC32 of the store as
+  // it is on the medium, which is what those writes were made on top of.
+  //
+  UINTN                                  RuntimeStoreBase;
+  BOOLEAN                                RuntimeStoreActive;
+  UINT32                                 DiskCrc;
 } FVB_DEVICE;
+
+//
+// Header of the runtime variable store.  The store data follows at
+// FVB_RUNTIME_STORE_DATA_OFFSET and is a full image of the FVB region
+// (variables, FTW working and FTW spare), so committing it is the same
+// write as any other NV dump.
+//
+#define FVB_RUNTIME_STORE_SIGNATURE    SIGNATURE_64 ('R', 'K', 'F', 'V', 'B', 'R', 'T', '1')
+#define FVB_RUNTIME_STORE_DATA_OFFSET  SIZE_4KB
+
+typedef struct {
+  UINT64    Signature;
+  UINT32    HeaderSize;
+  UINT32    DataSize;
+  UINT32    BaseCrc;   // CRC32 of the store on the medium these writes apply to
+  UINT32    DataCrc;   // CRC32 of the DataSize bytes of data
+  UINT32    Updates;   // writes folded in since the record was started
+  UINT32    HeaderCrc; // CRC32 of this header with Signature and HeaderCrc 0
+} FVB_RUNTIME_STORE_HEADER;
 
 typedef struct {
   UINT32    AtagBootDevType;

@@ -16,6 +16,7 @@
 #include <PiDxe.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/CacheMaintenanceLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/DxeServicesTableLib.h>
@@ -243,8 +244,9 @@ FvbInitFvAndVariableStoreHeaders (
 **/
 STATIC
 EFI_STATUS
-FvbValidateFvHeader (
-  IN  FVB_DEVICE  *FlashInstance
+FvbValidateFvHeaderAt (
+  IN  FVB_DEVICE  *FlashInstance,
+  IN  UINTN       Address
   )
 {
   UINT16                      Checksum;
@@ -252,7 +254,7 @@ FvbValidateFvHeader (
   VARIABLE_STORE_HEADER       *VariableStoreHeader;
   UINTN                       VariableStoreLength;
 
-  FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)FlashInstance->RegionBaseAddress;
+  FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *)Address;
 
   // Verify the header revision, header signature, length
   if ((FwVolHeader->Revision  != EFI_FVH_REVISION) ||
@@ -318,6 +320,15 @@ FvbValidateFvHeader (
   }
 
   return EFI_SUCCESS;
+}
+
+STATIC
+EFI_STATUS
+FvbValidateFvHeader (
+  IN  FVB_DEVICE  *FlashInstance
+  )
+{
+  return FvbValidateFvHeaderAt (FlashInstance, FlashInstance->RegionBaseAddress);
 }
 
 /**
@@ -676,6 +687,106 @@ FvbRead (
   return EFI_SUCCESS;
 }
 
+/*
+ * Runtime variable store (SD and eMMC only).
+ *
+ * After ExitBootServices the OS owns the SD/eMMC controller, so SetVariable()
+ * cannot write the store back to the medium: driving the controller from a
+ * runtime service would interleave with the OS's own commands on it.  Until
+ * now those writes reached only the in-memory store, which the SPL replaced
+ * with the copy on the medium at the next boot.  That is why boot entries
+ * written by efibootmgr and bcdboot never appeared.
+ *
+ * Instead, every NV write made after ExitBootServices (and any write the
+ * firmware itself had not dumped yet when the OS took over) leaves a full,
+ * checksummed image of the store in PcdRkFvbRuntimeStoreBase: DRAM that the
+ * memory map reserves as runtime data and that the boot chain does not load
+ * anything into.  On the next boot RkFvbDxe takes that image instead of the
+ * one the SPL loaded, before the variable driver starts, and the ordinary
+ * EndOfDxe dump writes it to the medium.  The record is dropped once that
+ * dump succeeds.
+ *
+ * This needs DRAM to keep its contents across the reset.  A warm reset
+ * (PSCI SYSTEM_RESET, a CRU global soft reset on RK3576) does not remove
+ * DRAM power; a power cut does, and loses whatever had not been committed.
+ * Either way the CRCs decide: a damaged record is dropped, never applied.
+ *
+ * The record also carries the CRC32 of the store on the medium that the
+ * writes were made on top of.  It is applied only if the SPL loaded exactly
+ * that store, so a reflashed or different medium is never overwritten with
+ * an old record.
+ */
+
+STATIC
+UINT32
+FvbRuntimeStoreHeaderCrc (
+  IN FVB_RUNTIME_STORE_HEADER  *Header
+  )
+{
+  FVB_RUNTIME_STORE_HEADER  Copy;
+
+  CopyMem (&Copy, Header, sizeof (Copy));
+  Copy.Signature = 0;
+  Copy.HeaderCrc = 0;
+  return CalculateCrc32 (&Copy, sizeof (Copy));
+}
+
+/**
+  Record the current in-memory store in the runtime store.
+
+  Called from FvbWrite()/FvbEraseBlocks() after ExitBootServices, so it must
+  stay runtime-safe: only converted pointers, no boot services, no DEBUG().
+**/
+STATIC
+VOID
+FvbRuntimeStoreUpdate (
+  IN FVB_DEVICE  *FlashInstance
+  )
+{
+  FVB_RUNTIME_STORE_HEADER  *Header;
+  UINT8                     *Data;
+  UINT32                    Updates;
+
+  Header = (FVB_RUNTIME_STORE_HEADER *)FlashInstance->RuntimeStoreBase;
+  Data   = (UINT8 *)FlashInstance->RuntimeStoreBase + FVB_RUNTIME_STORE_DATA_OFFSET;
+
+  Updates = (Header->Signature == FVB_RUNTIME_STORE_SIGNATURE) ? Header->Updates + 1 : 1;
+
+  //
+  // Invalidate first and validate last, with each step cleaned to DRAM, so
+  // that a reset in the middle leaves no valid record rather than a mix.
+  //
+  Header->Signature = 0;
+  WriteBackDataCacheRange (Header, sizeof (*Header));
+
+  CopyMem (Data, (VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize);
+
+  Header->HeaderSize = sizeof (*Header);
+  Header->DataSize   = (UINT32)FlashInstance->FvbSize;
+  Header->BaseCrc    = FlashInstance->DiskCrc;
+  Header->DataCrc    = CalculateCrc32 (Data, FlashInstance->FvbSize);
+  Header->Updates    = Updates;
+  Header->HeaderCrc  = FvbRuntimeStoreHeaderCrc (Header);
+  WriteBackDataCacheRange (Data, FlashInstance->FvbSize);
+  WriteBackDataCacheRange (Header, sizeof (*Header));
+
+  Header->Signature = FVB_RUNTIME_STORE_SIGNATURE;
+  WriteBackDataCacheRange (Header, sizeof (*Header));
+}
+
+STATIC
+VOID
+FvbRuntimeStoreDrop (
+  IN FVB_DEVICE  *FlashInstance
+  )
+{
+  FVB_RUNTIME_STORE_HEADER  *Header;
+
+  Header            = (FVB_RUNTIME_STORE_HEADER *)FlashInstance->RuntimeStoreBase;
+  Header->Signature = 0;
+  WriteBackDataCacheRange (Header, sizeof (*Header));
+}
+
 /**
  Writes the specified number of bytes from the input buffer to the block.
 
@@ -780,6 +891,11 @@ FvbWrite (
 
   // Must sync the data if it's on a disk
   FlashInstance->DiskDataInvalidated = TRUE;
+
+  // ...and after ExitBootServices the disk is the OS's: keep it for the next boot.
+  if (FlashInstance->RuntimeStoreActive) {
+    FvbRuntimeStoreUpdate (FlashInstance);
+  }
 
   return EFI_SUCCESS;
 }
@@ -958,6 +1074,10 @@ FvbEraseBlocks (
 
   VA_END (Args);
 
+  if (FlashInstance->RuntimeStoreActive) {
+    FvbRuntimeStoreUpdate (FlashInstance);
+  }
+
   return EFI_SUCCESS;
 }
 
@@ -985,12 +1105,21 @@ FvbVirtualNotifyEvent (
   // EfiConvertPointer (0x0, (VOID**)&mFvbDevice->SpiDevice.HostRegisterBaseAddress);
   // EfiConvertPointer (0x0, (VOID**)&mFvbDevice->SpiDevice);
 
-  // Convert SpiFlashProtocol
-  EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol->Erase);
-  EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol->Write);
-  EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol->Read);
-  EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol->GetSize);
-  EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol);
+  if (mFvbDevice->RuntimeStoreBase != 0) {
+    EfiConvertPointer (0x0, (VOID **)&mFvbDevice->RuntimeStoreBase);
+  }
+
+  //
+  // Convert SpiFlashProtocol.  It is NULL when NorFlashDxe is not built,
+  // and dereferencing it here would fault inside SetVirtualAddressMap().
+  //
+  if (mFvbDevice->SpiFlashProtocol != NULL) {
+    EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol->Erase);
+    EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol->Write);
+    EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol->Read);
+    EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol->GetSize);
+    EfiConvertPointer (0x0, (VOID **)&mFvbDevice->SpiFlashProtocol);
+  }
 
   return;
 }
@@ -1142,6 +1271,165 @@ FvbPrepareFvHeader (
   return EFI_SUCCESS;
 }
 
+/**
+  Take the variable writes the last boot could not commit, if there are any
+  and they apply to the store the SPL just loaded.  Runs before the variable
+  driver, on SD/eMMC only.
+**/
+STATIC
+VOID
+FvbRuntimeStoreRecover (
+  IN FVB_DEVICE  *FlashInstance
+  )
+{
+  FVB_RUNTIME_STORE_HEADER  *Header;
+  UINT8                     *Data;
+  CONST CHAR8               *Reason;
+
+  Header = (FVB_RUNTIME_STORE_HEADER *)FlashInstance->RuntimeStoreBase;
+  Data   = (UINT8 *)FlashInstance->RuntimeStoreBase + FVB_RUNTIME_STORE_DATA_OFFSET;
+
+  if (Header->Signature != FVB_RUNTIME_STORE_SIGNATURE) {
+    //
+    // The usual case: the last boot made no NV writes after
+    // ExitBootServices, or this is a cold boot and DRAM holds noise.
+    //
+    DEBUG ((DEBUG_INFO, "%a: no variable writes left over from the last boot\n", __func__));
+    return;
+  }
+
+  if (  (Header->HeaderSize != sizeof (*Header))
+     || (Header->HeaderCrc != FvbRuntimeStoreHeaderCrc (Header)))
+  {
+    Reason = "its header is damaged";
+  } else if (Header->DataSize != FlashInstance->FvbSize) {
+    Reason = "it is for a store of a different size";
+  } else if (Header->DataCrc != CalculateCrc32 (Data, Header->DataSize)) {
+    Reason = "its data does not match its CRC (DRAM did not hold it across the reset?)";
+  } else if (Header->BaseCrc != FlashInstance->DiskCrc) {
+    Reason = "the store on the boot medium is not the one those writes were made to";
+  } else if (EFI_ERROR (FvbValidateFvHeaderAt (FlashInstance, (UINTN)Data))) {
+    Reason = "it does not hold a valid variable store";
+  } else {
+    Reason = NULL;
+  }
+
+  if (Reason != NULL) {
+    DEBUG ((
+      DEBUG_WARN,
+      "%a: dropping variable writes from the last boot: %a\n",
+      __func__,
+      Reason
+      ));
+    FvbRuntimeStoreDrop (FlashInstance);
+    return;
+  }
+
+  CopyMem ((VOID *)FlashInstance->RegionBaseAddress, Data, FlashInstance->FvbSize);
+  FlashInstance->DiskDataInvalidated = TRUE;
+
+  //
+  // The record stays until a dump to the medium succeeds (see
+  // FvbRuntimeStoreCommitted), so a failed dump this boot gets another try
+  // on the next one.
+  //
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: recovered %u variable write(s) made after ExitBootServices last boot; they go to the boot medium with the next NV dump\n",
+    __func__,
+    Header->Updates
+    ));
+}
+
+/**
+  The in-memory store has just been written to the medium in full.
+**/
+STATIC
+VOID
+FvbRuntimeStoreCommitted (
+  IN FVB_DEVICE  *FlashInstance
+  )
+{
+  FVB_RUNTIME_STORE_HEADER  *Header;
+
+  FlashInstance->DiskCrc = CalculateCrc32 ((VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize);
+
+  if (FlashInstance->RuntimeStoreBase == 0) {
+    return;
+  }
+
+  Header = (FVB_RUNTIME_STORE_HEADER *)FlashInstance->RuntimeStoreBase;
+  if (Header->Signature == FVB_RUNTIME_STORE_SIGNATURE) {
+    FvbRuntimeStoreDrop (FlashInstance);
+    DEBUG ((DEBUG_INFO, "%a: variable writes from the last boot are on the boot medium now\n", __func__));
+  }
+}
+
+/**
+  From here on the boot medium belongs to the OS.  Anything the firmware has
+  not dumped yet (variables an OS loader set at boot time, after the last
+  image load) goes to the runtime store now, and every later write follows.
+**/
+STATIC
+VOID
+EFIAPI
+FvbRuntimeStoreExitBootServices (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  if (mFvbDevice->DiskDataInvalidated) {
+    FvbRuntimeStoreUpdate (mFvbDevice);
+  }
+
+  mFvbDevice->RuntimeStoreActive = TRUE;
+}
+
+STATIC
+VOID
+FvbRuntimeStoreInit (
+  IN FVB_DEVICE  *FlashInstance
+  )
+{
+  EFI_STATUS  Status;
+  EFI_EVENT   Event;
+  UINTN       Base;
+  UINTN       Size;
+
+  Base = (UINTN)FixedPcdGet64 (PcdRkFvbRuntimeStoreBase);
+  Size = FixedPcdGet32 (PcdRkFvbRuntimeStoreSize);
+
+  if (  (Base == 0)
+     || (Size < FVB_RUNTIME_STORE_DATA_OFFSET + FlashInstance->FvbSize)
+     || (FlashInstance->RegionBaseAddress != (UINTN)FixedPcdGet64 (PcdFlashNvStorageVariableBase64)))
+  {
+    //
+    // No reserved DRAM, or the store is not the one the SPL loads (the
+    // AllocatePool fallback above), so there is nothing a record could be
+    // checked against.  Runtime writes stay in memory only, as before.
+    //
+    DEBUG ((DEBUG_WARN, "%a: runtime variable store not available; variables set by an OS will not persist\n", __func__));
+    return;
+  }
+
+  FlashInstance->RuntimeStoreBase = Base;
+
+  FvbRuntimeStoreRecover (FlashInstance);
+
+  Status = gBS->CreateEventEx (
+                  EVT_NOTIFY_SIGNAL,
+                  TPL_NOTIFY,
+                  FvbRuntimeStoreExitBootServices,
+                  NULL,
+                  &gEfiEventExitBootServicesGuid,
+                  &Event
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: cannot hook ExitBootServices (%r); variables set by an OS will not persist\n", __func__, Status));
+    FlashInstance->RuntimeStoreBase = 0;
+  }
+}
+
 STATIC
 EFI_STATUS
 FvbConfigureFlashInstance (
@@ -1251,6 +1539,13 @@ FvbConfigureFlashInstance (
   }
 
   //
+  // What the SPL loaded is what is on the boot medium.  Take its CRC before
+  // anything below changes the buffer: a runtime record from the last boot
+  // is applied only on top of exactly this.
+  //
+  FlashInstance->DiskCrc = CalculateCrc32 ((VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize);
+
+  //
   // Do not wipe a store that is already there.
   //
   // When the firmware boots from SD or eMMC, the SPL loads the FIT image
@@ -1305,6 +1600,14 @@ FvbConfigureFlashInstance (
         ZeroMem ((VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize);
       }
     }
+  }
+
+  //
+  // SPI NOR is written directly at runtime.  SD and eMMC are not, so their
+  // runtime writes go through the runtime store; pick up the last boot's.
+  //
+  if (!FlashInstance->IsSpiFlashAvailable) {
+    FvbRuntimeStoreInit (FlashInstance);
   }
 
   Status = gBS->InstallMultipleProtocolInterfaces (
@@ -1454,6 +1757,7 @@ FvbDiskNvDumpHandler (
   DEBUG ((DEBUG_INFO, "NV data dumped!\n"));
 
   mFvbDevice->DiskDataInvalidated = FALSE;
+  FvbRuntimeStoreCommitted (mFvbDevice);
 }
 
 STATIC
@@ -1797,6 +2101,8 @@ FvbProcessBootDiskDeviceHandle (
   }
 
   DEBUG ((DEBUG_INFO, "%a: [%s] Found boot disk for NV storage!\n", __FUNCTION__, DevicePathText));
+
+  FvbRuntimeStoreCommitted (mFvbDevice);
 
   mFvbDevice->DiskDevice  = Device;
   mFvbDevice->DiskMediaId = BlkIo->Media->MediaId;

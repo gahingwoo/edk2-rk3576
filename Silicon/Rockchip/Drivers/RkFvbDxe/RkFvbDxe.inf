@@ -34,6 +34,7 @@
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
+  CacheMaintenanceLib
   DebugLib
   DevicePathLib
   DxeServicesTableLib
@@ -56,6 +57,7 @@
   gEfiVariableGuid
   gEfiEventReadyToBootGuid
   gEfiEndOfDxeEventGroupGuid
+  gEfiEventExitBootServicesGuid
 
 [Protocols]
   gEfiDevicePathProtocolGuid
@@ -77,6 +79,8 @@
   gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress
   gArmTokenSpaceGuid.PcdFdBaseAddress
   gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset
+  gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreBase
+  gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreSize
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64
