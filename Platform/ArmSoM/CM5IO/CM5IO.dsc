@@ -226,6 +226,15 @@
   #
 gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
 
+  #
+  # HDMI audio: at ExitBootServices, mclk_sai6 = 12.288 MHz and the HDMI
+  # controller set up for 48 kHz 2-channel L-PCM (DwHdmiQpAudio.c), and
+  # \_SB.SAI6 published for the woa-rk3576 audio drivers (Sai.asl).
+  # Nothing is written for a DVI sink or a sink whose EDID has no basic
+  # audio.  Not run on hardware.
+  #
+  gRK3588TokenSpaceGuid.PcdHdmiAudioPreset|TRUE
+
 ################################################################################
 [Components.common]
   # ACPI tables (Windows ARM64, FreeBSD, ACPI-capable OS)

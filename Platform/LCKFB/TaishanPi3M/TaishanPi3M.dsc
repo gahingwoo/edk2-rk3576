@@ -153,6 +153,15 @@
   })}
 
   #
+  # HDMI audio: at ExitBootServices, mclk_sai6 = 12.288 MHz and the HDMI
+  # controller set up for 48 kHz 2-channel L-PCM (DwHdmiQpAudio.c), and
+  # \_SB.SAI6 published for the woa-rk3576 audio drivers (Sai.asl).
+  # Nothing is written for a DVI sink or a sink whose EDID has no basic
+  # audio.  Not run on hardware.
+  #
+  gRK3588TokenSpaceGuid.PcdHdmiAudioPreset|TRUE
+
+  #
   # I2C.  The base file lists the CM5-IO's devices; this board's are:
   #   I2C0 0x5d  the Goodix touch controller of the MIPI DSI screen
   #              (rk3576-lckfb-tspi-3m-dsi-c41409463.dtsi, &i2c0)

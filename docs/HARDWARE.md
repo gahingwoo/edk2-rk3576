@@ -115,5 +115,7 @@ checked for what it is meant to do**:
 - GPIO0 PB4 to PB7 iomux is written at the right address, which makes the
   I2C2 SCL mux on PB7 take effect for the first time (all boards).
 - A 48 kHz HDMI audio preset with a SAI6 ACPI device, behind
-  `PcdHdmiAudioPreset`, which is FALSE: with it off nothing is written and
-  the device is not in the DSDT.
+  `PcdHdmiAudioPreset`, which is FALSE by default: with it off nothing is
+  written and the device is not in the DSDT. Branch `hdmi-audio-on` sets it
+  TRUE for the TaishanPi 3M and the CM5-IO so that it can be tried with the
+  woa-rk3576 audio drivers; that has not been done on a board yet.
