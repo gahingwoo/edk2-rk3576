@@ -154,7 +154,7 @@ so the kernel has to be about that new. The limits:
 - Installing to the eMMC has not been tried. Windows shares it in the
   layout this firmware uses, and an installer will not know that.
 
-The TaishanPi 3M used for this work was provided by LCKFB.
+The TaishanPi 3M used for this work was sponsored by JLC (嘉立创).
 
 ## Windows
 
@@ -254,6 +254,10 @@ is in `Silicon/Rockchip/RK3576/RK3576Base.dsc.inc`.
 
 Before 2026-08-04 this tree was a copy of edk2-rockchip that built RK3576 on
 top of RK3588's configuration. That version is on the `legacy/v0.1` branch.
+
+## Acknowledgements
+
+Thanks to [JLC](https://jlc.com/) (嘉立创) for sponsoring the LCKFB TaishanPi 3M, its MIPI DSI screen, the fan and the EC20 4G module used for this work, and to [ArmSoM](https://www.armsom.org/) for sponsoring the CM5 module and the CM5-IO board.
 
 ## Licence
 
