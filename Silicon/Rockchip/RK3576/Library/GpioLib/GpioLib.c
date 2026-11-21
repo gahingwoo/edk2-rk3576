@@ -216,7 +216,6 @@ GpioPinSetFunction (
 // The values are 0 none, 1 pull-up, 2 pull-down (pull type 0), which is not
 // the GPIO_PIN_PULL encoding (RK3588's), so translate.
 //
-#define RK3576_IOC_GRF_BASE           0x26040000
 #define RK3576_PULL_GPIO0_AL_OFFSET   0x20
 #define RK3576_PULL_GPIO0_BH_OFFSET   0x2028
 #define RK3576_PULL_GPIO1_OFFSET      0x6110
