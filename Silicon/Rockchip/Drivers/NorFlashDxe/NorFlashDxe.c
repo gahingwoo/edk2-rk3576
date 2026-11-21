@@ -1352,6 +1352,55 @@ NorVirtualNotifyEvent (
   return;
 }
 
+//
+// The controller and its clock gates are touched from runtime services: the
+// variable store lives on this flash, and RkFvbDxe writes it from
+// SetVariable() after ExitBootServices.  An OS maps for runtime only what the
+// memory map marks EFI_MEMORY_RUNTIME, and on RK3576 nothing did that for the
+// SFC or the CRU (the RK3588 tree does it in RK3588Dxe, which this tree does
+// not have).  So the first variable write from an OS faulted, and the
+// pointer conversions in NorVirtualNotifyEvent() silently did nothing.
+//
+// 64 KB each: the SFC needs 16 KB and CLKGATE_CON(33) is at CRU + 0x884, and
+// 64 KB is the granule arm64 OSes want runtime regions aligned to.
+//
+#define NOR_RUNTIME_MMIO_SIZE  SIZE_64KB
+
+STATIC
+EFI_STATUS
+NorRegisterRuntimeMmio (
+  IN EFI_PHYSICAL_ADDRESS  Base
+  )
+{
+  EFI_STATUS  Status;
+
+  Status = gDS->AddMemorySpace (
+                  EfiGcdMemoryTypeMemoryMappedIo,
+                  Base,
+                  NOR_RUNTIME_MMIO_SIZE,
+                  EFI_MEMORY_UC | EFI_MEMORY_RUNTIME
+                  );
+  if (EFI_ERROR (Status) && (Status != EFI_ACCESS_DENIED)) {
+    //
+    // EFI_ACCESS_DENIED means some other driver already added the range;
+    // the attributes below still have to be set.
+    //
+    DEBUG ((DEBUG_ERROR, "%a: AddMemorySpace (0x%lx) failed: %r\n", __func__, Base, Status));
+    return Status;
+  }
+
+  Status = gDS->SetMemorySpaceAttributes (
+                  Base,
+                  NOR_RUNTIME_MMIO_SIZE,
+                  EFI_MEMORY_UC | EFI_MEMORY_RUNTIME
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: SetMemorySpaceAttributes (0x%lx) failed: %r\n", __func__, Base, Status));
+  }
+
+  return Status;
+}
+
 EFI_STATUS
 EFIAPI
 InitializeFlash (
@@ -1377,6 +1426,20 @@ InitializeFlash (
   g_nor->spi->mode  = HAL_SPI_MODE_3;
   g_nor->spi->mode |= (HAL_SPI_TX_QUAD | HAL_SPI_RX_QUAD);
   Status            = HAL_SNOR_Init (g_nor);
+
+  //
+  // Only a flash that is there can be used at runtime, and only then does
+  // the OS need to be told about the registers.
+  //
+  if (HAL_SNOR_GetCapacity (g_nor) != 0) {
+    if (  EFI_ERROR (NorRegisterRuntimeMmio (FixedPcdGet32 (FspiBaseAddr)))
+       || EFI_ERROR (NorRegisterRuntimeMmio (FixedPcdGet32 (CruBaseAddr))))
+    {
+      DEBUG ((DEBUG_ERROR, "%a: SPI NOR registers are not mapped for runtime; variable writes from an OS will fault\n", __func__));
+    } else {
+      DEBUG ((DEBUG_INFO, "%a: SFC and CRU mapped for runtime variable writes\n", __func__));
+    }
+  }
 
   Status = gBS->InstallProtocolInterface (
                   &ImageHandle,

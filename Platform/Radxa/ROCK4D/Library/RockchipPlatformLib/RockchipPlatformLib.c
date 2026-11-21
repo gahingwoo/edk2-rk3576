@@ -287,6 +287,15 @@ NorFspiEnableClock (
   UINT32  *CruBase
   )
 {
+  //
+  // Only called at runtime, from NorFlashDxe, once the OS has had the
+  // chance to gate these clocks.  So the register is reached through
+  // CruBase, which NorFlashDxe converts at SetVirtualAddressMap, and not
+  // through the CRU_CLKGATE_CON() physical address, which is only valid
+  // under an OS that maps runtime regions 1:1.
+  //
+  UINTN  GateCon33 = (UINTN)CruBase + 0x800 + 33 * 4;
+
   /*
    * SFC0 (spi@2a340000) clock enable — from clk-rk3576.c:
    *
@@ -302,15 +311,15 @@ NorFspiEnableClock (
    */
 
   /* Ungate NVM root clocks */
-  MmioWrite32 (CRU_CLKGATE_CON(33),
+  MmioWrite32 (GateCon33,
     (1U << (0 + 16)) | (0U << 0));   /* HCLK_NVM_ROOT: ungate */
-  MmioWrite32 (CRU_CLKGATE_CON(33),
+  MmioWrite32 (GateCon33,
     (1U << (1 + 16)) | (0U << 1));   /* ACLK_NVM_ROOT: ungate */
 
   /* Ungate SFC0 clocks */
-  MmioWrite32 (CRU_CLKGATE_CON(33),
+  MmioWrite32 (GateCon33,
     (1U << (6 + 16)) | (0U << 6));   /* SCLK_FSPI_X2: ungate */
-  MmioWrite32 (CRU_CLKGATE_CON(33),
+  MmioWrite32 (GateCon33,
     (1U << (7 + 16)) | (0U << 7));   /* HCLK_FSPI: ungate */
 
   DEBUG ((DEBUG_INFO, "NorFspiEnableClock: CLKGATE_CON(33) bits 0,1,6,7 ungated\n"));
