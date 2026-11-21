@@ -883,6 +883,7 @@ PlatformRegisterOptionsAndKeys (
   EFI_INPUT_KEY                 Esc;
   EFI_INPUT_KEY                 F1;
   EFI_INPUT_KEY                 F4;
+  EFI_INPUT_KEY                 F9;
   EFI_BOOT_MANAGER_LOAD_OPTION  BootOption;
 
   GetPlatformOptions ();
@@ -936,6 +937,18 @@ PlatformRegisterOptionsAndKeys (
   F4.ScanCode    = SCAN_F4;
   F4.UnicodeChar = CHAR_NULL;
   PlatformRegisterFvBootOption (&gRockchipMaskromResetFileGuid, L"Reset to MaskROM", 0, &F4);
+
+  //
+  // Register Reset All Settings.  F9 is the key firmware setups use for
+  // "load defaults", and as a hotkey it works during the boot countdown from
+  // a serial terminal too, for a board whose settings keep the screen or the
+  // menu from coming up.  The application asks before it does anything.
+  // A full reset erases this option and its key with everything else; this
+  // code puts them back on the boot after.
+  //
+  F9.ScanCode    = SCAN_F9;
+  F9.UnicodeChar = CHAR_NULL;
+  PlatformRegisterFvBootOption (&gRockchipFullResetFileGuid, L"Reset All Settings", 0, &F9);
 }
 
 //

@@ -50,6 +50,7 @@
 [Guids]
   gEdkiiNvVarStoreFormattedGuid
   gEfiAuthenticatedVariableGuid
+  gRockchipFullResetRequestGuid
   gEfiEventVirtualAddressChangeGuid
   gEfiSystemNvDataFvGuid
   gEfiVariableGuid

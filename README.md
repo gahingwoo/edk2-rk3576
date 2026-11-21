@@ -85,6 +85,15 @@ display, I2C and menu changes that came with the TaishanPi 3M's screen are
 shared by all three boards. They were run on the TaishanPi 3M and, for the
 menus over HDMI, on the CM5-IO. The ROCK 4D has not run them yet.
 
+"Reset All Settings" on the front page, or F9 during the boot countdown
+(from a serial terminal too), puts the firmware back to how a freshly
+flashed board starts: it erases the whole UEFI variable store, so every
+setup setting, the language, the boot options and boot order, the timeout
+and any Secure Boot keys, after asking. The board restarts, the store is
+erased before anything reads it, and the firmware sets itself up as on its
+first boot. Nothing outside the variable store is touched. This has not
+been run on a board yet.
+
 ### LCKFB TaishanPi 3M
 
 The BootROM on this board only tries the eMMC, and there is no MaskROM

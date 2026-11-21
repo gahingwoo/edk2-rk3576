@@ -1,0 +1,43 @@
+#/** @file
+#
+#  Reset All Settings: ask, then make the next boot start from an empty UEFI
+#  variable store.  Started from the front page and by the F9 hotkey.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = FullReset
+  FILE_GUID                      = 4bdbb2bd-8c5c-4400-bcca-0fd73a11ed49
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = UefiMain
+
+[Sources]
+  FullReset.c
+  FullResetStrings.uni
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  HiiLib
+  MemoryAllocationLib
+  UefiApplicationEntryPoint
+  UefiBootServicesTableLib
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gRockchipFullResetRequestGuid
+
+[Protocols]
+  gEfiHiiPopupProtocolGuid

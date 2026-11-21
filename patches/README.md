@@ -231,3 +231,12 @@ TaishanPi 3M that reaches the PMIC through Rk806I2cPowerOffDxe; on the other
 boards it is the PSCI SYSTEM_OFF it always was. The patch also adds the
 missing `break` after the Reset case, which used to fall through to
 `default`.
+
+### `0014-UiApp-add-Reset-All-Settings-to-the-front-page.patch`
+
+Applies on top of 0012. Adds "Reset All Settings" / "重置所有设置" under
+"Shut Down". The entry starts the platform's FullReset application
+(`Silicon/Rockchip/Applications/FullReset`, FILE_GUID
+`4bdbb2bd-8c5c-4400-bcca-0fd73a11ed49`) from the firmware volume UiApp was
+loaded from, and is only shown when that file is there. The application
+asks, and does the work; the patch holds no platform logic.

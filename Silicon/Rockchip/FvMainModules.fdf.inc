@@ -293,3 +293,6 @@
 
   # Maskrom Reset application
   INF Silicon/Rockchip/Applications/MaskromReset/MaskromReset.inf
+
+  # Reset All Settings (front page entry and F9)
+  INF Silicon/Rockchip/Applications/FullReset/FullReset.inf
