@@ -28,9 +28,10 @@
  * consumer, so that a kernel with the driver keeps the PWM clock on and the
  * fan where the firmware left it, and does not take control of it.
  *
- * Added from Armbian's board patch: the GPU's supply, clocks and OPPs (left
- * disabled, see &gpu below), and the mini-PCIe slot's 3.3 V supply kept on
- * and its reset released, so an EC20 4G module in it powers up.
+ * Added from Armbian's board patch: the GPU's supply, and the mini-PCIe
+ * slot's 3.3 V supply kept on and its reset released, so an EC20 4G module
+ * in it powers up.  The GPU is clocked from the CRU, not through SCMI, and
+ * has its own OPP table, see &gpu below.
  *
  * Added: the ES8388 headphone codec on I2C3 and SAI1, as a simple-audio-card
  * with jack detection (GPIO4 PB0) and the headphone amplifier enable (GPIO4
@@ -507,20 +508,73 @@
 };
 
 /*
- * The GPU is described but left disabled.  With it enabled, Armbian edge
- * 7.3.4 booted through this firmware probed panfrost and then took an
- * SError in panfrost_job_timedout, twice, 37 s and 281 s after boot: a GPU
- * job hung, and the reset path read GPU registers that no longer answered.
- * The cause is not known.  One difference from a U-Boot boot of the same
- * kernel is the BL31: Armbian's U-Boot uses Rockchip's v1.20, this firmware
- * the open-source TF-A v2.14, whose SCMI_CLK_GPU moves the GPU onto its
- * PVTPLL above 200 MHz.  Until the cause is known, a GPU that can bring the
- * system down is worse than none.  Everything else a working GPU needs is here, so
- * enabling it is this one status.
+ * The GPU, clocked from the CRU only.
+ *
+ * With SCMI_CLK_GPU as its clock, Armbian edge 7.3.4 booted through this
+ * firmware took an SError in panfrost_job_timedout, twice, 37 s and 281 s
+ * after boot.  Above 200 MHz TF-A's SCMI_CLK_GPU runs the GPU from its
+ * PVTPLL, a ring oscillator whose length comes from a table.  Rockchip's
+ * BL31 v1.20, which Armbian's U-Boot boots, lengthens that ring per chip
+ * from the OTP ("adjust gpu pvtpll by otp"); TF-A v2.14 declares the OTP
+ * offsets (rk3576_clk.c, RK3576_GPU_OPP_INFO_OFFSET) but never reads them,
+ * so on a chip that needs the correction the GPU runs faster than it can.
+ * Windows on this firmware runs the GPU from GPLL at 594 MHz without fault.
+ *
+ * So take the GPU clock from clk_gpu_src_pre, the CRU mux and divider in
+ * front of the clk_gpu gate, and never ask TF-A to set it: CLKSEL_CON(165)
+ * bit 8 stays 0 and the PVTPLL is not used.  clk_gpu itself cannot change
+ * rate (no CLK_SET_RATE_PARENT), so it is the "bus" clock, which panfrost
+ * only enables.  The operating points are the rates GPLL (1188 MHz) and
+ * CPLL (1000 MHz) divide to exactly, up to 594 MHz, so the mux never picks
+ * AUPLL, which the audio path retunes.
  */
 &gpu {
+	assigned-clocks = <&cru CLK_GPU_SRC_PRE>;
+	assigned-clock-parents = <&cru PLL_GPLL>;
+	assigned-clock-rates = <198000000>;
+	clocks = <&cru CLK_GPU_SRC_PRE>, <&cru CLK_GPU>;
+	clock-names = "gpu", "bus";
 	mali-supply = <&vdd_gpu_s0>;
-	status = "disabled";
+	operating-points-v2 = <&gpu_cru_opp_table>;
+	status = "okay";
+};
+
+/delete-node/ &gpu_opp_table;
+
+/ {
+	gpu_cru_opp_table: opp-table-gpu-cru {
+		compatible = "operating-points-v2";
+
+		opp-198000000 {
+			opp-hz = /bits/ 64 <198000000>;
+			opp-microvolt = <712500 712500 875000>;
+		};
+
+		opp-297000000 {
+			opp-hz = /bits/ 64 <297000000>;
+			opp-microvolt = <712500 712500 875000>;
+		};
+
+		opp-396000000 {
+			opp-hz = /bits/ 64 <396000000>;
+			opp-microvolt = <712500 712500 875000>;
+		};
+
+		opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <712500 712500 875000>;
+		};
+
+		/*
+		 * 600 MHz asks for 712.5 mV in the vendor table, but there it
+		 * runs from the PVTPLL, which slows down with the supply.  A
+		 * fixed PLL does not, so give it the 700 MHz voltage.
+		 */
+		opp-594000000 {
+			opp-hz = /bits/ 64 <594000000>;
+			opp-microvolt = <750000 750000 875000>;
+		};
+	};
 };
 
 /*
@@ -550,66 +604,4 @@
 /* The mini-PCIe slot (EC20 4G module) has no driver to claim its supply. */
 &vcc_3v3_minipcie {
 	regulator-always-on;
-};
-
-/*
- * The GPU's clocks as Armbian's kernel (7.3 and 7.4) wants them: panfrost
- * there sets the OPP rate on a clock named "gpu", and the 7.4-rc SoC dtsi's
- * single "core" clock made it fail to probe ("Couldn't find clock with
- * name: gpu").  Jonas Karlman's series, which Armbian carries
- * (rk35xx-panthor-1GHz.patch): SCMI_CLK_GPU is the GPU clock, because TF-A
- * switches it between a normal PLL and the GPU PVTPLL by rate, and CLK_GPU
- * becomes the bus clock, as on the RK3568.  A mainline panfrost takes the
- * first clock as its clock and "bus" as the optional bus clock, so it reads
- * this the same way.
- */
-&gpu {
-	assigned-clocks = <&cru CLK_GPU>, <&scmi_clk SCMI_CLK_GPU>;
-	assigned-clock-rates = <198000000>, <200000000>;
-	clocks = <&scmi_clk SCMI_CLK_GPU>, <&cru CLK_GPU>;
-	clock-names = "gpu", "bus";
-};
-
-/*
- * The same series' OPP table: the datasheet's 900 MHz maximum and the
- * vendor kernel's voltages, and a 200 MHz point for the rate the GPU starts
- * at.  Without the series' opp-suspend: on a kernel without its panfrost
- * change, a suspend frequency is set on the SCMI clock while the GPU is
- * already suspended, which the series reports as an SError.
- */
-&gpu_opp_table {
-	/delete-node/ opp-950000000;
-
-	opp-200000000 {
-		opp-hz = /bits/ 64 <200000000>;
-		opp-microvolt = <712500 712500 875000>;
-	};
-
-	opp-300000000 {
-		opp-microvolt = <712500 712500 875000>;
-	};
-
-	opp-400000000 {
-		opp-microvolt = <712500 712500 875000>;
-	};
-
-	opp-500000000 {
-		opp-microvolt = <712500 712500 875000>;
-	};
-
-	opp-600000000 {
-		opp-microvolt = <712500 712500 875000>;
-	};
-
-	opp-700000000 {
-		opp-microvolt = <750000 750000 875000>;
-	};
-
-	opp-800000000 {
-		opp-microvolt = <812500 812500 875000>;
-	};
-
-	opp-900000000 {
-		opp-microvolt = <875000 875000 875000>;
-	};
 };
