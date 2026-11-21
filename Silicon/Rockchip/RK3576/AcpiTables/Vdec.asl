@@ -81,14 +81,30 @@ DefinitionBlock ("Vdec.aml", "SSDT", 2, "RKCP  ", "RKVDEC  ", 1)
       }
 
       Method (_CRS, 0x0, Serialized) {
-        Name (RBUF, ResourceTemplate () {
-          Memory32Fixed (ReadWrite, 0x27B00000, 0x1000)
-          Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 340 }
-          Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 341 }
-          Memory32Fixed (ReadWrite, 0x3FF88000, 0x78000)
-        })
-        Return (RBUF)
+        Return (\_SB.VDRS)
       }
     }
+
+    //
+    // The decoder's resources as one named template, outside the device,
+    // so that another device can take them over: the plan is for the
+    // display driver (wddm-mali-g52, GPU0 in Gpu.asl) to own the decoder as
+    // a second, VIDEO_DECODE, node.  GPU0's _CRS would then append them
+    // after its own,
+    //
+    //   If (CondRefOf (\_SB.VDRS)) {
+    //     ConcatenateResTemplate (RBUF, \_SB.VDRS, Local0)
+    //   }
+    //
+    // and this table would stop declaring VDEC: Windows gives a memory
+    // resource to one device only, so the two cannot both claim it.
+    // CondRefOf keeps GPU0 valid on a boot where this SSDT is not installed.
+    //
+    Name (VDRS, ResourceTemplate () {
+      Memory32Fixed (ReadWrite, 0x27B00000, 0x1000)
+      Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 340 }
+      Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 341 }
+      Memory32Fixed (ReadWrite, 0x3FF88000, 0x78000)
+    })
   }
 }
