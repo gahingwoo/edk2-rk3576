@@ -231,3 +231,11 @@ TaishanPi 3M that reaches the PMIC through Rk806I2cPowerOffDxe; on the other
 boards it is the PSCI SYSTEM_OFF it always was. The patch also adds the
 missing `break` after the Reset case, which used to fall through to
 `default`.
+
+### `0017-FileExplorerLib-add-zh-Hans-strings.patch`
+
+Independent of the others. The file explorer ("Boot From File", "Add Boot
+Option", "Add Driver Option") had no zh-Hans strings, so with the menus in
+Chinese its title and its "new file" / "new folder" entries stayed English.
+Every string gets a zh-Hans entry, in the same \wide ... \narrow form as
+0006 and 0007. The file keeps its CRLF line endings.

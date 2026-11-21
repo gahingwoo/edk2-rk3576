@@ -1,0 +1,39 @@
+diff --git a/MdeModulePkg/Library/FileExplorerLib/FileExplorerString.uni b/MdeModulePkg/Library/FileExplorerLib/FileExplorerString.uni
+index 070cdf38ea..1978b2d41f 100644
+--- a/MdeModulePkg/Library/FileExplorerLib/FileExplorerString.uni
++++ b/MdeModulePkg/Library/FileExplorerLib/FileExplorerString.uni
+@@ -18,6 +18,7 @@
+ 
+ #langdef   en-US "English"
+ #langdef   fr-FR "Français"
++#langdef   zh-Hans "\wide简体中文\narrow"
+ 
+ #string STR_NULL_STRING                #language en-US  " "
+                                        #language fr-FR  " "
+@@ -53,3 +54,26 @@
+                                        #language fr-FR  "Create Folder and Exit"
+ #string STR_NO_CREATE_FOLDER_AND_EXIT  #language en-US  "Discard Create and Exit"
+                                        #language fr-FR  "Discard Create and Exit"
++
++//
++// Simplified Chinese.  Every CJK run is bracketed by \wide ... \narrow, and
++// every string needs a zh-Hans entry (a missing one is drawn as a lone !).
++// After changing it run  scripts/gen-zh-hans-font.py check  in edk2-rk3576.
++//
++
++#string STR_NULL_STRING                #language zh-Hans " "
++#string STR_FILE_EXPLORER_TITLE        #language zh-Hans "\wide文件浏览器\narrow"
++#string STR_NEW_FILE                   #language zh-Hans "***\wide新建文件\narrow***"
++#string STR_NEW_FILE_HELP              #language zh-Hans "\wide在当前目录新建一个文件，下一页输入文件名。\narrow"
++#string STR_ADD_NEW_FILE_TITLE         #language zh-Hans "\wide新建文件\narrow"
++#string STR_NEW_FILE_NAME_PROMPT       #language zh-Hans "\wide文件名\narrow"
++#string STR_NEW_FILE_NAME_HELP         #language zh-Hans "\wide请输入新文件的名称\narrow"
++#string STR_CREATE_FILE_AND_EXIT       #language zh-Hans "\wide创建文件并退出\narrow"
++#string STR_NO_CREATE_FILE_AND_EXIT    #language zh-Hans "\wide放弃创建并退出\narrow"
++#string STR_NEW_FOLDER                 #language zh-Hans "***\wide新建文件夹\narrow***"
++#string STR_NEW_FOLDER_HELP            #language zh-Hans "\wide在当前目录新建一个文件夹，下一页输入文件夹名。\narrow"
++#string STR_ADD_NEW_FOLDER_TITLE       #language zh-Hans "\wide新建文件夹\narrow"
++#string STR_NEW_FOLDER_NAME_PROMPT     #language zh-Hans "\wide文件夹名\narrow"
++#string STR_NEW_FOLDER_NAME_HELP       #language zh-Hans "\wide请输入新文件夹的名称\narrow"
++#string STR_CREATE_FOLDER_AND_EXIT     #language zh-Hans "\wide创建文件夹并退出\narrow"
++#string STR_NO_CREATE_FOLDER_AND_EXIT  #language zh-Hans "\wide放弃创建并退出\narrow"
