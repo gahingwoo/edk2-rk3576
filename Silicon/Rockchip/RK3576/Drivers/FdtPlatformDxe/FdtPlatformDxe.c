@@ -441,6 +441,14 @@ FdtFixupVopDevices (
     "/soc/hdmiphy@2b000000",   // Samsung HDPTX PHY — disable to prevent probe hang
     "/display-subsystem",
     //
+    // HDMI audio: its codec is the HDMI controller disabled above, so the
+    // card can never bind, and SAI6 sits in PD_VO0 under PD_VOP, which is
+    // disabled below; on the TaishanPi 3M it failed its probe with
+    // -ETIMEDOUT.  The firmware's HDMI audio preset is for Windows only.
+    //
+    "/hdmi-sound",
+    "/soc/sai@27d50000",
+    //
     // Disable the PD_VOP power-domain DT node so that rockchip-pm-domain does
     // NOT register it (or its children, including PD_USB) with genpd.
     //
