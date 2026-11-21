@@ -766,6 +766,8 @@ FvbRuntimeStoreUpdate (
   Header->BaseCrc    = FlashInstance->DiskCrc;
   Header->DataCrc    = CalculateCrc32 (Data, FlashInstance->FvbSize);
   Header->Updates    = Updates;
+  Header->BootDev    = (UINT32)mBootDeviceType;
+  Header->Reserved   = 0;
   Header->HeaderCrc  = FvbRuntimeStoreHeaderCrc (Header);
   WriteBackDataCacheRange (Data, FlashInstance->FvbSize);
   WriteBackDataCacheRange (Header, sizeof (*Header));
@@ -1302,6 +1304,13 @@ FvbRuntimeStoreRecover (
      || (Header->HeaderCrc != FvbRuntimeStoreHeaderCrc (Header)))
   {
     Reason = "its header is damaged";
+  } else if (Header->BootDev != (UINT32)mBootDeviceType) {
+    //
+    // Two media can hold byte-identical stores, most often two freshly
+    // flashed ones, so the BaseCrc check alone cannot tell an SD card from
+    // the eMMC.
+    //
+    Reason = "it was made while booted from a different medium";
   } else if (Header->DataSize != FlashInstance->FvbSize) {
     Reason = "it is for a store of a different size";
   } else if (Header->DataCrc != CalculateCrc32 (Data, Header->DataSize)) {

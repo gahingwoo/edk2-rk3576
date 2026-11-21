@@ -82,7 +82,7 @@ typedef struct {
 // (variables, FTW working and FTW spare), so committing it is the same
 // write as any other NV dump.
 //
-#define FVB_RUNTIME_STORE_SIGNATURE    SIGNATURE_64 ('R', 'K', 'F', 'V', 'B', 'R', 'T', '1')
+#define FVB_RUNTIME_STORE_SIGNATURE    SIGNATURE_64 ('R', 'K', 'F', 'V', 'B', 'R', 'T', '2')
 #define FVB_RUNTIME_STORE_DATA_OFFSET  SIZE_4KB
 
 typedef struct {
@@ -93,6 +93,8 @@ typedef struct {
   UINT32    DataCrc;   // CRC32 of the DataSize bytes of data
   UINT32    Updates;   // writes folded in since the record was started
   UINT32    HeaderCrc; // CRC32 of this header with Signature and HeaderCrc 0
+  UINT32    BootDev;   // RKATAG_BOOTDEV_TYPE the SPL loaded the store from
+  UINT32    Reserved;  // 0
 } FVB_RUNTIME_STORE_HEADER;
 
 typedef struct {
