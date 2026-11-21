@@ -66,7 +66,7 @@ typedef struct {
   EFI_DEVICE_PATH_PROTOCOL    End;
 } REPORT_DEVICE_PATH;
 
-extern UINT8  DebugReportVfrBin[];
+extern UINT8  DebugReportBin[];
 
 STATIC REPORT_DEVICE_PATH  mHiiPath = {
   {
@@ -488,7 +488,7 @@ DebugReportEntry (
                   NULL
                   );
   if (!EFI_ERROR (Status)) {
-    mHiiHandle = HiiAddPackages (&mFormSetGuid, mHiiDriverHandle, DebugReportDxeStrings, DebugReportVfrBin, NULL);
+    mHiiHandle = HiiAddPackages (&mFormSetGuid, mHiiDriverHandle, DebugReportDxeStrings, DebugReportBin, NULL);
     if (mHiiHandle == NULL) {
       DEBUG ((DEBUG_ERROR, "DebugReport: could not add the setup page\n"));
     }
