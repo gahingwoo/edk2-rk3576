@@ -84,6 +84,7 @@
   gEfiTtyTermGuid
   gUefiShellFileGuid
   gRockchipEventPlatformBmAfterConsoleGuid
+  gRockchipEventPlatformBmDevicesConnectedGuid
   gRockchipMaskromResetFileGuid
   gRockchipFullResetFileGuid
 

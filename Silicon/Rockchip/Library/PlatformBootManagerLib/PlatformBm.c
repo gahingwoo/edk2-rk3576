@@ -1435,6 +1435,12 @@ PlatformBootManagerAfterConsole (
   BootDiscoveryPolicyHandler ();
 
   //
+  // Devices are connected; the boot timeout has not started yet.  Work that
+  // should overlap it rather than delay it starts here (NetworkTimeSyncDxe).
+  //
+  EfiEventGroupSignal (&gRockchipEventPlatformBmDevicesConnectedGuid);
+
+  //
   // Local media before the network, whatever order the options were found in.
   //
   PlatformDemoteNetworkBootOptions ();
