@@ -138,6 +138,12 @@
   # FDT only -- no ACPI tables are built into this image.
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_FDT)
 
+  # TSADC sampling and the hardware thermal shutdown: a CRU (chip) reset at
+  # 120 C plus trim, armed only after the readings check out (Rk3576TsadcLib.c).
+  # The same limit and mode rk3576.dtsi gives Linux; an OS without a TSADC
+  # driver had no over-temperature protection at all before this.
+  gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
+
   # Default display mode.  0x80000000 = NATIVE: follow the sink's EDID.
   #
   # This was 0x13, the predefined 2560x1440@60 entry, fixed regardless of what

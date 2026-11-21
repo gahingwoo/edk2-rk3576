@@ -204,8 +204,10 @@
   # 24 MHz PWM clock, so 960 counts per period.
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|40000
 
-  # TSADC read-out for the DSDT's thermal zones (Thermal.asl): started at
-  # boot with no TSHUT output, no interrupt and no reset write.
+  # TSADC read-out for the DSDT's thermal zones (Thermal.asl) and the
+  # hardware thermal shutdown: a CRU (chip) reset at 120 C plus trim, armed
+  # only after the readings check out (Rk3576TsadcLib.c).  No interrupt, no
+  # reset write.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
   # Fan control by ACPI thermal zone (AcpiTables/Fan.asl): the setup option

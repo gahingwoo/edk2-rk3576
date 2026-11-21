@@ -384,9 +384,9 @@ RK3576EntryPoint (
   RK3576InitStatusLed ();
 
   /*
-   * Temperature sensors, read-out only, if the board asks for it
-   * (PcdTsadcEnable).  Before the fan, so the log shows the temperature the
-   * fan starts at.
+   * Temperature sensors and the hardware thermal shutdown (CRU reset at
+   * PcdTsadcTshutTemp), if the board asks for it (PcdTsadcEnable).  Before
+   * the fan, so the log shows the temperature the fan starts at.
    */
   Rk3576TsadcInit ();
 

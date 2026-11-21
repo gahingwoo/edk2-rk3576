@@ -125,12 +125,21 @@
   gRK3576TokenSpaceGuid.PcdRk806I2cBase|0|UINT32|0x00010705
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress|0x23|UINT8|0x00010706
 
-  # TRUE: RK3576Dxe starts the TSADC sampling at boot, read-out only (no
-  # TSHUT output, no interrupt, no reset; see Rk3576TsadcLib.c), and
-  # RK3576AcpiPlatformDxe tells the DSDT's thermal zones it may read it.
-  # FALSE leaves the TSADC untouched.  Set it only on a board whose DSDT
-  # includes Thermal.asl.
+  # TRUE: RK3576Dxe starts the TSADC sampling at boot and arms the hardware
+  # thermal shutdown (PcdTsadcTshutEnable below; no interrupt, no reset
+  # write, see Rk3576TsadcLib.c), and RK3576AcpiPlatformDxe tells the DSDT's
+  # thermal zones, if the DSDT includes Thermal.asl, that they may read it.
+  # FALSE leaves the TSADC untouched.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|FALSE|BOOLEAN|0x00010701
+
+  # Hardware thermal shutdown (TSHUT), only when PcdTsadcEnable is TRUE:
+  # TRUE arms the TSADC's output to the CRU, a full chip reset, at
+  # PcdTsadcTshutTemp millidegrees C plus each channel's OTP trim, the way
+  # mainline Linux does with rk3576.dtsi (rockchip,hw-tshut-temp = <120000>,
+  # rockchip,hw-tshut-mode = <0>, CRU).  It protects an OS without a TSADC
+  # driver (Windows).  The PMIC (GPIO) mode is not implemented.
+  gRK3576TokenSpaceGuid.PcdTsadcTshutEnable|TRUE|BOOLEAN|0x00010710
+  gRK3576TokenSpaceGuid.PcdTsadcTshutTemp|120000|UINT32|0x00010711
 
   # How long, in ms, the firmware waits at boot for a device to appear on
   # the USB-C port (DRD0), so that a bus-powered disk that drops off and

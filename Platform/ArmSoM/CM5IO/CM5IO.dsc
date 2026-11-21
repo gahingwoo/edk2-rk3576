@@ -208,6 +208,12 @@
   # ROCK 4D is FDT-only.  Switchable at runtime in the front-page menu.
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_ACPI_FDT)
 
+  # TSADC sampling and the hardware thermal shutdown: a CRU (chip) reset at
+  # 120 C plus trim, armed only after the readings check out (Rk3576TsadcLib.c).
+  # The same limit and mode rk3576.dtsi gives Linux; an OS without a TSADC
+  # driver had no over-temperature protection at all before this.
+  gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
+
   # Default display mode.
   #
   # BRING-UP OVERRIDE, not a considered default: 0x0F is 1920x1080@60, forced
