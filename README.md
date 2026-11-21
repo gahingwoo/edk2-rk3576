@@ -74,6 +74,15 @@ not touch anything..." stands in the top left corner. On the TaishanPi 3M a
 full report from Device Manager saved 64 of the 65 setup pages to a USB
 stick (the 65th is the Debug Report page itself, open underneath).
 
+None of the boards keeps time in the firmware, so with a network cable in,
+the firmware sets its clock from NTP at every boot ("Network Time Sync" in
+the platform setup, on by default). It runs in the background while the
+boot menu counts down: the NTP servers the DHCP server names, then
+pool.ntp.org and time.cloudflare.com, then fixed Cloudflare and Google
+addresses. It uses the IPv4 settings as they are (static, or DHCP), gives
+up after 8 seconds and never delays the boot; the clock is kept in UTC. The
+serial log has one `NetworkTimeSync:` line with the old and the new time.
+
 ## Boards
 
 | | Radxa ROCK 4D | ArmSoM CM5-IO | LCKFB TaishanPi 3M |
@@ -241,7 +250,8 @@ the TaishanPi 3M only.
 Not working under Windows on either board: audio, WiFi and Bluetooth. The
 TaishanPi 3M's audio drivers load, but its SAI never starts sending; a fix
 is in progress in woa-rk3576. The board's RTC chip holds no valid time, so
-the clock is wrong after every boot until Windows syncs it; set
+without a network cable (see Network Time Sync above) the clock is wrong
+after every boot until Windows syncs it; set
 `HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation\RealTimeIsUniversal`
 to 1 so Windows reads the firmware's clock as UTC. A wrong clock also makes
 test-signed drivers look "not yet valid" to pnputil.
