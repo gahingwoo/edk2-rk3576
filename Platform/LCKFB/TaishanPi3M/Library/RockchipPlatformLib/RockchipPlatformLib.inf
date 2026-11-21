@@ -25,6 +25,7 @@
   RockchipPlatformLib.c
   Tspi3mDsiPanel.c
   Tspi3mAudio.c
+  Tspi3mBluetooth.c
 
 [Packages]
   MdePkg/MdePkg.dec

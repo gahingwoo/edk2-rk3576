@@ -37,9 +37,10 @@
  *      nothing.
  *    - FUSB302 (I2C2 0x22, dts:636-673): no Windows driver, and nothing here
  *      runs a Type-C port manager.
- *    - WiFi on SDIO and Bluetooth on UART6 (dts:789-814, 853-873): the CM5-IO
- *      declares neither, and their power, reset and 32 kHz clock are
- *      sequenced by Linux (sdio_pwrseq, dts:167-175).
+ *    - WiFi on SDIO (dts:789-814): the CM5-IO does not declare it, there is
+ *      no Windows driver for an SDIO BCM43456, and its power, reset and
+ *      32 kHz clock are sequenced by Linux (sdio_pwrseq, dts:167-175).
+ *      Bluetooth on UART6 (dts:853-873) is declared, see Bluetooth.asl.
  *    - Audio, unless asked for.  The mainline tree has HDMI audio on SAI6
  *      only (dts:315-323, 774-777); SAI6 is declared only when
  *      PcdHdmiAudioPreset is TRUE.  LCKFB's vendor tree adds an ES8388 on
@@ -209,6 +210,11 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
 
     // SPI0..SPI4 (SoC-level; SFC0 is declared disabled)
     include ("Spi.asl")
+
+    // Bluetooth: the AP6256's BCM4345C5 on UART6, with BT_REG_ON, BT_WAKE
+    // and HOST_WAKE (dts:853-873).  The device claims UART6 itself; there is
+    // no separate UART device.  Bluetooth.asl says why.
+    include ("Bluetooth.asl")
 
     // USB: DRD1 at 0x23400000, host only (dr_mode = "host", dts:921-926).
     // The onboard hub (dts:928-968) carries all four USB-A ports, and the

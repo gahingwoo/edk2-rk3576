@@ -734,14 +734,20 @@ Tspi3mAnalogAudioInit (
   VOID
   );
 
+VOID
+Tspi3mBluetoothIoInit (
+  VOID
+  );
+
 /*
- * PlatformEarlyInit -- the DSI panel, and the ES8388 codec's SAI1 when
- * PcdAnalogAudioPreset is set (Tspi3mAudio.c).
+ * PlatformEarlyInit -- the DSI panel, the Bluetooth UART's pins and clock
+ * (Tspi3mBluetooth.c), and the ES8388 codec's SAI1 when PcdAnalogAudioPreset
+ * is set (Tspi3mAudio.c).
  *
- * The CM5-IO releases its WiFi and Bluetooth resets here.  On this board the
- * WiFi module also has a power switch (vcc_3v3_wl, GPIO0 PD1 active-low) and
- * a 32 kHz clock from the RTC, and Linux sequences all of it through
- * mmc-pwrseq.  The firmware has no use for WiFi, so it is left to the OS.
+ * The CM5-IO releases its WiFi and Bluetooth resets here.  This board leaves
+ * both off: Linux sequences WiFi through mmc-pwrseq and Bluetooth through
+ * hci_bcm, and the Windows Bluetooth driver raises BT_REG_ON itself.  The
+ * firmware has no use for either radio.
  */
 VOID
 EFIAPI
@@ -757,6 +763,8 @@ PlatformEarlyInit (
    */
   Status = AttachTspi3mDsiPanel ();
   DEBUG ((DEBUG_INFO, "PlatformEarlyInit: DSI panel protocol %r\n", Status));
+
+  Tspi3mBluetoothIoInit ();
 
   if (FixedPcdGetBool (PcdAnalogAudioPreset)) {
     Tspi3mAnalogAudioInit ();

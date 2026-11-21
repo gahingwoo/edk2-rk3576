@@ -135,3 +135,12 @@ checked for what it is meant to do**:
   on `PcdAnalogAudioPreset`.
   The CM5-IO's ES8388 (I2C0, SAI1, a 3-pin header and no jack) is not
   described.
+- Bluetooth on the TaishanPi 3M (branch `tspi3m-bt-acpi`, not merged): the
+  AP6256 module's BCM4345C5 on UART6 as `\_SB.BTH0` (`RKCP4345`), for the
+  woa-rk3576 `bcm4345bt` driver. The device claims UART6's registers and
+  interrupt and BT_REG_ON (GPIO1 PC7) and BT_WAKE (GPIO1 PD4) as GpioIo;
+  Windows on Arm has no driver for this UART, so the Bluetooth driver runs
+  it. `Tspi3mBluetooth.c` muxes uart6m1 (GPIO2 PD2 to PD5) and sets
+  sclk_uart6 to 24 MHz from xin24m; it does not power the module. The 32 kHz
+  sleep clock comes from the HYM8563's CLKOUT, which the firmware does not
+  write. Not run on a board.
