@@ -145,6 +145,15 @@
   # the NV variable store region.  0 = use the legacy formula.
   gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset|0|UINT64|0x2120000B
 
+  # DRAM that carries the variable store across a reset when it lives on SD
+  # or eMMC.  Runtime services cannot write those media while the OS owns
+  # them, so RkFvbDxe keeps a checksummed copy of the store here after
+  # ExitBootServices and commits it to the medium on the next boot.  The
+  # platform has to keep the range out of the allocator and away from
+  # anything the boot chain loads.  0 = not used.
+  gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreBase|0|UINT64|0x2120000C
+  gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreSize|0|UINT32|0x2120000D
+
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxBase|0x0010f000|UINT64|0x00001000
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSize|0x100|UINT32|0x00001001
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSmcId|0x82000010|UINT32|0x00010002

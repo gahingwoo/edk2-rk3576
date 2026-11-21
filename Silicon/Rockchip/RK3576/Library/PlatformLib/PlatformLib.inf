@@ -60,6 +60,8 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxBase
+  gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreBase
+  gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreSize
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate

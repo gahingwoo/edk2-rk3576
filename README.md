@@ -202,9 +202,13 @@ TaishanPi 3M has no RTC driver, so the clock is wrong until it syncs.
 
 - Windows 11 24H2 and later cannot run: RK3576 is ARMv8.0. Use Windows 10 or
   11 23H2.
-- Boot entries written from an OS (`efibootmgr`, `bcdboot`) do not reach the
-  firmware, and Linux logs `Unable to handle paging request in EFI runtime
-  service` at reboot. Windows boots through `\EFI\Boot\bootaa64.efi` instead.
+- Boot entries written from an OS (`efibootmgr`, `bcdboot`) are expected to
+  reach the firmware now. This has not been run on a board yet. On SPI NOR
+  (the ROCK 4D) they are written to the flash when the OS sets them. On SD
+  and eMMC the firmware keeps them in reserved memory and writes them to the
+  card during the next boot, so they survive a reboot but are lost if power
+  is cut before it. Linux is expected to stop logging `Unable to handle
+  paging request in EFI runtime service` at reboot.
 - On the ROCK 4D and the CM5-IO the USB-C port runs at USB 2.0 outside
   Linux. The firmware brings up the USBDP PHY's USB3 half at
   ExitBootServices (on the CM5-IO it reads the plug orientation from the
