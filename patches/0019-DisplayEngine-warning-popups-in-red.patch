@@ -1,0 +1,92 @@
+diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c b/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
+index a6de51e..908e5c2 100644
+--- a/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
++++ b/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
+@@ -36,6 +36,22 @@ FreeSelectableOptions (
+   }
+ }
+ 
++//
++// Warning and error popups are white on red, so a question that cannot be
++// undone (Reset All Settings, deleting Secure Boot keys) stands out; an
++// informational popup keeps the normal popup colour.
++//
++STATIC UINTN  mPopupColor = 0;
++
++STATIC
++UINTN
++PopupColor (
++  VOID
++  )
++{
++  return (mPopupColor != 0) ? mPopupColor : GetPopupColor ();
++}
++
+ /**
+   Display one selectable option.
+ 
+@@ -54,7 +70,7 @@ DisplayOneSelectableOption (
+   }
+ 
+   PrintStringAt (SelectableOption->OptionCol, SelectableOption->OptionRow, SelectableOption->OptionString);
+-  gST->ConOut->SetAttribute (gST->ConOut, GetPopupColor ());
++  gST->ConOut->SetAttribute (gST->ConOut, PopupColor ());
+ }
+ 
+ /**
+@@ -612,7 +628,7 @@ DrawMessageBox (
+   //
+   Character  = BOXDRAW_VERTICAL;
+   DisplayRow = TopRow + POPUP_BORDER;
+-  ClearLines (StartCol, EndCol, DisplayRow, DisplayRow, GetPopupColor ());
++  ClearLines (StartCol, EndCol, DisplayRow, DisplayRow, PopupColor ());
+   PrintCharAt (StartCol, DisplayRow, Character);
+   PrintCharAt (EndCol, DisplayRow, Character);
+   if (PopupStyle == EfiHiiPopupStyleError) {
+@@ -627,7 +643,7 @@ DrawMessageBox (
+   // 3. Draw the horizontal line below the prompt string for different popup styles.
+   //
+   DisplayRow = TopRow + POPUP_BORDER + POPUP_STYLE_STRING_HEIGHT;
+-  ClearLines (StartCol, EndCol, DisplayRow, DisplayRow, GetPopupColor ());
++  ClearLines (StartCol, EndCol, DisplayRow, DisplayRow, PopupColor ());
+   Character = BOXDRAW_HORIZONTAL;
+   for (Index = StartCol + 1; Index < EndCol; Index++) {
+     PrintCharAt (Index, DisplayRow, Character);
+@@ -642,7 +658,7 @@ DrawMessageBox (
+   //
+   DisplayRow = TopRow + POPUP_HEADER_HEIGHT;
+   for (Index = DisplayRow, StringIndex = 0; ParseMessageString (gMessageString, &OutputString, &OutputStrWidth, &StringIndex) != 0 && DrawMesStrRowNum < gMesStrLineNum;) {
+-    ClearLines (StartCol, EndCol, Index, Index, GetPopupColor ());
++    ClearLines (StartCol, EndCol, Index, Index, PopupColor ());
+     PrintCharAt (StartCol, Index, Character);
+     PrintCharAt (EndCol, Index, Character);
+     if (OutputStrWidth > gMaxRowWidth) {
+@@ -672,7 +688,7 @@ DrawMessageBox (
+   //
+   // 5. Draw an empty line after message string.
+   //
+-  ClearLines (StartCol, EndCol, Index, Index, GetPopupColor ());
++  ClearLines (StartCol, EndCol, Index, Index, PopupColor ());
+   PrintCharAt (StartCol, Index, Character);
+   PrintCharAt (EndCol, Index, Character);
+   //
+@@ -687,7 +703,7 @@ DrawMessageBox (
+   //
+   Character  = BOXDRAW_VERTICAL;
+   DisplayRow = BottomRow - POPUP_BORDER;
+-  ClearLines (StartCol, EndCol, DisplayRow, DisplayRow, GetPopupColor ());
++  ClearLines (StartCol, EndCol, DisplayRow, DisplayRow, PopupColor ());
+   PrintCharAt (StartCol, DisplayRow, Character);
+   PrintCharAt (EndCol, DisplayRow, Character);
+ 
+@@ -757,7 +773,9 @@ CreatePopup (
+ 
+   CopyMem (&SavedConsoleMode, ConOut->Mode, sizeof (SavedConsoleMode));
+   ConOut->EnableCursor (ConOut, FALSE);
+-  ConOut->SetAttribute (ConOut, GetPopupColor ());
++  mPopupColor = ((PopupStyle == EfiHiiPopupStyleWarning) || (PopupStyle == EfiHiiPopupStyleError))
++                ? (EFI_WHITE | EFI_BACKGROUND_RED) : 0;
++  ConOut->SetAttribute (ConOut, PopupColor ());
+ 
+   CalculatePopupPosition (PopupType, &gPopupDimensions);
+ 
