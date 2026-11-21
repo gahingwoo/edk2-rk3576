@@ -232,7 +232,7 @@ boards it is the PSCI SYSTEM_OFF it always was. The patch also adds the
 missing `break` after the Reset case, which used to fall through to
 `default`.
 
-### `0014-UiApp-add-Reset-All-Settings-to-the-front-page.patch`
+### `0016-UiApp-add-Reset-All-Settings-to-the-front-page.patch`
 
 Applies on top of 0012. Adds "Reset All Settings" / "重置所有设置" under
 "Shut Down". The entry starts the platform's FullReset application
