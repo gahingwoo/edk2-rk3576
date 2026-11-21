@@ -4122,10 +4122,21 @@ Vop2DsiHandoffOsHandler (
   MmioWrite32 (Vop2->BaseAddress + RK3568_VP0_INT_CLR + Vp * 0x10, (RK3576_VP_INT_DSP_HOLD_VALID << 16) | RK3576_VP_INT_DSP_HOLD_VALID);
 
   //
-  // 3. The MIPI interface detached from the port: everything 0, applied
-  //    immediately.
+  // 3. The MIPI interface detached from the port, applied immediately:
+  //    EN, CLK_OUT_EN and MUX 0, but PIN_POL (bits 5:4) left at 3.
   //
-  Vop2Writel (Vop2->BaseAddress, RK3576_MIPI0_IF_CTRL, 1U << RK3576_DSP_IF_CFG_DONE_IMD_BIT);
+  //    rk3576_set_intf_mux() in Linux only ORs PIN_POL in and writes 0 for
+  //    this panel's NHSYNC|NVSYNC mode, so whatever is here stays.  Measured
+  //    on the TaishanPi 3M with mainline 7.3.4: booted by U-Boot, which never
+  //    touches the VOP, Linux runs the panel with MIPI0_IF_CTRL = 0x8010003b
+  //    and the screen lights; after this handoff wrote PIN_POL 0, Linux ran
+  //    0x8010000b, VP2 and DSI looked healthy, and the screen stayed dark.
+  //
+  Vop2Writel (
+    Vop2->BaseAddress,
+    RK3576_MIPI0_IF_CTRL,
+    (1U << RK3576_DSP_IF_CFG_DONE_IMD_BIT) | (3U << RK3576_DSP_IF_DCLK_DIV_SHIFT)
+    );
 
   DEBUG ((
     DEBUG_INFO,
