@@ -49,7 +49,10 @@
   DEFINE RK_EMMC_ENABLE          = TRUE
   DEFINE RK_NOR_FLASH_ENABLE     = TRUE
   DEFINE RK_FVB_ENABLE           = TRUE
-  DEFINE RK_RTC8563_ENABLE       = FALSE
+  # The battery-backed RTC: HYM8563S (U71) at 0x51 on I2C2, schematic page
+  # "RTC和FAN", battery CN2.  GetTime/SetTime use it through I2cDxe (on
+  # below); the virtual clock stays as the fallback when it does not answer.
+  DEFINE RK_RTC8563_ENABLE       = TRUE
   DEFINE RK_STATUS_LED_ENABLE    = FALSE
   DEFINE RK3576_GMAC_ENABLE      = TRUE
   # pcie0 is the mini-PCIe slot.  With the EC20 modem in it there is no PCIe
@@ -60,7 +63,7 @@
   DEFINE RK_AHCI_ENABLE          = FALSE
   DEFINE RK_DW_HDMI_QP_ENABLE    = TRUE
   DEFINE RK_DW_MIPI_DSI2_ENABLE  = TRUE   # the official 800x1280 MIPI DSI screen
-  DEFINE RK_I2C_ENABLE           = TRUE   # I2C0: the screen's touch controller
+  DEFINE RK_I2C_ENABLE           = TRUE   # touch (I2C0), PMIC (I2C1), RTC (I2C2)
   DEFINE RK_860X_REGULATOR_ENABLE = FALSE # no RK860x here; the PMIC is an RK806 on SPI
   DEFINE RK_DISPLAY_ENABLE       = TRUE
   DEFINE RK_AMD_GOP_ENABLE       = FALSE
@@ -177,10 +180,15 @@
   #              so that I2cDxe sets that bus up (pins, clock divider) and
   #              maps it for runtime; Rk806I2cPowerOffDxe switches the PMIC
   #              off through it when an OS asks for a shutdown.
+  #   I2C2 0x51  the HYM8563S RTC (&i2c2 rtc@51), for
+  #              Hym8563RealTimeClockLib; mapped for runtime because Windows
+  #              gets its time from it.  The FUSB302 at 0x22 shares this bus;
+  #              nothing in the firmware talks to it, and the RTC library
+  #              keeps off the bus at runtime unless the OS is Windows.
   #
-  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x5d, 0x23 }
-  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x0, 0x1 }
-  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ FALSE, TRUE }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x5d, 0x23, 0x51 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x0, 0x1, 0x2 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ FALSE, TRUE, TRUE }
 
   # PSCI SYSTEM_OFF only raises PWR_CTRL1, which the RK806 ignores unless
   # told otherwise; see Rk806I2cPowerOffDxe.

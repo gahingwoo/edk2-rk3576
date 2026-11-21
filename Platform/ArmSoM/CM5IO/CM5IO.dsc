@@ -58,7 +58,12 @@
   DEFINE RK_EMMC_ENABLE          = TRUE   # HS400ES not implemented in UEFI SDHCI; HS400 disabled via PCD below
   DEFINE RK_NOR_FLASH_ENABLE     = TRUE
   DEFINE RK_FVB_ENABLE           = TRUE
-  DEFINE RK_RTC8563_ENABLE       = FALSE
+  # The battery-backed RTC: LK8563S (U2405) at 0x51 on I2C2, on the CM5
+  # module (ArmSoM-CM5-1V1 schematic p14), battery VRTC from the carrier.
+  # GetTime/SetTime use it through I2cDxe; the virtual clock stays as the
+  # fallback when it does not answer.  See Hym8563RealTimeClockLib.c.
+  DEFINE RK_RTC8563_ENABLE       = TRUE
+  DEFINE RK_I2C_ENABLE           = TRUE
 
   # Status LEDs
   DEFINE RK_STATUS_LED_ENABLE    = FALSE
