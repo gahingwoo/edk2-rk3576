@@ -1,8 +1,8 @@
 diff --git a/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c b/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
-index 895a7f1..19cfe60 100644
+index 895a7f1..a6de51e 100644
 --- a/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
 +++ b/MdeModulePkg/Universal/DisplayEngineDxe/Popup.c
-@@ -238,6 +238,20 @@ GetUserSelection (
+@@ -238,6 +238,21 @@ GetUserSelection (
    // Display user selectable options in gUserSelectableOptions and get the option which user selects.
    //
    HighlightPos = gUserSelectableOptions.ForwardLink;
@@ -13,7 +13,8 @@ index 895a7f1..19cfe60 100644
 +  //
 +  if ((PopupType == EfiHiiPopupTypeYesNo) || (PopupType == EfiHiiPopupTypeYesNoCancel)) {
 +    for (Link = gUserSelectableOptions.ForwardLink; Link != &gUserSelectableOptions; Link = Link->ForwardLink) {
-+      if (SELECTABLE_OPTION_FROM_LINK (Link)->OptionType == EfiHiiPopupSelectionNo) {
++      SelectableOption = SELECTABLE_OPTION_FROM_LINK (Link);
++      if (SelectableOption->OptionType == EfiHiiPopupSelectionNo) {
 +        HighlightPos = Link;
 +        break;
 +      }
