@@ -4,6 +4,9 @@
  *
  *  The protocol asks for a screenshot, as if Ctrl+Alt+F12 had been
  *  pressed: it is taken once the caller's TPL drops below TPL_CALLBACK.
+ *  From revision 2, SaveTo () takes one at once and writes it to a given
+ *  directory under a given name (DebugReportDxe); call it at TPL_CALLBACK
+ *  or below.
  *
  *  Around every capture two event groups are signalled, from TPL_CALLBACK:
  *  START just before the picture is read, END once the file is written.
@@ -24,6 +27,8 @@
 #ifndef ROCKCHIP_SCREENSHOT_H_
 #define ROCKCHIP_SCREENSHOT_H_
 
+#include <Protocol/SimpleFileSystem.h>
+
 #define ROCKCHIP_SCREENSHOT_PROTOCOL_GUID \
   { 0x77c2be78, 0x97d2, 0x41d3, { 0x8d, 0x9b, 0x3a, 0x8b, 0x6f, 0x2b, 0xa8, 0x42 } }
 
@@ -41,11 +46,28 @@ EFI_STATUS
   IN ROCKCHIP_SCREENSHOT_PROTOCOL  *This
   );
 
+/**
+  Take a screenshot now and write it as Name, a PNG file, in Dir.  Revision
+  2 and later.
+
+  @param  Width, Height  The size of the picture, if not NULL.
+**/
+typedef
+EFI_STATUS
+(EFIAPI *ROCKCHIP_SCREENSHOT_SAVE_TO)(
+  IN  ROCKCHIP_SCREENSHOT_PROTOCOL  *This,
+  IN  EFI_FILE_PROTOCOL             *Dir,
+  IN  CONST CHAR16                  *Name,
+  OUT UINT32                        *Width   OPTIONAL,
+  OUT UINT32                        *Height  OPTIONAL
+  );
+
 struct _ROCKCHIP_SCREENSHOT_PROTOCOL {
-  UINT32                      Revision;
-  ROCKCHIP_SCREENSHOT_TAKE    Take;
+  UINT32                         Revision;
+  ROCKCHIP_SCREENSHOT_TAKE       Take;
+  ROCKCHIP_SCREENSHOT_SAVE_TO    SaveTo;     // revision 2
 };
 
-#define ROCKCHIP_SCREENSHOT_REVISION  1
+#define ROCKCHIP_SCREENSHOT_REVISION  2
 
 #endif
