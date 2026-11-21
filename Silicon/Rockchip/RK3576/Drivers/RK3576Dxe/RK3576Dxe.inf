@@ -23,6 +23,7 @@
   ComboPhy.c
   ConfigTable.c
   Gpu.c
+  Npu.c
   RK3576DxeHii.vfr
   RK3576DxeHii.uni
 
@@ -88,6 +89,9 @@
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault
+  gRK3576TokenSpaceGuid.PcdAcpiNpuDefault
+  gRK3576TokenSpaceGuid.PcdRk806I2cBase
+  gRK3576TokenSpaceGuid.PcdRk806I2cAddress
   # Display connector list is set in ROCK4D.dsc using the RK3588 tokenspace
   # (same TokenSpace the DwHdmiQpLib / Vop2Dxe library set reads from).
   gRK3588TokenSpaceGuid.PcdDisplayConnectors
@@ -121,6 +125,7 @@
   gRK3576TokenSpaceGuid.PcdFdtCompatMode
   gRK3576TokenSpaceGuid.PcdFdtForceGop
   gRK3576TokenSpaceGuid.PcdAcpiFanControl
+  gRK3576TokenSpaceGuid.PcdAcpiNpu
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath
@@ -129,6 +134,7 @@
 [Guids]
   gRK3576DxeFormSetGuid
   gEfiEventReadyToBootGuid                       ## CONSUMES (ReadyToBoot dump callback)
+  gEfiEndOfDxeEventGroupGuid                     ## CONSUMES (NPU power-on)
 
 [Depex]
   # DynamicHii PCD accesses require the variable write arch protocol to be

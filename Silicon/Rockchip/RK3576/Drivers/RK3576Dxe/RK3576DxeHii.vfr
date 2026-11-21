@@ -137,6 +137,16 @@ formset
       name  = AcpiFanControlSupported,
       guid  = RK3576DXE_FORMSET_GUID;
 
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = AcpiNpu,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      name  = AcpiNpuSupported,
+      guid  = RK3576DXE_FORMSET_GUID;
+
     efivarstore FDT_COMPAT_MODE_VARSTORE_DATA,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
       name  = FdtCompatMode,
@@ -270,6 +280,17 @@ formset
               help        = STRING_TOKEN(STR_ACPI_FAN_CONTROL_HELP),
               flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
               default     = FixedPcdGet8 (PcdAcpiFanControlDefault),
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+            endoneof;
+          endif;
+
+          suppressif ideqval AcpiNpuSupported == 0;
+            oneof varid = AcpiNpu,
+              prompt      = STRING_TOKEN(STR_ACPI_NPU_PROMPT),
+              help        = STRING_TOKEN(STR_ACPI_NPU_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              default     = FixedPcdGet8 (PcdAcpiNpuDefault),
               option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
               option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
             endoneof;
