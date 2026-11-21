@@ -301,6 +301,29 @@ RK3576DumpEntryState (
  #endif
 }
 
+/**
+  Make sure the ScreenshotTarget variable exists (the setup form needs
+  it), with the default when it is missing or holds no known value.
+  ScreenshotDxe reads it through PcdScreenshotTarget.
+**/
+STATIC
+VOID
+SetupScreenshotVariables (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       Size;
+  UINT8       Var8;
+
+  Size   = sizeof (Var8);
+  Status = gRT->GetVariable (L"ScreenshotTarget", &gRK3576DxeFormSetGuid, NULL, &Size, &Var8);
+  if (EFI_ERROR (Status) || (Var8 > SCREENSHOT_TARGET_INTERNAL)) {
+    Status = PcdSet8S (PcdScreenshotTarget, FixedPcdGet8 (PcdScreenshotTargetDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+}
+
 EFI_STATUS
 EFIAPI
 RK3576EntryPoint (
@@ -347,6 +370,9 @@ RK3576EntryPoint (
   /* Seed ComboPHY mode PCDs from NVRAM, then initialize hardware */
   SetupComboPhyVariables ();
   ApplyComboPhyVariables ();
+
+  /* Where ScreenshotDxe saves */
+  SetupScreenshotVariables ();
 
   /* Read the cluster clocks we were handed, and apply the configured rates */
   RK3576SetupCpuPerf ();

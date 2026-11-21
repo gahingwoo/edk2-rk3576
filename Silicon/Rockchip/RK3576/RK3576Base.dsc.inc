@@ -475,6 +475,8 @@
   gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutputDefault|FALSE
   gRK3588TokenSpaceGuid.PcdDisplayRotationDefault|0
   gRK3588TokenSpaceGuid.PcdHdmiSignalingModeDefault|$(HDMI_SIGNALING_MODE_AUTO)
+  # a USB stick, then an SD card, then internal storage (SCREENSHOT_TARGET_ANY)
+  gRK3588TokenSpaceGuid.PcdScreenshotTargetDefault|0
 
   #
   # Network stack runtime defaults
@@ -539,6 +541,7 @@
   gRK3588TokenSpaceGuid.PcdDisplayRotation|L"DisplayRotation"|gRK3576DxeFormSetGuid|0x0|0
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode|L"HdmiSignalingMode"|gRK3576DxeFormSetGuid|0x0|0
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|L"DisplayBrightness"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdDisplayBrightnessDefault
+  gRK3588TokenSpaceGuid.PcdScreenshotTarget|L"ScreenshotTarget"|gRK3576DxeFormSetGuid|0x0|gRK3588TokenSpaceGuid.PcdScreenshotTargetDefault
 
 ################################################################################
 #
