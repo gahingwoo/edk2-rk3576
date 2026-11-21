@@ -280,10 +280,13 @@
   #   2016 MHz  900.0 mV        2016 MHz  862.5 mV
   #                             2208 MHz  925.0 mV
   #
-  # The board's RK806 init table puts 800 mV on vdd_cpu_lit_s0 and
-  # vdd_cpu_big_s0, which clears 1608 MHz on both clusters with margin.  Going
-  # higher means raising those rails in the same change -- an undervolted core
-  # does not fail politely, and the failure would look like anything but this.
+  # The boards' RK806 init tables, which would put 800 mV on vdd_cpu_lit_s0
+  # and vdd_cpu_big_s0, have no caller: the rails are at the PMIC's power-on
+  # defaults, which RK3576Dxe now logs ("CpuMaxFreq: vdd_cpu_...") on a board
+  # with PcdCpuMaxFreqSupported.  Going higher means raising those rails first
+  # -- an undervolted core does not fail politely.  The setup option "CPU
+  # Maximum Frequency" (PcdCpuMaxFreq, RK3576Dxe CpuMaxFreq.c) is the one path
+  # that does, on boards that set PcdCpuMaxFreqSupported.
   #
   gRK3576TokenSpaceGuid.PcdCPULClusterClockHz|1608000000
   gRK3576TokenSpaceGuid.PcdCPUBClusterClockHz|1608000000
@@ -444,6 +447,14 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|0
   #
+  # CPU maximum frequency (setup option, backs PcdCpuMaxFreq below): hidden
+  # unless a board sets PcdCpuMaxFreqSupported, and the default rates when
+  # shown.  Under Windows the firmware's choice is the rate for the whole
+  # session (there is no _CPC or _PSS), so Max is not a default anywhere
+  # until a board has run sustained load at it with its temperature logged.
+  #
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0
+  #
   # MIPI DSI screen brightness in percent (setup option, backs
   # PcdDisplayBrightness below), read only on a board with a DSI panel.
   #
@@ -524,6 +535,11 @@
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode|L"AcpiPcieEcamCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault
   gRK3576TokenSpaceGuid.PcdAcpiFanControl|L"AcpiFanControl"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates|L"AcpiCpuIdleStates"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault
+
+  #
+  # CPU
+  #
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreq|L"CpuMaxFreq"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault

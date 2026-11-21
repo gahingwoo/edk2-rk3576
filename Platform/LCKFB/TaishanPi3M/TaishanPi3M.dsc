@@ -61,7 +61,7 @@
   DEFINE RK_DW_HDMI_QP_ENABLE    = TRUE
   DEFINE RK_DW_MIPI_DSI2_ENABLE  = TRUE   # the official 800x1280 MIPI DSI screen
   DEFINE RK_I2C_ENABLE           = TRUE   # I2C0: the screen's touch controller
-  DEFINE RK_860X_REGULATOR_ENABLE = FALSE # no RK860x here; the PMIC is an RK806 on SPI
+  DEFINE RK_860X_REGULATOR_ENABLE = FALSE # no RK860x here; the PMIC is an RK806 on I2C1
   DEFINE RK_DISPLAY_ENABLE       = TRUE
   DEFINE RK_AMD_GOP_ENABLE       = FALSE
   DEFINE SECURE_BOOT_ENABLE      = TRUE
@@ -186,6 +186,18 @@
   # told otherwise; see Rk806I2cPowerOffDxe.
   gRK3576TokenSpaceGuid.PcdRk806I2cBase|0x2AC40000
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress|0x23
+  gRK3576TokenSpaceGuid.PcdRk806I2cBus|1
+
+  # "CPU Maximum Frequency" (RK3576Dxe CpuMaxFreq.c) is offered here because
+  # this is the one board whose PMIC the firmware has been seen to reach:
+  # Rk806I2cPowerOffDxe reads CHIP_NAME 0x80 VER 0x6A over I2C1 at 0x23 on
+  # every boot and its power-off works (2026-11-21).  vdd_cpu_big_s0 is
+  # dcdc-reg1 (BUCK1) and vdd_cpu_lit_s0 dcdc-reg3 (BUCK3) under that pmic@23
+  # in rk3576-lckfb-tspi-3m.dts, and U-Boot reports "SoC: RK3576", a plain
+  # one.  Default stays 1608 MHz: Max has not been run on the board, and the
+  # fan (PcdPwmFanSpeedDefault 100 below) is the only cooling Windows has.
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0
 
   # Start the fan on CN2 (PWM2 ch3, see PwmFanIoSetup) at full speed and
   # leave it running into the OS.  Windows has no driver for it and nothing
