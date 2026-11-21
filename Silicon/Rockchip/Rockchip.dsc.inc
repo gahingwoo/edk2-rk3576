@@ -677,13 +677,27 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   # USB Support
   #
   MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
-  MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
+  MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf {
+    <LibraryClasses>
+      # Serial only, not the memory debug log: with the log, the TaishanPi
+      # 3M's USB hub and the devices behind it timed out on Configure Endpoint
+      # at every boot (timing; the DMA buffers do not move).
+      DebugLib|MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+  }
   Silicon/Rockchip/Drivers/OhciDxe/OhciDxe.inf
 
   # USB controllers installer
-  Silicon/Rockchip/Drivers/UsbHcdInitDxe/UsbHcd.inf
+  Silicon/Rockchip/Drivers/UsbHcdInitDxe/UsbHcd.inf {
+    <LibraryClasses>
+      # Serial only, not the memory debug log: with the log, the TaishanPi
+      # 3M's USB hub and the devices behind it timed out on Configure Endpoint
+      # at every boot (timing; the DMA buffers do not move).
+      DebugLib|MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+  }
 
   MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf {
+    <LibraryClasses>
+      DebugLib|MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
     <PcdsFixedAtBuild>
 !if $(DEBUG_PRINT_INFO_MODULE_EXCLUDE) & $(DEBUG_MODULE_USBBUSDXE)
       gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|$(DEBUG_PRINT_ERROR_LEVEL_NO_INFO)
