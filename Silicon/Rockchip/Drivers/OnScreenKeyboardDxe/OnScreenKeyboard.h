@@ -138,7 +138,7 @@ OskLayout (
 
 /**
   Whether a point of the keyboard image is on the bar along the top but on
-  none of its icons: the handle a floating keyboard is dragged by.
+  none of its icons: the handle the keyboard is dragged by, docked or not.
 **/
 BOOLEAN
 OskHitHandle (

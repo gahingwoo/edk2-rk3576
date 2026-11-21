@@ -860,7 +860,7 @@ OskHitHandle (
   IN INT32  Y
   )
 {
-  return mOskFloating && (X >= 0) && (X < mIconsX) && (Y >= 0) && (Y < (INT32)mHandleH);
+  return (X >= 0) && (X < mIconsX) && (Y >= 0) && (Y < (INT32)mHandleH);
 }
 
 INTN
@@ -973,26 +973,30 @@ OskRenderKeyboard (
   OskFill (Image, Width, Height, 0, (INT32)Height - 1, (INT32)Width, 1, &mColorBorder);
 
   //
-  // The bar across the top, and on a floating keyboard a grip in the
-  // middle of the part that is the handle.
+  // The bar across the top.  All of it left of the icons is the handle,
+  // docked or floating, and says so: two rows of grip dots from one end
+  // of it to the other.
   //
   OskFill (Image, Width, Height, 1, 1, (INT32)Width - 2, (INT32)mHandleH - 2, &mColorHandle);
-  if (mOskFloating) {
-    INT32  GripW = (INT32)Width / 8;
-    INT32  Line  = MAX ((INT32)mHandleH / 12, 1);
+  {
+    INT32  Dot  = MAX ((INT32)mHandleH / 10, 3);
+    INT32  Step = 3 * Dot;
+    INT32  X;
     INT32  Row;
 
-    for (Row = -1; Row <= 1; Row++) {
-      OskFill (
-        Image,
-        Width,
-        Height,
-        (mIconsX - GripW) / 2,
-        (INT32)mHandleH / 2 + Row * 3 * Line - Line / 2,
-        GripW,
-        Line,
-        &mColorGrip
-        );
+    for (Row = 0; Row < 2; Row++) {
+      for (X = Step; X + Dot <= mIconsX - Step / 2; X += Step) {
+        OskFill (
+          Image,
+          Width,
+          Height,
+          X + ((Row == 0) ? 0 : Step / 2),
+          (INT32)mHandleH / 2 + ((Row == 0) ? -2 * Dot : Dot),
+          Dot,
+          Dot,
+          &mColorGrip
+          );
+      }
     }
   }
 

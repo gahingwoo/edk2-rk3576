@@ -44,8 +44,9 @@
  *  hide.
  *
  *    float/dock  docked is as wide as the screen, at the bottom or the top
- *                edge; floating is about two thirds as wide, and the rest
- *                of the bar is a handle to drag it anywhere by.  The mode
+ *                edge; floating is about two thirds as wide.  The rest of
+ *                the bar, with its two rows of grip dots, is a handle in
+ *                both: dragging a docked keyboard by it undocks it.  The mode
  *                and the place are kept for the rest of the boot, the place
  *                as a share of the room there is, so it survives a mode or
  *                rotation change.
@@ -178,6 +179,7 @@ STATIC UINTN    mPressPolls;
 STATIC INT32    mDragFromX;        // a drag by the handle: where the pointer
 STATIC INT32    mDragFromY;        // went down, and where the keyboard was
 STATIC OSK_RECT mDragStart;
+STATIC BOOLEAN  mDragDocked;       // the drag started on a docked keyboard
 
 // touch, as reported by the touch screen driver
 STATIC BOOLEAN  mTouchDown;
@@ -729,6 +731,7 @@ OskPress (
     mPressTarget = TARGET_HANDLE;
     mDragFromX   = X;
     mDragFromY   = Y;
+    mDragDocked  = (BOOLEAN)!mOskWantFloating;
   } else {
     mPressTarget = TARGET_KEY;
     OskSetPressed (OskHitKey (Ix, Iy));
@@ -738,10 +741,15 @@ OskPress (
 }
 
 /**
-  Drag the floating keyboard: the pointer moved to X, Y.  Kept wholly on
-  the screen, and kept as a fraction of the room there is, so that it
+  Drag the keyboard by its bar: the pointer moved to X, Y.  Kept wholly
+  on the screen, and kept as a fraction of the room there is, so that it
   stays in the same part of the picture when the mode or the rotation
   changes.
+
+  A docked keyboard comes loose once the pointer has moved a little: it
+  floats from then on, with the point of the bar that was grabbed under
+  the pointer (as far along the narrower bar as it was along the wide
+  one).  Nothing has to be switched on first.
 **/
 STATIC
 VOID
@@ -750,8 +758,35 @@ OskDragTo (
   IN INT32  Y
   )
 {
-  INT32  Nx, Ny;
-  INT32  RoomX, RoomY;
+  INT32     Nx, Ny;
+  INT32     RoomX, RoomY;
+  INT32     GrabX, GrabY;
+  INT32     DockW;
+  OSK_RECT  Now;
+
+  if (mDragDocked) {
+    if (ABS (X - mDragFromX) + ABS (Y - mDragFromY) < 12) {
+      return;
+    }
+
+    GrabX            = mDragFromX - mDragStart.X;
+    GrabY            = mDragFromY - mDragStart.Y;
+    DockW            = MAX (mDragStart.W, 1);
+    mDragDocked      = FALSE;
+    mOskWantFloating = TRUE;
+    mOskPressed      = -1;
+    OskSync ();
+    if (!OskOverlayKeyboardRect (&Now)) {
+      return;
+    }
+
+    // where the floating keyboard is, as if the drag had begun on it
+    mDragStart   = Now;
+    mDragStart.X = X - (INT32)(((INT64)GrabX * Now.W) / DockW);
+    mDragStart.Y = Y - MIN (GrabY, Now.H - 1);
+    mDragFromX   = X;
+    mDragFromY   = Y;
+  }
 
   RoomX = (INT32)mOskScreenW - mDragStart.W;
   RoomY = (INT32)mOskScreenH - mDragStart.H;
