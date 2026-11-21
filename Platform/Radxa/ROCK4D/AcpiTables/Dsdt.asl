@@ -3,6 +3,59 @@
  *  Differentiated System Description Table (DSDT)
  *  Radxa ROCK 4D (RK3576)
  *
+ *  Written from the CM5-IO DSDT (Platform/ArmSoM/CM5IO/AcpiTables/Dsdt.asl),
+ *  which is the RK3576 DSDT that has booted Windows 11 23H2, the same way the
+ *  TaishanPi 3M's was.  Every device the CM5-IO declares was checked against
+ *  this board's mainline device tree, devicetree/mainline/rk3576-rock-4d.dts,
+ *  cited below as "dts:<line>", and against the Radxa ROCK 4D schematic
+ *  V1.12, cited by page name.  SoC addresses and interrupts are not repeated
+ *  here; they are in the shared files under Silicon/Rockchip/RK3576/AcpiTables
+ *  and were taken from rk3576.dtsi.
+ *
+ *  NOT RUN WITH ANY OPERATING SYSTEM ON THIS BOARD.  It compiles; that is all
+ *  that is known.
+ *
+ *  Kept from the CM5-IO, because the device is the SoC's and the board does
+ *  not change it: CPUs, PCIe root complexes, SD, GPIO, DMA, UART2,
+ *  I2C0..I2C9, SPI0..SPI4 (SFC0 declared disabled), both USB controllers,
+ *  GMAC0, the display and the Mali-G52, the RK806 PMIC and the HYM8563 RTC.
+ *
+ *  Left out, on purpose:
+ *
+ *    - eMMC (EMM0).  This board has no eMMC.  The BTB connector J3 ("EMMC/SPI/
+ *      UFS" page) can take an eMMC or a UFS module, and the eMMC signals share
+ *      their pins with FSPI0, which carries the 16 MB SPI NOR
+ *      (MX25U12832F) the firmware boots from and keeps its variables in.
+ *      Mainline leaves the sdhci node disabled and enables sfc0 (dts:792-805);
+ *      the firmware builds with RK_EMMC_ENABLE = FALSE.  Declaring the
+ *      controller would point Windows at a block whose pins belong to the
+ *      flash.
+ *    - UFS.  ufshc is enabled in the device tree (dts:830-832), and a UFS
+ *      module can sit in J3, but Windows has no driver for this controller
+ *      here.  There is no Ufs.asl; nothing describes it.
+ *    - XHC2 and ATA0..ATA2.  The CM5-IO includes them as _STA = 0 stubs whose
+ *      addresses are RK3588's; a disabled device with a wrong address adds
+ *      nothing.  The TaishanPi 3M left them out for the same reason.
+ *    - The BL24C16F EEPROM on I2C6 at 0x50 (dts:685-697): no Windows driver,
+ *      and the CM5-IO declares no I2C client beyond the PMIC and the RTC.
+ *    - WiFi.  It is a USB device on the hub ("USB WIFI" page), powered by
+ *      the firmware (vcc_3v3_wifi, GPIO2_C7, and WIFI_CHIP_EN, GPIO2_D1;
+ *      dts:40-46, 170-181).  Windows finds it on USB or not at all; it needs
+ *      no ACPI device.
+ *    - Analog audio (ES8388, "Audio-CODEC" page): not in the mainline tree,
+ *      and the CM5-IO does not include Es8388.asl or I2s.asl either.  SAI6
+ *      for HDMI is declared, but only when PcdHdmiAudioPreset is TRUE.
+ *    - The fan.  The schematic has a 2-pin fan header switched by an
+ *      AO3416A from FAN-PWM, GPIO4_C5 ("40PIN/FAN/LED/KEY" page).  The
+ *      mainline tree does not describe it, and this board's
+ *      RockchipPlatformLib leaves the fan functions empty, so there is no
+ *      fan SSDT and no setup option for one.
+ *    - The LEDs (dts:48-66) and HDMI itself: not declared on the CM5-IO
+ *      either.
+ *    - Thermal zones.  Thermal.asl needs the firmware to start the TSADC
+ *      (PcdTsadcEnable), which only the TaishanPi 3M does; the CM5-IO does
+ *      not include it either.
+ *
  *  Copyright (c) 2020, Pete Batard <pete@akeo.ie>
  *  Copyright (c) 2018-2020, Andrey Warkentin <andrey.warkentin@gmail.com>
  *  Copyright (c) Microsoft Corporation. All rights reserved.
@@ -19,47 +72,168 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
 {
   Scope (\_SB_)
   {
-    // SCMI mailbox and PSCI
+    // Declares nothing: records why RK3576 has no ACPI SCMI device.
     include ("DsdtCommon.asl")
 
     // CPU topology (4x Cortex-A53 + 4x Cortex-A72)
     include ("Cpu.asl")
 
-    // PCIe root complexes (RK3576: PCIe3.0 x2 via combphy0 + PCIe2.0 x1 via combphy1)
+    // PCIe root complexes.  pcie0 sits on combphy0 (combphy0_ps,
+    // dts:232-234), which goes to the 16-pin PCIe FPC connector ("TF Card/
+    // EEPROM/PCIE" page).  An NVMe drive needs an M.2 adapter on that
+    // connector.  PERST# is PCIE0_PERSTn, GPIO2_B4 (dts:714-720), and the
+    // slot's 3.3 V switch is PCIE0_PWREN_H, GPIO2_D3 (vcc_3v3_pcie,
+    // dts:127-138); the firmware drives both and neither is described here,
+    // as on the CM5-IO.  pcie1 would need combphy1, which is USB3 for DRD1
+    // here (combphy1_psu, dts:236-238; USB3_OTG1 on the "PCIe/SATA/USB3"
+    // page).  Same SoC wiring as the CM5-IO.
+    //
+    // Both _STA values are patched at boot by RK3576AcpiPlatformDxe: a
+    // segment is hidden when its ComboPHY is not in PCIe mode, and, on this
+    // board (PcdAcpiPcieRequireRootBridge = TRUE in ROCK4D.dsc), also when
+    // UEFI did not produce a root bridge for it, which is the case when no
+    // adapter or no drive is on the FPC connector.  An untrained link leaves
+    // the controller held in reset (PciHostBridgeInit.c), and its DBI is
+    // what _CRS, RES0 and the MCFG point the OS at.
     include ("Pcie.asl")
 
-    // Storage
-    include ("Emmc.asl")
+    // SD card, sdmmc at 0x2a310000 (dts:777-789).  Card detect is
+    // SDMMC0_DET_L on GPIO0_A7 ("RK3576-OSC/PLL/PMUIO" and "TF Card/EEPROM/
+    // PCIE" pages), which is the pin Sdhc.asl declares, with a pull-up.  The
+    // device tree has no cd-gpios: Linux uses the controller's own detect
+    // input on that pin.  vmmc is vcc_3v3_s3, always on (dts:786): no
+    // power-enable GPIO, and Sdhc.asl declares none.
+    //
+    // The device tree allows sd-uhs-sdr104 with vqmmc on RK806 PLDO5
+    // (dts:785-787); Sdhc.asl runs the card at 3.3 V without UHS, for the
+    // reason given there.
     include ("Sdhc.asl")
 
-    // GPIO pin controller and banks (GPIO0..GPIO4)
+    // GPIO banks GPIO0..GPIO4 and the pin controller
     include ("Gpio.asl")
 
-    // DMA controllers (DMA0 @ 0x2ab90000, DMA1 @ 0x2abb0000, DMA2 @ 0x2abd0000)
+    // DMA controllers DMA0..DMA2
     include ("Dma.asl")
 
-    // Serial (UART2)
+    // UART2 at 0x2ad50000.  Not used by this board's device tree, as it is
+    // not by the CM5-IO's; kept so the SoC set matches the one that has been
+    // booted.  UART0 is the SPCR/DBG2 console (dts:825-828, 1500000 8N1).
     include ("Uart.asl")
 
-    // I2C buses (I2C1..I2C8 on RK3576)
-    // I2C1: PMIC RK806 @ 0x23
-    // I2C2: RTC HYM8563 @ 0x51
-    // I2C6: EEPROM @ 0x50 (pinctrl i2c6m3)
+    // I2C0..I2C9 (SoC-level)
     include ("I2c.asl")
 
-    // SPI buses (SPI0..SPI2 on RK3576; SFC0 is a separate FSPI for SPI-NOR boot)
+    // RK806 PMIC on I2C1 at 0x23 (dts:315-320, pmic@23, reg = <0x23>).  Same
+    // bus, address and part as the CM5-IO.  Its interrupt (GPIO0_A6,
+    // dts:323-324) is not declared, as on the CM5-IO.
+    //
+    // The slave address is in an I2cSerialBusV2 descriptor in _CRS, not in
+    // _ADR: _ADR is for a device the OS finds by enumerating its parent bus,
+    // and a device that names itself with _HID must describe its resources
+    // instead.  100 kHz because &i2c1 sets no clock-frequency (dts:315-316),
+    // which is the Linux default.
+    Scope (I2C1) {
+      Device (PMC0) {
+        Name (_HID, "PRP0001")
+        Name (_UID, 0)
+        Name (_CRS, ResourceTemplate () {
+          I2cSerialBusV2 (0x0023, ControllerInitiated, 100000,
+                          AddressingMode7Bit, "\\_SB.I2C1",
+                          0x00, ResourceConsumer, , Exclusive,)
+        })
+        Name (_DSD, Package () {
+          ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+          Package () {
+            // dts:319
+            Package () { "compatible", Package () { "rockchip,rk806" } },
+          }
+        })
+        Method (_STA) { Return (0xf) }
+      }
+    }
+
+    // HYM8563 RTC on I2C2 at 0x51 (dts:669-674, rtc@51, reg = <0x51>).
+    // Linux rtc-hym8563.c binds HID HYMB0001.  100 kHz because &i2c2 sets no
+    // clock-frequency (dts:669-670).  Its interrupt is GPIO0_A0 (dts:677-678),
+    // the same pin as on the CM5-IO, and it is not declared, as there.
+    Scope (I2C2) {
+      Device (RTC0) {
+        Name (_HID, "HYMB0001")
+        Name (_UID, 0)
+        Name (_CRS, ResourceTemplate () {
+          I2cSerialBusV2 (0x0051, ControllerInitiated, 100000,
+                          AddressingMode7Bit, "\\_SB.I2C2",
+                          0x00, ResourceConsumer, , Exclusive,)
+        })
+        Method (_STA) { Return (0xf) }
+      }
+    }
+
+    // SPI0..SPI4 (SoC-level).  SFC0, the FSPI that holds this board's
+    // firmware and UEFI variable store, is declared with _STA = 0 in Spi.asl,
+    // so Windows does not bind anything to it.
     include ("Spi.asl")
 
-    // USB (2x DWC3 OTG used as host: DRD0 @ 0x23000000, DRD1 @ 0x23400000)
+    // USB.  The USB-C connector on this board is power input only (CC1/CC2
+    // and VBUS on the "Power-DC IN/RTC" page, no data lines), so both
+    // controllers go to USB-A ports ("USB HUB/USB2/USB3" page):
+    //
+    //   DRD0 at 0x23000000, host (dts:838-841): the upper USB 3.0 port,
+    //   J26 TOP.  USB 2.0 from u2phy0, SuperSpeed from the USBDP PHY's lanes
+    //   0 and 1 (USB3_OTG0_SSRX1/SSTX1), which is the unflipped lane mapping,
+    //   the one UsbHcd tries first at ExitBootServices since this board does
+    //   not report an orientation.  VBUS is 5V_USB_OTG0 from an SY6280
+    //   enabled by USB_OTG0_PWREN_H, GPIO2_D2 (vcc_5v0_otg, dts:207-219).
+    //
+    //   DRD1 at 0x23400000, host (dts:843-846): USB 2.0 from u2phy1 into the
+    //   FE1.1s hub (U24), whose four ports are the lower USB 3.0 port's USB
+    //   2.0 pair, the two USB 2.0 ports (J27) and the USB WiFi.  The lower
+    //   port's SuperSpeed comes from DRD1 through combphy1.  VBUS is
+    //   5V_USB_HOST, enabled by USB_HOST_PWREN_H, GPIO0_D3 (vcc_5v0_host,
+    //   dts:193-205).
+    //
+    // The firmware turns both VBUS switches on and leaves them on; neither is
+    // described here.  The CM5-IO's XHC0 took a synchronous external abort
+    // at WinPE shutdown until the firmware brought up the USBDP PHY's USB3
+    // half at ExitBootServices; that code is shared and runs on this board
+    // too, and has not run here.
     include ("Usb3Host0.asl")
     include ("Usb3Host1.asl")
-    // XHC2 stub: disabled, RK3576 has only 2 USB DRD controllers
-    include ("Usb3Host2.asl")
 
-    // SATA: disabled stub, RK3576 has no SATA controller
-    include ("Sata.asl")
-
-    // Network (GMAC0 only; ROCK 4D has a single 1GbE port via GMAC0/RTL8211F)
+    // GMAC0 at 0x2a220000, the only Ethernet port (dts:272-284).
+    //
+    // The PHY is a Realtek RTL8211F-CG at MDIO address 1 ("ETHERNET" page;
+    // ethernet-phy-id001c.c916, dts:699-712), clocked with 25 MHz from the
+    // SoC (REFCLKO25M_GMAC0_OUT, which the firmware muxes out on
+    // ethm0_clk0_25m_out).  The device tree says phy-mode "rgmii-id": both
+    // delays in the PHY, none in the MAC, and the firmware sets the MAC TX
+    // delay to 0 (PcdGmac0TxDelay in ROCK4D.dsc).  Gmac0.asl says
+    // "rgmii-rxid", as on the CM5-IO; Windows' dwc_eqos does not read
+    // phy-mode, and inherits the delays the PHY's straps and the firmware
+    // leave.  The firmware writes only the LED register of the RTL8211F
+    // (RealtekPhy.c), not its delays.  Its reset (GMAC0_RSTn, GPIO2_B5,
+    // dts:710) is not declared, as on the CM5-IO; the firmware leaves it
+    // deasserted.
     include ("Gmac0.asl")
+
+    // Display (DSP0, RKCP7403) and Mali-G52 (GPU0, RKCP7402), as on the
+    // CM5-IO and in the same order, for the wddm-mali-g52 drivers (malidod
+    // binds DSP0, maliwddm binds GPU0).  Both are the SoC's: DSP0 claims
+    // the VOP2's registers and no interrupt, GPU0 the Mali's registers and
+    // its job, MMU and GPU interrupts; see the two files.  RK3576Dxe powers
+    // PD_GPU on every board before boot, which needs vdd_gpu_s0 on; here it
+    // is RK806 DCDC5 with regulator-boot-on (dts:478-489), as on the CM5-IO.
+    // The HDMI output is VP0 to HDMI0 (dts:291-313, 856-861), the path the
+    // CM5-IO's GOP uses.  Without either driver Windows runs on the
+    // firmware's framebuffer with Basic Display.
+    include ("Display.asl")
+    include ("Gpu.asl")
+
+#if FixedPcdGetBool (PcdHdmiAudioPreset)
+    // SAI6, the HDMI audio interface (hdmi_sound and sai6, dts:307-309,
+    // 773-775).  Only with the firmware's HDMI audio preset, which sets its
+    // clocks and the HDMI controller's audio path; see Sai.asl.
+    include ("Sai.asl")
+#endif
   }
 }
