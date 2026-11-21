@@ -1,0 +1,58 @@
+#/** @file
+#
+#  Rockchip copy of ArmPlatformPkg/PlatformPei/PlatformPeiLib.inf: also sets
+#  up the memory debug log that MemLogDebugLib writes to.
+#
+#  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = MemLogPlatformPeiLib
+  FILE_GUID                      = cef7b92c-a59d-4900-97cc-8389ee3ffc7a
+  MODULE_TYPE                    = SEC
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = PlatformPeiLib
+
+[Sources]
+  PlatformPeiLib.c
+  PlatformPeiTpmEventLog.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  SecurityPkg/SecurityPkg.dec
+  OvmfPkg/OvmfPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  HobLib
+  ArmPlatformLib
+  ArmTransferListLib
+  MemoryAllocationLib
+  MemDebugLogLib
+
+[Guids]
+  gTcgEvent2EntryHobGuid
+  gMemDebugLogHobGuid
+
+[Ppis]
+  gEfiPeiMasterBootModePpiGuid                  # PPI ALWAYS_PRODUCED
+  gEfiPeiBootInRecoveryModePpiGuid              # PPI SOMETIMES_PRODUCED
+
+[FixedPcd]
+  gArmTokenSpaceGuid.PcdFdBaseAddress
+  gArmTokenSpaceGuid.PcdFdSize
+
+  gArmTokenSpaceGuid.PcdFvBaseAddress
+  gArmTokenSpaceGuid.PcdFvSize
+  gUefiOvmfPkgTokenSpaceGuid.PcdMemDebugLogPages
+
+[depex]
+  TRUE

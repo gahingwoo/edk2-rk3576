@@ -1,0 +1,41 @@
+## @file
+#  DebugLib on the serial port that also keeps every message in the memory
+#  debug log (OvmfPkg MemDebugLogLib), for DebugReportDxe to save.
+#
+#  A copy of MdePkg/Library/BaseDebugLibSerialPort with one call added.
+#
+#  Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = MemLogDebugLib
+  FILE_GUID                      = cefd58db-ecf0-4248-9e7a-3cc937335c69
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = DebugLib
+  CONSTRUCTOR                    = BaseDebugLibSerialPortConstructor
+
+[Sources]
+  DebugLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OvmfPkg/OvmfPkg.dec
+
+[LibraryClasses]
+  SerialPortLib
+  BaseMemoryLib
+  PcdLib
+  PrintLib
+  BaseLib
+  DebugPrintErrorLevelLib
+  MemDebugLogLib
+
+[Pcd]
+  gEfiMdePkgTokenSpaceGuid.PcdDebugClearMemoryValue  ## SOMETIMES_CONSUMES
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask      ## CONSUMES
+  gEfiMdePkgTokenSpaceGuid.PcdFixedDebugPrintErrorLevel ## CONSUMES
