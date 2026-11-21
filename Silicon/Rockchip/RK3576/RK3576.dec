@@ -69,6 +69,13 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|FALSE|BOOLEAN|0x00010303
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0|UINT8|0x00010304
+  #
+  # Analog audio preset: the board library sets up the SAI that carries its
+  # codec (power domain, mclk, pins) and the DSDT publishes that SAI and the
+  # codec for the woa-rk3576 audio drivers.  Only boards that implement it
+  # read it (TaishanPi 3M: ES8388 on SAI1 and I2C3).
+  #
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset|FALSE|BOOLEAN|0x00010800
   gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault|0|UINT32|0x00010351
   gRK3576TokenSpaceGuid.PcdFdtForceGopDefault|0|UINT8|0x00010352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault|0|UINT8|0x00010353

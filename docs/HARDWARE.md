@@ -115,5 +115,18 @@ checked for what it is meant to do**:
 - GPIO0 PB4 to PB7 iomux is written at the right address, which makes the
   I2C2 SCL mux on PB7 take effect for the first time (all boards).
 - A 48 kHz HDMI audio preset with a SAI6 ACPI device, behind
-  `PcdHdmiAudioPreset`, which is FALSE: with it off nothing is written and
-  the device is not in the DSDT.
+  `PcdHdmiAudioPreset`, which is FALSE by default: with it off nothing is
+  written and the device is not in the DSDT. Branch `hdmi-audio-on` sets it
+  TRUE for the TaishanPi 3M and the CM5-IO so that it can be tried with the
+  woa-rk3576 audio drivers; that has not been done on a board yet.
+- Analog audio on the TaishanPi 3M, behind `PcdAnalogAudioPreset`
+  (RK3576.dec, FALSE by default; branch `audio-acpi` sets it TRUE for this
+  board): the ES8388 on I2C3 0x11 as `\_SB.I2C3.ES83` (`RKCP8388`, with the
+  headphone amplifier enable GPIO4 PB2 and the jack-detect GPIO4 PB0) and
+  SAI1 as `\_SB.SAI1` (`RKCP3004`, DMA0 requests 2 and 3, lane 0 out on
+  SDO2). `Tspi3mAudio.c` powers PD_AUDIO, sets mclk_sai1 = 12.288 MHz from
+  clk_audio_frac_1 with the MCLK output to the codec, and muxes the pins.
+  The wiring comes from LCKFB's vendor tree as Armbian's board patch
+  carries it; the mainline tree has no ES8388 node. Not run on a board.
+  The CM5-IO's ES8388 (I2C0, SAI1, a 3-pin header and no jack) is not
+  described.

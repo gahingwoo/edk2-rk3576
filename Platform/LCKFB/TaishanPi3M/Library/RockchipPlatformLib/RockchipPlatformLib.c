@@ -729,8 +729,14 @@ PlatformSetStatusLed (
   GpioPinWrite (0, GPIO_PIN_PA0, !Enable);  /* active-low */
 }
 
+VOID
+Tspi3mAnalogAudioInit (
+  VOID
+  );
+
 /*
- * PlatformEarlyInit -- nothing yet.
+ * PlatformEarlyInit -- the DSI panel, and the ES8388 codec's SAI1 when
+ * PcdAnalogAudioPreset is set (Tspi3mAudio.c).
  *
  * The CM5-IO releases its WiFi and Bluetooth resets here.  On this board the
  * WiFi module also has a power switch (vcc_3v3_wl, GPIO0 PD1 active-low) and
@@ -751,6 +757,10 @@ PlatformEarlyInit (
    */
   Status = AttachTspi3mDsiPanel ();
   DEBUG ((DEBUG_INFO, "PlatformEarlyInit: DSI panel protocol %r\n", Status));
+
+  if (FixedPcdGetBool (PcdAnalogAudioPreset)) {
+    Tspi3mAnalogAudioInit ();
+  }
 }
 
 /*
