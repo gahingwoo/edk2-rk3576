@@ -434,6 +434,11 @@
   # a board turns it on.  A DynamicHii default must be set here explicitly.
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
+  #
+  # MIPI DSI screen brightness in percent (setup option, backs
+  # PcdDisplayBrightness below), read only on a board with a DSI panel.
+  #
+  gRK3576TokenSpaceGuid.PcdDisplayBrightnessDefault|60
 
   #
   # GMAC.  GMAC0 is used on both boards; GMAC1 is not brought out.
@@ -533,6 +538,7 @@
   gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutput|L"DisplayDuplicateOutput"|gRK3576DxeFormSetGuid|0x0|FALSE
   gRK3588TokenSpaceGuid.PcdDisplayRotation|L"DisplayRotation"|gRK3576DxeFormSetGuid|0x0|0
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode|L"HdmiSignalingMode"|gRK3576DxeFormSetGuid|0x0|0
+  gRK3576TokenSpaceGuid.PcdDisplayBrightness|L"DisplayBrightness"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdDisplayBrightnessDefault
 
 ################################################################################
 #

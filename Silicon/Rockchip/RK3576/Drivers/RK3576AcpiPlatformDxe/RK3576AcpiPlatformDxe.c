@@ -19,6 +19,7 @@
 #include <Protocol/LoadedImage.h>
 #include <Protocol/NonDiscoverableDevice.h>
 #include <Protocol/PciRootBridgeIo.h>
+#include <Protocol/RockchipDsiPanel.h>
 #include <Library/AcpiLib.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
@@ -238,6 +239,65 @@ AcpiPublishEdid (
     "AcpiPlatform: EDID %u of %u bytes to GPU0.EDBF. Status=%r\n",
     MIN (Size, 512),
     Size,
+    Status
+    ));
+
+  if (!EFI_ERROR (Status)) {
+    AcpiUpdateChecksum ((UINT8 *)mDsdtTable, mDsdtTable->Length);
+  }
+}
+
+//
+// Tell the OS that the screen it is handed is a MIPI DSI panel whose
+// backlight it may drive: \_SB.GPU0.BLPR = 1 (Gpu.asl), which adds the
+// backlight PWM channel's registers to GPU0's _CRS.  The display driver
+// (wddm-mali-g52) then reports the screen as an internal panel and offers
+// Windows its brightness control; with BLPR 0 it reports HDMI, as before.
+//
+// Only when the panel is the GOP's primary output and its Prepare lit the
+// backlight: a DSI screen lit as a duplicate of HDMI is not the screen the OS
+// gets, and a backlight that is off has no level to start from.
+//
+// At ReadyToBoot, for the same reason as the EDID.  A DSDT without BLPR (the
+// CM5-IO's, the ROCK 4D's) is left alone.
+//
+STATIC
+VOID
+AcpiPublishBacklight (
+  VOID
+  )
+{
+  EFI_STATUS                   Status;
+  ROCKCHIP_DSI_PANEL_PROTOCOL  *Panel;
+
+  if (mDsdtTable == NULL) {
+    return;
+  }
+
+  Status = gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel);
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  if (!Panel->GopPrimary || (Panel->BacklightPercent == 0)) {
+    DEBUG ((
+      DEBUG_INFO,
+      "AcpiPlatform: DSI panel %a, backlight %u%%: not described to the OS\n",
+      Panel->GopPrimary ? "is the primary output" : "is not the primary output",
+      Panel->BacklightPercent
+      ));
+    return;
+  }
+
+  Status = AcpiUpdateSdtNameInteger (mDsdtTable, "BLPR", 1);
+  if (Status == EFI_NOT_FOUND) {
+    return;
+  }
+
+  DEBUG ((
+    EFI_ERROR (Status) ? DEBUG_ERROR : DEBUG_INFO,
+    "AcpiPlatform: GPU0.BLPR = 1, DSI panel backlight at %u%% handed to the OS. Status=%r\n",
+    Panel->BacklightPercent,
     Status
     ));
 
@@ -928,6 +988,7 @@ NotifyReadyToBoot (
   gBS->CloseEvent (Event);
 
   AcpiPublishEdid ();
+  AcpiPublishBacklight ();
 
   EfiCreateProtocolNotifyEvent (
     &gEfiLoadedImageProtocolGuid,

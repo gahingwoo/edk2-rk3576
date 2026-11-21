@@ -726,6 +726,7 @@ LcdGraphicsOutputInit (
   DISPLAY_STATE  *PrimaryDisplayState;
   BOOLEAN        ForceOutput;
   BOOLEAN        DuplicateOutput;
+  ROCKCHIP_DSI_PANEL_PROTOCOL  *Panel;
 
   Instance = AllocateCopyPool (sizeof (LCD_INSTANCE), &mLcdTemplate);
   if (Instance == NULL) {
@@ -773,6 +774,17 @@ LcdGraphicsOutputInit (
   mLcdInstance  = Instance;
   mPrimaryIsDsi = (DisplayState->ConnectorState.OutputInterface &
                    (VOP_OUTPUT_IF_MIPI0 | VOP_OUTPUT_IF_MIPI1)) != 0;
+
+  //
+  // Tell the panel that it is the screen an OS will be handed, so that its
+  // backlight is described to the OS (RK3576AcpiPlatformDxe) only then: a
+  // DSI screen lit as a duplicate of HDMI is not what the OS drives.
+  //
+  if (mPrimaryIsDsi &&
+      !EFI_ERROR (gBS->LocateProtocol (&gRockchipDsiPanelProtocolGuid, NULL, (VOID **)&Panel)))
+  {
+    Panel->GopPrimary = TRUE;
+  }
 
   Status = SetupDisplay (DisplayState);
   if (EFI_ERROR (Status)) {

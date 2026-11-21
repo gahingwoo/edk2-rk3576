@@ -18,6 +18,27 @@ Device (GPU0) {
   Name (_CCA, 0)
   Name (_STA, 0xF)
 
+#ifdef GPU0_BACKLIGHT_PWM_BASE
+  //
+  // The backlight of a MIPI DSI panel, for the display driver on a board
+  // that has one (the board's DSDT defines GPU0_BACKLIGHT_PWM_BASE, the
+  // PWM v4 channel's 4 KiB register block, before it includes this file).
+  //
+  // BLPR is 0 here and set to 1 by RK3576AcpiPlatformDxe at ReadyToBoot
+  // when the panel is the screen the OS gets and the firmware lit its
+  // backlight.  Only then does _CRS carry the channel's registers, as a
+  // second memory resource after the GPU's; the driver takes a second memory
+  // resource as "this screen is an internal panel, and here is its
+  // backlight", and the absence of one as HDMI.  It must stay
+  // "Name (BLPR, 0)", ahead of _CRS: the patch looks for the first NameOp
+  // followed by "BLPR" and turns its ZeroOp into a OneOp.
+  //
+  // The firmware leaves the channel running in continuous mode at the
+  // brightness set in setup; the driver changes only DUTY and commits it.
+  //
+  Name (BLPR, 0)
+#endif
+
   Method (_CRS, 0x0, Serialized) {
     Name (RBUF, ResourceTemplate() {
       Memory32Fixed (ReadWrite, 0x27800000, 0x20000)
@@ -25,6 +46,15 @@ Device (GPU0) {
       Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 380 }  // MMU
       Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive) { 381 }  // GPU
     })
+#ifdef GPU0_BACKLIGHT_PWM_BASE
+    If (BLPR) {
+      Name (BBUF, ResourceTemplate() {
+        Memory32Fixed (ReadWrite, GPU0_BACKLIGHT_PWM_BASE, 0x1000)       // backlight PWM
+      })
+      ConcatenateResTemplate (RBUF, BBUF, Local0)
+      Return (Local0)
+    }
+#endif
     Return (RBUF)
   }
 

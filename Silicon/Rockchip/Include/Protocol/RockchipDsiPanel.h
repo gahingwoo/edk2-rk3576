@@ -54,6 +54,18 @@ struct _ROCKCHIP_DSI_PANEL_PROTOCOL {
   // EFI_NOT_FOUND if it is not.  Without it the panel counts as attached.
   //
   ROCKCHIP_DSI_PANEL_PREPARE    Detect;
+  //
+  // Set by the panel's Prepare: the backlight brightness it lit the panel
+  // at, in percent.  0 while the backlight is off, and on a panel whose
+  // backlight the firmware does not drive.
+  //
+  UINT8                         BacklightPercent;
+  //
+  // Set by LcdGraphicsOutputDxe: TRUE when this panel is the primary output,
+  // the screen the GOP draws on and an OS that takes the framebuffer over
+  // shows.  RK3576AcpiPlatformDxe tells the OS about the backlight only then.
+  //
+  BOOLEAN                       GopPrimary;
 };
 
 extern EFI_GUID  gRockchipDsiPanelProtocolGuid;

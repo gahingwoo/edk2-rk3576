@@ -53,6 +53,7 @@
   gEfiLoadedImageProtocolGuid
   gEfiPciRootBridgeIoProtocolGuid
   gExitBootServicesOsNotifyProtocolGuid
+  gRockchipDsiPanelProtocolGuid          ## SOMETIMES_CONSUMES
 
 [FixedPcd]
   gRK3576TokenSpaceGuid.PcdAcpiPcieRequireRootBridge

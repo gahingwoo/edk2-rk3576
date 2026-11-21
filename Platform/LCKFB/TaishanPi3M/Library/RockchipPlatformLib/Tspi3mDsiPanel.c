@@ -21,6 +21,7 @@
 #include <Protocol/I2cMaster.h>
 #include <Library/DebugLib.h>
 #include <Library/GpioLib.h>
+#include <Library/PcdLib.h>
 #include <Library/Rk3576PwmLib.h>
 #include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -233,15 +234,28 @@ STATIC UINT8  mTspi3mDsiInitSequence[] = {
  * enough for Linux because its panel driver starts later.
  *
  * Backlight: pwms = <&pwm2_8ch_2 0 25000 0>, pinctrl pwm2m3_ch2, which is
- * GPIO3_C5 function 12 (rk3576-pinctrl.dtsi).  Normal polarity.  The duty is
- * fixed at 60%; Linux sets its own when it starts.
+ * GPIO3_C5 function 12 (rk3576-pinctrl.dtsi).  Normal polarity.
+ *
+ * The duty is "Screen Brightness" in setup (PcdDisplayBrightness, 10% to
+ * 100%, default 60%, the fixed 15000 ns this file used before).  Linux sets
+ * its own when it starts.  Windows with the wddm-mali-g52 driver starts from
+ * this level: the driver reads DUTY back from the channel, which it is handed
+ * through GPU0's _CRS (Gpu.asl, BLPR), and from then on changes only DUTY.
+ *
+ * The channel is started once, here, at the chosen duty: the backlight goes
+ * from off straight to that level, with no full-brightness step in between.
+ * PWM2's eight channels are separate 4 KiB register blocks; starting this one
+ * shares only the PWM2 clock mux and gates in the CRU with the fan's channel
+ * 3, and Rk3576PwmStart writes those with their write masks and the same
+ * values, so the fan's output is not disturbed.
  */
 #define PANEL_RESET_BANK       2
 #define PANEL_RESET_PIN        GPIO_PIN_PB4
 #define BACKLIGHT_PWM          2
 #define BACKLIGHT_CHANNEL      2
 #define BACKLIGHT_PERIOD_NS    25000
-#define BACKLIGHT_DUTY_NS      15000
+#define BACKLIGHT_PERCENT_MIN  10
+#define BACKLIGHT_PERCENT_MAX  100
 
 STATIC
 EFI_STATUS
@@ -251,6 +265,18 @@ Tspi3mDsiPanelPrepare (
   )
 {
   EFI_STATUS  Status;
+  UINT32      Percent;
+
+  //
+  // The setup browser keeps the value within 10 and 100, but the variable
+  // can be written by anything that runs in UEFI; 0 would be a black screen.
+  //
+  Percent = PcdGet8 (PcdDisplayBrightness);
+  if (Percent < BACKLIGHT_PERCENT_MIN) {
+    Percent = BACKLIGHT_PERCENT_MIN;
+  } else if (Percent > BACKLIGHT_PERCENT_MAX) {
+    Percent = BACKLIGHT_PERCENT_MAX;
+  }
 
   GpioPinSetFunction (PANEL_RESET_BANK, PANEL_RESET_PIN, 0);
   GpioPinWrite (PANEL_RESET_BANK, PANEL_RESET_PIN, TRUE);
@@ -266,10 +292,11 @@ Tspi3mDsiPanelPrepare (
              BACKLIGHT_PWM,
              BACKLIGHT_CHANNEL,
              BACKLIGHT_PERIOD_NS,
-             BACKLIGHT_DUTY_NS,
+             (BACKLIGHT_PERIOD_NS * Percent) / 100,
              FALSE
              );
-  DEBUG ((DEBUG_INFO, "Tspi3mDsiPanel: reset released, backlight %r\n", Status));
+  This->BacklightPercent = EFI_ERROR (Status) ? 0 : (UINT8)Percent;
+  DEBUG ((DEBUG_INFO, "Tspi3mDsiPanel: reset released, backlight %u%% %r\n", Percent, Status));
 
   return EFI_SUCCESS;
 }

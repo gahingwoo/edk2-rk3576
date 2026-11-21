@@ -97,6 +97,7 @@
   gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutputDefault
   gRK3588TokenSpaceGuid.PcdDisplayRotationDefault
   gRK3588TokenSpaceGuid.PcdHdmiSignalingModeDefault
+  gRK3576TokenSpaceGuid.PcdDisplayBrightnessDefault
 
 [Pcd]
   # Dynamic display PCDs — variable write service must be available (see [Depex]).
@@ -108,6 +109,7 @@
   gRK3588TokenSpaceGuid.PcdDisplayDuplicateOutput
   gRK3588TokenSpaceGuid.PcdDisplayRotation
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode
+  gRK3576TokenSpaceGuid.PcdDisplayBrightness
   # ComboPHY dynamic PCDs
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode
   gRK3576TokenSpaceGuid.PcdComboPhy1Mode

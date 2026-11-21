@@ -46,6 +46,9 @@
 [FixedPcd]
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs
 
+[Pcd]
+  gRK3576TokenSpaceGuid.PcdDisplayBrightness       ## CONSUMES (Tspi3mDsiPanel.c)
+
 [Protocols]
   gRockchipDsiPanelProtocolGuid         ## PRODUCES
   gEfiI2cMasterProtocolGuid             ## SOMETIMES_CONSUMES

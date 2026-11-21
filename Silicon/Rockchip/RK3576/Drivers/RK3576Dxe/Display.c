@@ -296,6 +296,24 @@ InitializeDisplayVariables (
     ASSERT_EFI_ERROR (Status);
   }
 
+  //
+  // DisplayBrightness: the backlight of a MIPI DSI screen, read by the
+  // board's panel code when it lights the screen.  The option is shown only
+  // on a board with a DSI connector (RK3576DxeHii.vfr).
+  //
+  Size   = sizeof (Var8);
+  Status = !Reset ? gRT->GetVariable (
+                           L"DisplayBrightness",
+                           &gRK3576DxeFormSetGuid,
+                           NULL,
+                           &Size,
+                           &Var8
+                           ) : EFI_NOT_FOUND;
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdDisplayBrightness, FixedPcdGet8 (PcdDisplayBrightnessDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
   DEBUG ((DEBUG_INFO, "RK3576Dxe: Display ConnectorsMask=0x%08x, %u connector(s)\n",
           ConnectorsMask, (UINT32)ConnectorsCount));
 

@@ -191,6 +191,8 @@
 #string STR_DISPLAY_ROTATION_90                            #language en-US "90° Clockwise"
 #string STR_DISPLAY_ROTATION_270                           #language en-US "270° Clockwise"
 #string STR_DISPLAY_ROTATION_NONE                          #language en-US "0° (None)"
+#string STR_DISPLAY_BRIGHTNESS_PROMPT                     #language en-US "Screen Brightness (%)"
+#string STR_DISPLAY_BRIGHTNESS_HELP                       #language en-US "Brightness the firmware lights the MIPI DSI screen at, in percent, 10 to 100. An operating system can change it once it runs; Windows saves and restores the level it set itself."
 
 #string STR_HDMI_SIGNALING_MODE_PROMPT                     #language en-US "HDMI Signaling"
 #string STR_HDMI_SIGNALING_MODE_HELP                       #language en-US "Choose the HDMI signaling protocol.\n\nAuto - use HDMI if the monitor supports it, otherwise fall back to DVI.\nDVI - force DVI-compatible signaling (no audio, no advanced HDMI features).\nHDMI - force full HDMI signaling."
@@ -374,6 +376,8 @@
 #string STR_DISPLAY_ROTATION_90                            #language zh-Hans "\wide顺时针\narrow 90°"
 #string STR_DISPLAY_ROTATION_270                           #language zh-Hans "\wide顺时针\narrow 270°"
 #string STR_DISPLAY_ROTATION_NONE                          #language zh-Hans "0°\wide（不旋转）\narrow"
+#string STR_DISPLAY_BRIGHTNESS_PROMPT                     #language zh-Hans "\wide屏幕亮度\narrow (%)"
+#string STR_DISPLAY_BRIGHTNESS_HELP                       #language zh-Hans "\wide固件点亮\narrow MIPI DSI \wide屏幕时使用的亮度，单位为\narrow %\wide，从\narrow 10 \wide到\narrow 100\wide。操作系统启动后可以自行调整；\narrowWindows \wide会保存并恢复自行设置的亮度。\narrow"
 #string STR_HDMI_SIGNALING_MODE_PROMPT                     #language zh-Hans "HDMI \wide信号模式\narrow"
 #string STR_HDMI_SIGNALING_MODE_HELP                       #language zh-Hans "\wide选择\narrow HDMI \wide信号协议。\narrow\n\n\wide自动\narrow - \wide显示器支持\narrow HDMI \wide时使用\narrow HDMI\wide，否则回退到\narrow DVI\wide。\narrow\nDVI - \wide强制使用\narrow DVI \wide兼容信号（无音频，无\narrow HDMI \wide高级功能）。\narrow\nHDMI - \wide强制使用完整的\narrow HDMI \wide信号。\narrow"
 #string STR_HDMI_SIGNALING_MODE_AUTO                       #language zh-Hans "\wide自动\narrow"

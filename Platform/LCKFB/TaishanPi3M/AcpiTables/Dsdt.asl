@@ -244,6 +244,15 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // With no driver installed, WinPE on the CM5-IO listed both as code 28
     // (no driver) and the display stayed on Basic Display.  Neither driver
     // has been run on this board.
+    //
+    // The DSI screen's backlight is PWM2 channel 2 (pwm@2ade2000,
+    // Tspi3mDsiPanel.c).  Gpu.asl hands its registers to the display driver
+    // when RK3576AcpiPlatformDxe says the screen is lit and is the primary
+    // output; with no screen, or with HDMI as the screen, GPU0 is what it is
+    // on the CM5-IO.  Not the fan's channel (3, 0x2ade3000, Fan.asl): each
+    // PWM2 channel is its own 4 KiB block, so the two never share a register.
+    //
+#define GPU0_BACKLIGHT_PWM_BASE  0x2ADE2000
     include ("Display.asl")
     include ("Gpu.asl")
 

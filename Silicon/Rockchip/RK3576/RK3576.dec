@@ -80,6 +80,13 @@
   gRK3576TokenSpaceGuid.PcdDisplayConnectors|{0}|VOID*|0x00010400
   gRK3576TokenSpaceGuid.PcdDisplayForceOutputDefault|0|UINT8|0x00010401
   gRK3576TokenSpaceGuid.PcdDisplayDuplicateOutputDefault|0|UINT8|0x00010402
+  #
+  # Backlight of a MIPI DSI screen, in percent, while the firmware runs and
+  # until an OS changes it: the default of "Screen Brightness" in setup
+  # (PcdDisplayBrightness).  Read by the board's panel code, which lights the
+  # backlight; a board without a DSI screen ignores it.
+  #
+  gRK3576TokenSpaceGuid.PcdDisplayBrightnessDefault|60|UINT8|0x00010403
 
   # Status LED
   gRK3576TokenSpaceGuid.PcdStatusLedGpio|0xFF|UINT8|0x00010500
@@ -140,6 +147,7 @@
   gRK3576TokenSpaceGuid.PcdConfigTableMode|0|UINT32|0x00000300
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|0|UINT32|0x00000351
   gRK3576TokenSpaceGuid.PcdAcpiFanControl|0|UINT8|0x00000303
+  gRK3576TokenSpaceGuid.PcdDisplayBrightness|60|UINT8|0x00000400
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup|0|UINT8|0x00000354
