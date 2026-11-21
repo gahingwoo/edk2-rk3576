@@ -1,0 +1,42 @@
+/** @file
+ *
+ *  DebugReportDxe strings.
+ *
+ *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+ *
+ *  SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ **/
+
+#langdef en-US "English"
+#langdef zh-Hans "\wide简体中文\narrow"
+
+#string STR_NULL                 #language en-US ""
+#string STR_FORMSET_TITLE        #language en-US "Debug Report"
+#string STR_FORMSET_HELP         #language en-US "Save the firmware log, a summary of the machine, the ACPI tables, the device tree and screenshots in one folder, to hand over when something goes wrong."
+#string STR_INTRO_1              #language en-US "Saves \\uefi-debug\\YYYYMMDD-HHMMSS on a FAT USB stick"
+#string STR_INTRO_2              #language en-US "(else an SD card, else internal storage): the firmware"
+#string STR_INTRO_3              #language en-US "log, a summary, ACPI tables, device tree, screenshots."
+#string STR_INTRO_4              #language en-US "Ctrl+Alt+F11 (F11 on serial) saves one, no setup pages."
+#string STR_SAVE_ALL             #language en-US "Save Debug Report with All Setup Pages"
+#string STR_SAVE_ALL_HELP        #language en-US "Shows every setup page in turn and takes a screenshot of each, then saves the report. This takes a minute or two; do not press any key meanwhile."
+#string STR_SAVE_QUICK           #language en-US "Save Debug Report without Setup Pages"
+#string STR_SAVE_QUICK_HELP      #language en-US "Saves the report at once, with a screenshot of this page only."
+#string STR_SAVED                #language en-US "Debug report saved:"
+#string STR_NOT_SAVED            #language en-US "Not saved: no writable FAT file system. Plug in a USB stick."
+#string STR_PRESS_ENTER          #language en-US "Press Enter to continue."
+
+#string STR_NULL                 #language zh-Hans ""
+#string STR_FORMSET_TITLE        #language zh-Hans "\wide调试报告\narrow"
+#string STR_FORMSET_HELP         #language zh-Hans "\wide把固件日志、机器信息汇总、\narrow ACPI \wide表、设备树和截图保存到一个文件夹，出问题时交给开发者。\narrow"
+#string STR_INTRO_1              #language zh-Hans "\wide保存\narrow \\uefi-debug\\YYYYMMDD-HHMMSS \wide到\narrow FAT U\wide盘\narrow"
+#string STR_INTRO_2              #language zh-Hans "\wide（其次\narrow SD \wide卡，其次内部存储）：固件日志、\narrow"
+#string STR_INTRO_3              #language zh-Hans "\wide汇总、\narrow ACPI \wide表、设备树和截图。\narrow"
+#string STR_INTRO_4              #language zh-Hans "Ctrl+Alt+F11\wide（串口按\narrow F11\wide）随时保存，不含设置页面。\narrow"
+#string STR_SAVE_ALL             #language zh-Hans "\wide保存调试报告（含全部设置页面）\narrow"
+#string STR_SAVE_ALL_HELP        #language zh-Hans "\wide依次显示每个设置页面并截图，然后保存报告。需要一两分钟，期间请勿按键。\narrow"
+#string STR_SAVE_QUICK           #language zh-Hans "\wide保存调试报告（不含设置页面）\narrow"
+#string STR_SAVE_QUICK_HELP      #language zh-Hans "\wide立即保存报告，只截取本页面。\narrow"
+#string STR_SAVED                #language zh-Hans "\wide调试报告已保存：\narrow"
+#string STR_NOT_SAVED            #language zh-Hans "\wide未保存：没有可写的\narrow FAT \wide文件系统。请插入\narrow U\wide盘。\narrow"
+#string STR_PRESS_ENTER          #language zh-Hans "\wide按回车键继续。\narrow"

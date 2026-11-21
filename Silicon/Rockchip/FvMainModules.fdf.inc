@@ -142,6 +142,7 @@
   #
 !if $(RK_DISPLAY_ENABLE) == TRUE
   INF Silicon/Rockchip/Drivers/ScreenshotDxe/ScreenshotDxe.inf
+  INF Silicon/Rockchip/Drivers/DebugReportDxe/DebugReportDxe.inf
   INF Silicon/Rockchip/Drivers/Vop2Dxe/Vop2Dxe.inf
 !if $(RK_ANALOGIX_DP_ENABLE) == TRUE
   INF Silicon/Rockchip/Library/DisplayLib/AnalogixDpLib.inf

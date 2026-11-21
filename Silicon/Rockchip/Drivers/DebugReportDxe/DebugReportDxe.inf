@@ -1,0 +1,79 @@
+## @file
+#  Save a debug report (firmware log, summary, ACPI tables, device tree,
+#  screenshots of every setup page) to a FAT USB stick: Device Manager >
+#  Debug Report, or Ctrl+Alt+F11 (F11 on the serial console).
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = DebugReportDxe
+  FILE_GUID                      = da294468-9f51-49d9-be1e-803d5d4838ed
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = DebugReportEntry
+
+[Sources]
+  DebugReport.h
+  DebugReportFormSet.h
+  DebugReportDxe.c
+  Report.c
+  FormWalk.c
+  DebugReport.vfr
+  DebugReportStrings.uni
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  OvmfPkg/OvmfPkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  HiiLib
+  HobLib
+  MemDebugLogLib
+  MemoryAllocationLib
+  PcdLib
+  PrintLib
+  UefiBootManagerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Protocols]
+  gEfiBlockIoProtocolGuid               ## CONSUMES
+  gEfiDevicePathProtocolGuid            ## PRODUCES
+  gEfiFormBrowser2ProtocolGuid          ## CONSUMES
+  gEfiGraphicsOutputProtocolGuid        ## CONSUMES
+  gEfiHiiConfigAccessProtocolGuid       ## PRODUCES
+  gEfiHiiDatabaseProtocolGuid           ## CONSUMES
+  gEfiPciIoProtocolGuid                 ## CONSUMES
+  gEfiSimpleFileSystemProtocolGuid      ## CONSUMES
+  gEfiSimpleTextInProtocolGuid          ## PRODUCES
+  gEfiSimpleTextInputExProtocolGuid     ## PRODUCES
+  gEfiSmbiosProtocolGuid                ## CONSUMES
+  gEfiUsbIoProtocolGuid                 ## CONSUMES
+
+[Guids]
+  gEfiAcpi20TableGuid
+  gEfiConsoleInDeviceGuid
+  gEfiEndOfDxeEventGroupGuid
+  gEfiEventExitBootServicesGuid
+  gEfiGlobalVariableGuid
+  gEfiHiiPlatformSetupFormsetGuid
+  gFdtTableGuid
+  gMemDebugLogHobGuid
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString
+
+[Depex]
+  gEfiHiiDatabaseProtocolGuid AND gEfiVariableArchProtocolGuid

@@ -650,6 +650,7 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   # Display Support
   #
   Silicon/Rockchip/Drivers/ScreenshotDxe/ScreenshotDxe.inf
+  Silicon/Rockchip/Drivers/DebugReportDxe/DebugReportDxe.inf
   Silicon/Rockchip/Drivers/Vop2Dxe/Vop2Dxe.inf
 !if $(RK_ANALOGIX_DP_ENABLE) == TRUE
   Silicon/Rockchip/Library/DisplayLib/AnalogixDpLib.inf
