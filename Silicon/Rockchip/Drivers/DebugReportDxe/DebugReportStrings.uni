@@ -25,7 +25,7 @@
 #string STR_SAVED                #language en-US "Debug report saved:"
 #string STR_NOT_SAVED            #language en-US "Not saved: no writable FAT file system. Plug in a USB stick."
 #string STR_PRESS_ENTER          #language en-US "Press Enter to continue."
-#string STR_STATUS_COLLECTING    #language en-US "Collecting debug report..."
+#string STR_STATUS_COLLECTING    #language en-US "Collecting debug report, please do not touch anything..."
 #string STR_STATUS_SAVED         #language en-US "Debug report saved"
 
 #string STR_NULL                 #language zh-Hans ""
@@ -42,5 +42,5 @@
 #string STR_SAVED                #language zh-Hans "\wide调试报告已保存：\narrow"
 #string STR_NOT_SAVED            #language zh-Hans "\wide未保存：没有可写的\narrow FAT \wide文件系统。请插入\narrow U\wide盘。\narrow"
 #string STR_PRESS_ENTER          #language zh-Hans "\wide按回车键继续。\narrow"
-#string STR_STATUS_COLLECTING    #language zh-Hans "\wide正在收集调试信息\narrow..."
+#string STR_STATUS_COLLECTING    #language zh-Hans "\wide正在收集调试信息，请勿操作\narrow..."
 #string STR_STATUS_SAVED         #language zh-Hans "\wide调试信息收集完成\narrow"
