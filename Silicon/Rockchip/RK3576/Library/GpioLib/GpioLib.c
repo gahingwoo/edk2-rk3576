@@ -213,8 +213,10 @@ GpioPinSetFunction (
 // Pull-up/down, as mainline Linux's rk3576_calc_pull_reg_and_bit() and
 // rockchip_set_pull() (drivers/pinctrl/pinctrl-rockchip.c): 2 bits per pin,
 // 8 pins per 32-bit register in IOC_GRF, the upper 16 bits a write mask.
-// The values are 0 none, 1 pull-up, 2 pull-down (pull type 0), which is not
-// the GPIO_PIN_PULL encoding (RK3588's), so translate.
+// Every RK3576 bank is PULL_TYPE_IO_1V8_ONLY in Linux (rk3576_pin_banks),
+// so the field is 0 none, 1 pull-down, 3 pull-up, as in the TRM's
+// VCCIO_IOC_GPIOxx_PULL registers.  That is the GPIO_PIN_PULL encoding.
+// The reset value of most fields is 1, a pull-down.
 //
 #define RK3576_PULL_GPIO0_AL_OFFSET   0x20
 #define RK3576_PULL_GPIO0_BH_OFFSET   0x2028
@@ -243,8 +245,8 @@ GpioPinSetPull (
   //
   switch (Pull) {
     case GPIO_PIN_PULL_NONE: return;
-    case GPIO_PIN_PULL_UP:   Value = 1; break;
-    case GPIO_PIN_PULL_DOWN: Value = 2; break;
+    case GPIO_PIN_PULL_UP:   Value = 3; break;
+    case GPIO_PIN_PULL_DOWN: Value = 1; break;
     default:
       DEBUG ((DEBUG_WARN, "GpioPinSetPull: GPIO%d pin %d: unknown pull %d\n", Group, Pin, Pull));
       return;
