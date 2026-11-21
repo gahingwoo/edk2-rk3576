@@ -101,8 +101,8 @@ menus over HDMI, on the CM5-IO. The ROCK 4D has not run them yet.
 (from a serial terminal too), puts the firmware back to how a freshly
 flashed board starts: it erases the whole UEFI variable store, so every
 setup setting, the language, the boot options and boot order, the timeout
-and any Secure Boot keys. It asks first, with No selected. The board
-restarts, the store is erased before anything reads it, and
+and any Secure Boot keys. It asks first, in a red warning with No
+selected. The board restarts, the store is erased before anything reads it, and
 the firmware sets itself up as on its first boot. Nothing outside the
 variable store is touched. Run on the TaishanPi 3M: the settings and boot
 options came back as on a new board, and the next boot did not erase
