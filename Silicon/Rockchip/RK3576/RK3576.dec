@@ -70,6 +70,14 @@
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|FALSE|BOOLEAN|0x00010303
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0|UINT8|0x00010304
   #
+  # Video decoder (RKVDEC, VDPU383) for an ACPI OS: the setup option
+  # (PcdAcpiVdec, default PcdAcpiVdecDefault) decides whether RK3576Dxe powers
+  # PD_VDEC and sets the decoder clocks, and whether RK3576AcpiPlatformDxe
+  # installs the decoder SSDT (OEM table ID "RKVDEC").  Off by default, so a
+  # board or OS that does not ask for it sees no change.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|0|UINT8|0x00010305
+  #
   # Analog audio preset: the board library sets up the SAI that carries its
   # codec (power domain, mclk, pins) and the DSDT publishes that SAI and the
   # codec for the woa-rk3576 audio drivers.  Only boards that implement it
@@ -154,6 +162,7 @@
   gRK3576TokenSpaceGuid.PcdConfigTableMode|0|UINT32|0x00000300
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|0|UINT32|0x00000351
   gRK3576TokenSpaceGuid.PcdAcpiFanControl|0|UINT8|0x00000303
+  gRK3576TokenSpaceGuid.PcdAcpiVdec|0|UINT8|0x00000304
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|60|UINT8|0x00000400
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353

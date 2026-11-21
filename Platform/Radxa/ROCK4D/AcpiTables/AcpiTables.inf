@@ -32,6 +32,8 @@
   $(RK_COMMON_ACPI_DIR)/Mcfg.aslc
   $(RK_COMMON_ACPI_DIR)/Dbg2.aslc
   $(RK_COMMON_ACPI_DIR)/Pptt.aslc
+  # Video decoder SSDT, installed only when enabled in setup (PcdAcpiVdec).
+  $(RK_COMMON_ACPI_DIR)/Vdec.asl
 
 [Packages]
   ArmPkg/ArmPkg.dec

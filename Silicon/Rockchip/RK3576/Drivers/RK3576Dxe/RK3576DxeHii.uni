@@ -60,6 +60,10 @@
 #string STR_ACPI_FAN_CONTROL_HELP                          #language en-US "Disabled - the fan stays at the speed the firmware starts it at; the OS only gets the temperature read-out.\n\n"
                                                                            "Enabled - the OS turns the fan down and up with the SoC temperature through ACPI fan devices (Windows inbox, no driver needed). Has no effect on Linux with a device tree."
 
+#string STR_ACPI_VDEC_PROMPT                               #language en-US "Video Decoder (VDPU383, experimental)"
+#string STR_ACPI_VDEC_HELP                                 #language en-US "Disabled - the video decoder stays powered off and the OS is not told about it.\n\n"
+                                                                           "Enabled - the firmware powers the decoder, turns on its clocks and describes it in an ACPI SSDT for a Windows driver (vdpu383 in woa-rk3576). Only in ACPI mode. Has no effect on Linux with a device tree."
+
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language en-US "Auto"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language en-US "Single Device"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_NXPMX6              #language en-US "NXPMX6"
@@ -279,6 +283,9 @@
 #string STR_ACPI_FAN_CONTROL_PROMPT                        #language zh-Hans "\wide由\narrow ACPI \wide热区控制风扇\narrow"
 #string STR_ACPI_FAN_CONTROL_HELP                          #language zh-Hans "\wide禁用\narrow - \wide风扇保持固件启动时设定的转速，操作系统只能读取温度。\narrow\n\n"
                                                                              "\wide启用\narrow - \wide操作系统通过\narrow ACPI \wide风扇设备随\narrow SoC \wide温度调节风扇转速（\narrowWindows \wide自带支持，无需驱动）。使用设备树的\narrow Linux \wide不受此选项影响。\narrow"
+#string STR_ACPI_VDEC_PROMPT                               #language zh-Hans "\wide视频解码器（\narrowVDPU383\wide，实验性）\narrow"
+#string STR_ACPI_VDEC_HELP                                 #language zh-Hans "\wide禁用\narrow - \wide视频解码器保持断电，操作系统看不到它。\narrow\n\n"
+                                                                             "\wide启用\narrow - \wide固件为解码器上电、打开它的时钟，并通过\narrow ACPI SSDT \wide提供给\narrow Windows \wide驱动（\narrowwoa-rk3576 \wide的\narrow vdpu383\wide）。仅在\narrow ACPI \wide模式下生效。使用设备树的\narrow Linux \wide不受此选项影响。\narrow"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language zh-Hans "\wide自动\narrow"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language zh-Hans "\wide单设备\narrow"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_NXPMX6              #language zh-Hans "NXPMX6"

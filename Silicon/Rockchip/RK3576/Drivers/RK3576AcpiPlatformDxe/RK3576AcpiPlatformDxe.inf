@@ -63,6 +63,7 @@
   gRK3576TokenSpaceGuid.PcdConfigTableMode
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode
   gRK3576TokenSpaceGuid.PcdAcpiFanControl
+  gRK3576TokenSpaceGuid.PcdAcpiVdec
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode
   gRK3576TokenSpaceGuid.PcdComboPhy1Mode
   gRK3576TokenSpaceGuid.PcdPcieEcamCompliantSegmentsMask
