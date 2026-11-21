@@ -116,4 +116,47 @@ struct _DISPLAY_POINTER_CLICK_PROTOCOL {
   DISPLAY_POINTER_SET_READING    SetReading;
 };
 
+//
+// A middle click: act on what it lands on at once.  The display engine
+// (patches/0014) asks after a click has moved the highlight whether that
+// click was one to act on; TRUE once, then FALSE until the next such click.
+// A copy of the definition in the patch to FormDisplay.c.
+//
+#define DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL_GUID \
+  { 0x0cce83d2, 0x5f6e, 0x4079, { 0xba, 0xc7, 0x03, 0x16, 0x94, 0x61, 0x51, 0xf0 } }
+
+typedef struct _DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL;
+
+typedef
+BOOLEAN
+(EFIAPI *DISPLAY_POINTER_TAKE_ACTIVATE)(
+  IN DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL  *This
+  );
+
+struct _DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL {
+  UINT32                           Revision;
+  DISPLAY_POINTER_TAKE_ACTIVATE    TakeActivate;
+};
+
+//
+// The buttons of a USB mouse, the middle one included, which the Simple
+// Pointer state has no room for.  Installed by UsbMouseDxe (patches/0015)
+// on the mouse's handle; a copy of the definition in UsbMouse.h there.
+//
+#define USB_MOUSE_BUTTONS_PROTOCOL_GUID \
+  { 0xf77e47f3, 0x6563, 0x4755, { 0x80, 0x25, 0xc8, 0x31, 0x52, 0x1e, 0xb3, 0xcd } }
+
+typedef struct _USB_MOUSE_BUTTONS_PROTOCOL USB_MOUSE_BUTTONS_PROTOCOL;
+
+typedef
+UINT32
+(EFIAPI *USB_MOUSE_GET_BUTTONS)(
+  IN USB_MOUSE_BUTTONS_PROTOCOL  *This
+  );
+
+struct _USB_MOUSE_BUTTONS_PROTOCOL {
+  UINT32                   Revision;
+  USB_MOUSE_GET_BUTTONS    GetButtons;
+};
+
 #endif

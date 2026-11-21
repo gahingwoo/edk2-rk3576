@@ -23,7 +23,9 @@
  *             the wheel is Up and Down, a left click Enter, a right click
  *             Esc.  While the setup browser waits for input (patch 0013),
  *             a left click goes to it instead, as the text cell under the
- *             pointer, and it picks the statement there.
+ *             pointer, and it picks the statement there.  A middle click
+ *             (patches 0014 and 0015) picks it and selects it at once; in
+ *             the Shell or GRUB a middle click is Enter, like a left one.
  *
  *    touch    a touch screen driver that already turns touches into keys
  *             (TouchKeysDxe on the TaishanPi 3M) names its pointer through
@@ -125,6 +127,8 @@ typedef struct {
   BOOLEAN       Absolute;
   BOOLEAN       Left;
   BOOLEAN       Right;
+  BOOLEAN       Middle;
+  USB_MOUSE_BUTTONS_PROTOCOL  *Buttons;    // the middle button of a Simple Pointer mouse, if UsbMouseDxe has it
   BOOLEAN       HaveZ;
   UINT64        LastZ;
   INT32         AccX;
@@ -200,6 +204,8 @@ STATIC EFI_GUID  mScreenshotEndGuid   = ROCKCHIP_SCREENSHOT_END_GROUP_GUID;
 STATIC EFI_EVENT  mClickEvent;
 STATIC BOOLEAN    mClickReading;
 STATIC BOOLEAN    mClickPending;
+STATIC BOOLEAN    mClickPendingActivates;   // the click waiting is a middle click
+STATIC BOOLEAN    mClickActivates;          // the click taken last was; asked once
 STATIC UINTN      mClickColumn;
 STATIC UINTN      mClickRow;
 
@@ -973,15 +979,41 @@ OskGetClick (
   Tpl    = gBS->RaiseTPL (TPL_NOTIFY);
   Status = EFI_NOT_READY;
   if (mClickPending) {
-    *Column       = mClickColumn;
-    *Row          = mClickRow;
-    mClickPending = FALSE;
-    Status        = EFI_SUCCESS;
+    *Column         = mClickColumn;
+    *Row            = mClickRow;
+    mClickPending   = FALSE;
+    mClickActivates = mClickPendingActivates;
+    Status          = EFI_SUCCESS;
   }
 
   gBS->RestoreTPL (Tpl);
   return Status;
 }
+
+STATIC
+BOOLEAN
+EFIAPI
+OskTakeActivate (
+  IN DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL  *This
+  )
+{
+  EFI_TPL  Tpl;
+  BOOLEAN  Activates;
+
+  Tpl             = gBS->RaiseTPL (TPL_NOTIFY);
+  Activates       = mClickActivates;
+  mClickActivates = FALSE;
+  gBS->RestoreTPL (Tpl);
+  return Activates;
+}
+
+STATIC DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL  mClickActivateProtocol = {
+  1,
+  OskTakeActivate
+};
+
+STATIC EFI_GUID  mClickActivateGuid = DISPLAY_POINTER_CLICK_ACTIVATE_PROTOCOL_GUID;
+STATIC EFI_GUID  mUsbMouseButtonsGuid = USB_MOUSE_BUTTONS_PROTOCOL_GUID;
 
 STATIC
 VOID
@@ -997,7 +1029,8 @@ OskSetReading (
   mClickReading = Reading;
   if (Reading) {
     // a click from before belongs to no one now
-    mClickPending = FALSE;
+    mClickPending   = FALSE;
+    mClickActivates = FALSE;
   }
 
   gBS->RestoreTPL (Tpl);
@@ -1069,8 +1102,9 @@ OskTextCell (
 STATIC
 VOID
 OskClickOffKeyboard (
-  IN INT32  X,
-  IN INT32  Y
+  IN INT32    X,
+  IN INT32    Y,
+  IN BOOLEAN  Activates
   )
 {
   UINTN  Column, Row;
@@ -1082,9 +1116,10 @@ OskClickOffKeyboard (
 
   // outside the text grid there is nothing to click on
   if (OskTextCell (X, Y, &Column, &Row)) {
-    mClickColumn  = Column;
-    mClickRow     = Row;
-    mClickPending = TRUE;
+    mClickColumn           = Column;
+    mClickRow              = Row;
+    mClickPending          = TRUE;
+    mClickPendingActivates = Activates;
     gBS->SignalEvent (mClickEvent);
   }
 }
@@ -1154,6 +1189,11 @@ OskScanProtocol (
     mMice[mMouseCount].Handle    = Handles[Index];
     mMice[mMouseCount].Interface = Interface;
     mMice[mMouseCount].Absolute  = Absolute;
+    if (!Absolute &&
+        EFI_ERROR (gBS->HandleProtocol (Handles[Index], &mUsbMouseButtonsGuid, (VOID **)&mMice[mMouseCount].Buttons)))
+    {
+      mMice[mMouseCount].Buttons = NULL;
+    }
     mMouseCount++;
     DEBUG ((DEBUG_INFO, "OnScreenKeyboard: %a pointer added\n", Absolute ? "absolute" : "relative"));
   }
@@ -1223,14 +1263,15 @@ VOID
 OskMouseButtons (
   IN OSK_MOUSE  *Mouse,
   IN BOOLEAN    Left,
-  IN BOOLEAN    Right
+  IN BOOLEAN    Right,
+  IN BOOLEAN    Middle
   )
 {
   INT32  Ix, Iy;
 
   if (Left && !Mouse->Left) {
     if (!OskPress (mOskCursorX, mOskCursorY)) {
-      OskClickOffKeyboard (mOskCursorX, mOskCursorY);
+      OskClickOffKeyboard (mOskCursorX, mOskCursorY, FALSE);
     }
   } else if (!Left && Mouse->Left) {
     OskPressMove (mOskCursorX, mOskCursorY);
@@ -1243,8 +1284,16 @@ OskMouseButtons (
     OskQueueKey (SCAN_ESC, 0);
   }
 
-  Mouse->Left  = Left;
-  Mouse->Right = Right;
+  // middle: off the keyboard only; on it, it does nothing
+  if (Middle && !Mouse->Middle &&
+      (OskOverlayHit (mOskCursorX, mOskCursorY, &Ix, &Iy) == OSK_PANEL_NONE))
+  {
+    OskClickOffKeyboard (mOskCursorX, mOskCursorY, TRUE);
+  }
+
+  Mouse->Left   = Left;
+  Mouse->Right  = Right;
+  Mouse->Middle = Middle;
 }
 
 STATIC
@@ -1278,6 +1327,16 @@ OskPollMouse (
 
   Moved = FALSE;
   if (!Mouse->Absolute) {
+    //
+    // UsbMouseDxe installs the buttons protocol just after the Simple
+    // Pointer one, so it may not have been there when the mouse was found.
+    //
+    if ((Mouse->Buttons == NULL) &&
+        EFI_ERROR (gBS->HandleProtocol (Mouse->Handle, &mUsbMouseButtonsGuid, (VOID **)&Mouse->Buttons)))
+    {
+      Mouse->Buttons = NULL;
+    }
+
     Simple = Mouse->Interface;
     if (EFI_ERROR (Simple->GetState (Simple, &SimpleState))) {
       return;
@@ -1304,7 +1363,12 @@ OskPollMouse (
     }
 
     OskWheel (SimpleState.RelativeMovementZ);
-    OskMouseButtons (Mouse, SimpleState.LeftButton, SimpleState.RightButton);
+    OskMouseButtons (
+      Mouse,
+      SimpleState.LeftButton,
+      SimpleState.RightButton,
+      (BOOLEAN)((Mouse->Buttons != NULL) && ((Mouse->Buttons->GetButtons (Mouse->Buttons) & BIT2) != 0))
+      );
     return;
   }
 
@@ -1335,7 +1399,8 @@ OskPollMouse (
   OskMouseButtons (
     Mouse,
     (BOOLEAN)((AbsState.ActiveButtons & EFI_ABSP_TouchActive) != 0),
-    (BOOLEAN)((AbsState.ActiveButtons & EFI_ABS_AltActive) != 0)
+    (BOOLEAN)((AbsState.ActiveButtons & EFI_ABS_AltActive) != 0),
+    (BOOLEAN)((AbsState.ActiveButtons & BIT2) != 0)    // UsbMouseAbsolutePointerDxe passes the middle button on
     );
 }
 
@@ -1642,6 +1707,8 @@ OnScreenKeyboardEntry (
                   &mOskProtocol,
                   &mClickProtocolGuid,
                   &mClickProtocol,
+                  &mClickActivateGuid,
+                  &mClickActivateProtocol,
                   NULL
                   );
   if (EFI_ERROR (Status)) {
