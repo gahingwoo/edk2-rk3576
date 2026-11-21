@@ -149,6 +149,7 @@ STATIC CONST OSK_KEY  *mRows[ROWS] = { mRow0, mRow1, mRow2, mRow3, mRow4, mRow5 
 
 STATIC CONST OSK_KEY  mIcons[OSK_ICONS] = {
   ICON (OSK_ACT_SHOT,  OSK_ICON_CAMERA),
+  ICON (OSK_ACT_SIZE,  OSK_ICON_SIZE),
   ICON (OSK_ACT_FLOAT, OSK_ICON_FLOAT),
   ICON (OSK_ACT_ALPHA, OSK_ICON_OPACITY),
   ICON (OSK_ACT_MOVE,  OSK_ICON_MOVE),
@@ -260,6 +261,16 @@ BOOLEAN    mOskCaps;
 INTN       mOskPressed = -1;
 BOOLEAN    mOskFloating;
 UINTN      mOskAlphaLevel;
+UINT8      mOskSize     = OSK_SIZE_LARGE;
+UINT8      mOskWantSize = OSK_SIZE_AUTO;
+BOOLEAN    mOskHasTouch;
+
+//
+// The widest a letter key may be at each size, in pixels; less if the
+// screen is narrower.  Large is the old full-width keyboard on screens up
+// to 1440 wide; on 2560x1440 the three are 660, 960 and 1440 wide.
+//
+STATIC CONST UINT32  mKeyCap[OSK_SIZES] = { 44, 64, 96 };
 
 STATIC EFI_GUID  mScreenshotGuid = ROCKCHIP_SCREENSHOT_PROTOCOL_GUID;
 
@@ -636,6 +647,7 @@ OskDrawIcon (
   UINTN        Pass;
   BOOLEAN      Ink;
   INT32        Fill;
+  INT32        Box;
 
   Size = MAX (MIN (Face->W, Face->H) * 3 / 4, 16);
   X0   = Face->X + (Face->W - Size) / 2;
@@ -654,6 +666,9 @@ OskDrawIcon (
     case OSK_ICON_CAMERA:
       Pic = mPicCamera;
       break;
+    case OSK_ICON_SIZE:
+      Pic = NULL;
+      break;
     default:
       Pic = NULL;       // opacity: drawn from the level below
       break;
@@ -668,6 +683,14 @@ OskDrawIcon (
         Bx = X * 16 / Size;
         if (Pic != NULL) {
           Ink = (BOOLEAN)(Pic[By][Bx] == 'X');
+        } else if (Icon == OSK_ICON_SIZE) {
+          //
+          // A dotted frame for the largest size, and a solid box in its
+          // bottom left corner as big as the size is now.
+          //
+          Box = 6 + 5 * (INT32)mOskSize;
+          Ink = (BOOLEAN)((((Bx == 0) || (Bx == 15) || (By == 0) || (By == 15)) && (((Bx + By) % 2) == 0)) ||
+                          ((Bx < Box) && (By >= 16 - Box)));
         } else {
           //
           // A frame, solid from the bottom up to the level, and above it
@@ -715,20 +738,38 @@ OskLayout (
   UINT32         Margin;
   UINTN          FirstIcon;
   VOID           *Screenshot;
+  UINTN          Size;
+  UINT32         Full;
+  UINT32         KeyW;
 
   //
-  // Keys as wide as the screen allows, and rows of at most a fifteenth of
-  // the height: six rows then take 40% of it.  Landscape 1280x800 gives
-  // keys of 84 x 53, portrait 800x1280 52 x 52, 1920x1080 128 x 72.
+  // The size caps the letter key: Small 44, Medium 64, Large 96 pixels,
+  // never wider than a fifteenth of the screen, and on a touch screen never
+  // narrower than 48 pixels (8 mm on the TaishanPi 3M's panel).  The
+  // default is Large up to 1600 pixels wide and Medium above.  A keyboard
+  // narrower than the screen is centred.  Rows are at most a fifteenth of
+  // the height, so six take 40% of it.
   //
-  // Floating: about two thirds of the width, but letter keys no narrower
-  // than 48 pixels (8 mm on the TaishanPi 3M's panel) while the screen
-  // allows.  Landscape 1280x800 gives 832 wide with keys of 52 x 52,
-  // portrait 800x1280 720 wide, 1920x1080 1248 wide.
+  //   1280x800 (TaishanPi 3M, rotated): Large 1280 wide with keys of 84 x 53
+  //     as before, Medium 960, Small 720
+  //   2560x1440: Large 1440, Medium 960 (default), Small 660
   //
-  ImageW = ScreenW;
+  // Floating: about two thirds of the width at most, and no wider than the
+  // size allows: 832 wide on the 1280x800 picture at Large.
+  //
+  Size = mOskWantSize;
+  if (Size >= OSK_SIZES) {
+    Size = (ScreenW > 1600) ? OSK_SIZE_MEDIUM : OSK_SIZE_LARGE;
+  }
+
+  mOskSize = (UINT8)Size;
+  Full     = ScreenW / 15;
+  KeyW     = MIN (Full, mKeyCap[Size]);
+  KeyW     = MAX (KeyW, MIN (mOskHasTouch ? 48U : 32U, Full));
+  ImageW   = (KeyW >= Full) ? ScreenW : ROW_UNITS * (KeyW / 4);
+
   if (Floating) {
-    ImageW = MAX (ScreenW * 65 / 100, ROW_UNITS * 12);
+    ImageW = MIN (ImageW, MAX (ScreenW * 65 / 100, ROW_UNITS * 12));
     ImageW = MIN (ImageW, ScreenW);
   }
 
@@ -743,7 +784,7 @@ OskLayout (
   // and in floating mode the handle.  At least 40 pixels high, so that
   // its icons are 40 pixels square in the rotated landscape picture.
   //
-  mHandleH = MAX (RowH * 3 / 4, 40);
+  mHandleH = MAX (RowH * 3 / 4, mOskHasTouch ? 40U : 28U);
   mImageW  = ImageW;
 
   mOskFloating = Floating;

@@ -860,7 +860,9 @@ OskOverlaySync (
   // Docked and floating are two layouts.  Changing over takes everything
   // down first, as the keyboard changes size.
   //
-  if (mOskWantFloating != mOskFloating) {
+  if ((mOskWantFloating != mOskFloating) ||
+      ((mOskWantSize != OSK_SIZE_AUTO) && (mOskWantSize != mOskSize)))
+  {
     OskCursorOff ();
     OskPanelOff ();
     if (!OskRelayout ()) {
@@ -879,7 +881,8 @@ OskOverlaySync (
       Want.X = (INT32)(((UINT64)mOskFloatX * (mOskScreenW - mOskKeyboardW) + 0x8000) >> 16);
       Want.Y = (INT32)(((UINT64)mOskFloatY * (mOskScreenH - mOskKeyboardH) + 0x8000) >> 16);
     } else {
-      Want.X = 0;
+      // centred when it is narrower than the screen
+      Want.X = (INT32)(mOskScreenW - mOskKeyboardW) / 2;
       Want.Y = mOskWantTop ? 0 : (INT32)(mOskScreenH - mOskKeyboardH);
     }
   }

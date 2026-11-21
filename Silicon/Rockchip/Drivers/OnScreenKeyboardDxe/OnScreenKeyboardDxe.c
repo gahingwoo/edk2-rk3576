@@ -82,6 +82,7 @@
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Protocol/AbsolutePointer.h>
 #include <Protocol/DevicePath.h>
@@ -183,6 +184,13 @@ STATIC INT32  mLastCursorRow = -1;
 
 STATIC BOOLEAN  mCursorPlaced;
 STATIC BOOLEAN  mUserEdge;         // the docked edge was chosen with the move icon
+
+//
+// The size chosen with the size icon, kept across boots.  Under the
+// keyboard's own device GUID; not part of any setup form.
+//
+#define OSK_SIZE_VARIABLE  L"OnScreenKeyboardSize"
+STATIC EFI_GUID  mOskVariableGuid = ON_SCREEN_KEYBOARD_DEVICE_GUID;
 
 STATIC EFI_GUID  mScreenshotGuid      = ROCKCHIP_SCREENSHOT_PROTOCOL_GUID;
 STATIC EFI_GUID  mScreenshotStartGuid = ROCKCHIP_SCREENSHOT_START_GROUP_GUID;
@@ -626,6 +634,24 @@ OskActivate (
       OskOverlayAlphaChanged ();
       break;
 
+    case OSK_ACT_SIZE:
+      //
+      // Small, Medium, Large and round again, from the size in use (the
+      // default one included).  Kept in a variable, so it is the size
+      // next boot as well.
+      //
+      mOskWantSize = (UINT8)((mOskSize + 1) % OSK_SIZES);
+      mOskPressed  = -1;
+      gRT->SetVariable (
+             OSK_SIZE_VARIABLE,
+             &mOskVariableGuid,
+             EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+             sizeof (mOskWantSize),
+             &mOskWantSize
+             );
+      OskSync ();
+      break;
+
     case OSK_ACT_SHOT:
       //
       // Taken once this TPL is left; the keyboard goes off the screen for
@@ -840,6 +866,7 @@ OskAddTouchScreen (
   }
 
   mTouchScreen[mTouchScreenCount++] = Pointer;
+  mOskHasTouch                      = TRUE;
   DEBUG ((DEBUG_INFO, "OnScreenKeyboard: touch screen added\n"));
   OskStartPolling ();
   return EFI_SUCCESS;
@@ -1539,8 +1566,17 @@ OskEndOfDxe (
   )
 {
   EFI_STATUS  Status;
+  UINTN       Size;
 
   gBS->CloseEvent (Event);
+
+  // the size chosen last time, if it is one
+  Size = sizeof (mOskWantSize);
+  if (EFI_ERROR (gRT->GetVariable (OSK_SIZE_VARIABLE, &mOskVariableGuid, NULL, &Size, &mOskWantSize)) ||
+      (mOskWantSize >= OSK_SIZES))
+  {
+    mOskWantSize = OSK_SIZE_AUTO;
+  }
 
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &mHandle,
