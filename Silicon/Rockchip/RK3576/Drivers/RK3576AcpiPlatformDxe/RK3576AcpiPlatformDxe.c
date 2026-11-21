@@ -431,6 +431,14 @@ AcpiDsdtFixupStatus (
 //
 #define FAN_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'F', 'A', 'N', ' ', ' ', ' ')
 
+//
+// The CPU idle states SSDT (AcpiTables/CpuIdle.asl, OEM table ID "RKLPI")
+// is installed only when "CPU Idle States" is enabled in setup
+// (PcdAcpiCpuIdleStates).  Without it the tables are what they were before
+// it existed: no _LPI and no \_SB._OSC, so the OS idles with WFI.
+//
+#define CPU_IDLE_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'L', 'P', 'I', ' ', ' ', ' ')
+
 STATIC
 BOOLEAN
 EFIAPI
@@ -438,6 +446,17 @@ AcpiTableCheck (
   IN EFI_ACPI_DESCRIPTION_HEADER  *AcpiHeader
   )
 {
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == CPU_IDLE_SSDT_OEM_TABLE_ID))
+  {
+    if (PcdGet8 (PcdAcpiCpuIdleStates) == 0) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: CPU idle states off in setup, _LPI SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_INFO, "AcpiPlatform: CPU idle states on, installing the _LPI SSDT\n"));
+  }
+
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
       (AcpiHeader->OemTableId == FAN_SSDT_OEM_TABLE_ID))
   {

@@ -70,6 +70,13 @@
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|FALSE|BOOLEAN|0x00010303
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0|UINT8|0x00010304
   #
+  # CPU idle states (AcpiTables/CpuIdle.asl, OEM table ID "RKLPI"): the
+  # setup option (PcdAcpiCpuIdleStates, default PcdAcpiCpuIdleStatesDefault)
+  # decides whether RK3576AcpiPlatformDxe installs that SSDT.  Without it the
+  # OS idles the cores with WFI only.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|0|UINT8|0x00010900
+  #
   # Analog audio preset: the board library sets up the SAI that carries its
   # codec (power domain, mclk, pins) and the DSDT publishes that SAI and the
   # codec for the woa-rk3576 audio drivers.  Only boards that implement it
@@ -154,6 +161,7 @@
   gRK3576TokenSpaceGuid.PcdConfigTableMode|0|UINT32|0x00000300
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|0|UINT32|0x00000351
   gRK3576TokenSpaceGuid.PcdAcpiFanControl|0|UINT8|0x00000303
+  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates|0|UINT8|0x00000900
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|60|UINT8|0x00000400
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353

@@ -88,6 +88,7 @@
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault
+  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault
   # Display connector list is set in ROCK4D.dsc using the RK3588 tokenspace
   # (same TokenSpace the DwHdmiQpLib / Vop2Dxe library set reads from).
   gRK3588TokenSpaceGuid.PcdDisplayConnectors
@@ -121,6 +122,7 @@
   gRK3576TokenSpaceGuid.PcdFdtCompatMode
   gRK3576TokenSpaceGuid.PcdFdtForceGop
   gRK3576TokenSpaceGuid.PcdAcpiFanControl
+  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath

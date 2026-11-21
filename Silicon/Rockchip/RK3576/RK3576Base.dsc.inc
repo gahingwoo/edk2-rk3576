@@ -435,6 +435,15 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
   #
+  # CPU idle states (setup option, backs PcdAcpiCpuIdleStates below): off.
+  # edk2-rk3588 publishes no _LPI at all, so this is not upstream behaviour
+  # to inherit, and the core power-down state stops the core's generic timer
+  # on a SoC with no always-on timer frame Windows could use instead
+  # (AcpiTables/CpuIdle.asl).  Turn it on per board once a board has run
+  # with it.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|0
+  #
   # MIPI DSI screen brightness in percent (setup option, backs
   # PcdDisplayBrightness below), read only on a board with a DSI panel.
   #
@@ -514,6 +523,7 @@
   gRK3576TokenSpaceGuid.PcdConfigTableMode|L"ConfigTableMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdConfigTableModeDefault
   gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatMode|L"AcpiPcieEcamCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiPcieEcamCompatModeDefault
   gRK3576TokenSpaceGuid.PcdAcpiFanControl|L"AcpiFanControl"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault
+  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates|L"AcpiCpuIdleStates"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault
