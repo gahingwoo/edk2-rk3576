@@ -528,3 +528,65 @@
 &vcc_3v3_minipcie {
 	regulator-always-on;
 };
+
+/*
+ * The GPU's clocks as Armbian's kernel (7.3 and 7.4) wants them: panfrost
+ * there sets the OPP rate on a clock named "gpu", and the 7.4-rc SoC dtsi's
+ * single "core" clock made it fail to probe ("Couldn't find clock with
+ * name: gpu").  Jonas Karlman's series, which Armbian carries
+ * (rk35xx-panthor-1GHz.patch): SCMI_CLK_GPU is the GPU clock, because TF-A
+ * switches it between a normal PLL and the GPU PVTPLL by rate, and CLK_GPU
+ * becomes the bus clock, as on the RK3568.  A mainline panfrost takes the
+ * first clock as its clock and "bus" as the optional bus clock, so it reads
+ * this the same way.
+ */
+&gpu {
+	assigned-clocks = <&cru CLK_GPU>, <&scmi_clk SCMI_CLK_GPU>;
+	assigned-clock-rates = <198000000>, <200000000>;
+	clocks = <&scmi_clk SCMI_CLK_GPU>, <&cru CLK_GPU>;
+	clock-names = "gpu", "bus";
+};
+
+/*
+ * The same series' OPP table: the datasheet's 900 MHz maximum and the
+ * vendor kernel's voltages, and a 200 MHz point for the rate the GPU starts
+ * at.  Without the series' opp-suspend: on a kernel without its panfrost
+ * change, a suspend frequency is set on the SCMI clock while the GPU is
+ * already suspended, which the series reports as an SError.
+ */
+&gpu_opp_table {
+	/delete-node/ opp-950000000;
+
+	opp-200000000 {
+		opp-hz = /bits/ 64 <200000000>;
+		opp-microvolt = <712500 712500 875000>;
+	};
+
+	opp-300000000 {
+		opp-microvolt = <712500 712500 875000>;
+	};
+
+	opp-400000000 {
+		opp-microvolt = <712500 712500 875000>;
+	};
+
+	opp-500000000 {
+		opp-microvolt = <712500 712500 875000>;
+	};
+
+	opp-600000000 {
+		opp-microvolt = <712500 712500 875000>;
+	};
+
+	opp-700000000 {
+		opp-microvolt = <750000 750000 875000>;
+	};
+
+	opp-800000000 {
+		opp-microvolt = <812500 812500 875000>;
+	};
+
+	opp-900000000 {
+		opp-microvolt = <875000 875000 875000>;
+	};
+};
