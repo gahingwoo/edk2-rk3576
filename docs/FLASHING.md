@@ -43,7 +43,9 @@ it first.
 
 ### ROCK 4D
 
-Hold MaskROM while powering on, connect USB-C, then:
+The ROCK 4D's USB-C port only supplies power (its data pins are not
+connected). Connect a USB-A to USB-A cable from the board's OTG USB-A port to
+the computer, hold MaskROM while plugging in the power supply, then:
 
 ```bash
 rkdeveloptool db rk3576_spl_loader.bin
