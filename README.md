@@ -55,19 +55,24 @@ to Simplified Chinese on the front page.
 HWiNFO on the TaishanPi 3M under Windows: eight cores, 3838 MB, the board and
 firmware names from SMBIOS, the Mali-G52.
 
-Screenshots of the firmware itself: press Ctrl+Alt+F12 on a keyboard, or F12
-on the serial console, while a FAT formatted USB stick is plugged in. The
+Screenshots of the firmware itself: press Ctrl+Alt+F12 on a keyboard, F12
+on the serial console, or the camera key of the on-screen keyboard. The
 picture is saved as `\uefi-screenshots\YYYYMMDD-HHMMSS.png` (`shot-NNNN.png` when
-the clock is not set) on the stick, else on an SD card, else on the ESP. A
-green square flashes in the top left corner when it is saved, yellow when
-there is nowhere to write, red when it failed; the serial log has the path.
+the clock is not set) on a FAT formatted medium. "Save Screenshots To" in
+the platform setup picks where: Automatic (a USB stick first, then an SD
+card, then the ESP), or only one of them. A green square flashes in the top
+left corner when it is saved, yellow when there is nowhere to write, red
+when it failed; the serial log has the path.
 
 To report a problem, save a debug report: Device Manager > Debug Report, or
 Ctrl+Alt+F11 (F11 on the serial console). It writes `\uefi-debug\YYYYMMDD-HHMMSS\`
 to the same place: the firmware log of this boot, a summary (firmware,
 board, boot options, display, PCI, USB and storage devices, memory map), the
 ACPI tables, the device tree, and from Device Manager a screenshot of every
-setup page.
+setup page. While it walks the pages, "Collecting debug report, please do
+not touch anything..." stands in the top left corner. On the TaishanPi 3M a
+full report from Device Manager saved 64 of the 65 setup pages to a USB
+stick (the 65th is the Debug Report page itself, open underneath).
 
 ## Boards
 
@@ -80,8 +85,8 @@ setup page.
 | NVMe | yes | yes | not tried (mini-PCIe slot) |
 | USB | yes | yes; USB-C is USB 2.0 in UEFI and Windows | four USB-A ports; USB-C unused |
 | Ethernet | yes | yes, in UEFI, Linux and Windows | yes, in UEFI and Windows; not checked in Linux |
-| Linux through UEFI | Fedora from NVMe | Fedora from NVMe | boots from a USB stick, [with limits](#linux-on-the-taishanpi-3m) |
-| Windows 11 23H2 | not tried | boots to the desktop | boots to the desktop, GPU driver available |
+| Linux through UEFI | Fedora from NVMe | Fedora from NVMe | Armbian edge from the eMMC: DSI screen, touch, headphones, backlight; [details and limits](#linux-on-the-taishanpi-3m) |
+| Windows 11 23H2 | not tried | boots to the desktop | boots to the desktop: GPU driver, touch, landscape; no sound yet |
 
 Serial console: 1500000 8N1.
 
@@ -96,10 +101,13 @@ menus over HDMI, on the CM5-IO. The ROCK 4D has not run them yet.
 (from a serial terminal too), puts the firmware back to how a freshly
 flashed board starts: it erases the whole UEFI variable store, so every
 setup setting, the language, the boot options and boot order, the timeout
-and any Secure Boot keys, after asking. The board restarts, the store is
-erased before anything reads it, and the firmware sets itself up as on its
-first boot. Nothing outside the variable store is touched. This has not
-been run on a board yet.
+and any Secure Boot keys. It asks first, with No selected. The board
+restarts, the store is erased before anything reads it, and
+the firmware sets itself up as on its first boot. Nothing outside the
+variable store is touched. Run on the TaishanPi 3M: the settings and boot
+options came back as on a new board, and the next boot did not erase
+anything again. Boot options added by hand (an OS, a second loader) are
+gone afterwards; `bcfg boot add` in the UEFI Shell puts them back.
 
 ### LCKFB TaishanPi 3M
 
@@ -130,45 +138,64 @@ with the power off.
   every board as soon as a USB mouse is plugged in, with a mouse cursor:
   the wheel is Up and Down, a left click Enter and a right click Esc
   anywhere off the keyboard. Not run on a board yet.
-- Windows shows its picture on the screen in portrait. Touch does not work
-  in Windows yet.
+- Windows shows its picture on the screen. With
+  [wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52) it can be
+  turned to landscape in Settings, and touch works with the GT9271 driver
+  from [woa-rk3576](https://github.com/gahingwoo/woa-rk3576) (ten points).
+  "Screen Brightness (%)" on the display page sets the backlight from 10 to
+  100%; Windows gets a brightness slider of its own from wddm-mali-g52's
+  `dsi-brightness` branch, which is not merged yet.
 - "Shut Down" on the front page, `reset -s` in the UEFI Shell and a shutdown
   from Windows power the board off. The firmware switches the RK806 PMIC
   off over I2C1 itself, and arms it for the PSCI call Windows makes.
 
 #### Linux on the TaishanPi 3M
 
-A Linux system starts through this firmware. Tried once, with one image: an
-Ubuntu root filesystem with Armbian's 7.3 kernel, written to a USB stick and
-started from the boot manager. It ran up to its network services. The kernel
-found the eMMC, the SD card, the USB-A ports, Ethernet, the WiFi module and
-the EC20 modem.
+Run on one board, with Armbian edge (Linux 7.3.4, GNOME) installed in a 6 GB
+partition of the eMMC next to Windows and started through GRUB from the
+boot manager. The device tree is the firmware's own: besides the mainline
+board file it describes the ES8388 headphone codec, the GT9271 touchscreen,
+the PWM backlight, the DSI screen (only when it is attached), the mini-PCIe
+power for an EC20 modem and the GPU (disabled for now, see below). Nothing
+has to be put on the ESP. The screen works two ways, chosen by "Force UEFI
+GOP Display" on the ACPI / Device Tree page:
 
-The firmware hands over the mainline Linux 7.3 device tree for this board,
-so the kernel has to be about that new. The limits:
+- **Off: Linux drives the screen.** The firmware stops its own picture at
+  ExitBootServices so the kernel's VOP2 and DSI drivers can take over, and
+  the screen shows the GNOME login. It needs a kernel with a driver for the
+  panel (Armbian's rocknix generic DSI driver; mainline has none yet). GNOME
+  turns it to landscape from the panel's rotation and turns touch with it.
+  The screen stays dark from power on until that driver starts.
+- **On: Linux keeps the firmware's picture** through simpledrm or efifb: a
+  fixed 800x1280 portrait mode drawn on the CPU. GNOME cannot tie the
+  touchscreen to that output, so turning it to landscape needs a matching
+  `LIBINPUT_CALIBRATION_MATRIX` udev rule for the touchscreen
+  (`0 -1 1 1 0 0` with the output rotated `left`). The kernel's own display
+  drivers are switched off in this mode, so HDMI and HDMI audio do not work
+  in Linux.
 
-- The DSI screen. Mainline Linux has no driver for this panel, so by default
-  Linux shows nothing on it. Turn on "Force UEFI GOP Display" (ACPI / Device
-  Tree page, visible when the device tree is handed over) and the kernel
-  keeps the firmware's picture through simpledrm or efifb. That is a fixed
-  800x1280 mode in portrait, drawn on the CPU, with the backlight at one
-  brightness. While the option is on, the kernel's own display drivers are
-  switched off, so HDMI does not work in Linux, and neither does HDMI audio.
-- A system that brings its own device tree with a panel driver, as Armbian
-  does, can use it instead: with "Support DTB override & overlays" on, the
-  firmware loads `\dtb\rockchip\rk3576-lckfb-tspi-3m.dtb` and
-  `\dtb\overlays\*.dtbo` from the partition it boots. Seen loading such a
-  tree from a USB stick, with the firmware's fixups (force GOP among them)
-  applied on top. A tree without `regulator-always-on` on the USB-A VBUS
-  regulators lost that stick under Linux; firmware built from `main` after
-  0.4.1 adds it (not yet run with DTB override on).
-- Touch. The controller is in the device tree the firmware hands over. It
-  did not show up in that kernel's log, and nobody has looked further.
-- HDMI in Linux with the option off has not been tried on this board. It
+Checked on that install with the firmware's device tree: the headphones play
+(through ALSA), touch, the backlight from `/sys/class/backlight` (it needs
+the RK3576 PWM driver Armbian carries; mainline has none yet), the USB-A
+ports, Ethernet and the EC20. The limits:
+
+- The GPU is disabled in the device tree. Enabled, panfrost probes and then
+  the kernel panics with an SError when a GPU job times out. Not understood
+  yet; the leading suspect is the GPU clock under the open-source TF-A this
+  firmware ships.
+- Armbian's own board support does not expect UEFI yet. Its screen service
+  writes a U-Boot overlay setting and restarts, which under UEFI is a loop;
+  mask `lckfb-tspi-3m-screen.service`. Its ALSA UCM profile is named after
+  the sound card's long name, and under UEFI the kernel names the cards
+  after SMBIOS (`LCKFB-TaishanPi3M-0`) instead of `rockchip-es8388`, so
+  PipeWire does not find it. With the profile linked under the new name the
+  card is set up, yet GNOME's output is still silent and the microphone
+  records silence. Both are being looked at.
+- HDMI in Linux with force GOP off has not been tried on this board. It
   works that way on the other two.
 - The USB-C port is not set up by the firmware.
-- Installing to the eMMC has not been tried. Windows shares it in the
-  layout this firmware uses, and an installer will not know that.
+- An installer will not know that Windows shares the eMMC. The Armbian
+  install above was written by hand into a partition Windows made room for.
 
 The TaishanPi 3M used for this work was sponsored by JLC (嘉立创).
 
@@ -212,7 +239,12 @@ driver, built by that repository's CI and without a release, and has run on
 the TaishanPi 3M only.
 
 Not working under Windows on either board: audio, WiFi and Bluetooth. The
-TaishanPi 3M has no RTC driver, so the clock is wrong until it syncs.
+TaishanPi 3M's audio drivers load, but its SAI never starts sending; a fix
+is in progress in woa-rk3576. The board's RTC chip holds no valid time, so
+the clock is wrong after every boot until Windows syncs it; set
+`HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation\RealTimeIsUniversal`
+to 1 so Windows reads the firmware's clock as UTC. A wrong clock also makes
+test-signed drivers look "not yet valid" to pnputil.
 
 ## Known issues
 
@@ -236,6 +268,9 @@ TaishanPi 3M has no RTC driver, so the clock is wrong until it syncs.
   [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
 - The ComboPHY and PCIe device-tree fixups look for `/pcie@…` at the root,
   where mainline has `/soc/`, so they do nothing. NVMe works without them.
+- The TaishanPi 3M's RTC (HYM8563) holds no valid time, so the firmware's
+  clock, and the names of screenshots and debug reports, are wrong until an
+  OS sets it. Linux logs `rtc-hym8563: no valid clock/calendar values`.
 
 ## Build
 
