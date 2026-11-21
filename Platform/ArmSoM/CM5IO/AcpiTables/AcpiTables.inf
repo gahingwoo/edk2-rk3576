@@ -36,6 +36,7 @@
 
 [Sources]
   Dsdt.asl
+  Fan.asl
   $(RK_COMMON_ACPI_DIR)/Madt.aslc
   $(RK_COMMON_ACPI_DIR)/Fadt.aslc
   $(RK_COMMON_ACPI_DIR)/Gtdt.aslc

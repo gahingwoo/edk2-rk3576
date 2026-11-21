@@ -214,6 +214,20 @@
   # driver had no over-temperature protection at all before this.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
+  # The carrier fan on CN32 (PWM2 ch6, GPIO2_D6; PwmFanIoSetup in this
+  # board's RockchipPlatformLib.c).  100% with the output inverted holds the
+  # pin low, the level it had before the firmware touched it, so the fan does
+  # whatever it always did unless ACPI fan control is turned on.  20 kHz, the
+  # vendor device tree's period.
+  gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
+  gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|50000
+
+  # Fan control by ACPI thermal zone (AcpiTables/Fan.asl): the setup option
+  # exists on this board, and is off until the fan's polarity and its
+  # behaviour at partial duty have been seen on the board.
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
+
   # Default display mode.
   #
   # BRING-UP OVERRIDE, not a considered default: 0x0F is 1920x1080@60, forced
