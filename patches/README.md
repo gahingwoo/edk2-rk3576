@@ -281,3 +281,11 @@ Option", "Add Driver Option") had no zh-Hans strings, so with the menus in
 Chinese its title and its "new file" / "new folder" entries stayed English.
 Every string gets a zh-Hans entry, in the same \wide ... \narrow form as
 0006 and 0007. The file keeps its CRLF line endings.
+
+### `0019-DisplayEngine-warning-popups-in-red.patch`
+
+Applies on top of 0013 and 0018. Every HII popup was drawn in the one popup
+colour whatever its style. Warning and error popups are now white on red, so
+a question that cannot be undone, such as Reset All Settings, stands out; an
+informational popup keeps the normal colour. The highlighted button keeps
+the highlight colour.
