@@ -168,6 +168,12 @@
   gRockchipTokenSpaceGuid.PcdNetworkStackHttpBootEnabledDefault|FALSE|BOOLEAN|0x05000005
 
   #
+  # Setup "Network Time Sync" default (NetworkTimeSyncDxe): 1 sets the clock
+  # from NTP at boot when a NIC has a link, 0 leaves the network alone.
+  #
+  gRockchipTokenSpaceGuid.PcdNetworkTimeSyncDefault|1|UINT8|0x05000010
+
+  #
   # Shared display PCDs — build-time defaults.
   # Moved here verbatim from RK3588.dec (token numbers unchanged) so the
   # SoC-independent display stack no longer has to pull in another SoC's
@@ -246,3 +252,5 @@
   gRK3588TokenSpaceGuid.PcdDisplayRotation|0|UINT16|0x00000807
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode|0|UINT8|0x00000808
   gRK3588TokenSpaceGuid.PcdScreenshotTarget|0|UINT8|0x0000080A
+  # Setup "Network Time Sync": the variable NetworkTimeSync (RK3576Dxe formset)
+  gRockchipTokenSpaceGuid.PcdNetworkTimeSync|1|UINT8|0x05000011

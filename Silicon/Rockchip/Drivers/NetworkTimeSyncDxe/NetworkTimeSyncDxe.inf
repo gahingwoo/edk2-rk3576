@@ -1,0 +1,62 @@
+## @file
+#
+#  Set the firmware clock from the network (SNTP) in the background, once per
+#  boot, when a NIC has a link.  See NetworkTimeSyncDxe.c.
+#
+#  Copyright (c) 2026, gahingwoo <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = NetworkTimeSyncDxe
+  FILE_GUID                      = 6f3e1c52-8d2a-4b7e-9c41-2a5d7e0b9f13
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = NetworkTimeSyncEntryPoint
+
+[Sources]
+  NetworkTimeSyncDxe.c
+  SntpPacket.c
+  SntpPacket.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  NetworkPkg/NetworkPkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  MemoryAllocationLib
+  NetLib
+  PcdLib
+  TimeBaseLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gRockchipEventPlatformBmDevicesConnectedGuid  ## CONSUMES ## Event
+  gEfiEventExitBootServicesGuid                 ## CONSUMES ## Event
+
+[Protocols]
+  gEfiDhcp4ProtocolGuid                         ## SOMETIMES_CONSUMES
+  gEfiDhcp4ServiceBindingProtocolGuid           ## SOMETIMES_CONSUMES
+  gEfiIp4Config2ProtocolGuid                    ## CONSUMES
+  gEfiSimpleNetworkProtocolGuid                 ## CONSUMES
+  gEfiUdp4ProtocolGuid                          ## CONSUMES
+  gEfiUdp4ServiceBindingProtocolGuid            ## CONSUMES
+
+[Pcd]
+  gRockchipTokenSpaceGuid.PcdNetworkTimeSync    ## CONSUMES (setup "Network Time Sync")
+
+[Depex]
+  TRUE
