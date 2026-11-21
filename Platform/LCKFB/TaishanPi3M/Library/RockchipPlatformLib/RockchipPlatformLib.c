@@ -33,6 +33,7 @@
 #include <Library/GpioLib.h>
 #include <Library/PcdLib.h>
 #include <Library/RK806.h>
+#include <Library/Rk3576Fusb302Lib.h>
 #include <Library/Rk3576PwmLib.h>
 #include <Library/TimerLib.h>
 #include <Soc.h>
@@ -414,12 +415,20 @@ UsbPortPowerEnable (
 /*
  * UsbTypeCGetOrientation -- which way round the USB-C plug is.
  *
- * This board's USB-C port (DRD0) has an FUSB302 at 0x22 on I2C2, as the
- * CM5-IO has on I2C0, but nothing here reads it: the port's VBUS switch
- * stays off (see Usb2PhyResume) and XHC0 is not in this board's DSDT, so no
- * OS driver uses the SuperSpeed lanes the answer would set up.  Returning
- * Unknown makes UsbHcd try the unflipped and then the flipped lane mapping,
- * as on the ROCK 4D.
+ * This board's USB-C port (DRD0, both SuperSpeed pairs wired to the USBDP
+ * PHY) has an FUSB302BMPX (U40) at 0x22 on I2C2 (dts:636-673; schematic
+ * nets I2C2_SCL/SDA_M0_CC_RTC, shared with the HYM8563 RTC only), INT on
+ * GPIO0 PB4.  Rk3576Fusb302Lib does the measurement and leaves the chip
+ * reset.  It is called from UsbHcd's ExitBootServices handler, which no
+ * I2cDxe transfer can interleave with; the RTC's runtime accesses come later
+ * and find the controller's clock mux and divider as they were.
+ *
+ * The port's VBUS switch (GPIO0 PB6) stays off whatever the answer: see
+ * Usb2PhyResume.  A PC on this (MaskROM) port shows Rp, which the library
+ * sees in its passive check and answers Unknown without driving Rp itself.
+ *
+ * clk_i2c2 is CRU CLKSEL_CON57 bits 3:2, 3 = xin24m (clk-rk3576.c,
+ * mux_200m_100m_50m_24m_p); I2cIomux (2) opens its gates and pins.
  */
 USB_TYPEC_ORIENTATION
 EFIAPI
@@ -427,7 +436,16 @@ UsbTypeCGetOrientation (
   IN UINT32  Port
   )
 {
-  return UsbTypeCOrientationUnknown;
+  STATIC CONST RK3576_FUSB302_BUS  Bus = {
+    I2C2_BASE, CRU_CLKSEL_CON (57), 2, 3, "TSPI-3M I2C2"
+  };
+
+  if (Port != 0) {
+    return UsbTypeCOrientationUnknown;
+  }
+
+  I2cIomux (2);
+  return Rk3576Fusb302GetOrientation (&Bus);
 }
 
 /*
