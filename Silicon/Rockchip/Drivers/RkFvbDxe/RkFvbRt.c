@@ -3,30 +3,27 @@
  *  Variable writes an OS makes after ExitBootServices, on SD and eMMC.
  *
  *  The store on these media is a DRAM buffer that only the boot-time NV dump
- *  writes back, and DRAM does not come through a reset on RK3576: TPL
- *  retrains it and it reads back as zeros (measured on the TaishanPi 3M with
- *  the canary grid in RkFvbDxe.c).  So two other ways out:
+ *  writes back.  Nothing on RK3576 that firmware can reach keeps a value
+ *  through the reset TF-A makes for SYSTEM_RESET: DRAM reads back as zeros
+ *  (canary grid in RkFvbDxe.c), and the PMU1 GRF OS registers are cleared
+ *  too, whatever the TRM says (Shell mm + reset on the TaishanPi 3M).  So
+ *  the medium is the only place, and the one moment the firmware may drive
+ *  it is the ResetSystem() an OS makes after it stopped using it.
  *
- *  1. BootNext through a PMU1 GRF OS register.  The register is only cleared
- *     by NPOR, so it survives the CRU global reset TF-A uses for
- *     SYSTEM_RESET.  SetVariable("BootNext") from the OS leaves a tagged copy
- *     there, and the next boot puts BootNext back before BDS runs.  That is
- *     what "reboot into the other OS" needs (bcdedit bootsequence,
- *     efibootmgr -n).
- *
- *  2. On eMMC, an optional write of the store to the medium from the
- *     ResetSystem() an OS makes, by a small polled driver for the SDHCI that
- *     resets the controller and the card and starts from CMD0, since the OS
- *     may have put the card to sleep or sent it a power-off notification.
- *     Only sectors that changed are written, highest first, each one read
- *     back, and only if every change is one flash could make (bits going
- *     from 1 to 0).  That is all the variable driver does at runtime: it
- *     appends at the end of the log and clears state bits further down, it
- *     never reclaims.  Writing the appended sectors before the state bits
- *     means a power cut in the middle leaves either the old or the new value
- *     of a variable, never neither, and the FV and variable store headers,
- *     which a runtime write never touches, are never rewritten.  Off unless
- *     the "Save OS Variable Changes to eMMC" setup option is on.
+ *  On eMMC, optionally, a small polled driver for the SDHCI resets the
+ *  controller and the card there and starts from CMD0, since the OS may
+ *  have put the card to sleep or sent it a power-off notification.  Only
+ *  sectors that changed are written, highest first, each one read back, and
+ *  only if every change is one flash could make (bits going from 1 to 0).
+ *  That is all the variable driver does at runtime: it appends at the end
+ *  of the log and clears state bits further down, it never reclaims.
+ *  Writing the appended sectors before the state bits means a power cut in
+ *  the middle leaves either the old or the new value of a variable, never
+ *  neither, and the FV and variable store headers, which a runtime write
+ *  never touches, are never rewritten.  The last sector of the slot (end of
+ *  the FTW spare area) carries a marker of what happened, read back on the
+ *  next boot.  Off unless the "Save OS Variable Changes to eMMC" setup
+ *  option is on.
  *
  *  Everything reached after ExitBootServices follows the runtime rules: no
  *  boot services, no DEBUG(), only converted pointers.
@@ -59,8 +56,7 @@
 // RK3576 registers (TRM V1.2 Part 1).
 //
 #define RT_PMU1_GRF_BASE   0x26026000ULL
-#define RT_PMU1_GRF_SIZE   SIZE_4KB
-#define RT_PMU1_OS_REG(n)  (0x200 + (n) * 4)   // "with npor reset"
+#define RT_PMU1_OS_REG(n)  (0x200 + (n) * 4)   // printed at boot, not used: the reset clears them
 
 #define RT_CRU_BASE        0x27200000ULL
 #define RT_CRU_SIZE        SIZE_64KB
@@ -77,19 +73,18 @@
 #define RT_SDHCI_SIZE      SIZE_64KB
 
 //
-// Which OS registers.  PMU1 GRF OS_REG0 is the BootROM request (TF-A), 2..5
-// the DRAM description the SPL/ddrbin leave for TF-A, U-Boot, Linux and
-// SdramLib, 6 the DRAM dynamic info (vendor rockchip-dfi).  Nothing in TF-A,
-// U-Boot, mainline or vendor Linux, or this firmware uses 14 or 15.  The
-// boot log prints all sixteen so a board can confirm it.
+// The marker the commit leaves in the last sector of the nvdata slot.
 //
-#define RT_OS_REG_STATUS    14
-#define RT_OS_REG_BOOTNEXT  15
+#define RT_EMMC_MARKER_SIGNATURE  SIGNATURE_64 ('R', 'K', 'F', 'V', 'B', 'M', 'K', '1')
 
-#define RT_BOOTNEXT_TAG     0xB0070000U   // | Boot#### option number
-#define RT_BOOTNEXT_MASK    0xFFFF0000U
-#define RT_STATUS_TAG       0xE3C00000U   // | step << 8 | detail
-#define RT_STATUS_MASK      0xFFF00000U
+typedef struct {
+  UINT64    Signature;
+  UINT32    Calls;       // ResetSystem() calls after ExitBootServices
+  UINT32    Step;        // RT_ST_*
+  UINT32    Detail;      // sectors written, or the sector a step failed at
+  UINT32    ResetType;   // EFI_RESET_TYPE the OS asked for
+  UINT32    Crc;         // CRC32 of the fields above
+} RT_EMMC_MARKER;
 
 #define RT_ST_PD_OFF          0x01
 #define RT_ST_NOT_MONOTONIC   0x02
@@ -165,7 +160,6 @@
 //
 // State.  Pointers are converted at SetVirtualAddressMap.
 //
-STATIC UINTN             mRtPmu1Grf;
 STATIC UINTN             mRtCru;
 STATIC UINTN             mRtPmu;
 STATIC UINTN             mRtSdhci;
@@ -176,7 +170,8 @@ STATIC BOOLEAN           mRtEmmcEnabled;
 STATIC BOOLEAN           mRtDirty;
 STATIC BOOLEAN           mRtCommitting;
 STATIC BOOLEAN           mRtHighCapacity;
-STATIC EFI_SET_VARIABLE  mRtOrigSetVariable;
+STATIC UINT32            mRtCalls;        // ResetSystem() calls after ExitBootServices
+STATIC UINT32            mRtResetType;
 STATIC EFI_RESET_SYSTEM  mRtOrigResetSystem;
 STATIC UINT32            mRtSector[128];  // one 512 byte block
 
@@ -223,28 +218,6 @@ RkFvbRtRegisterMmio (
   }
 
   return Status;
-}
-
-STATIC
-VOID
-RkFvbRtOsRegWrite (
-  IN UINTN   Reg,
-  IN UINT32  Value
-  )
-{
-  if (mRtPmu1Grf != 0) {
-    MmioWrite32 (mRtPmu1Grf + RT_PMU1_OS_REG (Reg), Value);
-  }
-}
-
-STATIC
-VOID
-RkFvbRtStatus (
-  IN UINT32  Step,
-  IN UINT32  Detail
-  )
-{
-  RkFvbRtOsRegWrite (RT_OS_REG_STATUS, RT_STATUS_TAG | ((Step & 0xFF) << 8) | (Detail & 0xFF));
 }
 
 // ---------------------------------------------------------------------------
@@ -612,6 +585,36 @@ RtWriteSector (
 }
 
 /**
+  Leave the marker: the last sector of the slot, which is the end of the FTW
+  spare area.  Nothing reads the spare unless an FTW write was interrupted,
+  so the sector is free; the next boot reads the marker from the store the
+  SPL loaded and erases it there (RkFvbRtInit).  It is the only record of
+  what ResetSystem() did that survives the reset: DRAM and the PMU1 GRF
+  OS registers do not.  Only after a card init that worked.
+**/
+STATIC
+VOID
+RtWriteMarker (
+  IN UINT32  Step,
+  IN UINT32  Detail
+  )
+{
+  RT_EMMC_MARKER  *Marker;
+  UINT8           Sector[512];
+
+  SetMem (Sector, sizeof (Sector), 0xFF);
+  Marker            = (RT_EMMC_MARKER *)Sector;
+  Marker->Signature = RT_EMMC_MARKER_SIGNATURE;
+  Marker->Calls     = mRtCalls;
+  Marker->Step      = Step;
+  Marker->Detail    = Detail;
+  Marker->ResetType = mRtResetType;
+  Marker->Crc       = CalculateCrc32 (Marker, OFFSET_OF (RT_EMMC_MARKER, Crc));
+
+  RtWriteSector (mRtEmmcLba + mRtDev->FvbSize / 512 - 1, Sector);
+}
+
+/**
   Write the sectors of the store that differ from the medium.  Called from
   ResetSystem() after ExitBootServices.
 **/
@@ -627,14 +630,15 @@ RkFvbRtEmmcCommit (
   UINTN   Sectors;
   UINTN   Index;
   UINTN   Byte;
-  UINTN   Changed;
   UINTN   Written;
+  UINT32  Refused;
+  UINT32  RefusedAt;
   UINT32  Step;
 
   Store   = (UINT8 *)mRtDev->RegionBaseAddress;
   Size    = mRtDev->FvbSize;
   VarSize = FixedPcdGet32 (PcdFlashNvStorageVariableSize);
-  Sectors = Size / 512;
+  Sectors = Size / 512 - 1;     // the last one holds the marker
 
   //
   // Only changes the variable driver makes at runtime: inside the variable
@@ -642,45 +646,50 @@ RkFvbRtEmmcCommit (
   // between the last boot-time dump and ExitBootServices) is not safe to
   // write in place and stays unwritten.
   //
-  Changed = 0;
-  for (Index = 0; Index < Sectors; Index++) {
+  Refused   = 0;
+  RefusedAt = 0;
+  for (Index = 0; (Index < Sectors) && (Refused == 0); Index++) {
     if (CompareMem (Store + Index * 512, mRtShadow + Index * 512, 512) == 0) {
       continue;
     }
 
-    Changed++;
     if ((Index + 1) * 512 > VarSize) {
-      RkFvbRtStatus (RT_ST_OUTSIDE_VARS, (UINT32)Index);
-      return;
+      Refused   = RT_ST_OUTSIDE_VARS;
+      RefusedAt = (UINT32)Index;
+      break;
     }
 
     for (Byte = Index * 512; Byte < (Index + 1) * 512; Byte++) {
       if ((Store[Byte] & ~mRtShadow[Byte]) != 0) {
-        RkFvbRtStatus (RT_ST_NOT_MONOTONIC, (UINT32)Index);
-        return;
+        Refused   = RT_ST_NOT_MONOTONIC;
+        RefusedAt = (UINT32)Index;
+        break;
       }
     }
-  }
-
-  if (Changed == 0) {
-    RkFvbRtStatus (RT_ST_NOTHING, 0);
-    return;
   }
 
   if (((MmioRead32 (mRtPmu + RT_PMU_REPAIR_ST) & RT_PD_NVM_ON) == 0) ||
       ((MmioRead32 (mRtPmu + RT_PMU_IDLE_ST) & RT_PD_NVM_IDLE) != 0))
   {
     // Touching the controller with its power domain off would hang the bus.
-    RkFvbRtStatus (RT_ST_PD_OFF, 0);
     return;
   }
 
-  RkFvbRtStatus (RT_ST_BUSY, 0);
+  //
+  // The card is brought up even with nothing to write, so that the marker
+  // says ResetSystem() ran (diagnostic for the board bring-up).
+  //
   Step = RtEmmcInit ();
   if (Step != 0) {
-    RkFvbRtStatus (Step, 0);
     return;
   }
+
+  if (Refused != 0) {
+    RtWriteMarker (Refused, RefusedAt);
+    return;
+  }
+
+  RtWriteMarker (RT_ST_BUSY, 0);
 
   //
   // Highest sector first: the appended variables before the state bits of
@@ -693,7 +702,7 @@ RkFvbRtEmmcCommit (
     }
 
     if (!RtWriteSector (mRtEmmcLba + Index, Store + Index * 512)) {
-      RkFvbRtStatus (RT_ST_WRITE, (UINT32)Index);
+      RtWriteMarker (RT_ST_WRITE, (UINT32)Index);
       return;
     }
 
@@ -701,43 +710,12 @@ RkFvbRtEmmcCommit (
     Written++;
   }
 
-  RkFvbRtStatus (RT_ST_DONE, (UINT32)MIN (Written, 0xFF));
+  RtWriteMarker ((Written == 0) ? RT_ST_NOTHING : RT_ST_DONE, (UINT32)Written);
 }
 
 // ---------------------------------------------------------------------------
 // Runtime service hooks
 // ---------------------------------------------------------------------------
-
-STATIC
-EFI_STATUS
-EFIAPI
-RkFvbRtSetVariable (
-  IN CHAR16    *VariableName,
-  IN EFI_GUID  *VendorGuid,
-  IN UINT32    Attributes,
-  IN UINTN     DataSize,
-  IN VOID      *Data
-  )
-{
-  EFI_STATUS  Status;
-
-  Status = mRtOrigSetVariable (VariableName, VendorGuid, Attributes, DataSize, Data);
-  if (  !EFI_ERROR (Status)
-     && (VariableName != NULL) && (VendorGuid != NULL)
-     && CompareGuid (VendorGuid, &gEfiGlobalVariableGuid)
-     && (StrCmp (VariableName, EFI_BOOT_NEXT_VARIABLE_NAME) == 0))
-  {
-    if ((DataSize == sizeof (UINT16)) && (Data != NULL) &&
-        ((Attributes & EFI_VARIABLE_NON_VOLATILE) != 0))
-    {
-      RkFvbRtOsRegWrite (RT_OS_REG_BOOTNEXT, RT_BOOTNEXT_TAG | ReadUnaligned16 ((UINT16 *)Data));
-    } else {
-      RkFvbRtOsRegWrite (RT_OS_REG_BOOTNEXT, 0);
-    }
-  }
-
-  return Status;
-}
 
 STATIC
 VOID
@@ -749,7 +727,9 @@ RkFvbRtResetSystem (
   IN VOID            *ResetData OPTIONAL
   )
 {
-  if (mRtEmmcEnabled && (mRtEmmcLba != 0) && mRtDirty && !mRtCommitting) {
+  mRtCalls++;
+  mRtResetType = (UINT32)ResetType;
+  if (mRtEmmcEnabled && (mRtEmmcLba != 0) && !mRtCommitting) {
     mRtCommitting = TRUE;
     RkFvbRtEmmcCommit ();
   }
@@ -761,36 +741,32 @@ RkFvbRtResetSystem (
 // Boot time
 // ---------------------------------------------------------------------------
 
-STATIC
+/**
+  SD/eMMC store, at driver start, before anything changes the buffer the SPL
+  loaded.  Report and erase the marker the last ResetSystem() left, then
+  keep a copy of the store as it is on the medium.
+**/
 VOID
-EFIAPI
-RkFvbRtVariableWriteReady (
-  IN EFI_EVENT  Event,
-  IN VOID       *Context
+RkFvbRtInit (
+  IN FVB_DEVICE  *FlashInstance
   )
 {
-  VOID        *Protocol;
-  UINT32      Regs[16];
-  UINT32      Value;
-  UINT16      Option;
-  UINTN       Index;
-  EFI_STATUS  Status;
+  RT_EMMC_MARKER  *Marker;
+  UINT8           *Last;
+  UINTN           Index;
+  UINT32          Pmu1[16];
 
-  if (EFI_ERROR (gBS->LocateProtocol (&gEfiVariableWriteArchProtocolGuid, NULL, &Protocol))) {
-    return;
-  }
+  mRtDev = FlashInstance;
 
-  gBS->CloseEvent (Event);
-
-  for (Index = 0; Index < ARRAY_SIZE (Regs); Index++) {
-    Regs[Index] = MmioRead32 (RT_PMU1_GRF_BASE + RT_PMU1_OS_REG (Index));
+  for (Index = 0; Index < ARRAY_SIZE (Pmu1); Index++) {
+    Pmu1[Index] = MmioRead32 (RT_PMU1_GRF_BASE + RT_PMU1_OS_REG (Index));
   }
 
   DEBUG ((
     DEBUG_INFO,
     "RkFvbRt: PMU1 GRF OS_REG0-15: %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
-    Regs[0], Regs[1], Regs[2], Regs[3], Regs[4], Regs[5], Regs[6], Regs[7],
-    Regs[8], Regs[9], Regs[10], Regs[11], Regs[12], Regs[13], Regs[14], Regs[15]
+    Pmu1[0], Pmu1[1], Pmu1[2], Pmu1[3], Pmu1[4], Pmu1[5], Pmu1[6], Pmu1[7],
+    Pmu1[8], Pmu1[9], Pmu1[10], Pmu1[11], Pmu1[12], Pmu1[13], Pmu1[14], Pmu1[15]
     ));
   DEBUG ((
     DEBUG_INFO,
@@ -799,68 +775,31 @@ RkFvbRtVariableWriteReady (
     MmioRead32 (0x26024050), MmioRead32 (0x26024054), MmioRead32 (0x26024058), MmioRead32 (0x2602405C)
     ));
 
-  Value = Regs[RT_OS_REG_STATUS];
-  if ((Value & RT_STATUS_MASK) == RT_STATUS_TAG) {
+  Last   = (UINT8 *)FlashInstance->RegionBaseAddress + FlashInstance->FvbSize - 512;
+  Marker = (RT_EMMC_MARKER *)Last;
+  if (  (Marker->Signature == RT_EMMC_MARKER_SIGNATURE)
+     && (Marker->Crc == CalculateCrc32 (Marker, OFFSET_OF (RT_EMMC_MARKER, Crc))))
+  {
     DEBUG ((
       DEBUG_INFO,
-      "RkFvbRt: last reset's eMMC commit: step 0x%02x detail %u (0x0c done, 0x0d nothing to write, 0x01 power domain off, 0x02/0x03 not an in-place change, 0x04-0x09 controller or card bring-up, 0x0a write/verify failed, 0x0e hung)\n",
-      (Value >> 8) & 0xFF,
-      Value & 0xFF
+      "RkFvbRt: the last OS called ResetSystem() (call %u, reset type %u); eMMC commit step 0x%02x, detail %u"
+      " (0x0c written, 0x0d nothing to write, 0x02/0x03 refused: not an in-place change at sector detail, 0x0a write or verify failed at sector detail, 0x0e stopped midway)\n",
+      Marker->Calls,
+      Marker->ResetType,
+      Marker->Step,
+      Marker->Detail
       ));
-    MmioWrite32 (RT_PMU1_GRF_BASE + RT_PMU1_OS_REG (RT_OS_REG_STATUS), 0);
+    // Back to erased, here and in what the next dump writes.
+    SetMem (Last, 512, 0xFF);
+  } else {
+    DEBUG ((DEBUG_INFO, "RkFvbRt: no eMMC commit marker from the last reset\n"));
   }
-
-  Value = Regs[RT_OS_REG_BOOTNEXT];
-  if ((Value & RT_BOOTNEXT_MASK) == RT_BOOTNEXT_TAG) {
-    Option = (UINT16)(Value & 0xFFFF);
-    MmioWrite32 (RT_PMU1_GRF_BASE + RT_PMU1_OS_REG (RT_OS_REG_BOOTNEXT), 0);
-    Status = gRT->SetVariable (
-                    EFI_BOOT_NEXT_VARIABLE_NAME,
-                    &gEfiGlobalVariableGuid,
-                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                    sizeof (Option),
-                    &Option
-                    );
-    DEBUG ((DEBUG_INFO, "RkFvbRt: BootNext Boot%04x set by the OS last boot, restored: %r\n", Option, Status));
-  } else if (Value != 0) {
-    DEBUG ((DEBUG_WARN, "RkFvbRt: OS_REG%u holds 0x%08x, not ours; left alone\n", RT_OS_REG_BOOTNEXT, Value));
-  }
-}
-
-/**
-  SD/eMMC store, at driver start.  Map the OS register for runtime and put
-  BootNext back once variables can be written.
-**/
-VOID
-RkFvbRtInit (
-  IN FVB_DEVICE  *FlashInstance
-  )
-{
-  EFI_EVENT  Event;
-  VOID       *Registration;
-
-  mRtDev = FlashInstance;
 
   //
-  // The store as it is on the medium, so that the runtime commit writes
-  // only what changed.  The SPL loaded it unchanged into the buffer.
+  // The store as it is on the medium (but for the marker sector, which the
+  // commit never compares), so that the commit writes only what changed.
   //
   mRtShadow = AllocateRuntimeCopyPool (FlashInstance->FvbSize, (VOID *)FlashInstance->RegionBaseAddress);
-
-  if (!EFI_ERROR (RkFvbRtRegisterMmio (RT_PMU1_GRF_BASE, RT_PMU1_GRF_SIZE))) {
-    mRtPmu1Grf = (UINTN)RT_PMU1_GRF_BASE;
-  }
-
-  Event = EfiCreateProtocolNotifyEvent (
-            &gEfiVariableWriteArchProtocolGuid,
-            TPL_CALLBACK,
-            RkFvbRtVariableWriteReady,
-            NULL,
-            &Registration
-            );
-  if (Event == NULL) {
-    DEBUG ((DEBUG_ERROR, "RkFvbRt: cannot wait for variable writes; BootNext from the OS will not be restored\n"));
-  }
 }
 
 /**
@@ -901,8 +840,7 @@ RkFvbRtSetEmmcTarget (
 
   if (  EFI_ERROR (RkFvbRtRegisterMmio (FixedPcdGet32 (PcdDwcSdhciBaseAddress), RT_SDHCI_SIZE))
      || EFI_ERROR (RkFvbRtRegisterMmio (RT_CRU_BASE, RT_CRU_SIZE))
-     || EFI_ERROR (RkFvbRtRegisterMmio (RT_PMU_BASE, RT_PMU_SIZE))
-     || (mRtPmu1Grf == 0))
+     || EFI_ERROR (RkFvbRtRegisterMmio (RT_PMU_BASE, RT_PMU_SIZE)))
   {
     DEBUG ((DEBUG_ERROR, "RkFvbRt: eMMC registers not mapped for runtime; OS variable changes will not be saved\n"));
     return;
@@ -925,24 +863,20 @@ RkFvbRtMarkDirty (
 }
 
 /**
-  ExitBootServices: hook SetVariable (BootNext) and ResetSystem (eMMC).
+  ExitBootServices: hook ResetSystem (eMMC commit).
 **/
 VOID
 RkFvbRtExitBootServices (
   VOID
   )
 {
-  if (mRtPmu1Grf != 0) {
-    mRtOrigSetVariable = gRT->SetVariable;
-    gRT->SetVariable   = RkFvbRtSetVariable;
+  if (!mRtEmmcEnabled) {
+    return;
   }
 
-  if (mRtEmmcEnabled) {
-    mRtOrigResetSystem = gRT->ResetSystem;
-    gRT->ResetSystem   = RkFvbRtResetSystem;
-  }
-
-  gRT->Hdr.CRC32 = 0;
+  mRtOrigResetSystem = gRT->ResetSystem;
+  gRT->ResetSystem   = RkFvbRtResetSystem;
+  gRT->Hdr.CRC32     = 0;
   gBS->CalculateCrc32 (gRT, gRT->Hdr.HeaderSize, &gRT->Hdr.CRC32);
 }
 
@@ -951,14 +885,9 @@ RkFvbRtVirtualAddressChange (
   VOID
   )
 {
-  EfiConvertPointer (0x0, (VOID **)&mRtOrigSetVariable);
   EfiConvertPointer (0x0, (VOID **)&mRtOrigResetSystem);
   EfiConvertPointer (0x0, (VOID **)&mRtShadow);
   EfiConvertPointer (0x0, (VOID **)&mRtDev);
-  if (mRtPmu1Grf != 0) {
-    EfiConvertPointer (0x0, (VOID **)&mRtPmu1Grf);
-  }
-
   if (mRtEmmcEnabled) {
     EfiConvertPointer (0x0, (VOID **)&mRtSdhci);
     EfiConvertPointer (0x0, (VOID **)&mRtCru);
