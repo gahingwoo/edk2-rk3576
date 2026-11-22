@@ -79,6 +79,8 @@
 #define NTS_MAX_NICS          4
 #define NTS_ADDRS_PER_NAME    2
 #define NTS_BUFFER_SIZE       512
+#define NTS_MAX_NTP_SENT      32    // NTP requests remembered for late replies
+#define NTS_MAX_DROP_LOGS     16    // "dropped" lines per attempt
 
 #define NS_PER_MS  1000000ULL
 
@@ -117,6 +119,18 @@ typedef struct {
   CONST CHAR8         *Name;      // NtsServerName; for an address, where it came from
 } NTS_SERVER;
 
+//
+// One NTP request sent.  A reply is matched to it by its originate
+// timestamp (our nonce), not by where it comes from or whether its query
+// has already timed out.
+//
+typedef struct {
+  UINT64              Nonce;
+  UINT64              SentNs;
+  EFI_IPv4_ADDRESS    To;
+  CONST CHAR8         *Name;
+} NTS_NTP_SENT;
+
 typedef struct {
   NTS_STATE                    State;
   EFI_HANDLE                   ImageHandle;
@@ -138,6 +152,9 @@ typedef struct {
   UINT32                       DnsAnswers;
   UINT32                       NtpReplies;
   EFI_STATUS                   LastTxStatus; // of the last failed transmit token
+  UINT32                       DropLogs;
+  UINTN                        NtpSentCount;
+  NTS_NTP_SENT                 NtpSent[NTS_MAX_NTP_SENT];
 
   //
   // NICs this driver connected itself, and the drivers that managed each
@@ -864,7 +881,10 @@ NtsTransmit (
 STATIC
 VOID
 NtsSetClock (
-  IN CONST SNTP_REPLY  *Reply
+  IN CONST SNTP_REPLY        *Reply,
+  IN UINT64                  SentNs,
+  IN CONST EFI_IPv4_ADDRESS  *From,
+  IN CONST CHAR8             *Source
   )
 {
   EFI_STATUS  Status;
@@ -875,11 +895,10 @@ NtsSetClock (
   EFI_TIME    New;
   INT64       OldUtc;
   INT64       Offset;
-  CONST CHAR8  *Source;
 
   ArrivedNs = NtsNowNs ();
   Pivot     = NtsBuildYearUnix ();
-  UnixNs    = SntpReplyTimeUnixNs (Reply, ArrivedNs - mNts.QuerySentNs, Pivot);
+  UnixNs    = SntpReplyTimeUnixNs (Reply, ArrivedNs - SentNs, Pivot);
 
   Status = gRT->GetTime (&Old, NULL);
   if (EFI_ERROR (Status)) {
@@ -901,15 +920,13 @@ NtsSetClock (
   New.TimeZone   = EFI_UNSPECIFIED_TIMEZONE;
   New.Daylight   = 0;
 
-  Source = mNts.Servers[mNts.ServerIndex].Name;
-
   if ((New.Year < TIME_BUILD_YEAR) || (New.Year > TIME_BUILD_YEAR + NTS_MAX_YEARS_AFTER_BUILD) ||
       !IsTimeValid (&New))
   {
     DEBUG ((
       DEBUG_INFO,
       "NetworkTimeSync: ignored %d.%d.%d.%d (%a): implausible time %04u-%02u-%02u\n",
-      mNts.QueryTo.Addr[0], mNts.QueryTo.Addr[1], mNts.QueryTo.Addr[2], mNts.QueryTo.Addr[3],
+      From->Addr[0], From->Addr[1], From->Addr[2], From->Addr[3],
       Source, New.Year, New.Month, New.Day
       ));
     return;
@@ -933,12 +950,12 @@ NtsSetClock (
   DEBUG ((
     DEBUG_INFO,
     "NetworkTimeSync: %04u-%02u-%02u %02u:%02u:%02u -> %04u-%02u-%02u %02u:%02u:%02u UTC "
-    "(%ld s) from %d.%d.%d.%d (%a), stratum %u, after %lu ms\n",
+    "(%ld s) from %d.%d.%d.%d (%a), stratum %u, round trip %lu ms, after %lu ms\n",
     Old.Year, Old.Month, Old.Day, Old.Hour, Old.Minute, Old.Second,
     New.Year, New.Month, New.Day, New.Hour, New.Minute, New.Second,
     Offset,
-    mNts.QueryTo.Addr[0], mNts.QueryTo.Addr[1], mNts.QueryTo.Addr[2], mNts.QueryTo.Addr[3],
-    Source, Reply->Stratum, NtsElapsedMs ()
+    From->Addr[0], From->Addr[1], From->Addr[2], From->Addr[3],
+    Source, Reply->Stratum, (ArrivedNs - SentNs) / NS_PER_MS, NtsElapsedMs ()
     ));
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "NetworkTimeSync: SetTime: %r\n", Status));
@@ -1033,6 +1050,37 @@ NtsReplaceName (
   }
 }
 
+/**
+  One line for a datagram that was not used, so a log shows why replies
+  "came in" without counting.  At most NTS_MAX_DROP_LOGS per attempt.
+**/
+STATIC
+VOID
+NtsDropped (
+  IN CONST EFI_IPv4_ADDRESS  *From,
+  IN UINT16                  FromPort,
+  IN UINTN                   Length,
+  IN CONST CHAR8             *Reason,
+  IN UINT64                  Value
+  )
+{
+  if (mNts.DropLogs >= NTS_MAX_DROP_LOGS) {
+    return;
+  }
+
+  mNts.DropLogs++;
+  DEBUG ((
+    DEBUG_INFO,
+    "NetworkTimeSync: dropped %u bytes from %d.%d.%d.%d:%u after %lu ms: %a (0x%lx)\n",
+    (UINT32)Length,
+    From->Addr[0], From->Addr[1], From->Addr[2], From->Addr[3],
+    FromPort,
+    NtsElapsedMs (),
+    Reason,
+    Value
+    ));
+}
+
 STATIC
 VOID
 NtsHandleDatagram (
@@ -1046,20 +1094,30 @@ NtsHandleDatagram (
   SNTP_REPLY     Reply;
   UINT8          Addresses[NTS_ADDRS_PER_NAME * 4];
   UINTN          Count;
+  UINT64         Originate;
+  UINTN          Index;
+  BOOLEAN        Current;
 
-  if (!mNts.QueryOutstanding || (FromPort != mNts.QueryPort) || !EFI_IP4_EQUAL (From, &mNts.QueryTo)) {
-    return;
-  }
+  if (FromPort == DNS_PORT) {
+    if (!mNts.QueryOutstanding || (mNts.QueryPort != DNS_PORT)) {
+      NtsDropped (From, FromPort, Length, "DNS answer with no DNS query outstanding", 0);
+      return;
+    }
 
-  if (mNts.QueryPort == DNS_PORT) {
+    if (!EFI_IP4_EQUAL (From, &mNts.QueryTo)) {
+      NtsDropped (From, FromPort, Length, "DNS answer from a server not asked", 0);
+      return;
+    }
+
     mNts.DnsAnswers++;
     Count = DnsParseReply (Data, Length, mNts.DnsId, Addresses, NTS_ADDRS_PER_NAME);
     DEBUG ((
-      DEBUG_VERBOSE,
-      "NetworkTimeSync: DNS answer for %a: %u address(es), rcode %u\n",
+      DEBUG_INFO,
+      "NetworkTimeSync: DNS answer for %a: %u address(es), rcode %u, after %lu ms\n",
       mNts.Servers[mNts.ServerIndex].Name,
       (UINT32)Count,
-      (Length >= 4) ? (Data[3] & 0x0F) : 0xFF
+      (Length >= 4) ? (Data[3] & 0x0F) : 0xFF,
+      NtsElapsedMs ()
       ));
     if (Count == 0) {
       //
@@ -1069,6 +1127,8 @@ NtsHandleDatagram (
       //
       if ((Length >= 2) && (((UINT16)Data[0] << 8 | Data[1]) == mNts.DnsId)) {
         NtsAdvance (TRUE);
+      } else {
+        NtsDropped (From, FromPort, Length, "DNS answer with an ID not ours", (Length >= 2) ? ((UINT16)Data[0] << 8 | Data[1]) : 0);
       }
 
       return;
@@ -1078,20 +1138,63 @@ NtsHandleDatagram (
     return;
   }
 
-  mNts.NtpReplies++;
-  Status = SntpParseReply (Data, Length, mNts.Nonce, &Reply);
-  DEBUG ((DEBUG_VERBOSE, "NetworkTimeSync: NTP reply of %u bytes: %r\n", (UINT32)Length, Status));
-  if (Status == RETURN_UNSUPPORTED) {
-    return;                       // not an answer to our request
-  }
-
-  if (RETURN_ERROR (Status)) {
-    NtsAdvance (FALSE);           // kiss-o'-death or unsynchronised server
+  if (FromPort != SNTP_PORT) {
+    NtsDropped (From, FromPort, Length, "neither DNS nor NTP source port", FromPort);
     return;
   }
 
-  NtsSetClock (&Reply);
-  if (mNts.State == NtsQuery) {
+  if (Length < SNTP_PACKET_SIZE) {
+    NtsDropped (From, FromPort, Length, "NTP reply too short", Length);
+    return;
+  }
+
+  Originate = 0;
+  for (Index = 24; Index < 32; Index++) {
+    Originate = LShiftU64 (Originate, 8) | Data[Index];
+  }
+
+  for (Index = 0; Index < mNts.NtpSentCount; Index++) {
+    if (mNts.NtpSent[Index].Nonce == Originate) {
+      break;
+    }
+  }
+
+  if (Index == mNts.NtpSentCount) {
+    NtsDropped (From, FromPort, Length, "NTP originate timestamp is none of our requests", Originate);
+    return;
+  }
+
+  mNts.NtpReplies++;
+  Current = mNts.QueryOutstanding && (mNts.QueryPort == SNTP_PORT) && (Originate == mNts.Nonce);
+  Status  = SntpParseReply (Data, Length, Originate, &Reply);
+  if (RETURN_ERROR (Status)) {
+    NtsDropped (
+      From,
+      FromPort,
+      Length,
+      (Status == RETURN_NOT_READY) ? "NTP server unsynchronised or kiss-o'-death (byte0, stratum)"
+                                   : "NTP reply not mode 4 or bad version (byte0, stratum)",
+      ((UINT64)Data[0] << 8) | Data[1]
+      );
+    if (Current) {
+      NtsAdvance (FALSE);
+    }
+
+    return;
+  }
+
+  if (!EFI_IP4_EQUAL (From, &mNts.NtpSent[Index].To)) {
+    DEBUG ((
+      DEBUG_INFO,
+      "NetworkTimeSync: reply from %d.%d.%d.%d to the request sent to %d.%d.%d.%d (the nonce matches; used)\n",
+      From->Addr[0], From->Addr[1], From->Addr[2], From->Addr[3],
+      mNts.NtpSent[Index].To.Addr[0], mNts.NtpSent[Index].To.Addr[1],
+      mNts.NtpSent[Index].To.Addr[2], mNts.NtpSent[Index].To.Addr[3]
+      ));
+  }
+
+  NtsSetClock (&Reply, mNts.NtpSent[Index].SentNs, From, mNts.NtpSent[Index].Name);
+  if ((mNts.State == NtsQuery) && Current) {
     NtsAdvance (FALSE);           // the time was implausible
   }
 }
@@ -1169,6 +1272,13 @@ NtsSendNext (
     mNts.Sent++;
     mNts.QuerySentNs      = NtsNowNs ();
     mNts.QueryOutstanding = TRUE;
+    if ((mNts.QueryPort == SNTP_PORT) && (mNts.NtpSentCount < NTS_MAX_NTP_SENT)) {
+      mNts.NtpSent[mNts.NtpSentCount].Nonce  = mNts.Nonce;
+      mNts.NtpSent[mNts.NtpSentCount].SentNs = mNts.QuerySentNs;
+      CopyMem (&mNts.NtpSent[mNts.NtpSentCount].To, &mNts.QueryTo, sizeof (EFI_IPv4_ADDRESS));
+      mNts.NtpSent[mNts.NtpSentCount].Name = Server->Name;
+      mNts.NtpSentCount++;
+    }
     mNts.Problem          = "no server answered";
     return;
   }
@@ -1237,8 +1347,24 @@ NtsDhcpCallback (
   OUT EFI_DHCP4_PACKET    **NewPacket OPTIONAL
   )
 {
-  if (Dhcp4Event == Dhcp4RcvdOffer) {
-    DEBUG ((DEBUG_INFO, "NetworkTimeSync: DHCP offer after %lu ms, taking it\n", NtsElapsedMs ()));
+  CONST CHAR8  *Name;
+
+  //
+  // Each step with its time, so a slow lease shows where the time went.
+  // Retransmissions do not call back: a REQUEST answered one
+  // RequestTimeout (1 s) after it was sent was a lost first REQUEST.
+  //
+  switch (Dhcp4Event) {
+    case Dhcp4SendDiscover: Name = "DISCOVER sent";             break;
+    case Dhcp4RcvdOffer:    Name = "offer received, taking it"; break;
+    case Dhcp4SendRequest:  Name = "REQUEST sent";              break;
+    case Dhcp4RcvdAck:      Name = "ACK received";              break;
+    case Dhcp4RcvdNak:      Name = "NAK received";              break;
+    default:                Name = NULL;                        break;
+  }
+
+  if (Name != NULL) {
+    DEBUG ((DEBUG_INFO, "NetworkTimeSync: DHCP %a after %lu ms\n", Name, NtsElapsedMs ()));
   }
 
   return EFI_SUCCESS;
