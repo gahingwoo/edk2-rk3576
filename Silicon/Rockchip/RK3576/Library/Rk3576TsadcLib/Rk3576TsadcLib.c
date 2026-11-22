@@ -74,11 +74,22 @@
  *       mainline returns -ERANGE and leaves the register alone ([L]:1046-1048);
  *       here the table's last code (395) is used instead, so the channel
  *       still has a limit.
- *    4. 20 ms later: TSADC_AUTO_STATUS.ht_wram (bit 3, "data is higher than
- *       ht shut temperature") must be 0.  Then the per-channel
- *       TSADC_EOC_HSHUT_PD.ht_shut_pd bits (W1C, [15:0]) are cleared, and
- *       read again 20 ms later; any bit still set means a channel is at or
- *       above its threshold and nothing is armed.
+ *    4. 20 ms later: the per-channel TSADC_EOC_HSHUT_PD.ht_shut_pd bits
+ *       (W1C, [15:0]) of the armed channels are cleared, and read again
+ *       20 ms later; any bit still set means a channel is at or above its
+ *       threshold and nothing is armed.  TSADC_AUTO_STATUS is logged but
+ *       not used to refuse: [R] gives it as ht_wram (bit 3), auto_status
+ *       (bit 2, auto mode running), last_tshut_cru (bit 1, W1C) and
+ *       last_tshut_gpio (bit 0, W1C), and on the TaishanPi 3M it reads
+ *       0x0000000D with all six channels at 48-50 C, every COMP_SHUT of
+ *       the six at 0x3FF or the ~120 C code, and ht_shut_pd 0x00.  So
+ *       ht_wram is set while no channel is anywhere near a threshold.  Why
+ *       is not known: it is one bit for the whole block, [R] marks it RW
+ *       (not RO) like the two W1C history bits below it, and it may be a
+ *       latch rather than a live comparison; its value at entry, before
+ *       sampling starts, is logged so the next boot log can tell.  Mainline
+ *       never reads AUTO_STATUS ([L]).  ht_shut_pd is per channel and
+ *       is the check that counts.
  *    5. TSADC_CRU_EN = the armed channels, with the write mask: what
  *       rk_tsadcv4_tshut_mode writes in TSHUT_MODE_CRU ([L]:1083-1089), for
  *       all channels at once.  Read back and logged.
@@ -151,7 +162,8 @@
 #define TSADC_AUTO_CON              0x004
 #define  TSADC_AUTO_EN              BIT0
 #define TSADC_AUTO_STATUS           0x008
-#define  TSADC_AUTO_STATUS_HT_WRAM  BIT3   /* "data is higher than ht shut temperature" */
+#define  TSADC_AUTO_STATUS_HT_WRAM  BIT3   /* block-wide, see step 4; logged only */
+#define  TSADC_AUTO_STATUS_RUNNING  BIT2   /* auto_status: auto mode in progress */
 #define TSADC_AUTO_SRC              0x00C
 #define TSADC_HT_INT_EN             0x014
 #define TSADC_GPIO_EN               0x018
@@ -604,16 +616,20 @@ Rk3576TsadcArmTshut (
   /* Step 4: nothing at or above a threshold, before and after clearing */
   MicroSecondDelay (TSADC_ARM_SETTLE_US);
   Status  = MmioRead32 (TSADC_REG (TSADC_AUTO_STATUS));
-  Pending = MmioRead32 (TSADC_REG (TSADC_EOC_HSHUT_PD)) & TSADC_ALL_CHANNELS;
-  DEBUG ((DEBUG_INFO, "Rk3576Tsadc: before arming AUTO_STATUS 0x%08x ht_shut_pd 0x%02x\n", Status, Pending));
-  if ((Status & TSADC_AUTO_STATUS_HT_WRAM) != 0) {
-    goto Abort;
-  }
-
+  Pending = MmioRead32 (TSADC_REG (TSADC_EOC_HSHUT_PD)) & Armed;
+  DEBUG ((
+    DEBUG_INFO,
+    "Rk3576Tsadc: before arming AUTO_STATUS 0x%08x (ht_wram %u, auto running %u; not a per-channel flag, not used) ht_shut_pd 0x%02x of armed 0x%02x\n",
+    Status,
+    (Status & TSADC_AUTO_STATUS_HT_WRAM) != 0,
+    (Status & TSADC_AUTO_STATUS_RUNNING) != 0,
+    Pending,
+    Armed
+    ));
   if (Pending != 0) {
     MmioWrite32 (TSADC_REG (TSADC_EOC_HSHUT_PD), Pending);
     MicroSecondDelay (TSADC_ARM_SETTLE_US);
-    Pending = MmioRead32 (TSADC_REG (TSADC_EOC_HSHUT_PD)) & TSADC_ALL_CHANNELS;
+    Pending = MmioRead32 (TSADC_REG (TSADC_EOC_HSHUT_PD)) & Armed;
     if (Pending != 0) {
       goto Abort;
     }
@@ -655,9 +671,9 @@ Abort:
 
   DEBUG ((
     DEBUG_ERROR,
-    "Rk3576Tsadc: a channel is at or above its threshold (AUTO_STATUS 0x%08x ht_shut_pd 0x%02x), TSHUT NOT armed\n",
-    Status,
-    Pending
+    "Rk3576Tsadc: an armed channel is at or above its threshold (ht_shut_pd 0x%02x set again after clearing, AUTO_STATUS 0x%08x), TSHUT NOT armed\n",
+    Pending,
+    Status
     ));
   return EFI_ABORTED;
 }
@@ -716,8 +732,9 @@ Rk3576TsadcInit (
   AutoCon = MmioRead32 (TSADC_REG (TSADC_AUTO_CON));
   DEBUG ((
     DEBUG_INFO,
-    "Rk3576Tsadc: AUTO_CON 0x%08x AUTO_SRC 0x%08x GPIO_EN 0x%08x CRU_EN 0x%08x HT_INT_EN 0x%08x\n",
+    "Rk3576Tsadc: AUTO_CON 0x%08x AUTO_STATUS 0x%08x AUTO_SRC 0x%08x GPIO_EN 0x%08x CRU_EN 0x%08x HT_INT_EN 0x%08x\n",
     AutoCon,
+    MmioRead32 (TSADC_REG (TSADC_AUTO_STATUS)),
     MmioRead32 (TSADC_REG (TSADC_AUTO_SRC)),
     GpioEn,
     CruEn,
