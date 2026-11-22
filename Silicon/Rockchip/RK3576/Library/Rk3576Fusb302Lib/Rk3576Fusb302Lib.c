@@ -37,6 +37,9 @@
  *      cold boot leaves it.  Rp is never presented against a source.
  *      Linux's fusb302 starts with its own software reset either way.
  *
+ *  Rk3576Fusb302Probe also says what the far end was, so a board that owns
+ *  a VBUS switch can decide whether to power the port (TaishanPi 3M).
+ *
  *  Never written: VBUS (the board's own GPIO switch), the PD transmitter and
  *  receiver (CONTROL1..3, FIFOs), the toggle state machine, VCONN, the
  *  interrupt masks.
@@ -258,34 +261,49 @@ Fusb302SoftReset (
   return Ok;
 }
 
-USB_TYPEC_ORIENTATION
+CONST CHAR8 *
 EFIAPI
-Rk3576Fusb302GetOrientation (
-  IN CONST RK3576_FUSB302_BUS  *Bus
+Rk3576Fusb302PartnerName (
+  IN RK3576_FUSB302_PARTNER  Partner
   )
 {
-  USB_TYPEC_ORIENTATION  Result;
-  UINTN                  Base;
-  UINT32                 FieldMask;
-  UINT32                 SavedSel;
-  UINT32                 SavedDiv;
-  UINT8                  Id;
-  UINT8                  Lvl1;
-  UINT8                  Lvl2;
-  BOOLEAN                Ok1;
-  BOOLEAN                Ok2;
-  BOOLEAN                Cc1;
-  BOOLEAN                Cc2;
-  BOOLEAN                Attached;
-  CONST CHAR8            *Why;
+  switch (Partner) {
+    case Rk3576Fusb302NoChip:   return "no FUSB302";
+    case Rk3576Fusb302I2cError: return "i2c error";
+    case Rk3576Fusb302Open:     return "nothing attached";
+    case Rk3576Fusb302Source:   return "source (Rp)";
+    case Rk3576Fusb302Sink:     return "sink (Rd)";
+    case Rk3576Fusb302RdBoth:   return "Rd on both lines";
+    default:                    return "?";
+  }
+}
 
-  Base      = Bus->I2cBase;
-  Result    = UsbTypeCOrientationUnknown;
-  Id        = 0;
-  Cc1       = FALSE;
-  Cc2       = FALSE;
-  Why       = "";
-  FieldMask = 3U << Bus->ClkSelShift;
+VOID
+EFIAPI
+Rk3576Fusb302Probe (
+  IN  CONST RK3576_FUSB302_BUS  *Bus,
+  OUT RK3576_FUSB302_STATE      *State
+  )
+{
+  UINTN    Base;
+  UINT32   FieldMask;
+  UINT32   SavedSel;
+  UINT32   SavedDiv;
+  BOOLEAN  Ok1;
+  BOOLEAN  Ok2;
+  BOOLEAN  Cc1;
+  BOOLEAN  Cc2;
+
+  Base                = Bus->I2cBase;
+  State->Partner      = Rk3576Fusb302NoChip;
+  State->Orientation  = UsbTypeCOrientationUnknown;
+  State->DeviceId     = 0;
+  State->BcLvlCc1     = 0;
+  State->BcLvlCc2     = 0;
+  State->RpPresented  = FALSE;
+  Cc1                 = FALSE;
+  Cc2                 = FALSE;
+  FieldMask           = 3U << Bus->ClkSelShift;
 
   SavedSel = MmioRead32 (Bus->ClkSelReg) & FieldMask;
   SavedDiv = MmioRead32 (Base + RKI2C_CLKDIV);
@@ -297,15 +315,15 @@ Rk3576Fusb302GetOrientation (
   // left armed for the OS.
   MmioWrite32 (Base + RKI2C_IEN, RKI2C_IPD_ALL);
 
-  if (!Fusb302Read (Base, FUSB302_DEVICE_ID, &Id)) {
+  if (!Fusb302Read (Base, FUSB302_DEVICE_ID, &State->DeviceId)) {
     DEBUG ((DEBUG_ERROR, "%a TypeC: no FUSB302 answering at 0x%02x\n", Bus->Name, FUSB302_ADDR));
     goto Restore;
   }
 
+  State->Partner = Rk3576Fusb302I2cError;
   if (!(Fusb302SoftReset (Base) &&
         Fusb302Write (Base, FUSB302_POWER, FUSB302_POWER_ALL)))
   {
-    Why = "setup failed";
     goto Done;
   }
 
@@ -313,22 +331,21 @@ Rk3576Fusb302GetOrientation (
   // Passive: is the other end a source?  Rd stays on both lines, so what
   // the partner sees does not change.
   //
-  Lvl1 = Fusb302SinkBcLvl (Base, FUSB302_SW0_MEAS_CC1, &Ok1);
-  Lvl2 = Fusb302SinkBcLvl (Base, FUSB302_SW0_MEAS_CC2, &Ok2);
+  State->BcLvlCc1 = Fusb302SinkBcLvl (Base, FUSB302_SW0_MEAS_CC1, &Ok1);
+  State->BcLvlCc2 = Fusb302SinkBcLvl (Base, FUSB302_SW0_MEAS_CC2, &Ok2);
   if (!Ok1 || !Ok2) {
-    Why = "i2c error in the passive check";
     goto Done;
   }
 
-  if ((Lvl1 != 0) || (Lvl2 != 0)) {
+  if ((State->BcLvlCc1 != 0) || (State->BcLvlCc2 != 0)) {
     DEBUG ((
       DEBUG_INFO,
       "%a TypeC: far end shows Rp (BC_LVL CC1 %u, CC2 %u): it is a source, not measured as one\n",
       Bus->Name,
-      Lvl1,
-      Lvl2
+      State->BcLvlCc1,
+      State->BcLvlCc2
       ));
-    Why = "partner is a source";
+    State->Partner = Rk3576Fusb302Source;
     goto Done;
   }
 
@@ -345,18 +362,22 @@ Rk3576Fusb302GetOrientation (
     Cc2 = Fusb302CcHasRd (Base, FUSB302_SW0_PU_EN2 | FUSB302_SW0_MEAS_CC2, &Ok2);
   }
 
-  if (Ok1 && Ok2 && (Cc1 != Cc2)) {
-    Result = Cc1 ? UsbTypeCOrientationNormal : UsbTypeCOrientationReverse;
+  if (!Ok1 || !Ok2) {
+    State->Partner = Rk3576Fusb302I2cError;
+  } else if (Cc1 && Cc2) {
+    State->Partner = Rk3576Fusb302RdBoth;
+  } else if (!Cc1 && !Cc2) {
+    State->Partner = Rk3576Fusb302Open;
+  } else {
+    State->Partner     = Rk3576Fusb302Sink;
+    State->Orientation = Cc1 ? UsbTypeCOrientationNormal : UsbTypeCOrientationReverse;
   }
 
-  Why = (!Ok1 || !Ok2) ? "i2c error" :
-        (Cc1 && Cc2) ? "Rd on both lines" :
-        (!Cc1 && !Cc2) ? "nothing attached" : "measured";
   DEBUG ((
     DEBUG_INFO,
     "%a TypeC: FUSB302 id 0x%02x, CC1 %a, CC2 %a\n",
     Bus->Name,
-    Id,
+    State->DeviceId,
     !Ok1 ? "i2c error" : (Cc1 ? "Rd" : "open"),
     !Ok2 ? "i2c error" : (Cc2 ? "Rd" : "open")
     ));
@@ -371,36 +392,39 @@ Done:
   // power), with INT_MASK set.  Linux's fusb302 software-resets the chip in
   // its init (tcpm_init -> fusb302_sw_reset) and starts from defaults.
   //
-  Attached = (Result != UsbTypeCOrientationUnknown);
-  if (!Fusb302SoftReset (Base)) {
+  // A failed final reset keeps what was measured (the lanes still want the
+  // orientation) but presents no Rp, so a board leaves VBUS off.
+  Ok1 = Fusb302SoftReset (Base);
+  if (!Ok1) {
     DEBUG ((DEBUG_ERROR, "%a TypeC: FUSB302 final reset failed\n", Bus->Name));
-    Attached = FALSE;
   }
 
-  if (Attached &&
-      !(Fusb302Write (Base, FUSB302_POWER, FUSB302_POWER_ALL) &&
+  if (Ok1 && (State->Partner == Rk3576Fusb302Sink)) {
+    if (Fusb302Write (Base, FUSB302_POWER, FUSB302_POWER_ALL) &&
         Fusb302Write (
           Base,
           FUSB302_SWITCHES0,
-          (Result == UsbTypeCOrientationNormal) ? FUSB302_SW0_PU_EN1 : FUSB302_SW0_PU_EN2
-          )))
-  {
-    // Rp could not be set: put the chip back to defaults rather than leave
-    // it half-configured.  The orientation itself was measured, keep it.
-    DEBUG ((DEBUG_ERROR, "%a TypeC: could not present Rp, resetting\n", Bus->Name));
-    Fusb302SoftReset (Base);
-    Attached = FALSE;
+          (State->Orientation == UsbTypeCOrientationNormal) ? FUSB302_SW0_PU_EN1 : FUSB302_SW0_PU_EN2
+          ))
+    {
+      State->RpPresented = TRUE;
+    } else {
+      // Rp could not be set: put the chip back to defaults rather than leave
+      // it half-configured.  The orientation itself was measured, keep it.
+      DEBUG ((DEBUG_ERROR, "%a TypeC: could not present Rp, resetting\n", Bus->Name));
+      Fusb302SoftReset (Base);
+    }
   }
 
   DEBUG ((
     DEBUG_INFO,
-    "%a TypeC: orientation %a (%a); FUSB302 left %a\n",
+    "%a TypeC: partner %a, orientation %a; FUSB302 left %a\n",
     Bus->Name,
-    (Result == UsbTypeCOrientationNormal) ? "normal" :
-    (Result == UsbTypeCOrientationReverse) ? "reverse" : "unknown",
-    Why,
-    !Attached ? "reset" :
-    (Result == UsbTypeCOrientationNormal) ? "with Rp on CC1" : "with Rp on CC2"
+    Rk3576Fusb302PartnerName (State->Partner),
+    (State->Orientation == UsbTypeCOrientationNormal) ? "normal" :
+    (State->Orientation == UsbTypeCOrientationReverse) ? "reverse" : "unknown",
+    !State->RpPresented ? "reset (Rd on both lines)" :
+    (State->Orientation == UsbTypeCOrientationNormal) ? "with Rp on CC1" : "with Rp on CC2"
     ));
 
 Restore:
@@ -408,5 +432,16 @@ Restore:
   MmioWrite32 (Base + RKI2C_IPD, RKI2C_IPD_ALL);
   MmioWrite32 (Base + RKI2C_CLKDIV, SavedDiv);
   MmioWrite32 (Bus->ClkSelReg, (FieldMask << 16) | SavedSel);
-  return Result;
+}
+
+USB_TYPEC_ORIENTATION
+EFIAPI
+Rk3576Fusb302GetOrientation (
+  IN CONST RK3576_FUSB302_BUS  *Bus
+  )
+{
+  RK3576_FUSB302_STATE  State;
+
+  Rk3576Fusb302Probe (Bus, &State);
+  return State.Orientation;
 }

@@ -11,7 +11,8 @@
  *
  *  Pins that differ from the CM5-IO:
  *    - USB-A 5V:      GPIO2 PB5 (USB 2.0 ports) and GPIO0 PC3 (USB 3.0 port)
- *    - USB-C VBUS:    GPIO0 PB6, left alone here (see Usb2PhyResume)
+ *    - USB-C VBUS:    GPIO0 PB6, on only while the FUSB302 sees a sink
+ *                     (see Tspi3mTypeCVbusSet)
  *    - SD power:      none.  GPIO0 PB6 is the USB-C VBUS switch on this
  *                     board, not SDMMC0_PWREN, and must not be muxed to it.
  *    - mini-PCIe 3V3: GPIO1 PD5 active-high
@@ -392,12 +393,119 @@ I2cIomux (
 }
 
 /*
- * UsbPortPowerEnable -- 5V to the USB-A ports.
+ * USB-C VBUS: vcc_5v0_typec (dts:90-100), gpio = <&gpio0 RK_PB6
+ * GPIO_ACTIVE_HIGH>, pinctrl typec_vbus_en (dts:768-770).
+ *
+ * Schematic (LCKFB TaishanPi 3M v1.4, USB-C page): SoC ball Y24 GPIO0_B6_d,
+ * net TYPEC_VBUS_EN -> U39 SY6280AAC pin 4 (EN, active high), pulled down
+ * by R79 10k (and C505).  U39 IN (pin 5) is VCC5V0_SYS, OUT (pin 1) is
+ * VBUS5V0_TYPEC: USB2 (the USB-C receptacle) A4/A9/B4/B9, FUSB302 U40 VBUS
+ * (pin 2), TVS U28.  R78 (0 ohm, VCC5V0_SYS to VBUS5V0_TYPEC) is not
+ * fitted.  The board is powered from DCIN_5V0, never from this port.
+ *
+ * Under Linux, tcpm turns this switch on after the FUSB302 has seen a sink.
+ * Windows has no driver for the FUSB302, so the firmware decides, from the
+ * CC lines, at boot and again at ExitBootServices, and the second answer is
+ * what Windows keeps.  The rule is the Type-C source rule: VBUS on only
+ * while a sink's Rd is on exactly one CC line and the FUSB302 presents Rp
+ * on it.  Never against Rp (a PC on this MaskROM port, a charger, a C-to-A
+ * cable from a PC), never with the FUSB302 reset (Rd on both lines, which
+ * a source answers by turning its own VBUS on), never on an I2C error.
+ */
+#define TSPI_TYPEC_VBUS_GROUP  0
+#define TSPI_TYPEC_VBUS_PIN    GPIO_PIN_PB6
+
+STATIC CONST RK3576_FUSB302_BUS  mTspiFusb302Bus = {
+  // clk_i2c2 is CRU CLKSEL_CON57 bits 3:2, 3 = xin24m (clk-rk3576.c,
+  // mux_200m_100m_50m_24m_p); I2cIomux (2) opens its gates and pins.
+  I2C2_BASE, CRU_CLKSEL_CON (57), 2, 3, "TSPI-3M I2C2"
+};
+
+STATIC
+VOID
+Tspi3mTypeCVbusSet (
+  IN BOOLEAN  On
+  )
+{
+  // GPIO function: the SPL may have left SDMMC0_PWREN on this pad.  Value
+  // first, then direction, so the pad never glitches high on the way.
+  GpioPinWrite (TSPI_TYPEC_VBUS_GROUP, TSPI_TYPEC_VBUS_PIN, On);
+  GpioPinSetDirection (TSPI_TYPEC_VBUS_GROUP, TSPI_TYPEC_VBUS_PIN, GPIO_PIN_OUTPUT);
+  GpioPinSetFunction (TSPI_TYPEC_VBUS_GROUP, TSPI_TYPEC_VBUS_PIN, 0);
+}
+
+STATIC
+CONST CHAR8 *
+Tspi3mOrientationName (
+  IN USB_TYPEC_ORIENTATION  Orientation
+  )
+{
+  return (Orientation == UsbTypeCOrientationNormal) ? "normal (CC1)" :
+         (Orientation == UsbTypeCOrientationReverse) ? "reverse (CC2)" : "unknown";
+}
+
+/*
+ * Measure the CC lines and set VBUS from the answer.  Returns the
+ * orientation for the USBDP lanes.  When is "boot" or "ExitBootServices",
+ * for the log.
+ */
+STATIC
+USB_TYPEC_ORIENTATION
+Tspi3mTypeCProbeAndPower (
+  IN CONST CHAR8  *When
+  )
+{
+  RK3576_FUSB302_STATE  State;
+  BOOLEAN               WasOn;
+  BOOLEAN               On;
+
+  // The pad level, whatever drives it.
+  WasOn = GpioPinReadActual (TSPI_TYPEC_VBUS_GROUP, TSPI_TYPEC_VBUS_PIN);
+
+  I2cIomux (2);
+  Rk3576Fusb302Probe (&mTspiFusb302Bus, &State);
+
+  On = (State.Partner == Rk3576Fusb302Sink) && State.RpPresented;
+  Tspi3mTypeCVbusSet (On);
+  if (On && !WasOn) {
+    // SY6280 soft start is about 1 ms; give the sink's bulk capacitance
+    // and a disk's inrush time before anything enumerates.
+    MicroSecondDelay (20000);
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "TSPI-3M USB-C %a: CC %a (BC_LVL CC1 %u CC2 %u), role %a, VBUS GPIO0_B6 %a (was %u, pad reads %u), "
+    "orientation %a, DRD0 host (UsbHcd sets PRTCAP=host)\n",
+    When,
+    Rk3576Fusb302PartnerName (State.Partner),
+    State.BcLvlCc1,
+    State.BcLvlCc2,
+    On ? "source+host, Rp presented" :
+    (State.Partner == Rk3576Fusb302Source) ? "none (far end is a source)" : "none",
+    On ? "ON" : "off",
+    WasOn,
+    GpioPinReadActual (TSPI_TYPEC_VBUS_GROUP, TSPI_TYPEC_VBUS_PIN),
+    Tspi3mOrientationName (State.Orientation)
+    ));
+
+  return State.Orientation;
+}
+
+/*
+ * UsbPortPowerEnable -- 5V to the USB-A ports, and to the USB-C port when a
+ * sink is on it.
  *
  *   vcc_5v0_usb2_host: gpio = <&gpio2 RK_PB5 GPIO_ACTIVE_HIGH>  (two USB 2.0 ports)
  *   vcc_5v0_usb3_host: gpio = <&gpio0 RK_PC3 GPIO_ACTIVE_HIGH>  (USB 3.0 port and one USB 2.0 port)
  *
- * All four ports sit behind the onboard hub on DRD1.
+ * All four USB-A ports sit behind the onboard hub on DRD1.
+ *
+ * The USB-C port: VBUS is switched off first (a warm reset can arrive with
+ * an OS's tcpm having left it on, and what is attached now may be a
+ * source), then the FUSB302 decides, see Tspi3mTypeCVbusSet's comment.
+ * UsbHcd calls this before any DWC3 is initialised, so a bus-powered disk
+ * is powered before XhciDxe looks at DRD0.
  */
 VOID
 EFIAPI
@@ -410,6 +518,16 @@ UsbPortPowerEnable (
   GpioPinSetDirection (2, GPIO_PIN_PB5, GPIO_PIN_OUTPUT);
   GpioPinWrite (0, GPIO_PIN_PC3, TRUE);
   GpioPinSetDirection (0, GPIO_PIN_PC3, GPIO_PIN_OUTPUT);
+
+  if (GpioPinReadActual (TSPI_TYPEC_VBUS_GROUP, TSPI_TYPEC_VBUS_PIN)) {
+    DEBUG ((DEBUG_INFO, "TSPI-3M USB-C boot: VBUS GPIO0_B6 was left on, switching it off first\n"));
+    Tspi3mTypeCVbusSet (FALSE);
+    MicroSecondDelay (100000);
+  } else {
+    Tspi3mTypeCVbusSet (FALSE);
+  }
+
+  Tspi3mTypeCProbeAndPower ("boot");
 }
 
 /*
@@ -424,12 +542,14 @@ UsbPortPowerEnable (
  * I2cDxe transfer can interleave with; the RTC's runtime accesses come later
  * and find the controller's clock mux and divider as they were.
  *
- * The port's VBUS switch (GPIO0 PB6) stays off whatever the answer: see
- * Usb2PhyResume.  A PC on this (MaskROM) port shows Rp, which the library
- * sees in its passive check and answers Unknown without driving Rp itself.
- *
- * clk_i2c2 is CRU CLKSEL_CON57 bits 3:2, 3 = xin24m (clk-rk3576.c,
- * mux_200m_100m_50m_24m_p); I2cIomux (2) opens its gates and pins.
+ * VBUS is decided again here, from this measurement, and this is what
+ * Windows keeps: a sink unplugged since boot, or a charger or PC plugged in
+ * since, turns it off; a sink plugged in since boot turns it on.  VBUS
+ * stays on through the measurement when it was on: the far end was a sink,
+ * and dropping it here would power-cycle a disk just before the USB3 link
+ * is trained.  The FUSB302 is reset (Rd on both lines) for about 20 ms of
+ * it, far less than the 100 ms tCCDebounce a source waits before it would
+ * turn its own VBUS on.
  */
 USB_TYPEC_ORIENTATION
 EFIAPI
@@ -437,16 +557,11 @@ UsbTypeCGetOrientation (
   IN UINT32  Port
   )
 {
-  STATIC CONST RK3576_FUSB302_BUS  Bus = {
-    I2C2_BASE, CRU_CLKSEL_CON (57), 2, 3, "TSPI-3M I2C2"
-  };
-
   if (Port != 0) {
     return UsbTypeCOrientationUnknown;
   }
 
-  I2cIomux (2);
-  return Rk3576Fusb302GetOrientation (&Bus);
+  return Tspi3mTypeCProbeAndPower ("ExitBootServices");
 }
 
 /*
@@ -454,11 +569,8 @@ UsbTypeCGetOrientation (
  *
  * Same RK3576 USB2 PHY sequence as the CM5-IO and the ROCK 4D.
  *
- * The USB-C VBUS switch (vcc_5v0_typec, GPIO0 PB6) is deliberately not
- * turned on.  That port is also the MaskROM and flashing port, so it is often
- * plugged into a PC, and Linux only sources VBUS there after the FUSB302 has
- * seen a sink attach.  The firmware has no Type-C port manager, so it has no
- * way to know what is on the other end.
+ * The USB-C VBUS switch (vcc_5v0_typec, GPIO0 PB6) is not touched here:
+ * UsbPortPowerEnable turns it on only when the FUSB302 sees a sink.
  */
 VOID
 EFIAPI
@@ -500,7 +612,7 @@ Usb2PhyResume (
 
   DEBUG ((DEBUG_INFO,
     "TSPI-3M Usb2PhyResume: SIDDQ off, 1st reset, HS tuning, phy_sus off, "
-    "2nd reset+2ms, USB-C VBUS left off\n"));
+    "2nd reset+2ms\n"));
 }
 
 /*

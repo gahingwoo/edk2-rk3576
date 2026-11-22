@@ -1292,6 +1292,25 @@ UsbExitBootServicesCallback (
     MmioOr32 (Base + DWC3_REG_OFFSET + 0x100, DWC3_GUSB2PHYCFG_SUSPHY);   // GUSB2PHYCFG(0)
     MmioOr32 (Base + DWC3_REG_OFFSET + 0x1C0, DWC3_GUSB3PIPECTL_SUSPHY);  // GUSB3PIPECTL(0)
   }
+
+  //
+  // What the OS gets on the USB-C controller: the DWC3 port capability
+  // direction (GCTL 13:12, 1 = host, 2 = device, 3 = OTG) and the U3 port
+  // enable. Windows has no DWC3 role switch, so host here is host for good.
+  //
+  {
+    UINT32  Gctl;
+
+    Gctl = MmioRead32 (0x23000000UL + 0xC110);
+    DEBUG ((
+      DEBUG_INFO,
+      "UsbHcd ExitBootServices: DRD0 GCTL 0x%08x PRTCAP %a, USB3OTG0_CON1 0x%04x (U3 port %a)\n",
+      Gctl,
+      (((Gctl >> 12) & 3) == 1) ? "host" : (((Gctl >> 12) & 3) == 2) ? "device" : "otg/none",
+      MmioRead32 (RK3576_USB_GRF_USB3OTG0_CON1) & 0xFFFF,
+      ((MmioRead32 (RK3576_USB_GRF_USB3OTG0_CON1) & 0xFFFF) == RK3576_USB3OTG0_U3_PORT_EN) ? "enabled" : "disabled"
+      ));
+  }
 }
 
 /**

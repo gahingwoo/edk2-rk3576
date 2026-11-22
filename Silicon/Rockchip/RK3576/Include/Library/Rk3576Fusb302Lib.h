@@ -28,6 +28,54 @@ typedef struct {
   CONST CHAR8    *Name;         // board and bus, for the log
 } RK3576_FUSB302_BUS;
 
+//
+// What the CC lines showed, and what the chip was left presenting.
+//
+typedef enum {
+  Rk3576Fusb302NoChip = 0,  // DEVICE_ID not acknowledged
+  Rk3576Fusb302I2cError,    // the chip answered, a later transfer failed
+  Rk3576Fusb302Open,        // neither line has Rd or Rp: nothing attached
+  Rk3576Fusb302Source,      // the far end shows Rp: a PC, a charger, a C-to-A cable
+  Rk3576Fusb302Sink,        // Rd on exactly one line: a device to be powered
+  Rk3576Fusb302RdBoth       // Rd on both lines: a debug or audio accessory
+} RK3576_FUSB302_PARTNER;
+
+typedef struct {
+  RK3576_FUSB302_PARTNER    Partner;
+  USB_TYPEC_ORIENTATION     Orientation;  // Normal/Reverse only for a sink
+  UINT8                     DeviceId;
+  UINT8                     BcLvlCc1;     // passive check, Rd on both lines
+  UINT8                     BcLvlCc2;
+  BOOLEAN                   RpPresented;  // left with Rp on the attached line
+} RK3576_FUSB302_STATE;
+
+/**
+  Measure the CC lines, as Rk3576Fusb302GetOrientation does, and say what
+  was found and what the chip was left presenting.
+
+  The chip ends either reset (Rd on both lines, which a source answers by
+  turning its VBUS on) or, for a sink only, with Rp on the attached line.
+  The caller owns VBUS and must not have it on unless RpPresented is TRUE.
+
+  @param[in]   Bus    The I2C controller the chip is on.
+  @param[out]  State  What was measured.
+**/
+VOID
+EFIAPI
+Rk3576Fusb302Probe (
+  IN  CONST RK3576_FUSB302_BUS  *Bus,
+  OUT RK3576_FUSB302_STATE      *State
+  );
+
+/**
+  A short name for a partner kind, for the log.
+**/
+CONST CHAR8 *
+EFIAPI
+Rk3576Fusb302PartnerName (
+  IN RK3576_FUSB302_PARTNER  Partner
+  );
+
 /**
   Read which way round the USB-C plug is, measuring as the source this port
   is (data role host, power role source on all our boards).
