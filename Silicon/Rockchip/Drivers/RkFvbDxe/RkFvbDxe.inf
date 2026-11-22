@@ -45,6 +45,7 @@
   IoLib
   MemoryAllocationLib
   PcdLib
+  PrintLib
   RkAtagsLib
   TimerLib
   UefiBootServicesTableLib
@@ -76,6 +77,9 @@
   gEfiResetNotificationProtocolGuid
   gRockchipFirmwareBootDeviceProtocolGuid
   gEfiVariableWriteArchProtocolGuid
+  gRockchipI2cMasterProtocolGuid
+  gEfiI2cMasterProtocolGuid
+  gExitBootServicesOsNotifyProtocolGuid
 
 [FixedPcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
@@ -89,6 +93,7 @@
   gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset
   gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreBase
   gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreSize
+  gRockchipTokenSpaceGuid.PcdRtc8563Bus
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64

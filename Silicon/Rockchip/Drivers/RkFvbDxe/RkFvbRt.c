@@ -25,6 +25,11 @@
  *  next boot.  Off unless the "Save OS Variable Changes to eMMC" setup
  *  option is on.
  *
+ *  Windows resets through PSCI and never calls ResetSystem() (measured on the
+ *  TaishanPi 3M: no marker after shutdown /r), so for Windows BootNext alone
+ *  is kept, in the RTC's timer registers, at the SetVariable() that sets it
+ *  (see RTC_REG_TMR_CTL below), and put back before BDS on the next boot.
+ *
  *  Everything reached after ExitBootServices follows the runtime rules: no
  *  boot services, no DEBUG(), only converted pointers.
  *
@@ -42,12 +47,16 @@
 #include <Library/IoLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
+#include <Library/PrintLib.h>
 #include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Guid/GlobalVariable.h>
+#include <Protocol/ExitBootServicesOsNotify.h>
+#include <Protocol/I2cMaster.h>
+#include <Protocol/RockchipI2cMasterProtocol.h>
 #include <Protocol/VariableWrite.h>
 
 #include "RkFvbDxe.h"
@@ -173,6 +182,53 @@ STATIC BOOLEAN           mRtHighCapacity;
 STATIC UINT32            mRtCalls;        // ResetSystem() calls after ExitBootServices
 STATIC UINT32            mRtResetType;
 STATIC EFI_RESET_SYSTEM  mRtOrigResetSystem;
+
+//
+// BootNext for Windows, which resets through PSCI and never calls
+// ResetSystem(): kept in the 8563 RTC's timer registers.
+//
+//   0x0E timer control: bit 7 TE (timer enable), bits 1:0 TD (frequency).
+//                       Power-on value 0x03: TE 0, TD 1/60 Hz.
+//   0x0F timer value:   8 bits.
+//
+// Neither Linux's rtc-hym8563, nor Hym8563RealTimeClockLib, nor anything
+// else here writes them.  With TE kept 0 the timer does not run and its
+// value is plain storage, and nothing else in the chip depends on TD.
+// TD carries the tag: 3 (the power-on value) = nothing stored, 1 = BootNext
+// is Boot00xx with xx in 0x0F, 2 = Boot01xx.  TD 0 is never written here,
+// so a chip found with TD 0, or with TE set, belongs to someone else and is
+// left alone.  BootNext above Boot01FF cannot be stored and is not.
+//
+// VL (seconds bit 7, the oscillator stopped) is not looked at: it says the
+// time cannot be trusted, nothing about the timer registers, which a reboot
+// keeps as long as the board stays powered (the TaishanPi 3M has no RTC
+// battery; a power cut clears them to 0x03, i.e. nothing stored).  The chip
+// is used only when control 1 is readable and not in test mode, as in
+// Hym8563RealTimeClockLib.
+//
+#define RTC_I2C_ADDRESS   0x51
+#define RTC_REG_CTL1      0x00
+#define RTC_CTL1_TEST     BIT7
+#define RTC_REG_TMR_CTL   0x0E
+#define RTC_REG_TMR_CNT   0x0F
+#define RTC_TMR_TE        BIT7
+#define RTC_TMR_TD_MASK   0x03
+#define RTC_TMR_TD_IDLE   0x03
+#define RTC_TMR_TD_LOW    0x01
+#define RTC_TMR_TD_HIGH   0x02
+
+typedef struct {
+  UINTN                OperationCount;
+  EFI_I2C_OPERATION    Operation[2];
+} RT_I2C_PACKET;
+
+STATIC EFI_I2C_MASTER_PROTOCOL     *mRtI2c;        // set once the chip passed its checks
+STATIC UINT8                       mRtTmrCtl;      // 0x0E as found, TD forced to idle
+STATIC EXIT_BOOT_SERVICES_OS_TYPE  mRtOsType = ExitBootServicesOsUnknown;
+STATIC BOOLEAN                     mRtVarWriteReady;
+STATIC BOOLEAN                     mRtBootNextChecked;
+STATIC VOID                        *mRtI2cRegistration;
+STATIC EFI_SET_VARIABLE            mRtOrigSetVariable;
 STATIC UINT32            mRtSector[128];  // one 512 byte block
 
 /**
@@ -738,6 +794,295 @@ RkFvbRtResetSystem (
 }
 
 // ---------------------------------------------------------------------------
+// RTC timer registers.  Boot time and runtime.
+// ---------------------------------------------------------------------------
+
+STATIC
+EFI_STATUS
+RtcRead (
+  IN  EFI_I2C_MASTER_PROTOCOL  *Master,
+  IN  UINT8                    Reg,
+  OUT UINT8                    *Value
+  )
+{
+  EFI_STATUS     Status;
+  RT_I2C_PACKET  Packet;
+
+  Packet.OperationCount             = 2;
+  Packet.Operation[0].Flags         = 0;
+  Packet.Operation[0].LengthInBytes = sizeof (Reg);
+  Packet.Operation[0].Buffer        = &Reg;
+  Packet.Operation[1].Flags         = I2C_FLAG_READ;
+  Packet.Operation[1].LengthInBytes = sizeof (*Value);
+  Packet.Operation[1].Buffer        = Value;
+
+  Status = Master->StartRequest (Master, RTC_I2C_ADDRESS, (EFI_I2C_REQUEST_PACKET *)&Packet, NULL, NULL);
+  if (!EFI_ERROR (Status) && (Packet.Operation[1].LengthInBytes != sizeof (*Value))) {
+    Status = EFI_DEVICE_ERROR;
+  }
+
+  return Status;
+}
+
+STATIC
+EFI_STATUS
+RtcWrite (
+  IN EFI_I2C_MASTER_PROTOCOL  *Master,
+  IN UINT8                    Reg,
+  IN UINT8                    Value
+  )
+{
+  RT_I2C_PACKET  Packet;
+  UINT8          Buffer[2];
+
+  Buffer[0] = Reg;
+  Buffer[1] = Value;
+
+  Packet.OperationCount             = 1;
+  Packet.Operation[0].Flags         = 0;
+  Packet.Operation[0].LengthInBytes = sizeof (Buffer);
+  Packet.Operation[0].Buffer        = Buffer;
+
+  return Master->StartRequest (Master, RTC_I2C_ADDRESS, (EFI_I2C_REQUEST_PACKET *)&Packet, NULL, NULL);
+}
+
+/**
+  Store BootNext in the timer registers, or clear them.  The value first,
+  then the tag, so an interrupted write leaves "nothing stored".
+**/
+STATIC
+VOID
+RtcStoreBootNext (
+  IN BOOLEAN  Set,
+  IN UINT16   Option
+  )
+{
+  if (Set && (Option <= 0x1FF)) {
+    if (!EFI_ERROR (RtcWrite (mRtI2c, RTC_REG_TMR_CNT, (UINT8)Option))) {
+      RtcWrite (mRtI2c, RTC_REG_TMR_CTL, (UINT8)((mRtTmrCtl & ~RTC_TMR_TD_MASK) | ((Option >= 0x100) ? RTC_TMR_TD_HIGH : RTC_TMR_TD_LOW)));
+    }
+  } else {
+    RtcWrite (mRtI2c, RTC_REG_TMR_CTL, mRtTmrCtl);
+  }
+}
+
+/**
+  SetVariable after ExitBootServices.  Under Windows only: Linux drives the
+  RTC's bus itself, and Linux calls ResetSystem(), where the eMMC commit
+  saves BootNext with everything else.
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+RkFvbRtSetVariable (
+  IN CHAR16    *VariableName,
+  IN EFI_GUID  *VendorGuid,
+  IN UINT32    Attributes,
+  IN UINTN     DataSize,
+  IN VOID      *Data
+  )
+{
+  EFI_STATUS  Status;
+
+  Status = mRtOrigSetVariable (VariableName, VendorGuid, Attributes, DataSize, Data);
+  if (  !EFI_ERROR (Status)
+     && (mRtI2c != NULL)
+     && (mRtOsType == ExitBootServicesOsWindows)
+     && (VariableName != NULL) && (VendorGuid != NULL)
+     && CompareGuid (VendorGuid, &gEfiGlobalVariableGuid)
+     && (StrCmp (VariableName, EFI_BOOT_NEXT_VARIABLE_NAME) == 0))
+  {
+    RtcStoreBootNext (
+      (DataSize == sizeof (UINT16)) && (Data != NULL) && ((Attributes & EFI_VARIABLE_NON_VOLATILE) != 0),
+      ((Data != NULL) && (DataSize == sizeof (UINT16))) ? ReadUnaligned16 ((UINT16 *)Data) : 0
+      );
+  }
+
+  return Status;
+}
+
+/**
+  Put back a BootNext Windows left in the RTC, once the chip has been found
+  and variables can be written.  Before BDS: both happen during DXE dispatch.
+**/
+STATIC
+VOID
+RtcRestoreBootNext (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINT8       Ctl;
+  UINT8       Cnt;
+  UINT16      Option;
+  CHAR16      Name[sizeof ("Boot####")];
+  UINTN       Size;
+
+  if ((mRtI2c == NULL) || !mRtVarWriteReady || mRtBootNextChecked) {
+    return;
+  }
+
+  mRtBootNextChecked = TRUE;
+
+  if (EFI_ERROR (RtcRead (mRtI2c, RTC_REG_TMR_CTL, &Ctl)) ||
+      EFI_ERROR (RtcRead (mRtI2c, RTC_REG_TMR_CNT, &Cnt)))
+  {
+    DEBUG ((DEBUG_WARN, "RkFvbRt: RTC timer registers unreadable; no BootNext from the RTC\n"));
+    return;
+  }
+
+  if ((Ctl & RTC_TMR_TD_MASK) == RTC_TMR_TD_IDLE) {
+    DEBUG ((DEBUG_INFO, "RkFvbRt: no BootNext in the RTC (timer 0x%02x 0x%02x)\n", Ctl, Cnt));
+    return;
+  }
+
+  Option = (UINT16)(Cnt + (((Ctl & RTC_TMR_TD_MASK) == RTC_TMR_TD_HIGH) ? 0x100 : 0));
+
+  // Cleared before use, so it acts once whatever happens next.
+  RtcWrite (mRtI2c, RTC_REG_TMR_CTL, mRtTmrCtl);
+
+  UnicodeSPrint (Name, sizeof (Name), L"Boot%04X", Option);
+  Size   = 0;
+  Status = gRT->GetVariable (Name, &gEfiGlobalVariableGuid, NULL, &Size, NULL);
+  if (Status != EFI_BUFFER_TOO_SMALL) {
+    DEBUG ((DEBUG_WARN, "RkFvbRt: the RTC held BootNext %s, which does not exist; dropped\n", Name));
+    return;
+  }
+
+  Status = gRT->SetVariable (
+                  EFI_BOOT_NEXT_VARIABLE_NAME,
+                  &gEfiGlobalVariableGuid,
+                  EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                  sizeof (Option),
+                  &Option
+                  );
+  DEBUG ((DEBUG_INFO, "RkFvbRt: BootNext %s from the RTC (set by Windows last boot): %r\n", Name, Status));
+}
+
+STATIC
+VOID
+EFIAPI
+RtcI2cReady (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  EFI_STATUS                    Status;
+  EFI_HANDLE                    Handle;
+  UINTN                         BufferSize;
+  ROCKCHIP_I2C_MASTER_PROTOCOL  *RockchipI2c;
+  EFI_I2C_MASTER_PROTOCOL       *Master;
+  UINT8                         Ctl1;
+  UINT8                         TmrCtl;
+
+  for ( ; ; ) {
+    BufferSize = sizeof (Handle);
+    Status     = gBS->LocateHandle (ByRegisterNotify, &gRockchipI2cMasterProtocolGuid, mRtI2cRegistration, &BufferSize, &Handle);
+    if (EFI_ERROR (Status)) {
+      return;
+    }
+
+    Status = gBS->HandleProtocol (Handle, &gRockchipI2cMasterProtocolGuid, (VOID **)&RockchipI2c);
+    if (EFI_ERROR (Status) || (RockchipI2c->Bus != FixedPcdGet8 (PcdRtc8563Bus))) {
+      continue;
+    }
+
+    Status = gBS->HandleProtocol (Handle, &gEfiI2cMasterProtocolGuid, (VOID **)&Master);
+    if (EFI_ERROR (Status)) {
+      continue;
+    }
+
+    gBS->CloseEvent (Event);
+
+    if (  EFI_ERROR (RtcRead (Master, RTC_REG_CTL1, &Ctl1))
+       || ((Ctl1 & RTC_CTL1_TEST) != 0)
+       || EFI_ERROR (RtcRead (Master, RTC_REG_TMR_CTL, &TmrCtl)))
+    {
+      DEBUG ((DEBUG_WARN, "RkFvbRt: no usable RTC on I2C%u; BootNext from Windows will not survive a reboot\n", FixedPcdGet8 (PcdRtc8563Bus)));
+      return;
+    }
+
+    if (((TmrCtl & RTC_TMR_TE) != 0) || ((TmrCtl & RTC_TMR_TD_MASK) == 0)) {
+      DEBUG ((DEBUG_WARN, "RkFvbRt: RTC timer control 0x%02x is in use by something else; left alone\n", TmrCtl));
+      return;
+    }
+
+    mRtTmrCtl = (UINT8)((TmrCtl & ~RTC_TMR_TE) | RTC_TMR_TD_IDLE);
+    mRtI2c    = Master;
+    RtcRestoreBootNext ();
+    return;
+  }
+}
+
+STATIC
+VOID
+EFIAPI
+RtVariableWriteReady (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  VOID  *Protocol;
+
+  if (EFI_ERROR (gBS->LocateProtocol (&gEfiVariableWriteArchProtocolGuid, NULL, &Protocol))) {
+    return;
+  }
+
+  gBS->CloseEvent (Event);
+  mRtVarWriteReady = TRUE;
+  RtcRestoreBootNext ();
+}
+
+STATIC
+VOID
+EFIAPI
+RtOsHandler (
+  IN EXIT_BOOT_SERVICES_OS_CONTEXT  *Context
+  )
+{
+  mRtOsType = Context->OsType;
+}
+
+STATIC
+VOID
+EFIAPI
+RtOsNotifyReady (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  EXIT_BOOT_SERVICES_OS_NOTIFY_PROTOCOL  *Notify;
+
+  if (EFI_ERROR (gBS->LocateProtocol (&gExitBootServicesOsNotifyProtocolGuid, NULL, (VOID **)&Notify))) {
+    return;
+  }
+
+  gBS->CloseEvent (Event);
+  Notify->RegisterHandler (Notify, RtOsHandler);
+}
+
+/**
+  BootNext through the RTC, for Windows.  Only on a board that names the
+  RTC's bus (PcdRtc8563Bus, 0 = none).
+**/
+STATIC
+VOID
+RtcBootNextInit (
+  VOID
+  )
+{
+  VOID  *Registration;
+
+  if (FixedPcdGet8 (PcdRtc8563Bus) == 0) {
+    return;
+  }
+
+  EfiCreateProtocolNotifyEvent (&gRockchipI2cMasterProtocolGuid, TPL_CALLBACK, RtcI2cReady, NULL, &mRtI2cRegistration);
+  EfiCreateProtocolNotifyEvent (&gEfiVariableWriteArchProtocolGuid, TPL_CALLBACK, RtVariableWriteReady, NULL, &Registration);
+  EfiCreateProtocolNotifyEvent (&gExitBootServicesOsNotifyProtocolGuid, TPL_CALLBACK, RtOsNotifyReady, NULL, &Registration);
+}
+
+// ---------------------------------------------------------------------------
 // Boot time
 // ---------------------------------------------------------------------------
 
@@ -800,6 +1145,8 @@ RkFvbRtInit (
   // commit never compares), so that the commit writes only what changed.
   //
   mRtShadow = AllocateRuntimeCopyPool (FlashInstance->FvbSize, (VOID *)FlashInstance->RegionBaseAddress);
+
+  RtcBootNextInit ();
 }
 
 /**
@@ -863,19 +1210,24 @@ RkFvbRtMarkDirty (
 }
 
 /**
-  ExitBootServices: hook ResetSystem (eMMC commit).
+  ExitBootServices: hook SetVariable (BootNext to the RTC, under Windows)
+  and ResetSystem (eMMC commit).
 **/
 VOID
 RkFvbRtExitBootServices (
   VOID
   )
 {
-  if (!mRtEmmcEnabled) {
-    return;
+  if (mRtI2c != NULL) {
+    mRtOrigSetVariable = gRT->SetVariable;
+    gRT->SetVariable   = RkFvbRtSetVariable;
   }
 
-  mRtOrigResetSystem = gRT->ResetSystem;
-  gRT->ResetSystem   = RkFvbRtResetSystem;
+  if (mRtEmmcEnabled) {
+    mRtOrigResetSystem = gRT->ResetSystem;
+    gRT->ResetSystem   = RkFvbRtResetSystem;
+  }
+
   gRT->Hdr.CRC32     = 0;
   gBS->CalculateCrc32 (gRT, gRT->Hdr.HeaderSize, &gRT->Hdr.CRC32);
 }
@@ -886,6 +1238,10 @@ RkFvbRtVirtualAddressChange (
   )
 {
   EfiConvertPointer (0x0, (VOID **)&mRtOrigResetSystem);
+  if (mRtI2c != NULL) {
+    EfiConvertPointer (0x0, (VOID **)&mRtOrigSetVariable);
+    EfiConvertPointer (0x0, (VOID **)&mRtI2c);
+  }
   EfiConvertPointer (0x0, (VOID **)&mRtShadow);
   EfiConvertPointer (0x0, (VOID **)&mRtDev);
   if (mRtEmmcEnabled) {
