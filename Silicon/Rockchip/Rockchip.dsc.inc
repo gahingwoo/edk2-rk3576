@@ -775,6 +775,13 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   #
   Silicon/Rockchip/Drivers/NetworkStackConfigDxe/NetworkStackConfigDxe.inf
 
+!if $(NETWORK_IP4_ENABLE) == TRUE
+  #
+  # Set the clock from NTP at boot, in the background
+  #
+  Silicon/Rockchip/Drivers/NetworkTimeSyncDxe/NetworkTimeSyncDxe.inf
+!endif
+
 !if $(NETWORK_SNP_ENABLE) == TRUE
   NetworkPkg/SnpDxe/SnpDxe.inf {
     <LibraryClasses>

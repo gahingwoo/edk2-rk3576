@@ -249,6 +249,18 @@ EqosInitialize (
   MmioWrite32 (Eqos->Base + GMAC_MAC_CONFIGURATION, Value);
 
   EqosSetMacAddress (Eqos->Base, &Eqos->SnpMode.CurrentAddress);
+  DEBUG ((
+    DEBUG_INFO,
+    "EqosInitialize: MAC_ADDRESS0 HIGH 0x%08x LOW 0x%08x for %02x:%02x:%02x:%02x:%02x:%02x\n",
+    MmioRead32 (Eqos->Base + GMAC_MAC_ADDRESS0_HIGH),
+    MmioRead32 (Eqos->Base + GMAC_MAC_ADDRESS0_LOW),
+    Eqos->SnpMode.CurrentAddress.Addr[0],
+    Eqos->SnpMode.CurrentAddress.Addr[1],
+    Eqos->SnpMode.CurrentAddress.Addr[2],
+    Eqos->SnpMode.CurrentAddress.Addr[3],
+    Eqos->SnpMode.CurrentAddress.Addr[4],
+    Eqos->SnpMode.CurrentAddress.Addr[5]
+    ));
 
   return EFI_SUCCESS;
 }
@@ -1132,8 +1144,16 @@ EqosSetMacAddress (
   AddrHigh |= MacAddress->Addr[5] << 8;
   AddrHigh |= GMAC_MAC_ADDRESS0_HIGH_AE;
 
-  MmioWrite32 (Base + GMAC_MAC_ADDRESS0_LOW, AddrLow);
+  //
+  // High first, then low, as Linux stmmac_set_mac_addr does.  The EQoS
+  // moves the address into the receive clock domain when the low word is
+  // written; with low written first, the filter kept the previous high
+  // half.  After EqosReset that is 0xFFFF, so the MAC answered to
+  // xx:xx:xx:xx:FF:FF: broadcast frames (DHCP with the broadcast flag)
+  // came in, and every unicast frame, ARP replies included, was dropped.
+  //
   MmioWrite32 (Base + GMAC_MAC_ADDRESS0_HIGH, AddrHigh);
+  MmioWrite32 (Base + GMAC_MAC_ADDRESS0_LOW, AddrLow);
 }
 
 UINT32

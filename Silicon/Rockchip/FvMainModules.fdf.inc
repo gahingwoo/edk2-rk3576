@@ -244,6 +244,13 @@
   #
   INF Silicon/Rockchip/Drivers/NetworkStackConfigDxe/NetworkStackConfigDxe.inf
 
+!if $(NETWORK_IP4_ENABLE) == TRUE
+  #
+  # Set the clock from NTP at boot, in the background
+  #
+  INF Silicon/Rockchip/Drivers/NetworkTimeSyncDxe/NetworkTimeSyncDxe.inf
+!endif
+
   #
   # Realtek PCIe / USB UNDI drivers.  Only worth building for boards that
   # actually have a Realtek NIC; on others they are pure FV weight and their

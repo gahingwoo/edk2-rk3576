@@ -505,6 +505,8 @@
   gRockchipTokenSpaceGuid.PcdNetworkStackIpv6EnabledDefault|FALSE
   gRockchipTokenSpaceGuid.PcdNetworkStackPxeBootEnabledDefault|TRUE
   gRockchipTokenSpaceGuid.PcdNetworkStackHttpBootEnabledDefault|FALSE
+  # Set the clock from NTP at boot (NetworkTimeSyncDxe)
+  gRockchipTokenSpaceGuid.PcdNetworkTimeSyncDefault|1
 
 [PcdsPatchableInModule]
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|1500000
@@ -561,6 +563,11 @@
   gRK3588TokenSpaceGuid.PcdHdmiSignalingMode|L"HdmiSignalingMode"|gRK3576DxeFormSetGuid|0x0|0
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|L"DisplayBrightness"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdDisplayBrightnessDefault
   gRK3588TokenSpaceGuid.PcdScreenshotTarget|L"ScreenshotTarget"|gRK3576DxeFormSetGuid|0x0|gRK3588TokenSpaceGuid.PcdScreenshotTargetDefault
+
+  #
+  # Network
+  #
+  gRockchipTokenSpaceGuid.PcdNetworkTimeSync|L"NetworkTimeSync"|gRK3576DxeFormSetGuid|0x0|gRockchipTokenSpaceGuid.PcdNetworkTimeSyncDefault
 
 ################################################################################
 #
