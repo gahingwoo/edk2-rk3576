@@ -80,8 +80,11 @@ the platform setup, on by default). It runs in the background while the
 boot menu counts down: the NTP servers the DHCP server names, then
 pool.ntp.org and time.cloudflare.com, then fixed Cloudflare and Google
 addresses. It uses the IPv4 settings as they are (static, or DHCP), gives
-up after 8 seconds and never delays the boot; the clock is kept in UTC. The
-serial log has one `NetworkTimeSync:` line with the old and the new time.
+up 10 seconds after getting an address (30 seconds without one) and never
+delays the boot; the clock is kept in UTC. The serial log has a
+`NetworkTimeSync:` line with the old and the new time, and one
+`NetworkTimeSync: stage:` line saying how far it got (no link, no lease,
+DNS timeout, NTP timeout, or clock set).
 
 ## Boards
 

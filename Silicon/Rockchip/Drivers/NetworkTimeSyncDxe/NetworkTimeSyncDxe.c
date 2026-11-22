@@ -26,10 +26,22 @@
  *       the build date; then SetTime() with the UTC time.
  *
  *  Everything runs from a 50 ms timer and protocol completion events at
- *  TPL_CALLBACK; nothing waits.  The whole attempt is bounded by
- *  NTS_BUDGET_MS from the moment it starts, DHCP included, and is abandoned
- *  silently (one line on the serial log) after that, or at
- *  ExitBootServices, whichever comes first.
+ *  TPL_CALLBACK; nothing waits.  Two budgets bound it: NTS_ADDRESS_BUDGET_MS
+ *  from the start for a link and an address, then NTS_QUERY_BUDGET_MS from
+ *  the address for the queries, which go through the server list up to
+ *  NTS_ROUNDS times.  It is abandoned when a budget runs out or at
+ *  ExitBootServices, whichever comes first, with one line saying which
+ *  stage it stopped at and what it saw.
+ *
+ *  The address budget is long on purpose.  Under the DHCP policy the lease
+ *  is IP4's, and EDK2's Dhcp4 with no callback keeps collecting offers
+ *  until the first DISCOVER times out (mDhcp4DefaultTimeout {4, 8, 16, 32}
+ *  s, Dhcp4Io.c DhcpOnTimerTick "select offer at each timeout"), so a lease
+ *  takes 4 s at best and 12 s when the first DISCOVER went out before the
+ *  PHY had link.  The first version gave the whole attempt 8 s from the
+ *  start: on the TaishanPi 3M, with the cable in, that ended "gave up after
+ *  8001 ms (no server answered)" on two boots in a row.  Nothing here holds
+ *  up the boot, so waiting longer only costs a timer tick every 50 ms.
  *
  *  Copyright (c) 2026, gahingwoo <gahing@gahingwoo.com>
  *
@@ -57,9 +69,11 @@
 
 #include "SntpPacket.h"
 
-#define NTS_TICK_MS           50
-#define NTS_BUDGET_MS         8000
-#define NTS_QUERY_TIMEOUT_MS  1000
+#define NTS_TICK_MS             50
+#define NTS_ADDRESS_BUDGET_MS   30000   // start to address: link + IP4's DHCP
+#define NTS_QUERY_BUDGET_MS     10000   // address to answer
+#define NTS_ROUNDS              2       // passes over the server list
+#define NTS_QUERY_TIMEOUT_MS    1000
 #define NTS_MAX_CANDIDATES    16
 #define NTS_MAX_DNS           3
 #define NTS_MAX_NICS          4
@@ -108,7 +122,21 @@ typedef struct {
   EFI_HANDLE                   ImageHandle;
   EFI_EVENT                    Timer;
   UINT64                       StartNs;
+  UINT64                       QueryStartNs;
   CONST CHAR8                  *Problem;    // why it would give up now
+
+  //
+  // What the attempt reached, for the line it ends with.  -1: never.
+  //
+  INT64                        LinkMs;
+  INT64                        AddressMs;
+  UINT32                       Round;
+  UINT32                       Sent;        // Transmit() accepted
+  UINT32                       TxDone;      // left the NIC (ARP resolved)
+  UINT32                       TxFailed;    // cancelled or failed, e.g. no ARP answer
+  UINT32                       Datagrams;   // anything received on our port
+  UINT32                       DnsAnswers;
+  UINT32                       NtpReplies;
 
   //
   // NICs this driver connected itself, and the drivers that managed each
@@ -670,6 +698,7 @@ NtsOnReceive (
     Length += Chunk;
   }
 
+  mNts.Datagrams++;
   CopyMem (&From, &Rx->UdpSession.SourceAddress, sizeof (From));
   FromPort = Rx->UdpSession.SourcePort;
   gBS->SignalEvent (Rx->RecycleSignal);
@@ -690,6 +719,11 @@ NtsOnTransmit (
   )
 {
   mNts.TxPending = FALSE;
+  if (EFI_ERROR (mNts.TxToken.Status)) {
+    mNts.TxFailed++;
+  } else {
+    mNts.TxDone++;
+  }
 }
 
 STATIC
@@ -750,7 +784,9 @@ NtsStartUdp (
     return Status;
   }
 
-  mNts.State = NtsQuery;
+  mNts.State        = NtsQuery;
+  mNts.QueryStartNs = NtsNowNs ();
+  mNts.AddressMs    = (INT64)NtsElapsedMs ();
   NtsPostReceive ();
   return EFI_SUCCESS;
 }
@@ -1014,6 +1050,7 @@ NtsHandleDatagram (
   }
 
   if (mNts.QueryPort == DNS_PORT) {
+    mNts.DnsAnswers++;
     Count = DnsParseReply (Data, Length, mNts.DnsId, Addresses, NTS_ADDRS_PER_NAME);
     DEBUG ((
       DEBUG_VERBOSE,
@@ -1039,6 +1076,7 @@ NtsHandleDatagram (
     return;
   }
 
+  mNts.NtpReplies++;
   Status = SntpParseReply (Data, Length, mNts.Nonce, &Reply);
   DEBUG ((DEBUG_VERBOSE, "NetworkTimeSync: NTP reply of %u bytes: %r\n", (UINT32)Length, Status));
   if (Status == RETURN_UNSUPPORTED) {
@@ -1066,7 +1104,22 @@ NtsSendNext (
   NTS_SERVER  *Server;
   UINTN       Length;
 
-  while (mNts.ServerIndex < mNts.ServerCount) {
+  for ( ; ;) {
+    if (mNts.ServerIndex >= mNts.ServerCount) {
+      //
+      // The whole list failed.  Go round again while there is time: the
+      // first pass may have been spent on ARP, or on servers asked before
+      // the uplink passed traffic.
+      //
+      if ((mNts.Round + 1 >= NTS_ROUNDS) || (mNts.ServerCount == 0)) {
+        break;
+      }
+
+      mNts.Round++;
+      mNts.ServerIndex = 0;
+      mNts.DnsIndex    = 0;
+    }
+
     Server = &mNts.Servers[mNts.ServerIndex];
     if (Server->Kind == NtsServerName) {
       if (mNts.DnsIndex >= mNts.DnsCount) {
@@ -1111,6 +1164,7 @@ NtsSendNext (
       continue;
     }
 
+    mNts.Sent++;
     mNts.QuerySentNs      = NtsNowNs ();
     mNts.QueryOutstanding = TRUE;
     mNts.Problem          = "no server answered";
@@ -1160,7 +1214,7 @@ NtsOnDhcpDone (
 
 /**
   DHCP of our own, for a NIC whose IP4 policy is static with no address.
-  Short retry intervals: the whole attempt has to fit NTS_BUDGET_MS.
+  Short retry intervals: the lease has to fit NTS_ADDRESS_BUDGET_MS.
 **/
 STATIC
 EFI_STATUS
@@ -1252,7 +1306,7 @@ NtsPollDhcp (
   CopyMem (&mNts.Gateway, &Mode.RouterAddress, sizeof (EFI_IPv4_ADDRESS));
   NtsHarvestDhcpOptions (mNts.Dhcp4, Mode.ReplyPacket);
   DEBUG ((
-    DEBUG_VERBOSE,
+    DEBUG_INFO,
     "NetworkTimeSync: own DHCP lease %d.%d.%d.%d via %d.%d.%d.%d, %u DNS, %u NTP server(s), %lu ms\n",
     mNts.Station.Addr[0], mNts.Station.Addr[1], mNts.Station.Addr[2], mNts.Station.Addr[3],
     mNts.Gateway.Addr[0], mNts.Gateway.Addr[1], mNts.Gateway.Addr[2], mNts.Gateway.Addr[3],
@@ -1337,7 +1391,7 @@ NtsPollAddress (
     }
 
     DEBUG ((
-      DEBUG_VERBOSE,
+      DEBUG_INFO,
       "NetworkTimeSync: IP4 address %d.%d.%d.%d (%a policy), %u DNS, %u NTP server(s), %lu ms\n",
       mNts.Station.Addr[0], mNts.Station.Addr[1], mNts.Station.Addr[2], mNts.Station.Addr[3],
       (Policy == Ip4Config2PolicyDhcp) ? "DHCP" : "static",
@@ -1406,6 +1460,7 @@ NtsPollNic (
 
   mNts.Problem = "no link";
   for (Index = 0; Index < Count; Index++) {
+    Snp = NULL;
     Status = gBS->HandleProtocol (Handles[Index], &gEfiIp4Config2ProtocolGuid, (VOID **)&Ip4Config2);
     if (EFI_ERROR (Status)) {
       continue;
@@ -1420,6 +1475,13 @@ NtsPollNic (
     mNts.Ip4Config2 = Ip4Config2;
     mNts.State      = NtsWaitAddress;
     mNts.Problem    = "no address";
+    mNts.LinkMs     = (INT64)NtsElapsedMs ();
+    DEBUG ((
+      DEBUG_INFO,
+      "NetworkTimeSync: NIC %a after %lu ms, waiting for an IPv4 address\n",
+      ((Snp != NULL) && Snp->Mode->MediaPresentSupported) ? "has link" : "picked (link not reported)",
+      (UINT64)mNts.LinkMs
+      ));
     break;
   }
 
@@ -1454,11 +1516,66 @@ NtsFinish (
   IN CONST CHAR8  *Problem
   )
 {
-  EFI_TIME  Now;
+  EFI_TIME     Now;
+  CONST CHAR8  *Stage;
 
   if (mNts.State >= NtsFinishing) {
     return;
   }
+
+  //
+  // One line, whatever the outcome, naming the stage it stopped at.
+  //
+  if (Problem == NULL) {
+    Stage = "clock set";
+  } else {
+    switch (mNts.State) {
+      case NtsIdle:
+      case NtsWaitNic:
+        Stage = (AsciiStrCmp (Problem, "no IPv4 stack") == 0) ? "no IPv4 stack" : "no link";
+        break;
+
+      case NtsWaitAddress:
+      case NtsDhcp:
+        Stage = (AsciiStrCmp (Problem, "UDP unavailable") == 0) ? Problem : "no lease";
+        break;
+
+      case NtsQuery:
+        if (mNts.Sent == 0) {
+          Stage = "address, but nothing could be sent";
+        } else if (mNts.TxDone == 0) {
+          Stage = "nothing left the NIC (next hop never answered ARP)";
+        } else if (mNts.QueryPort == DNS_PORT) {
+          Stage = "DNS timeout";
+        } else {
+          Stage = "NTP timeout";
+        }
+
+        break;
+
+      default:
+        Stage = Problem;
+        break;
+    }
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "NetworkTimeSync: stage: %a; link at %ld ms, address at %ld ms, %u server(s), %u DNS, round %u, "
+    "%u sent, %u out, %u failed, %u in, %u DNS answer(s), %u NTP reply(s)\n",
+    Stage,
+    mNts.LinkMs,
+    mNts.AddressMs,
+    (UINT32)mNts.ServerCount,
+    (UINT32)mNts.DnsCount,
+    mNts.Round + 1,
+    mNts.Sent,
+    mNts.TxDone,
+    mNts.TxFailed,
+    mNts.Datagrams,
+    mNts.DnsAnswers,
+    mNts.NtpReplies
+    ));
 
   if (Problem != NULL) {
     if (EFI_ERROR (gRT->GetTime (&Now, NULL))) {
@@ -1493,7 +1610,12 @@ NtsOnTick (
     return;
   }
 
-  if (NtsElapsedMs () >= NTS_BUDGET_MS) {
+  if ((mNts.State < NtsQuery) && (NtsElapsedMs () >= NTS_ADDRESS_BUDGET_MS)) {
+    NtsFinish (mNts.Problem);
+    return;
+  }
+
+  if ((mNts.State == NtsQuery) && ((NtsNowNs () - mNts.QueryStartNs) / NS_PER_MS >= NTS_QUERY_BUDGET_MS)) {
     NtsFinish (mNts.Problem);
     return;
   }
@@ -1579,9 +1701,11 @@ NtsOnDevicesConnected (
 
   FreePool (SnpHandles);
 
-  mNts.StartNs = NtsNowNs ();
-  mNts.Problem = "no IPv4 stack";
-  mNts.State   = NtsWaitNic;
+  mNts.StartNs   = NtsNowNs ();
+  mNts.Problem   = "no IPv4 stack";
+  mNts.LinkMs    = -1;
+  mNts.AddressMs = -1;
+  mNts.State     = NtsWaitNic;
   Status       = gBS->SetTimer (mNts.Timer, TimerPeriodic, EFI_TIMER_PERIOD_MILLISECONDS (NTS_TICK_MS));
   if (EFI_ERROR (Status)) {
     NtsCleanup ();
