@@ -97,6 +97,53 @@ typedef struct {
   UINT32    Reserved;  // 0
 } FVB_RUNTIME_STORE_HEADER;
 
+//
+// Diagnostics for the runtime store (board bring-up of the feature).
+//
+// A block at FVB_RT_DIAG_OFFSET in the header page counts what happened to
+// the store during a boot, including after ExitBootServices where nothing
+// can be printed, and two canaries further into the range show whether the
+// DRAM came through the reset.  At a reset made before ExitBootServices a
+// grid of canaries is also written into free DRAM, every FVB_RT_GRID_STEP,
+// so the next boot can tell which DRAM the reset and the boot chain leave
+// alone.  The next boot prints all of it.
+//
+#define FVB_RT_DIAG_SIGNATURE    SIGNATURE_64 ('R', 'K', 'F', 'V', 'B', 'D', 'G', '1')
+#define FVB_RT_CANARY_SIGNATURE  SIGNATURE_64 ('R', 'K', 'F', 'V', 'B', 'C', 'N', '1')
+#define FVB_RT_GRID_SIGNATURE    SIGNATURE_64 ('R', 'K', 'F', 'V', 'B', 'G', 'R', 'D')
+#define FVB_RT_DIAG_OFFSET       0x800
+#define FVB_RT_CANARY_MID        0x38000
+#define FVB_RT_CANARY_TAIL       0x3FFC0
+#define FVB_RT_GRID_STEP         SIZE_1MB
+#define FVB_RT_GRID_MIN          0x40000000ULL
+#define FVB_RT_GRID_MAX          0x200000000ULL
+
+#define FVB_RT_EV_EBS            BIT0  // ExitBootServices handler ran
+#define FVB_RT_EV_RT_WRITE       BIT1  // FvbWrite/FvbEraseBlocks after ExitBootServices
+#define FVB_RT_EV_RECORD         BIT2  // a record was written
+#define FVB_RT_EV_SVAM           BIT3  // SetVirtualAddressMap converted the pointers
+#define FVB_RT_EV_BOOT_RESET     BIT4  // reset notify ran (reset before ExitBootServices)
+#define FVB_RT_EV_GRID           BIT5  // the canary grid was written
+
+typedef struct {
+  UINT64    Signature;
+  UINT32    Boot;           // boot generation that wrote this block
+  UINT32    Events;         // FVB_RT_EV_*
+  UINT32    RtWrites;       // FVB writes and erases after ExitBootServices
+  UINT32    RecordUpdates;  // records written this boot
+  UINT32    LastDataCrc;    // DataCrc of the last record written
+  UINT32    LastHeaderCrc;  // HeaderCrc of the last record written
+  UINT32    GridWritten;    // canaries placed by the reset notify
+  UINT32    Crc;            // CRC32 of this block with Crc 0
+} FVB_RT_DIAG;
+
+typedef struct {
+  UINT64    Signature;
+  UINT64    Address;        // where it was written
+  UINT32    Boot;           // boot generation that wrote it
+  UINT32    Crc;            // CRC32 of the 20 bytes above
+} FVB_RT_CANARY;
+
 typedef struct {
   UINT32    AtagBootDevType;
   UINT32    ControllerBaseAddress;
