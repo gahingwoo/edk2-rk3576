@@ -113,7 +113,10 @@
   # were unreachable.  Stated explicitly: the intent is visible, and turning one
   # on is a one-line edit rather than an archaeology exercise.
   #
-  #   I2cDxe/Rk860xRegulatorDxe: never built for either board.
+  #   I2cDxe:                    built when a board turns RK_RTC8563_ENABLE
+  #                              on (all three do: the RTC is on I2C2), or
+  #                              for the TaishanPi 3M's touch and PMIC.
+  #   Rk860xRegulatorDxe:        no board here has an RK860x.
   #   Pca9555Dxe:                neither carrier has the expander.
   #
   # ArmScmiDxe is ON.  The note that used to sit here -- "no SCMI firmware on
@@ -134,6 +137,14 @@
 !endif
 !ifndef RK_PCA9555_ENABLE
   DEFINE RK_PCA9555_ENABLE          = FALSE
+!endif
+!ifndef RK_RTC8563_ENABLE
+  DEFINE RK_RTC8563_ENABLE          = FALSE
+!endif
+!if $(RK_RTC8563_ENABLE) == TRUE
+!if $(RK_I2C_ENABLE) != TRUE
+!error "RK_RTC8563_ENABLE needs RK_I2C_ENABLE: the RTC is reached through I2cDxe"
+!endif
 !endif
 !ifndef RK_SCMI_ENABLE
   DEFINE RK_SCMI_ENABLE             = TRUE
@@ -310,10 +321,18 @@
   gRockchipTokenSpaceGuid.PcdRk860xRegulatorMinVoltages|{ UINT32(550000), UINT32(550000) }
   gRockchipTokenSpaceGuid.PcdRk860xRegulatorMaxVoltages|{ UINT32(1050000), UINT32(1050000) }
 
-  # PMIC on I2C1 @ 0x23, RTC on I2C2 @ 0x51
-  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x23, 0x51 }
-  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x1, 0x2 }
-  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ FALSE, TRUE }
+  # The buses I2cDxe brings up (pins, clock gates, divider), one entry per
+  # device.  All three boards have the 8563-family RTC at 0x51 on I2C2
+  # (i2c2m0: GPIO0 PB7/PC0, function 9; rtc@51 in each board's DTS), mapped
+  # for runtime because Hym8563RealTimeClockLib serves GetTime/SetTime to
+  # Windows from it.  The RK806 PMIC on I2C1 used to be listed here too; no
+  # driver reads it through I2cDxe on these boards, so its bus is left alone.
+  # A board with more devices overrides all three lists (TaishanPi3M.dsc).
+  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x51 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x2 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ TRUE }
+  gRockchipTokenSpaceGuid.PcdRtc8563Bus|2
+  gRockchipTokenSpaceGuid.PcdRtc8563Address|0x51
   gRockchipTokenSpaceGuid.PcdRk860xRegulatorAddresses|{ 0x23 }
   gRockchipTokenSpaceGuid.PcdRk860xRegulatorBuses|{ 0x1 }
   gRockchipTokenSpaceGuid.PcdRk860xRegulatorTags|{ 0 }

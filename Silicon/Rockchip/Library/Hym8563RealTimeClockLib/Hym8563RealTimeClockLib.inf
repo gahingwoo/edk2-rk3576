@@ -1,0 +1,52 @@
+#/** @file
+#
+#  RealTimeClockLib for an HYM8563 / PCF8563-compatible RTC behind
+#  Rockchip's I2cDxe, falling back to the virtual RTC when the chip is
+#  absent, not answering or not holding a valid time.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = Hym8563RealTimeClockLib
+  FILE_GUID                      = 5d0f6a3e-7c1b-4f0e-9a52-3b8e6c1d2f47
+  MODULE_TYPE                    = DXE_RUNTIME_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = RealTimeClockLib|DXE_RUNTIME_DRIVER
+
+[Sources.common]
+  Hym8563RealTimeClockLib.c
+
+[Packages]
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  TimeBaseLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiLib
+  UefiRuntimeLib
+
+[Guids]
+  gEfiEventVirtualAddressChangeGuid
+
+[Protocols]
+  gEfiI2cMasterProtocolGuid                 ## CONSUMES
+  gRockchipI2cMasterProtocolGuid            ## CONSUMES
+  gExitBootServicesOsNotifyProtocolGuid     ## SOMETIMES_CONSUMES
+
+[FixedPcd]
+  gRockchipTokenSpaceGuid.PcdRtc8563Bus
+  gRockchipTokenSpaceGuid.PcdRtc8563Address
+  gRockchipTokenSpaceGuid.PcdRtc8563ClkoutEnable
+
+[BuildOptions]
+  *_*_*_CC_FLAGS = -DBUILD_EPOCH=$(SOURCE_DATE_EPOCH)

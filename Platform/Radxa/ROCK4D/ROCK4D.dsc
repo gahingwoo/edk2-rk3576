@@ -52,7 +52,12 @@
   # gRockchipTokenSpaceGuid.FspiBaseAddr points NorFlashDxe at the RK3576
   # FSPI0 MMIO (0x2A340000) so it can actually read/write the SPI flash.
   DEFINE RK_FVB_ENABLE           = TRUE
-  DEFINE RK_RTC8563_ENABLE       = FALSE
+  # The battery-backed RTC: TCS8563 (U20) at 0x51 on I2C2 (ROCK 4D
+  # schematic V1.12 p27, battery J6).
+  # GetTime/SetTime use it through I2cDxe; the virtual clock stays as the
+  # fallback when it does not answer.  See Hym8563RealTimeClockLib.c.
+  DEFINE RK_RTC8563_ENABLE       = TRUE
+  DEFINE RK_I2C_ENABLE           = TRUE
   DEFINE RK_STATUS_LED_ENABLE    = FALSE
   # GMAC: RK3576 GmacPlatformDxe configures sdgmac_grf (RGMII-ID, RTL8211F)
   DEFINE RK3576_GMAC_ENABLE      = TRUE

@@ -130,9 +130,6 @@
 !if $(RK_860X_REGULATOR_ENABLE) == TRUE && $(RK_I2C_ENABLE) == TRUE
   INF Silicon/Rockchip/Drivers/I2c/Rk860xRegulatorDxe/Rk860xRegulatorDxe.inf
 !endif
-!if $(RK_RTC8563_ENABLE) == TRUE
-  INF Silicon/Rockchip/Drivers/Rtc8563PlatformDxe/Rtc8563PlatformDxe.inf
-!endif
 !if $(RK_PCA9555_ENABLE) == TRUE
   INF Silicon/Rockchip/Drivers/Pca9555Dxe/Pca9555Dxe.inf
 !endif

@@ -544,7 +544,9 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf {
   <LibraryClasses>
 !if $(RK_RTC8563_ENABLE) == TRUE
-    RealTimeClockLib|Silicon/Rockchip/Library/Pcf8563RealTimeClockLib/Pcf8563RealTimeClockLib.inf
+    # The battery-backed 8563 on I2C (PcdRtc8563Bus/Address), with the
+    # virtual clock as a fallback when the chip is absent or not valid.
+    RealTimeClockLib|Silicon/Rockchip/Library/Hym8563RealTimeClockLib/Hym8563RealTimeClockLib.inf
 !else
     RealTimeClockLib|EmbeddedPkg/Library/VirtualRealTimeClockLib/VirtualRealTimeClockLib.inf
 !endif
@@ -638,9 +640,6 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
   Silicon/Rockchip/Drivers/I2c/I2cDxe/I2cDxe.inf
 !if $(RK_860X_REGULATOR_ENABLE) == TRUE
   Silicon/Rockchip/Drivers/I2c/Rk860xRegulatorDxe/Rk860xRegulatorDxe.inf
-!endif
-!if $(RK_RTC8563_ENABLE) == TRUE
-  Silicon/Rockchip/Drivers/Rtc8563PlatformDxe/Rtc8563PlatformDxe.inf
 !endif
 !if $(RK_PCA9555_ENABLE) == TRUE
   Silicon/Rockchip/Drivers/Pca9555Dxe/Pca9555Dxe.inf

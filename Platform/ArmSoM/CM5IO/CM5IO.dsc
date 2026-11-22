@@ -58,7 +58,12 @@
   DEFINE RK_EMMC_ENABLE          = TRUE   # HS400ES not implemented in UEFI SDHCI; HS400 disabled via PCD below
   DEFINE RK_NOR_FLASH_ENABLE     = TRUE
   DEFINE RK_FVB_ENABLE           = TRUE
-  DEFINE RK_RTC8563_ENABLE       = FALSE
+  # The battery-backed RTC: LK8563S (U2405) at 0x51 on I2C2, on the CM5
+  # module (ArmSoM-CM5-1V1 schematic p14), battery VRTC from the carrier.
+  # GetTime/SetTime use it through I2cDxe; the virtual clock stays as the
+  # fallback when it does not answer.  See Hym8563RealTimeClockLib.c.
+  DEFINE RK_RTC8563_ENABLE       = TRUE
+  DEFINE RK_I2C_ENABLE           = TRUE
 
   # Status LEDs
   DEFINE RK_STATUS_LED_ENABLE    = FALSE
@@ -234,6 +239,17 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   # audio.  Not run on hardware.
   #
   gRK3588TokenSpaceGuid.PcdHdmiAudioPreset|TRUE
+
+  #
+  # The SYN43752 WiFi/BT module on the CM5 takes its 32 kHz LPO from the
+  # LK8563S CLKOUT (ArmSoM-CM5-1V1 schematic: R2425 0R, net 32KOUT_RTC2WIFI
+  # to the module's LPO; &sdio_pwrseq ext_clock = <&hym8563> in the DTS).
+  # CLKOUT is battery-backed: if an OS ever switched it off, WiFi and
+  # Bluetooth would stay dead.  Turn it back on at boot
+  # (Hym8563RealTimeClockLib, register 0x0D only).  The ROCK 4D wires CLKOUT
+  # to the SoC only (32KOUT_RTC2SOC) and leaves this off.
+  #
+  gRockchipTokenSpaceGuid.PcdRtc8563ClkoutEnable|TRUE
 
 ################################################################################
 [Components.common]

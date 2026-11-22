@@ -89,7 +89,12 @@ BlockSize          = 0x40
 # This gives ~1.8MB free space after the current ~12.17MB of modules.
 # The extra 1.8MB of 0xFF free space LZMA-compresses to ~4 KB, so
 # BL33_AP_UEFI.Fv (5MB container, currently 67% free) is unaffected.
-NumBlocks          = 0x3C000   # 15MB FVMAIN — increased from 14.125MB to accommodate display stack (Vop2Dxe + DwHdmiQpLib + LcdGraphicsOutputDxe ~180KB)
+#
+# 16MB since the RTC change: I2cDxe and the I2C bus driver on every board put
+# the ROCK 4D 52KB over 15MB (it was 98% full).  A runtime driver takes 256KB
+# here because its sections are 64KB aligned.  Free space is 0xFF and costs
+# next to nothing in the compressed BL33_AP_UEFI.Fv.
+NumBlocks          = 0x40000   # 16MB FVMAIN (was 15MB, before that 14.125MB for the display stack)
 FvAlignment        = 8         # FV alignment and FV attributes setting.
 ERASE_POLARITY     = 1
 MEMORY_MAPPED      = TRUE

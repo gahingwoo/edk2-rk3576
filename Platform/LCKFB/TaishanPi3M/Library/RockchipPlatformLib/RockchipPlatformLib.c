@@ -361,9 +361,29 @@ I2cIomux (
       DEBUG ((DEBUG_INFO, "TSPI-3M I2cIomux: I2C1 (PMIC) GPIO0 PB2/PB3 fn11\n"));
       break;
     case 2:
+      /*
+       * Schematic: GPIO0_B7/C0 are nets I2C2_SCL/SDA_M0_CC_RTC, PMUIO1 at
+       * VCC_3V3_S3, 2.2k pull-ups R329/R328 to VCC_3V3_S3, and go to the
+       * HYM8563S (U71) and the FUSB302 (U40) only.  Pulls are left as they
+       * are; the DTS asks for none (pcfg_pull_none_smt).
+       */
+      /*
+       * PCLK_I2C2 and CLK_I2C2 are CRU_GATE_CON12 bits 1 and 13 (TRM V1.2
+       * Part 1; clk-rk3576.c).  They reset open, but Linux gates them while
+       * the bus is idle, so a warm reboot from Linux need not find them so.
+       * Open only those two bits.  CLKSEL_CON57[3:2] (clk_i2c2 source) is
+       * read, not written: 0 is GPLL/6, the ~200 MHz PcdI2cClockFrequency
+       * assumes; any other source is slower, so the bus would only run
+       * slower than 100 kHz.
+       */
+      MmioWrite32 (CRU_CLKGATE_CON (12), (BIT1 | BIT13) << 16);
       GpioPinSetFunction (0, GPIO_PIN_PB7, 9);
       GpioPinSetFunction (0, GPIO_PIN_PC0, 9);
-      DEBUG ((DEBUG_INFO, "TSPI-3M I2cIomux: I2C2 (RTC) GPIO0 PB7/PC0 fn9\n"));
+      DEBUG ((
+        DEBUG_INFO,
+        "TSPI-3M I2cIomux: I2C2 (RTC, FUSB302) GPIO0 PB7/PC0 fn9, clocks ungated, clk_i2c2 sel %u\n",
+        (MmioRead32 (CRU_CLKSEL_CON (57)) >> 2) & 0x3
+        ));
       break;
     default:
       break;
