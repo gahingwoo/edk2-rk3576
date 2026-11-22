@@ -1215,6 +1215,36 @@ NtsOnDhcpDone (
 }
 
 /**
+  Take the first offer.  With no callback, EDK2's Dhcp4 keeps collecting
+  offers until the DISCOVER it answers times out and only then selects one
+  (DhcpCallUser returns EFI_NOT_READY for Dhcp4RcvdOffer; DhcpOnTimerTick
+  "select offer at each timeout"); with DiscoverTimeout {1, 2, 2} that put
+  the lease at 1 s when the first DISCOVER was answered and 3 s plus a round
+  trip (3949 ms on the TaishanPi 3M) when it was not.  EFI_SUCCESS here makes
+  DhcpHandleSelect choose this offer at once, so the lease takes one
+  DISCOVER/OFFER/REQUEST/ACK round trip, plus 1 s per DISCOVER that went
+  unanswered.  Every other event: carry on as without a callback.
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+NtsDhcpCallback (
+  IN  EFI_DHCP4_PROTOCOL  *This,
+  IN  VOID                *Context,
+  IN  EFI_DHCP4_STATE     CurrentState,
+  IN  EFI_DHCP4_EVENT     Dhcp4Event,
+  IN  EFI_DHCP4_PACKET    *Packet     OPTIONAL,
+  OUT EFI_DHCP4_PACKET    **NewPacket OPTIONAL
+  )
+{
+  if (Dhcp4Event == Dhcp4RcvdOffer) {
+    DEBUG ((DEBUG_INFO, "NetworkTimeSync: DHCP offer after %lu ms, taking it\n", NtsElapsedMs ()));
+  }
+
+  return EFI_SUCCESS;
+}
+
+/**
   DHCP of our own, for a NIC whose IP4 policy is static with no address.
   Short retry intervals: the lease has to fit NTS_ADDRESS_BUDGET_MS.
 **/
@@ -1226,7 +1256,7 @@ NtsStartDhcp (
 {
   EFI_STATUS             Status;
   EFI_DHCP4_CONFIG_DATA  Config;
-  STATIC UINT32          DiscoverTimeout[] = { 1, 2, 2 };
+  STATIC UINT32          DiscoverTimeout[] = { 1, 1, 2, 2 };
   STATIC UINT32          RequestTimeout[]  = { 1, 2 };
   STATIC UINT8           ParaListBuffer[2 + 4];
   EFI_DHCP4_PACKET_OPTION  *Options[1];
@@ -1262,6 +1292,7 @@ NtsStartDhcp (
   Config.RequestTimeout   = RequestTimeout;
   Config.OptionCount      = 1;
   Config.OptionList       = Options;
+  Config.Dhcp4Callback    = NtsDhcpCallback;
 
   Status = mNts.Dhcp4->Configure (mNts.Dhcp4, &Config);
   if (EFI_ERROR (Status)) {
@@ -1508,64 +1539,64 @@ NtsCleanup (
 }
 
 /**
-  Stop.  Problem NULL means the clock was set; otherwise it says why not.
-  The protocol children are torn down from the next tick, never from inside
-  one of their own completion callbacks.
+  How far the attempt got, in the words of the stage line.  Problem is the
+  reason it would give up now (mNts.Problem, or what NtsFinish was given).
 **/
 STATIC
-VOID
-NtsFinish (
+CONST CHAR8 *
+NtsStageOf (
   IN CONST CHAR8  *Problem
   )
 {
-  EFI_TIME     Now;
-  CONST CHAR8  *Stage;
+  switch (mNts.State) {
+    case NtsIdle:
+    case NtsWaitNic:
+      return (AsciiStrCmp (Problem, "no IPv4 stack") == 0) ? "no IPv4 stack" : "no link";
 
-  if (mNts.State >= NtsFinishing) {
-    return;
+    case NtsWaitAddress:
+    case NtsDhcp:
+      return (AsciiStrCmp (Problem, "UDP unavailable") == 0) ? Problem : "no lease";
+
+    case NtsQuery:
+      if (mNts.QueryOutstanding) {
+        return (mNts.QueryPort == DNS_PORT) ? "DNS query in flight" : "NTP query in flight";
+      }
+
+      if (mNts.Sent == 0) {
+        return "address, but nothing could be sent";
+      }
+
+      if (mNts.TxDone == 0) {
+        return "nothing left the NIC (next hop never answered ARP: unicast receive?)";
+      }
+
+      return (mNts.QueryPort == DNS_PORT) ? "DNS timeout" : "NTP timeout";
+
+    default:
+      return Problem;
   }
+}
 
-  //
-  // One line, whatever the outcome, naming the stage it stopped at.
-  //
-  if (Problem == NULL) {
-    Stage = "clock set";
-  } else {
-    switch (mNts.State) {
-      case NtsIdle:
-      case NtsWaitNic:
-        Stage = (AsciiStrCmp (Problem, "no IPv4 stack") == 0) ? "no IPv4 stack" : "no link";
-        break;
-
-      case NtsWaitAddress:
-      case NtsDhcp:
-        Stage = (AsciiStrCmp (Problem, "UDP unavailable") == 0) ? Problem : "no lease";
-        break;
-
-      case NtsQuery:
-        if (mNts.Sent == 0) {
-          Stage = "address, but nothing could be sent";
-        } else if (mNts.TxDone == 0) {
-          Stage = "nothing left the NIC (next hop never answered ARP: unicast receive?)";
-        } else if (mNts.QueryPort == DNS_PORT) {
-          Stage = "DNS timeout";
-        } else {
-          Stage = "NTP timeout";
-        }
-
-        break;
-
-      default:
-        Stage = Problem;
-        break;
-    }
-  }
-
+/**
+  The one line every attempt ends with, whatever the outcome.  Cancelled is
+  NULL, or the event that cut the attempt short.
+**/
+STATIC
+VOID
+NtsLogStage (
+  IN CONST CHAR8  *Stage,
+  IN CONST CHAR8  *Cancelled  OPTIONAL
+  )
+{
   DEBUG ((
     DEBUG_INFO,
-    "NetworkTimeSync: stage: %a; link at %ld ms, address at %ld ms, %u server(s), %u DNS, round %u, "
+    "NetworkTimeSync: stage: %a%a%a%a after %lu ms; link at %ld ms, address at %ld ms, %u server(s), %u DNS, round %u, "
     "%u sent, %u out, %u failed (last %r), %u in, %u DNS answer(s), %u NTP reply(s)\n",
+    (Cancelled != NULL) ? "cancelled by " : "",
+    (Cancelled != NULL) ? Cancelled : "",
+    (Cancelled != NULL) ? " at " : "",
     Stage,
+    NtsElapsedMs (),
     mNts.LinkMs,
     mNts.AddressMs,
     (UINT32)mNts.ServerCount,
@@ -1579,6 +1610,26 @@ NtsFinish (
     mNts.DnsAnswers,
     mNts.NtpReplies
     ));
+}
+
+/**
+  Stop.  Problem NULL means the clock was set; otherwise it says why not.
+  The protocol children are torn down from the next tick, never from inside
+  one of their own completion callbacks.
+**/
+STATIC
+VOID
+NtsFinish (
+  IN CONST CHAR8  *Problem
+  )
+{
+  EFI_TIME  Now;
+
+  if (mNts.State >= NtsFinishing) {
+    return;
+  }
+
+  NtsLogStage ((Problem == NULL) ? "clock set" : NtsStageOf (Problem), NULL);
 
   if (Problem != NULL) {
     if (EFI_ERROR (gRT->GetTime (&Now, NULL))) {
@@ -1729,6 +1780,14 @@ NtsOnExitBootServices (
 {
   if (mNts.Timer != NULL) {
     gBS->SetTimer (mNts.Timer, TimerCancel, 0);
+  }
+
+  //
+  // Still running: the boot came before an answer.  Say how far it got;
+  // a serial write is all this does.
+  //
+  if ((mNts.State > NtsIdle) && (mNts.State < NtsFinishing)) {
+    NtsLogStage (NtsStageOf (mNts.Problem), "ExitBootServices");
   }
 
   mNts.State = NtsDone;
