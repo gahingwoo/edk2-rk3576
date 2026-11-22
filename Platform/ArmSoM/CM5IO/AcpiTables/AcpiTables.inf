@@ -45,6 +45,9 @@
   $(RK_COMMON_ACPI_DIR)/Dbg2.aslc
   $(RK_COMMON_ACPI_DIR)/Pptt.aslc
   $(RK_COMMON_ACPI_DIR)/CpuIdle.asl
+  # NPU SSDT, installed only when enabled in setup (PcdAcpiNpu) on a board
+  # that can set the NPU rail (PcdRk806I2cBase).
+  $(RK_COMMON_ACPI_DIR)/Npu.asl
 
 [Packages]
   ArmPkg/ArmPkg.dec

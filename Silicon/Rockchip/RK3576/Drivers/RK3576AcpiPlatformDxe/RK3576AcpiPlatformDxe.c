@@ -439,6 +439,15 @@ AcpiDsdtFixupStatus (
 //
 #define CPU_IDLE_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'L', 'P', 'I', ' ', ' ', ' ')
 
+//
+// The NPU SSDT (Npu.asl, OEM table ID "RKNPU") is installed only when the NPU
+// is enabled in setup (PcdAcpiNpu) on a board that can set its rail
+// (PcdRk806I2cBase); RK3576Dxe powers the NPU under the same condition.  Its
+// _STA also reads the power domains and gates, so a table installed with the
+// NPU off would still report no device.
+//
+#define NPU_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'N', 'P', 'U', ' ', ' ', ' ')
+
 STATIC
 BOOLEAN
 EFIAPI
@@ -466,6 +475,17 @@ AcpiTableCheck (
     }
 
     DEBUG ((DEBUG_INFO, "AcpiPlatform: fan control on, installing the fan SSDT\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == NPU_SSDT_OEM_TABLE_ID))
+  {
+    if ((PcdGet8 (PcdAcpiNpu) == 0) || (FixedPcdGet32 (PcdRk806I2cBase) == 0)) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: NPU off in setup or unsupported here, its SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_INFO, "AcpiPlatform: NPU on, installing its SSDT\n"));
   }
 
   return TRUE;

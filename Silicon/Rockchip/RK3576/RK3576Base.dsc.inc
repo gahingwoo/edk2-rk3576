@@ -473,6 +473,11 @@
   # until a board has run sustained load at it with its temperature logged.
   #
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0
+  # NPU for an ACPI OS (setup option, backs PcdAcpiNpu below): off.  When on,
+  # RK3576Dxe sets the NPU rail, powers the NPU domains and sets its clock,
+  # and RK3576AcpiPlatformDxe installs the NPU SSDT (Npu.asl).
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiNpuDefault|0
   #
   # MIPI DSI screen brightness in percent (setup option, backs
   # PcdDisplayBrightness below), read only on a board with a DSI panel.
@@ -561,6 +566,11 @@
   # CPU
   #
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq|L"CpuMaxFreq"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault
+
+  #
+  # NPU
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiNpu|L"AcpiNpu"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiNpuDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault

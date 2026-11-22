@@ -163,6 +163,34 @@ SetupConfigTableVariables (
   }
 
   //
+  // AcpiNpu: whether the NPU is powered and its SSDT installed.  The option
+  // is only shown on a board that can set the NPU rail (AcpiNpuSupported:
+  // the board names its RK806's I2C bus, see Npu.c).
+  //
+  Var8   = (FixedPcdGet32 (PcdRk806I2cBase) != 0) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"AcpiNpuSupported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"AcpiNpu",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdAcpiNpu, FixedPcdGet8 (PcdAcpiNpuDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
   // Publish which FDT compat modes are actually supported (have an embedded DTB).
   // The HII form grays out the selector when only one mode is available.
   //

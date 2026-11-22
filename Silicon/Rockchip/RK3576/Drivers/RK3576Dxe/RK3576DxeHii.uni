@@ -69,6 +69,10 @@
 #string STR_ACPI_CPU_IDLE_STATES_HELP                      #language en-US "Disabled - the OS idles the cores with WFI only, as before this option existed.\n\n"
                                                                            "Enabled - the OS also gets a core power-down idle state (ACPI _LPI, entered through PSCI CPU_SUSPEND with the parameters of mainline Linux's CPU_SLEEP), for lower idle power and temperature. Not yet run under Windows: a powered-down core's timer stops, and this SoC has no always-on timer Windows can use instead. If a boot hangs or the clock runs slow, turn this off. Has no effect on Linux with a device tree."
 
+#string STR_ACPI_NPU_PROMPT                                #language en-US "NPU (experimental)"
+#string STR_ACPI_NPU_HELP                                  #language en-US "Disabled - the NPU stays powered off and the OS is not told about it.\n\n"
+                                                                           "Enabled - the firmware sets the NPU rail to 800 mV, powers the NPU, turns on its clocks at 594 MHz and describes it in an ACPI SSDT for a Windows driver (woa-rk3576-npu). Only in ACPI mode. Linux with a device tree finds the NPU already powered, at 800 mV."
+
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language en-US "Auto"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language en-US "Single Device"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_NXPMX6              #language en-US "NXPMX6"
@@ -301,6 +305,11 @@
 #string STR_ACPI_CPU_IDLE_STATES_PROMPT                    #language zh-Hans "CPU \wide空闲状态\narrow"
 #string STR_ACPI_CPU_IDLE_STATES_HELP                      #language zh-Hans "\wide禁用\narrow - \wide操作系统只用\narrow WFI \wide让空闲的核心等待，与没有这个选项时相同。\narrow\n\n"
                                                                              "\wide启用\narrow - \wide向操作系统提供核心掉电空闲状态（\narrowACPI _LPI\wide，经\narrow PSCI CPU_SUSPEND \wide进入，参数与主线\narrow Linux \wide的\narrow CPU_SLEEP \wide相同），降低空闲功耗和温度。尚未在\narrow Windows \wide上验证：掉电时核心的定时器会停，而本芯片没有\narrow Windows \wide可用的常开定时器。如果开机卡住或时钟变慢，请关闭此项。使用设备树的\narrow Linux \wide不受此选项影响。\narrow"
+
+#string STR_ACPI_NPU_PROMPT                                #language zh-Hans "NPU\wide（实验性）\narrow"
+#string STR_ACPI_NPU_HELP                                  #language zh-Hans "\wide禁用\narrow - NPU \wide保持断电，操作系统看不到它。\narrow\n\n"
+                                                                             "\wide启用\narrow - \wide固件把\narrow NPU \wide电压设为\narrow 800 mV\wide，为\narrow NPU \wide上电，以\narrow 594 MHz \wide打开它的时钟，并通过\narrow ACPI SSDT \wide提供给\narrow Windows \wide驱动（\narrowwoa-rk3576-npu\wide）。仅在\narrow ACPI \wide模式下生效。使用设备树的\narrow Linux \wide会看到\narrow NPU \wide已经上电，电压为\narrow 800 mV\wide。\narrow"
+
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language zh-Hans "\wide自动\narrow"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language zh-Hans "\wide单设备\narrow"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_NXPMX6              #language zh-Hans "NXPMX6"

@@ -88,6 +88,14 @@
   #
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqSupported|FALSE|BOOLEAN|0x00010901
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0|UINT8|0x00010902
+  # NPU (RKNN) for an ACPI OS: the setup option (PcdAcpiNpu, default
+  # PcdAcpiNpuDefault) decides whether RK3576Dxe sets the NPU rail, powers
+  # the NPU domains and sets its clock (Npu.c), and whether
+  # RK3576AcpiPlatformDxe installs the NPU SSDT (OEM table ID "RKNPU").  The
+  # option is shown only on a board that can set the rail, which is one
+  # that sets PcdRk806I2cBase.  Off by default.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiNpuDefault|0|UINT8|0x00010306
   #
   # Analog audio preset: the board library sets up the SAI that carries its
   # codec (power domain, mclk, pins) and the DSDT publishes that SAI and the
@@ -140,7 +148,9 @@
 
   # Rk806I2cPowerOffDxe: the I2C controller and address of an RK806 that
   # the firmware has to switch off itself at a shutdown (see the driver).
-  # 0 leaves shutdown to PSCI alone.
+  # 0 leaves shutdown to PSCI alone.  RK3576Dxe (Npu.c) sets the NPU rail
+  # through the same bus, so 0 also leaves the NPU option unavailable.  The
+  # bus must be one I2cDxe sets up (listed in PcdI2cSlaveBuses).
   gRK3576TokenSpaceGuid.PcdRk806I2cBase|0|UINT32|0x00010705
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress|0x23|UINT8|0x00010706
   # The I2C bus number (I2cDxe's, as in PcdI2cSlaveBuses) of the same RK806,
@@ -187,6 +197,7 @@
   gRK3576TokenSpaceGuid.PcdAcpiFanControl|0|UINT8|0x00000303
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates|0|UINT8|0x00000900
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq|0|UINT8|0x00000901
+  gRK3576TokenSpaceGuid.PcdAcpiNpu|0|UINT8|0x00000305
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|60|UINT8|0x00000400
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353

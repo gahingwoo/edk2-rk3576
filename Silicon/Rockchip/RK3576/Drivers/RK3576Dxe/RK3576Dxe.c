@@ -9,6 +9,7 @@
  **/
 
 #include <Uefi.h>
+#include <Guid/EventGroup.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
@@ -35,6 +36,7 @@
 #include "RK3576DxeFormSetGuid.h"
 #include "ConfigTable.h"
 #include "Gpu.h"
+#include "Npu.h"
 #include "CpuPerf.h"
 #include "Display.h"
 #include "ComboPhy.h"
@@ -346,6 +348,22 @@ SetupNetworkTimeSyncVariables (
   }
 }
 
+/**
+  The NPU, at EndOfDxe: its rail is set over I2C, and the bus is set up by
+  I2cDxe, whose entry point may run after this driver's.
+**/
+STATIC
+VOID
+EFIAPI
+RK3576NpuEndOfDxe (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  gBS->CloseEvent (Event);
+  RK3576NpuPowerOn ();
+}
+
 EFI_STATUS
 EFIAPI
 RK3576EntryPoint (
@@ -404,6 +422,33 @@ RK3576EntryPoint (
 
   /* Power the Mali-G52 for OS drivers that cannot (Windows) */
   RK3576GpuPowerOn ();
+
+  /*
+   * The NPU, only if setup asks for it, the OS gets ACPI and the board can
+   * set the NPU rail: the Windows driver (woa-rk3576-npu) is its only user.
+   * Off by default.
+   */
+  if ((PcdGet8 (PcdAcpiNpu) != 0) &&
+      ((PcdGet32 (PcdConfigTableMode) & CONFIG_TABLE_MODE_ACPI) != 0))
+  {
+    EFI_EVENT  NpuEvent;
+
+    if (!RK3576NpuSupported ()) {
+      DEBUG ((DEBUG_ERROR, "RK3576Dxe: NPU on in setup, but this board cannot set the NPU rail; left off\n"));
+    } else {
+      Status = gBS->CreateEventEx (
+                      EVT_NOTIFY_SIGNAL,
+                      TPL_CALLBACK,
+                      RK3576NpuEndOfDxe,
+                      NULL,
+                      &gEfiEndOfDxeEventGroupGuid,
+                      &NpuEvent
+                      );
+      if (EFI_ERROR (Status)) {
+        DEBUG ((DEBUG_ERROR, "RK3576Dxe: NPU: EndOfDxe event failed: %r, NPU left off\n", Status));
+      }
+    }
+  }
 
   /* Initialize status LED */
   RK3576InitStatusLed ();
