@@ -178,6 +178,30 @@
 };
 
 /*
+ * The NPU, as on the ROCK 4D in mainline: both cores and their IOMMUs, on
+ * the RK806's vdd_npu_s0.  Without these Linux booted through this firmware
+ * gets no /dev/accel (rocket never probes).  Windows does not read the device
+ * tree; its NPU is the ACPI device behind the AcpiNpu setup option.
+ */
+&rknn_core_0 {
+	npu-supply = <&vdd_npu_s0>;
+	status = "okay";
+};
+
+&rknn_mmu_0 {
+	status = "okay";
+};
+
+&rknn_core_1 {
+	npu-supply = <&vdd_npu_s0>;
+	status = "okay";
+};
+
+&rknn_mmu_1 {
+	status = "okay";
+};
+
+/*
  * Only SDO2 reaches the codec's DAC input.  The route puts the first data
  * lane (the stereo pair a 2-channel stream uses) on SDO2.
  */
