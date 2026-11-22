@@ -255,6 +255,12 @@
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
 
+  # SDIO Wi-Fi (AP6256, BCM43456) for an ACPI OS: the setup option exists on
+  # this board and is off by default.  When on, Tspi3mWifi.c powers and probes
+  # the card and the Wi-Fi SSDT (AcpiTables/Wifi.asl) is installed.  See
+  # woa-rk3576 docs/WIFI.md.
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|TRUE
+
 ################################################################################
 [Components.common]
   # ACPI tables, installed alongside the DTB (PcdConfigTableModeDefault above)

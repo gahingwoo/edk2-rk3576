@@ -930,3 +930,17 @@ PlatformGetDtbFileGuid (
 
   return NULL;
 }
+
+/*
+ * PlatformSdioWifiInit -- this board does not set PcdAcpiSdioWifiSupported,
+ * so RK3576Dxe never calls this.  The firmware has no SDIO Wi-Fi bring-up
+ * for it.
+ */
+EFI_STATUS
+EFIAPI
+PlatformSdioWifiInit (
+  VOID
+  )
+{
+  return EFI_UNSUPPORTED;
+}

@@ -105,6 +105,8 @@
   gRK3576TokenSpaceGuid.PcdTsadcTshutEnable
   gRK3576TokenSpaceGuid.PcdTsadcTshutTemp
   gRK3576TokenSpaceGuid.PcdAcpiNpuDefault
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress
   gRK3576TokenSpaceGuid.PcdAcpiVdecDefault
@@ -147,6 +149,7 @@
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq
   gRK3576TokenSpaceGuid.PcdAcpiNpu
   gRK3576TokenSpaceGuid.PcdAcpiVdec
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifi
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath

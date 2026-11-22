@@ -26,6 +26,7 @@
   Tspi3mDsiPanel.c
   Tspi3mAudio.c
   Tspi3mBluetooth.c
+  Tspi3mWifi.c
 
 [Packages]
   MdePkg/MdePkg.dec

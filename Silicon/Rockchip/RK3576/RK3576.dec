@@ -120,6 +120,17 @@
   # board or OS that does not ask for it sees no change.
   #
   gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|0|UINT8|0x00010305
+  # SDIO Wi-Fi for an ACPI OS (experimental): TRUE in
+  # PcdAcpiSdioWifiSupported makes the setup option visible on a board whose
+  # library implements PlatformSdioWifiInit and whose AcpiTables carry the
+  # Wi-Fi SSDT (OEM table ID "RKWIFI").  The option (PcdAcpiSdioWifi,
+  # default PcdAcpiSdioWifiDefault) decides whether RK3576Dxe calls
+  # PlatformSdioWifiInit (pins, clocks, WL_REG_ON and a probe of the card
+  # that is logged on the serial console) and whether RK3576AcpiPlatformDxe
+  # installs that SSDT.  Off by default.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|FALSE|BOOLEAN|0x00010307
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault|0|UINT8|0x00010308
   #
   # Analog audio preset: the board library sets up the SAI that carries its
   # codec (power domain, mclk, pins) and the DSDT publishes that SAI and the
@@ -223,6 +234,7 @@
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq|0|UINT8|0x00000901
   gRK3576TokenSpaceGuid.PcdAcpiNpu|0|UINT8|0x00000305
   gRK3576TokenSpaceGuid.PcdAcpiVdec|0|UINT8|0x00000304
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|0|UINT8|0x00000306
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|60|UINT8|0x00000400
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353

@@ -907,7 +907,9 @@ Tspi3mBluetoothIoInit (
  * The CM5-IO releases its WiFi and Bluetooth resets here.  This board leaves
  * both off: Linux sequences WiFi through mmc-pwrseq and Bluetooth through
  * hci_bcm, and the Windows Bluetooth driver raises BT_REG_ON itself.  The
- * firmware has no use for either radio.
+ * firmware has no use for either radio.  The one exception is the "SDIO
+ * Wi-Fi" setup option (off by default): RK3576Dxe then calls
+ * PlatformSdioWifiInit (Tspi3mWifi.c), which powers and probes the Wi-Fi.
  */
 VOID
 EFIAPI

@@ -496,6 +496,10 @@
   # decoder SSDT (Vdec.asl).
   #
   gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|0
+  # SDIO Wi-Fi for an ACPI OS (setup option, backs PcdAcpiSdioWifi below):
+  # off.  Shown only where a board sets PcdAcpiSdioWifiSupported.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault|0
   #
   # MIPI DSI screen brightness in percent (setup option, backs
   # PcdDisplayBrightness below), read only on a board with a DSI panel.
@@ -594,6 +598,9 @@
   # Video decoder
   #
   gRK3576TokenSpaceGuid.PcdAcpiVdec|L"AcpiVdec"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiVdecDefault
+  # SDIO Wi-Fi
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|L"AcpiSdioWifi"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault
