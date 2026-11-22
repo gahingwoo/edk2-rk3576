@@ -137,6 +137,7 @@ typedef struct {
   UINT32                       Datagrams;   // anything received on our port
   UINT32                       DnsAnswers;
   UINT32                       NtpReplies;
+  EFI_STATUS                   LastTxStatus; // of the last failed transmit token
 
   //
   // NICs this driver connected itself, and the drivers that managed each
@@ -721,6 +722,7 @@ NtsOnTransmit (
   mNts.TxPending = FALSE;
   if (EFI_ERROR (mNts.TxToken.Status)) {
     mNts.TxFailed++;
+    mNts.LastTxStatus = mNts.TxToken.Status;
   } else {
     mNts.TxDone++;
   }
@@ -1544,7 +1546,7 @@ NtsFinish (
         if (mNts.Sent == 0) {
           Stage = "address, but nothing could be sent";
         } else if (mNts.TxDone == 0) {
-          Stage = "nothing left the NIC (next hop never answered ARP)";
+          Stage = "nothing left the NIC (next hop never answered ARP: unicast receive?)";
         } else if (mNts.QueryPort == DNS_PORT) {
           Stage = "DNS timeout";
         } else {
@@ -1562,7 +1564,7 @@ NtsFinish (
   DEBUG ((
     DEBUG_INFO,
     "NetworkTimeSync: stage: %a; link at %ld ms, address at %ld ms, %u server(s), %u DNS, round %u, "
-    "%u sent, %u out, %u failed, %u in, %u DNS answer(s), %u NTP reply(s)\n",
+    "%u sent, %u out, %u failed (last %r), %u in, %u DNS answer(s), %u NTP reply(s)\n",
     Stage,
     mNts.LinkMs,
     mNts.AddressMs,
@@ -1572,6 +1574,7 @@ NtsFinish (
     mNts.Sent,
     mNts.TxDone,
     mNts.TxFailed,
+    mNts.LastTxStatus,
     mNts.Datagrams,
     mNts.DnsAnswers,
     mNts.NtpReplies
