@@ -591,8 +591,25 @@ EqosDmaMapTxDescriptor (
   Descriptor->Tdes2 = EQOS_TDES2_TX_IOC | NumberOfBytes;
   MemoryFence ();
   Descriptor->Tdes3 = EQOS_TDES3_TX_OWN | EQOS_TDES3_TX_FD | EQOS_TDES3_TX_LD | NumberOfBytes;
+  MemoryFence ();
 
-  MmioWrite32 (Eqos->Base + GMAC_DMA_CHAN0_TX_END_ADDR, (UINT32)(UINTN)Descriptor);
+  //
+  // The tail pointer points past the last descriptor the DMA may process:
+  // the DMA works from its current descriptor up to, not including, the
+  // tail.  Pointing it at this descriptor itself, as this did, left the
+  // frame queued until the next Transmit() moved the tail on, so every
+  // frame went out when the one after it was queued.  On the TaishanPi 3M
+  // that was an NTP round trip of 1073 ms (the next frame was the retry
+  // after the 1 s timeout) and a DNS answer 4.1 s after the query.  U-Boot
+  // dwc_eth_qos.c eqos_send() and Linux stmmac both write the descriptor
+  // after the one just queued.  (RX is different: there the tail is the
+  // descriptor just given back, as in U-Boot eqos_free_pkt(), so it is
+  // left alone.)
+  //
+  MmioWrite32 (
+    Eqos->Base + GMAC_DMA_CHAN0_TX_END_ADDR,
+    (UINT32)(Eqos->TxDescsPhysAddr + EQOS_DESC_OFF (EQOS_TX_NEXT (DescIndex)))
+    );
 
   return EFI_SUCCESS;
 }
