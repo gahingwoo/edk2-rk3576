@@ -49,6 +49,7 @@ STATIC FVB_RK_BOOT_DEVICE  mFvbSecondaryRkBootDevices[] = {
 };
 
 STATIC EFI_EVENT         mFvbVirtualAddrChangeEvent;
+STATIC BOOLEAN           mFvbNvFromFit;     // FvbOffset is the FIT's nvdata image
 STATIC FVB_DEVICE        *mFvbDevice;
 STATIC CONST FVB_DEVICE  mRkFvbFlashInstanceTemplate = {
   NULL,  // SpiFlashProtocol ... NEED TO BE FILLED
@@ -1020,6 +1021,7 @@ FvbWrite (
   // ...and after ExitBootServices the disk is the OS's: keep it for the next boot.
   if (FlashInstance->RuntimeStoreActive) {
     FvbRtDiagEvent (FlashInstance, FVB_RT_EV_RT_WRITE);
+    RkFvbRtMarkDirty ();
     FvbRuntimeStoreUpdate (FlashInstance);
   }
 
@@ -1202,6 +1204,7 @@ FvbEraseBlocks (
 
   if (FlashInstance->RuntimeStoreActive) {
     FvbRtDiagEvent (FlashInstance, FVB_RT_EV_RT_WRITE);
+    RkFvbRtMarkDirty ();
     FvbRuntimeStoreUpdate (FlashInstance);
   }
 
@@ -1231,6 +1234,8 @@ FvbVirtualNotifyEvent (
   // EfiConvertPointer (0x0, (VOID**)&mFvbDevice->SpiDevice.Info);
   // EfiConvertPointer (0x0, (VOID**)&mFvbDevice->SpiDevice.HostRegisterBaseAddress);
   // EfiConvertPointer (0x0, (VOID**)&mFvbDevice->SpiDevice);
+
+  RkFvbRtVirtualAddressChange ();
 
   if (mFvbDevice->RuntimeStoreBase != 0) {
     // Still physical here: SetVirtualAddressMap() runs in physical mode.
@@ -1783,6 +1788,7 @@ FvbRuntimeStoreCommitted (
   FVB_RUNTIME_STORE_HEADER  *Header;
 
   FlashInstance->DiskCrc = CalculateCrc32 ((VOID *)FlashInstance->RegionBaseAddress, FlashInstance->FvbSize);
+  RkFvbRtMediumUpdated ();
 
   if (FlashInstance->RuntimeStoreBase == 0) {
     return;
@@ -1813,8 +1819,10 @@ FvbRuntimeStoreExitBootServices (
 
   if (mFvbDevice->DiskDataInvalidated) {
     FvbRuntimeStoreUpdate (mFvbDevice);
+    RkFvbRtMarkDirty ();    // not on the medium yet either
   }
 
+  RkFvbRtExitBootServices ();
   mFvbDevice->RuntimeStoreActive = TRUE;
 }
 
@@ -2041,6 +2049,7 @@ FvbConfigureFlashInstance (
   // runtime writes go through the runtime store; pick up the last boot's.
   //
   if (!FlashInstance->IsSpiFlashAvailable) {
+    RkFvbRtInit (FlashInstance);
     FvbRuntimeStoreInit (FlashInstance);
   }
 
@@ -2507,6 +2516,7 @@ FvbProcessBootDiskDeviceHandle (
 
   if (NvDataOffset != 0) {
     mFvbDevice->FvbOffset = NvDataOffset;
+    mFvbNvFromFit         = TRUE;
     DEBUG ((
       DEBUG_INFO,
       "%a: [%s] NV store is the FIT's nvdata image at 0x%lx\n",
@@ -2621,6 +2631,17 @@ FvbFindBootDiskDevice (
             "%a: WARNING: Consider erasing any firmware present on other devices (SPI/EMMC/SD)!\n",
             __FUNCTION__
             ));
+        }
+
+        //
+        // On the eMMC the store can also be written from the ResetSystem()
+        // an OS makes (RkFvbRt.c), if the setup option is on.
+        //
+        if (  mFvbNvFromFit
+           && (RkBootDevice->ControllerBaseAddress == FixedPcdGet32 (PcdDwcSdhciBaseAddress))
+           && ((mFvbDevice->FvbOffset % 512) == 0))
+        {
+          RkFvbRtSetEmmcTarget (mFvbDevice->FvbOffset / 512);
         }
 
         Status = gBS->InstallMultipleProtocolInterfaces (

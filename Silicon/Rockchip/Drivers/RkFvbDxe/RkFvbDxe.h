@@ -144,6 +144,43 @@ typedef struct {
   UINT32    Crc;            // CRC32 of the 20 bytes above
 } FVB_RT_CANARY;
 
+//
+// RkFvbRt.c: BootNext through a PMU GRF OS register, and the optional write
+// of the store to the eMMC from the ResetSystem() an OS makes.  The setup
+// option is this UINT8 variable in the RK3576Dxe formset (0 = off).
+//
+#define RT_EMMC_COMMIT_VARIABLE  L"RtVarEmmcCommit"
+
+VOID
+RkFvbRtInit (
+  IN FVB_DEVICE  *FlashInstance
+  );
+
+VOID
+RkFvbRtMediumUpdated (
+  VOID
+  );
+
+VOID
+RkFvbRtSetEmmcTarget (
+  IN UINT64  Lba
+  );
+
+VOID
+RkFvbRtMarkDirty (
+  VOID
+  );
+
+VOID
+RkFvbRtExitBootServices (
+  VOID
+  );
+
+VOID
+RkFvbRtVirtualAddressChange (
+  VOID
+  );
+
 typedef struct {
   UINT32    AtagBootDevType;
   UINT32    ControllerBaseAddress;

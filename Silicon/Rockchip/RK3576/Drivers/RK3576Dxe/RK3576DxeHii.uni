@@ -210,6 +210,9 @@
 #string STR_SCREENSHOT_TARGET_USB                          #language en-US "USB stick only"
 #string STR_SCREENSHOT_TARGET_SD                           #language en-US "SD card only"
 #string STR_SCREENSHOT_TARGET_INTERNAL                     #language en-US "Internal storage only"
+#string STR_RTVAR_SUBTITLE                                 #language en-US "UEFI Variables"
+#string STR_RTVAR_EMMC_PROMPT                              #language en-US "Save OS Variable Changes to eMMC"
+#string STR_RTVAR_EMMC_HELP                                #language en-US "When the firmware runs from the eMMC, write the UEFI variables an operating system changed (boot entries, boot order) to the eMMC when it restarts or shuts down the board. When disabled they are lost at the next reset, except BootNext. Experimental: at that moment the firmware drives the eMMC itself, after the OS has stopped using it. Takes effect at the next boot."
 
 /*
  * ComboPHY mode configuration
@@ -401,6 +404,9 @@
 #string STR_SCREENSHOT_TARGET_USB                          #language zh-Hans "\wide仅\narrow U\wide盘\narrow"
 #string STR_SCREENSHOT_TARGET_SD                           #language zh-Hans "\wide仅\narrow SD \wide卡\narrow"
 #string STR_SCREENSHOT_TARGET_INTERNAL                     #language zh-Hans "\wide仅内部存储\narrow"
+#string STR_RTVAR_SUBTITLE                                 #language zh-Hans "UEFI \wide变量\narrow"
+#string STR_RTVAR_EMMC_PROMPT                              #language zh-Hans "\wide将系统修改的变量保存到\narrow eMMC"
+#string STR_RTVAR_EMMC_HELP                                #language zh-Hans "\wide固件从\narrow eMMC \wide运行时，在操作系统重启或关机时，把系统修改过的\narrow UEFI \wide变量（启动项、启动顺序）写入\narrow eMMC\wide。关闭时，修改在下次重启后丢失（\narrowBootNext \wide除外）。测试功能：此时由固件直接驱动\narrow eMMC\wide，操作系统已停止使用。下次启动生效。\narrow"
 #string STR_COMBO_PHY_FORM_TITLE                           #language zh-Hans "ComboPHY \wide模式\narrow"
 #string STR_COMBO_PHY_FORM_HELP                            #language zh-Hans "\wide配置\narrow Naneng Combo PHY \wide控制器。\narrow"
 #string STR_COMBO_PHY_FORM_SUBTITLE                        #language zh-Hans "\wide更改在重启后生效。\narrow"
