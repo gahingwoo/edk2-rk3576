@@ -672,8 +672,8 @@ HdmiTxIomux (
  *
  * So: PWM2 channel 3 (pwm@2ade3000), polarity flag 0 = PWM_POLARITY_NORMAL,
  * i.e. the pin is high for the duty part of the period.  The device trees
- * use a 500000 ns period (2 kHz); the firmware's is PcdPwmFanPeriodNs, 25 kHz
- * on this board (TaishanPi3M.dsc says why and what the risk is).  Linux's
+ * use a 500000 ns period (2 kHz); the firmware's is PcdPwmFanPeriodNs, also
+ * 2 kHz on this board (TaishanPi3M.dsc says why 25 kHz was dropped).  Linux's
  * pwm-fan programs its own period when it probes.  The cooling levels make duty 0 the "off" level, so high = fan on.
  * This is not the CM5-IO, whose fan is inverted.
  *

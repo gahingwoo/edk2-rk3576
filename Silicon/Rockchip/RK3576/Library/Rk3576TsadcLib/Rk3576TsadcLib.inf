@@ -33,3 +33,5 @@
 
 [FixedPcd]
   gRK3576TokenSpaceGuid.PcdTsadcEnable
+  gRK3576TokenSpaceGuid.PcdTsadcTshutEnable
+  gRK3576TokenSpaceGuid.PcdTsadcTshutTemp

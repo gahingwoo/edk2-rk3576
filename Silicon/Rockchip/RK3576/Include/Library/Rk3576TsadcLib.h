@@ -1,11 +1,13 @@
 /** @file
  *
- *  RK3576 TSADC (temperature sensor ADC): read-out only.
+ *  RK3576 TSADC (temperature sensor ADC): read-out and hardware thermal
+ *  shutdown.
  *
  *  Starts the TSADC sampling in auto mode the way mainline Linux does for
- *  rk3576, minus everything that can reset or shut down the machine: the
- *  TSHUT outputs to the CRU and to the PMIC GPIO are never enabled, no
- *  interrupt is unmasked and no reset is touched.  See Rk3576TsadcLib.c.
+ *  rk3576 and, once the readings have been checked, arms the TSHUT output
+ *  to the CRU (a chip reset) at PcdTsadcTshutTemp, as rk3576.dtsi asks for.
+ *  The TSHUT output to the PMIC GPIO is never enabled, no interrupt is
+ *  unmasked and no reset is touched.  See Rk3576TsadcLib.c.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
@@ -29,11 +31,12 @@
 #define RK3576_TSADC_BIAS_MK  233150
 
 /**
-  Start the TSADC in auto mode, read-out only.
+  Start the TSADC in auto mode and arm the CRU-reset TSHUT
+  (Rk3576TsadcArmTshut).
 
   Does nothing unless PcdTsadcEnable is TRUE.  Refuses (and writes nothing to
-  the TSADC) if an earlier stage holds the block in reset, or has already
-  routed a TSHUT output, or has the block already running.
+  the TSADC) if an earlier stage holds the block in reset or has already
+  routed a TSHUT output.  The result of arming is logged, not returned.
 
   @retval EFI_SUCCESS       Sampling started, or was already running.
   @retval EFI_UNSUPPORTED   PcdTsadcEnable is FALSE.
@@ -43,6 +46,25 @@
 EFI_STATUS
 EFIAPI
 Rk3576TsadcInit (
+  VOID
+  );
+
+/**
+  Arm the TSADC's TSHUT output to the CRU on every channel whose readings
+  are valid, stable and well below the threshold; see Rk3576TsadcLib.c for
+  the exact checks.  Called by Rk3576TsadcInit.
+
+  @retval EFI_SUCCESS        Armed on at least one channel (the log says which).
+  @retval EFI_UNSUPPORTED    PcdTsadcTshutEnable is FALSE.
+  @retval EFI_ACCESS_DENIED  A TSHUT output was already enabled; not touched.
+  @retval EFI_NOT_READY      No channel passed the checks; nothing armed.
+  @retval EFI_ABORTED        A channel was at or above its threshold once the
+                             thresholds were written; nothing armed.
+  @retval EFI_DEVICE_ERROR   TSADC_CRU_EN did not read back as written.
+**/
+EFI_STATUS
+EFIAPI
+Rk3576TsadcArmTshut (
   VOID
   );
 

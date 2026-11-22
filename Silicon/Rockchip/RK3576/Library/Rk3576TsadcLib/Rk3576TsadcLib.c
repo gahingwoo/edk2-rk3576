@@ -1,57 +1,124 @@
 /** @file
  *
- *  RK3576 TSADC (temperature sensor ADC): read-out only.
+ *  RK3576 TSADC (temperature sensor ADC): read-out, and the hardware
+ *  thermal shutdown (TSHUT) in CRU-reset mode.
  *
  *  Sources, cited below as [L], [D], [C], [R], [T], [A]:
  *
  *    [L] mainline Linux drivers/thermal/rockchip_thermal.c (linux-next
  *        20260914): rk3576_tsadc_data (:1306-1329), rk_tsadcv8_initialize
  *        (:847-864), rk_tsadcv4_control (:928-937), rk_tsadcv3_tshut_temp
- *        (:1039-1057), rk_tsadcv4_tshut_mode (:1075-1090), the trim code in
+ *        (:1040-1057), rk_tsadcv4_tshut_mode (:1076-1090),
+ *        rk_tsadcv2_temp_to_code (:577-627), RK_MAX_TEMP (:278), the DT
+ *        parsing in rockchip_configure_from_dt (:1559-1620), the trim code in
  *        rockchip_get_trim_configuration (:1505-1557) and
- *        rockchip_thermal_register_sensor (:1625-1650), and rk3588_code_table
+ *        rockchip_thermal_register_sensor (:1623-1661), and rk3588_code_table
  *        (:568-575), which rk3576 uses.
  *    [D] mainline arch/arm64/boot/dts/rockchip/rk3576.dtsi: tsadc@2ae70000
- *        (:2753-2800), the OTP trim cells (:2190-2213).
- *    [C] mainline drivers/clk/rockchip/clk-rk3576.c:640-644 and
+ *        (:2749-2796, rockchip,hw-tshut-temp/-mode/-polarity at :2760-2762),
+ *        the OTP trim cells (:2186-2209).  No board device tree in that tree
+ *        (rk3576-armsom-cm5*.dts*, rk3576-rock-4d.dts, rk3576-lckfb-tspi-3m.dts)
+ *        overrides any of the three hw-tshut properties.
+ *    [C] mainline drivers/clk/rockchip/clk-rk3576.c:639-644 and
  *        rst-rk3576.c:116-117.
- *    [R] RK3576 TRM V1.2 Part 1, chapter 19 (TS-ADC) and the CRU register
- *        descriptions (CLKSEL_CON59, GATE_CON13, SOFTRST_CON13).
- *    [T] TF-A plat/rockchip/rk3576 (BL31 v2.14 source tree, read only).
+ *    [R] RK3576 TRM V1.2 Part 1, chapter 19 (TS-ADC: 19.4.2 register
+ *        summary and descriptions, 19.5 application notes) and the CRU
+ *        register descriptions (CLKSEL_CON59, GATE_CON13, SOFTRST_CON13,
+ *        CRU_GLB_RST_CON at 0x0C10, CRU_GLBRST_ST_NCLR at 0x0C14).
+ *    [T] TF-A plat/rockchip/rk3576 (BL31 v2.14 source tree, read only; the
+ *        same code is in tag v2.14.0, which binaries/bl31.elf reports).
  *    [A] Silicon/Rockchip/RK3576/Library/OtpLib/OtpLib.c (this tree).
  *
- *  What this does NOT do, on purpose
- *  ---------------------------------
+ *  TSHUT
+ *  -----
  *
- *  TF-A has already armed both TSHUT paths downstream of the TSADC:
- *  system_reset_init() writes CRU_GLB_RST_CON = 0xffdf ("enable tsadc trigger
- *  global reset") and muxes GPIO0_A1 to tsadc_shut_m0 ([T] soc.c:84-117).
- *  The only thing between a TSADC comparator and a chip reset or a PMIC
- *  shutdown is therefore the TSADC's own TSADC_GPIO_EN (0x18) and
- *  TSADC_CRU_EN (0x1C), both 0 from reset ([R] 19.4.2).  This library never
- *  writes either of them, nor HT_INT_EN / LT_EN / LT_INT_EN (interrupts),
- *  nor USER_CON, nor any reset: mainline's probe asserts and deasserts
- *  SRST_P_TSADC and SRST_TSADC ([L]:1686-1688, :1740); the firmware does not.
- *  If the block is found in reset it is left alone and the read-out is off.
+ *  Mainline's rk3576 defaults are TSHUT via GPIO to the PMIC, low active, at
+ *  95 C ([L]:1311-1313), but rk3576.dtsi overrides all three:
+ *  rockchip,hw-tshut-temp = <120000>, rockchip,hw-tshut-mode = <0> (CRU),
+ *  rockchip,hw-tshut-polarity = <0> (low active) ([D]:2760-2762), and no
+ *  board device tree changes them.  So on all three boards Linux arms a CRU
+ *  reset at 120 C, and this library arms the same thing for an OS that has
+ *  no TSADC driver (Windows), with PcdTsadcTshutTemp (120000 by default).
  *
- *  Mainline writes the TSHUT thresholds (COMPn_SHUT) with the code for
- *  120 C ([D] rockchip,hw-tshut-temp).  The comparator is ">=" ([R] 19.4.3)
- *  and resets to 0, so with sampling on and the threshold at 0 every sample
- *  would count as "too hot" and only GPIO_EN/CRU_EN would stop it.  This
- *  library writes 0x3FF, the largest value the 10-bit field holds and a
- *  code no sample reaches (the table ends at 395), so even an output enabled
- *  by mistake would not fire.
+ *  The GPIO (PMIC) mode is not implemented: no board here wires the
+ *  tsadc_shut pin to its PMIC in a device tree, so there is nothing to
+ *  check it against.  TSADC_GPIO_EN is never written.
+ *
+ *  What the CRU path does once TSADC_CRU_EN is set: TF-A's
+ *  system_reset_init() writes CRU_GLB_RST_CON = 0xffdf ([T] soc.c:84-92),
+ *  which sets tsadc_trig_glbrst_en (bit 1) and tsadc_trig_glbrst_sel (bit 0,
+ *  first global reset), and glbrst_trig_pmu_en / _sel (bits 3, 2: the first
+ *  global reset also resets the PMU) ([R] CRU_GLB_RST_CON), and enables the
+ *  "first/tsadc/wdt reset output" in PMU1SGRF_SOC_CON0 ([T] soc.c:103-104).
+ *  A TSHUT is therefore a full chip reset, the same as a watchdog reset; the
+ *  board reboots into the firmware, which re-arms it.
+ *
+ *  Arming sequence (Rk3576TsadcArmTshut below):
+ *
+ *    1. Sampling runs with every COMP_SHUT at 0x3FF, a code no sample
+ *       reaches (the 10-bit field's maximum; the code table ends at 395).
+ *       COMP_SHUT resets to 0 and the comparator is ">=" ([R] TSADC_COMPn_SHUT),
+ *       so a channel with sampling on and the reset value would count every
+ *       sample as too hot.  The outputs are still off at this point.
+ *    2. Two read-outs of all six channels, 20 ms (8 rounds) apart.  A channel
+ *       is armed only if both are inside the code table, within 8 codes of
+ *       each other, and below PcdTsadcTshutTemp - 20 C (100 C by default)
+ *       after trim.  A channel that fails stays at 0x3FF and is not armed;
+ *       the log says which and why.  A real 100 C at firmware time is
+ *       not something to reset over in a loop, and a sensor that reads
+ *       garbage must not reset the board on every boot.
+ *    3. COMP_SHUT(n) = code for (PcdTsadcTshutTemp + trim(n)), the same
+ *       arithmetic as [L] (tshut_temp + trim_temp, then
+ *       rk_tsadcv2_temp_to_code); for 120 C untrimmed that is code 389.
+ *       Where tshut + trim would fall off the end of the table (125 C),
+ *       mainline returns -ERANGE and leaves the register alone ([L]:1046-1048);
+ *       here the table's last code (395) is used instead, so the channel
+ *       still has a limit.
+ *    4. 20 ms later: the per-channel TSADC_EOC_HSHUT_PD.ht_shut_pd bits
+ *       (W1C, [15:0]) of the armed channels are cleared, and read again
+ *       20 ms later; any bit still set means a channel is at or above its
+ *       threshold and nothing is armed.  TSADC_AUTO_STATUS is logged but
+ *       not used to refuse: [R] gives it as ht_wram (bit 3), auto_status
+ *       (bit 2, auto mode running), last_tshut_cru (bit 1, W1C) and
+ *       last_tshut_gpio (bit 0, W1C), and on the TaishanPi 3M it reads
+ *       0x0000000D with all six channels at 48-50 C, every COMP_SHUT of
+ *       the six at 0x3FF or the ~120 C code, and ht_shut_pd 0x00.  So
+ *       ht_wram is set while no channel is anywhere near a threshold.  Why
+ *       is not known: it is one bit for the whole block, [R] marks it RW
+ *       (not RO) like the two W1C history bits below it, and it may be a
+ *       latch rather than a live comparison; its value at entry, before
+ *       sampling starts, is logged so the next boot log can tell.  Mainline
+ *       never reads AUTO_STATUS ([L]).  ht_shut_pd is per channel and
+ *       is the check that counts.
+ *    5. TSADC_CRU_EN = the armed channels, with the write mask: what
+ *       rk_tsadcv4_tshut_mode writes in TSHUT_MODE_CRU ([L]:1083-1089), for
+ *       all channels at once.  Read back and logged.
+ *
+ *  TSADC_HIGH_TSHUT_DEBOUNCE is 4 ([L]:238), so the output needs four
+ *  consecutive samples at or above the threshold ([R] TSADC_HIGH_TSHUT_DEBOUNCE).
  *
  *  The TSHUT polarity write mainline makes (AUTO_CON bit 8 = 0, low active,
- *  [L]:861-863) is skipped: it writes the reset value, and if anything earlier
- *  had changed the bit, changing it back would toggle the PMIC pin.
+ *  [L]:857-863) is skipped: it writes the reset value, which is also what
+ *  [D] asks for, and the polarity only affects the GPIO output, which is
+ *  never enabled.  TF-A already muxes GPIO0_A1 to tsadc_shut_m0 ([T]
+ *  soc.c:112-113); with TSADC_GPIO_EN 0 that pin stays inactive.
  *
- *  Linux with a device tree
- *  ------------------------
+ *  Nothing else is written that mainline does not write: no interrupt
+ *  (HT_INT_EN, LT_EN, LT_INT_EN), no USER_CON, no reset.  Mainline's probe
+ *  asserts and deasserts SRST_P_TSADC and SRST_TSADC ([L]:1740); the
+ *  firmware does not.  If the block is found in reset it is left alone.
  *
- *  rockchip_thermal's probe resets the block (both resets, [L]:1740) before
- *  it writes anything, and the clock framework sets CLK_TSADC itself from
- *  assigned-clock-rates.  Nothing written here survives into the kernel.
+ *  Linux
+ *  -----
+ *
+ *  With a device tree that enables the TSADC (the TaishanPi 3M's),
+ *  rockchip_thermal's probe resets the block before it writes anything
+ *  ([L]:1740) and then arms the same 120 C CRU reset from [D], so nothing
+ *  written here survives into the kernel.  With one that leaves it disabled
+ *  (the CM5-IO's and ROCK 4D's), no driver claims CLK_TSADC or PCLK_TSADC,
+ *  which have no CLK_IGNORE_UNUSED ([C]:639-644), so clk_disable_unused gates
+ *  them at late_initcall: sampling stops and the TSHUT armed here stops with
+ *  it.  That is no worse than before this library armed anything.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
@@ -94,10 +161,14 @@
 /* TSADC registers ([R] 19.4.2, [L]:189-212 TSADCV2_* / TSADCV3_*) */
 #define TSADC_AUTO_CON              0x004
 #define  TSADC_AUTO_EN              BIT0
+#define TSADC_AUTO_STATUS           0x008
+#define  TSADC_AUTO_STATUS_HT_WRAM  BIT3   /* block-wide, see step 4; logged only */
+#define  TSADC_AUTO_STATUS_RUNNING  BIT2   /* auto_status: auto mode in progress */
 #define TSADC_AUTO_SRC              0x00C
 #define TSADC_HT_INT_EN             0x014
 #define TSADC_GPIO_EN               0x018
 #define TSADC_CRU_EN                0x01C
+#define TSADC_EOC_HSHUT_PD          0x028  /* [15:0] ht_shut_pd, W1C */
 #define TSADC_DATA(n)               (0x02C + (n) * 4)
 #define TSADC_COMP_SHUT(n)          (0x10C + (n) * 4)
 #define TSADC_HIGH_INT_DEBOUNCE     0x14C
@@ -111,6 +182,26 @@
 
 #define TSADC_COMP_UNREACHABLE      0x3FF
 #define TSADC_DATA_MASK             0x1FF  /* TSADCV4_DATA_MASK, [L]:235 */
+
+#define TSADC_ALL_CHANNELS          ((1U << RK3576_TSADC_CHANNEL_COUNT) - 1)
+
+/*
+ * Arming checks (see the top of the file).  A round is one AUTO_PERIOD,
+ * 2.5 ms, so 20 ms is eight rounds, twice the TSHUT debounce.
+ */
+#define TSADC_ARM_SETTLE_US         20000
+#define TSADC_ARM_MAX_DRIFT_CODES   8
+#define TSADC_ARM_MARGIN_MC         20000
+
+/*
+ * CRU_GLBRST_ST_NCLR ([R]): bit 2 "first global reset by TSADC", bit 3
+ * "second global reset by TSADC".  The register has no reset value and is
+ * not cleared by a reset, so it only means something after a warm reset;
+ * TF-A reads it only then ([T] soc.c:61-82).  Logged, never written.
+ */
+#define CRU_GLBRST_ST_NCLR          (CRU_BASE + 0x0C14)
+#define  GLBRST_FIRST_TSADC         BIT2
+#define  GLBRST_SECOND_TSADC        BIT3
 
 #define HIWORD(Mask, Value)  (((UINT32)(Mask) << 16) | ((UINT32)(Value) & (Mask)))
 
@@ -213,7 +304,13 @@ Rk3576TsadcCodeToMilliCelsius (
 
 /*
  * rk_tsadcv2_temp_to_code ([L]:577-627) for one temperature inside the table,
- * as rk_tsadcv2_get_trim_code uses it ([L]:1092-1098).
+ * as rk_tsadcv2_get_trim_code uses it ([L]:1092-1098) and
+ * rk_tsadcv3_tshut_temp uses it ([L]:1046).
+ *
+ * Outside the table it clamps to the first or last real row (215 or 395)
+ * where mainline returns the data mask as an error ([L]:589-591, :623-626);
+ * without the clamp the last iteration would divide by the zero-width
+ * {395, 125 C} .. {0x1FF, 125 C} row.
  */
 STATIC
 UINT32
@@ -222,6 +319,14 @@ TsadcTempToCode (
   )
 {
   UINTN  Row;
+
+  if (MilliCelsius <= mCodeTable[1].MilliCelsius) {
+    return mCodeTable[1].Code;
+  }
+
+  if (MilliCelsius >= mCodeTable[ARRAY_SIZE (mCodeTable) - 2].MilliCelsius) {
+    return mCodeTable[ARRAY_SIZE (mCodeTable) - 2].Code;
+  }
 
   for (Row = 1; Row < ARRAY_SIZE (mCodeTable) - 2; Row++) {
     if (MilliCelsius < mCodeTable[Row + 1].MilliCelsius) {
@@ -349,6 +454,230 @@ TsadcLogReadings (
   }
 }
 
+/*
+ * One read-out of every channel, as trimmed millidegrees.  Valid[n] is FALSE
+ * when the data word is outside the code table.
+ */
+STATIC
+VOID
+TsadcSnapshot (
+  OUT UINT32   Code[RK3576_TSADC_CHANNEL_COUNT],
+  OUT INT32    MilliC[RK3576_TSADC_CHANNEL_COUNT],
+  OUT BOOLEAN  Valid[RK3576_TSADC_CHANNEL_COUNT]
+  )
+{
+  UINT32  Channel;
+  INT32   Raw;
+
+  for (Channel = 0; Channel < RK3576_TSADC_CHANNEL_COUNT; Channel++) {
+    Code[Channel]   = MmioRead32 (TSADC_REG (TSADC_DATA (Channel)));
+    Valid[Channel]  = !EFI_ERROR (Rk3576TsadcCodeToMilliCelsius (Code[Channel], &Raw));
+    MilliC[Channel] = Valid[Channel] ? Raw - Rk3576TsadcGetTrimMilliCelsius (Channel) : 0;
+  }
+}
+
+/*
+ * The TSHUT threshold code for one channel: [L]:1657 tshut_temp + trim_temp,
+ * then rk_tsadcv2_temp_to_code ([L]:1046), clamped to the table (see
+ * TsadcTempToCode).
+ */
+STATIC
+UINT32
+TsadcTshutCode (
+  IN UINT32  Channel
+  )
+{
+  INT32  TempMc;
+
+  TempMc = (INT32)FixedPcdGet32 (PcdTsadcTshutTemp) + Rk3576TsadcGetTrimMilliCelsius (Channel);
+  if (TempMc >= mCodeTable[ARRAY_SIZE (mCodeTable) - 2].MilliCelsius) {
+    DEBUG ((
+      DEBUG_WARN,
+      "Rk3576Tsadc: ch%u TSHUT %d mC is past the table, using its last code %u\n",
+      Channel,
+      TempMc,
+      mCodeTable[ARRAY_SIZE (mCodeTable) - 2].Code
+      ));
+  }
+
+  return TsadcTempToCode (TempMc);
+}
+
+/*
+ * Arm the hardware thermal shutdown in CRU-reset mode.  The sequence and why
+ * each step is there are at the top of this file.  Called with the TSADC
+ * sampling, every COMP_SHUT at TSADC_COMP_UNREACHABLE and both outputs off.
+ */
+EFI_STATUS
+EFIAPI
+Rk3576TsadcArmTshut (
+  VOID
+  )
+{
+  UINT32   CodeA[RK3576_TSADC_CHANNEL_COUNT];
+  UINT32   CodeB[RK3576_TSADC_CHANNEL_COUNT];
+  INT32    TempA[RK3576_TSADC_CHANNEL_COUNT];
+  INT32    TempB[RK3576_TSADC_CHANNEL_COUNT];
+  BOOLEAN  ValidA[RK3576_TSADC_CHANNEL_COUNT];
+  BOOLEAN  ValidB[RK3576_TSADC_CHANNEL_COUNT];
+  UINT32   Limit[RK3576_TSADC_CHANNEL_COUNT];
+  UINT32   Channel;
+  UINT32   Armed;
+  UINT32   Pending;
+  UINT32   Status;
+  INT32    MaxMc;
+  UINT32   Drift;
+
+  if (!FixedPcdGetBool (PcdTsadcTshutEnable)) {
+    DEBUG ((DEBUG_WARN, "Rk3576Tsadc: TSHUT not armed (PcdTsadcTshutEnable is FALSE)\n"));
+    return EFI_UNSUPPORTED;
+  }
+
+  if (((MmioRead32 (TSADC_REG (TSADC_GPIO_EN)) | MmioRead32 (TSADC_REG (TSADC_CRU_EN))) & 0xFFFF) != 0) {
+    return EFI_ACCESS_DENIED;
+  }
+
+  /* Hint only, see CRU_GLBRST_ST_NCLR above */
+  Status = MmioRead32 (CRU_GLBRST_ST_NCLR);
+  DEBUG ((
+    DEBUG_INFO,
+    "Rk3576Tsadc: CRU_GLBRST_ST_NCLR 0x%04x%a\n",
+    Status & 0xFFFF,
+    ((Status & (GLBRST_FIRST_TSADC | GLBRST_SECOND_TSADC)) != 0) ?
+    " (TSADC reset bit set: the last warm reset may have been a TSHUT)" : ""
+    ));
+
+  /* Step 2: two read-outs, eight rounds apart */
+  TsadcSnapshot (CodeA, TempA, ValidA);
+  MicroSecondDelay (TSADC_ARM_SETTLE_US);
+  TsadcSnapshot (CodeB, TempB, ValidB);
+
+  MaxMc = (INT32)FixedPcdGet32 (PcdTsadcTshutTemp) - TSADC_ARM_MARGIN_MC;
+  Armed = 0;
+  for (Channel = 0; Channel < RK3576_TSADC_CHANNEL_COUNT; Channel++) {
+    Limit[Channel] = TSADC_COMP_UNREACHABLE;
+    if (!ValidA[Channel] || !ValidB[Channel]) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "Rk3576Tsadc: ch%u codes 0x%03x/0x%03x outside the table, TSHUT NOT armed on it\n",
+        Channel,
+        CodeA[Channel],
+        CodeB[Channel]
+        ));
+      continue;
+    }
+
+    Drift = (CodeA[Channel] > CodeB[Channel]) ? CodeA[Channel] - CodeB[Channel] : CodeB[Channel] - CodeA[Channel];
+    if (Drift > TSADC_ARM_MAX_DRIFT_CODES) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "Rk3576Tsadc: ch%u codes 0x%03x/0x%03x 20 ms apart are not stable, TSHUT NOT armed on it\n",
+        Channel,
+        CodeA[Channel],
+        CodeB[Channel]
+        ));
+      continue;
+    }
+
+    if ((TempA[Channel] >= MaxMc) || (TempB[Channel] >= MaxMc)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "Rk3576Tsadc: ch%u reads %d mC, at or above %d mC: TSHUT NOT armed on it (it would reset the board in a loop)\n",
+        Channel,
+        TempB[Channel],
+        MaxMc
+        ));
+      continue;
+    }
+
+    Limit[Channel] = TsadcTshutCode (Channel);
+    if (Limit[Channel] <= CodeB[Channel] + TSADC_ARM_MAX_DRIFT_CODES) {
+      /* Cannot happen with a sane trim; refuse rather than reason about it */
+      DEBUG ((DEBUG_ERROR, "Rk3576Tsadc: ch%u threshold code %u too close to reading %u, NOT armed\n", Channel, Limit[Channel], CodeB[Channel]));
+      Limit[Channel] = TSADC_COMP_UNREACHABLE;
+      continue;
+    }
+
+    Armed |= 1U << Channel;
+  }
+
+  if (Armed == 0) {
+    DEBUG ((DEBUG_ERROR, "Rk3576Tsadc: TSHUT NOT armed on any channel\n"));
+    return EFI_NOT_READY;
+  }
+
+  /* Step 3: thresholds, outputs still off */
+  for (Channel = 0; Channel < RK3576_TSADC_CHANNEL_COUNT; Channel++) {
+    if ((Armed & (1U << Channel)) != 0) {
+      MmioWrite32 (TSADC_REG (TSADC_COMP_SHUT (Channel)), Limit[Channel]);
+    }
+  }
+
+  /* Step 4: nothing at or above a threshold, before and after clearing */
+  MicroSecondDelay (TSADC_ARM_SETTLE_US);
+  Status  = MmioRead32 (TSADC_REG (TSADC_AUTO_STATUS));
+  Pending = MmioRead32 (TSADC_REG (TSADC_EOC_HSHUT_PD)) & Armed;
+  DEBUG ((
+    DEBUG_INFO,
+    "Rk3576Tsadc: before arming AUTO_STATUS 0x%08x (ht_wram %u, auto running %u; not a per-channel flag, not used) ht_shut_pd 0x%02x of armed 0x%02x\n",
+    Status,
+    (Status & TSADC_AUTO_STATUS_HT_WRAM) != 0,
+    (Status & TSADC_AUTO_STATUS_RUNNING) != 0,
+    Pending,
+    Armed
+    ));
+  if (Pending != 0) {
+    MmioWrite32 (TSADC_REG (TSADC_EOC_HSHUT_PD), Pending);
+    MicroSecondDelay (TSADC_ARM_SETTLE_US);
+    Pending = MmioRead32 (TSADC_REG (TSADC_EOC_HSHUT_PD)) & Armed;
+    if (Pending != 0) {
+      goto Abort;
+    }
+  }
+
+  /* Step 5: rk_tsadcv4_tshut_mode, TSHUT_MODE_CRU, [L]:1083-1089 */
+  MmioWrite32 (TSADC_REG (TSADC_CRU_EN), HIWORD (Armed, Armed));
+
+  DEBUG ((
+    DEBUG_INFO,
+    "Rk3576Tsadc: TSHUT armed, CRU reset at %u mC + trim; CRU_EN 0x%08x GPIO_EN 0x%08x\n",
+    FixedPcdGet32 (PcdTsadcTshutTemp),
+    MmioRead32 (TSADC_REG (TSADC_CRU_EN)),
+    MmioRead32 (TSADC_REG (TSADC_GPIO_EN))
+    ));
+  for (Channel = 0; Channel < RK3576_TSADC_CHANNEL_COUNT; Channel++) {
+    DEBUG ((
+      DEBUG_INFO,
+      "Rk3576Tsadc: ch%u COMP_SHUT 0x%03x, reading %d mC%a\n",
+      Channel,
+      MmioRead32 (TSADC_REG (TSADC_COMP_SHUT (Channel))),
+      TempB[Channel],
+      ((Armed & (1U << Channel)) != 0) ? "" : ", NOT armed"
+      ));
+  }
+
+  if ((MmioRead32 (TSADC_REG (TSADC_CRU_EN)) & TSADC_ALL_CHANNELS) != Armed) {
+    DEBUG ((DEBUG_ERROR, "Rk3576Tsadc: CRU_EN did not read back as written\n"));
+    return EFI_DEVICE_ERROR;
+  }
+
+  return EFI_SUCCESS;
+
+Abort:
+  /* Back out of reach; the outputs were never enabled */
+  for (Channel = 0; Channel < RK3576_TSADC_CHANNEL_COUNT; Channel++) {
+    MmioWrite32 (TSADC_REG (TSADC_COMP_SHUT (Channel)), TSADC_COMP_UNREACHABLE);
+  }
+
+  DEBUG ((
+    DEBUG_ERROR,
+    "Rk3576Tsadc: an armed channel is at or above its threshold (ht_shut_pd 0x%02x set again after clearing, AUTO_STATUS 0x%08x), TSHUT NOT armed\n",
+    Pending,
+    Status
+    ));
+  return EFI_ABORTED;
+}
+
 EFI_STATUS
 EFIAPI
 Rk3576TsadcInit (
@@ -403,8 +732,9 @@ Rk3576TsadcInit (
   AutoCon = MmioRead32 (TSADC_REG (TSADC_AUTO_CON));
   DEBUG ((
     DEBUG_INFO,
-    "Rk3576Tsadc: AUTO_CON 0x%08x AUTO_SRC 0x%08x GPIO_EN 0x%08x CRU_EN 0x%08x HT_INT_EN 0x%08x\n",
+    "Rk3576Tsadc: AUTO_CON 0x%08x AUTO_STATUS 0x%08x AUTO_SRC 0x%08x GPIO_EN 0x%08x CRU_EN 0x%08x HT_INT_EN 0x%08x\n",
     AutoCon,
+    MmioRead32 (TSADC_REG (TSADC_AUTO_STATUS)),
     MmioRead32 (TSADC_REG (TSADC_AUTO_SRC)),
     GpioEn,
     CruEn,
@@ -417,8 +747,19 @@ Rk3576TsadcInit (
   }
 
   if ((AutoCon & TSADC_AUTO_EN) != 0) {
-    DEBUG ((DEBUG_INFO, "Rk3576Tsadc: already sampling, left as found\n"));
+    /*
+     * Found sampling with both outputs off.  The thresholds are whatever
+     * the earlier stage left, possibly the reset value 0; put them out of
+     * reach and the TSHUT debounce where mainline has it before arming.
+     */
+    DEBUG ((DEBUG_INFO, "Rk3576Tsadc: already sampling, thresholds reset before arming\n"));
+    for (Channel = 0; Channel < RK3576_TSADC_CHANNEL_COUNT; Channel++) {
+      MmioWrite32 (TSADC_REG (TSADC_COMP_SHUT (Channel)), TSADC_COMP_UNREACHABLE);
+    }
+
+    MmioWrite32 (TSADC_REG (TSADC_HIGH_TSHUT_DEBOUNCE), TSADC_DEBOUNCE_COUNT);
     TsadcLogReadings ();
+    Rk3576TsadcArmTshut ();
     return EFI_SUCCESS;
   }
 
@@ -462,6 +803,8 @@ Rk3576TsadcInit (
     (UINT32)Wait
     ));
   TsadcLogReadings ();
+
+  Rk3576TsadcArmTshut ();
 
   return EFI_SUCCESS;
 }

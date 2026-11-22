@@ -1,6 +1,6 @@
 /** @file
  *
- *  RK3576 TSADC thermal zones: temperature read-out only.
+ *  RK3576 TSADC thermal zones: temperature read-out and a critical trip.
  *
  *  Included inside Scope (\_SB).  Three zones, one per TSADC channel whose
  *  placement mainline and the TRM agree on (TRM V1.2 Table 19-1, rk3576.dtsi
@@ -14,16 +14,38 @@
  *  and sensor@5 the GPU one, while its own thermal zones and the TRM say
  *  channel 3 is the GPU and channel 5 the DDR.
  *
- *  No trip points here: no _CRT, _HOT, _PSV or _ACx, so nothing the OS reads
- *  from these zones can shut the machine down or throttle it.  The fan's
- *  active trip points are in the board's fan SSDT, which the firmware only
- *  installs when fan control is enabled in setup.  _PSV is not used at all:
- *  the CPUs have no _PSS or _CPC, so there is nothing passive cooling could
- *  act on.
+ *  Trip points
+ *  -----------
  *
- *  The TSADC is started by Rk3576TsadcLib (RK3576Dxe) in auto mode with no
- *  TSHUT output and no interrupt.  Nothing notifies these zones, so _TZP asks
- *  the OS to poll.
+ *  Two layers protect the chip, from the bottom:
+ *
+ *    120 C + trim  TSHUT: the TSADC itself resets the chip through the CRU,
+ *                  armed by Rk3576TsadcLib at boot (PcdTsadcTshutTemp).  It
+ *                  needs no OS and no driver.  The same limit and mode
+ *                  rk3576.dtsi gives Linux.
+ *    115 C         _CRT, here, in every zone: the OS shuts down in an
+ *                  orderly way before the hardware resets it.  5 C below
+ *                  TSHUT so that it fires first; both compare the trimmed
+ *                  temperature, and the two conversions (this one and the
+ *                  firmware's temperature to code) differ by under 1 C.
+ *
+ *  No _HOT: Windows answers _HOT with a hibernate, and this platform has no
+ *  S4 (no DSDT here defines \_S4 or any other \_Sx object), so it would at
+ *  best do nothing.
+ *
+ *  No _PSV, _TC1, _TC2 or _TSP: passive cooling throttles the processors
+ *  through _PSS or _CPC, and the CPUs here have neither (frequency is set
+ *  once by the firmware).  A _PSV would be a trip point with nothing to act
+ *  on.  So nothing slows the CPUs down when they get hot; that is why a CPU
+ *  frequency above the firmware default must not be the default while
+ *  these two limits are the only protection.
+ *
+ *  The fan's active trip points (_ACx/_ALx) are in the board's fan SSDT,
+ *  which the firmware installs only when fan control is enabled in setup.
+ *
+ *  The TSADC is started by Rk3576TsadcLib (RK3576Dxe) in auto mode, with
+ *  the TSHUT output to the CRU and no interrupt.  Nothing notifies these
+ *  zones, so _TZP asks the OS to poll.
  *
  *  Conversion
  *  ----------
@@ -48,8 +70,10 @@
  *  TBAD, 3732 (373.2 K, 100.0 C).  So does every read while TSEN is 0.
  *  A reading that cannot be trusted has to look hot, not cool: with the fan
  *  under ACPI control a cool value would stop the fan, a hot one runs it at
- *  full speed.  There is no _CRT or _HOT, so no value shuts the machine
- *  down.  100.0 C exactly, in a tool that shows the zones, means this.
+ *  full speed.  It stays below _CRT (115.0 C), so an untrusted reading never
+ *  shuts the machine down.  100.0 C exactly, in a tool that shows the zones,
+ *  means this.  A data word above the table (code 396-511) is a real
+ *  reading of 125 C or more, as in mainline, and is at or above _CRT.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
@@ -61,6 +85,7 @@
 // sampling.  While 0 the zones never touch the TSADC.
 Name (TSEN, 0)
 Name (TBAD, 3732)   // what _TMP returns for a reading it cannot trust: 100.0 C
+Name (TCRT, 3882)   // _CRT of every zone: 115.0 C (tenths of a kelvin, 2732 = 0 C)
 
 // Per-channel origin in millikelvin: 233150 minus the trim in millidegrees.
 // Patched by RK3576AcpiPlatformDxe; written as DWord constants so the patch
@@ -101,6 +126,9 @@ Method (TSCV, 2, Serialized) {
 ThermalZone (TZ00) {
   Name (_STR, Unicode ("SoC centre (TSADC 0)"))
   Name (_TZP, 50)     // poll every 5.0 s
+  Method (_CRT, 0, NotSerialized) {
+    Return (TCRT)
+  }
   Method (_TMP, 0, Serialized) {
     If (TSEN == 0) {
       Return (TBAD)
@@ -112,6 +140,9 @@ ThermalZone (TZ00) {
 ThermalZone (TZ01) {
   Name (_STR, Unicode ("Big cores (TSADC 1)"))
   Name (_TZP, 50)
+  Method (_CRT, 0, NotSerialized) {
+    Return (TCRT)
+  }
   Method (_TMP, 0, Serialized) {
     If (TSEN == 0) {
       Return (TBAD)
@@ -123,6 +154,9 @@ ThermalZone (TZ01) {
 ThermalZone (TZ02) {
   Name (_STR, Unicode ("Little cores (TSADC 2)"))
   Name (_TZP, 50)
+  Method (_CRT, 0, NotSerialized) {
+    Return (TCRT)
+  }
   Method (_TMP, 0, Serialized) {
     If (TSEN == 0) {
       Return (TBAD)

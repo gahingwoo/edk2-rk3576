@@ -36,7 +36,9 @@
 #include <Library/IoLib.h>
 #include <Library/GpioLib.h>
 #include <Library/RK806.h>
+#include <Library/PcdLib.h>
 #include <Library/PWMLib.h>
+#include <Library/Rk3576PwmLib.h>
 #include <Library/TimerLib.h>
 #include <Soc.h>
 #include <VarStoreData.h>
@@ -953,16 +955,59 @@ HdmiTxIomux (
 }
 
 /*
- * PwmFanIoSetup / PwmFanSetSpeed
- * CM5-IO has a PWM fan connector on the carrier board (PWM_CH6 via fan header).
- * Fan control is handled by the OS kernel; keep no-ops here.
+ * PwmFanIoSetup / PwmFanSetSpeed -- the carrier's fan header CN32.
+ *
+ * Sources:
+ *   - ArmSoM's vendor tree (armbian/linux-rockchip rk-6.1-rkr6.1),
+ *     rk3576-armsom-cm5-io.dts:48-60 and :379-382:
+ *       fan: pwm-fan { pwms = <&pwm2_8ch_6 0 50000 0>;
+ *                      cooling-levels = <0 50 100 150 200 255>; }
+ *       &pwm2_8ch_6 { pinctrl-0 = <&pwm2m2_ch6>; }
+ *     and rk3576.dtsi:6049-6051, pwm2_8ch_6: pwm@2ade6000.
+ *   - rk3576-pinctrl.dtsi:2923-2926 (mainline and vendor agree):
+ *     pwm2m2_ch6 is GPIO2_D6 function 13.  GPIO2 PD is IOC_GRF + 0x4058
+ *     (L) / 0x405C (H) (pinctrl-rockchip.c:5449, RK3576_PIN_BANK(2, ...,
+ *     0x4058)); GpioLib computes 0x4040 + (30 / 4) * 4 = 0x405C.
+ *   - The carrier schematic, ArmSoM-CM5-IO-1V1_sch.pdf page 7 "FAN": net
+ *     PWM2_CH6_M2/SAI3_MCLK_M2 -> R462 2K -> base of Q46 (MMBT3904, R463 47K
+ *     to ground); Q46's collector pulls the base of Q45 (MMBT3904, R461 47K
+ *     to 5 V via R460 2K) low; Q45's collector is CN32 pin 3 with R459 47K
+ *     to 5 V.  CN32 pin 1 is VCC5V0_DEVICE_S0, pin 2 ground.
+ *
+ * Polarity: the two sources disagree, and the firmware does not settle it.
+ *   - Read as a 4-wire-style PWM input on pin 3, the two NPN stages cancel:
+ *     pin high -> Q46 on -> Q45 off -> pin 3 pulled up -> full speed.  That
+ *     is "normal", and the vendor device tree says normal (flag 0) with 0 as
+ *     its lowest cooling level.  Q45's base current (5 V over about 49K) is
+ *     under 0.1 mA, far too little for it to switch a 2-wire fan's supply,
+ *     so pin 3 has to be a signal, not a fan return.
+ *   - Our own board notes (Armbian edge bring-up, 2026-10) record the fan as
+ *     inverted, "PWM low = fan on".  A PWM fan held at 0% often keeps
+ *     turning at its minimum speed, which would look like that.
+ *
+ * FAN_PWM_INVERTED is TRUE so that the firmware's default, 100%, holds the
+ * pin LOW all the time.  That is the level the pin has had all along
+ * without the firmware touching it (R463 pulls Q46's base low; the pad
+ * resets to a GPIO input), so whichever reading is right, the fan behaves
+ * exactly as before.  It only matters once "Fan Control by ACPI Thermal
+ * Zone" is enabled in setup (Fan.asl), and the board test settles it there.
+ *
+ * Period 50000 ns (20 kHz), the vendor device tree's.  Linux's pwm-fan, if
+ * a device tree ever has one, programs its own.
  */
+#define FAN_PWM_CONTROLLER  2
+#define FAN_PWM_CHANNEL     6
+#define FAN_PWM_PERIOD_NS   FixedPcdGet32 (PcdPwmFanPeriodNs)
+#define FAN_PWM_INVERTED    TRUE
+
 VOID
 EFIAPI
 PwmFanIoSetup (
   VOID
   )
 {
+  /* pwm2m2_ch6: GPIO2 PD6 function 13 */
+  GpioPinSetFunction (2, GPIO_PIN_PD6, 13);
 }
 
 VOID
@@ -971,6 +1016,25 @@ PwmFanSetSpeed (
   IN UINT32  Percentage
   )
 {
+  EFI_STATUS  Status;
+
+  if (Percentage > 100) {
+    Percentage = 100;
+  }
+
+  Status = Rk3576PwmStart (
+             FAN_PWM_CONTROLLER,
+             FAN_PWM_CHANNEL,
+             FAN_PWM_PERIOD_NS,
+             (UINT32)(((UINT64)FAN_PWM_PERIOD_NS * Percentage) / 100),
+             FAN_PWM_INVERTED
+             );
+  DEBUG ((
+    EFI_ERROR (Status) ? DEBUG_ERROR : DEBUG_INFO,
+    "CM5-IO PwmFanSetSpeed: %u%% on PWM2 ch6 (GPIO2 PD6), inverted: %r\n",
+    Percentage,
+    Status
+    ));
 }
 
 /*
