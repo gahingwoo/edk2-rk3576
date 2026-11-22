@@ -14,7 +14,9 @@
  *    0x03 minutes, 0x04 hours, 0x05 day, 0x06 weekday,
  *    0x07 month      (bit 7 century, ignored as rtc-hym8563 does)
  *    0x08 year       (00..99, 2000..2099)
- *    0x09..0x0F      alarm, CLKOUT and timer: never written here
+ *    0x09..0x0C      alarm: never written here
+ *    0x0D            CLKOUT  (bit 7 FE enable, bits 1:0 FD, 00 = 32.768 kHz)
+ *    0x0E..0x0F      timer: never written here
  *
  *  What this library writes, and when:
  *
@@ -23,10 +25,17 @@
  *    - If that read found STOP set, control 1 is written back with STOP
  *      cleared and every other bit as read; otherwise control 1 is not
  *      written.
- *    - Control 2, the alarm registers, CLKOUT (0x0D: the 32 kHz clock that
- *      feeds the SoC and the WiFi module on all three boards) and the timer
- *      are never written.  The TaishanPi 3M wires INT to the PMIC's PWRON,
- *      which is one more reason not to touch the alarm.
+ *    - Control 2, the alarm registers and the timer are never written.
+ *      The TaishanPi 3M wires INT to the PMIC's PWRON, which is one more
+ *      reason not to touch the alarm.
+ *    - CLKOUT (0x0D) is written only on a board that sets
+ *      PcdRtc8563ClkoutEnable, only at boot, only after the chip checks
+ *      below have passed, and only when a read of 0x0D shows FE clear or a
+ *      frequency other than 32.768 kHz; then exactly 0x80 is written and
+ *      read back.  That is for a board whose WiFi/Bluetooth module takes
+ *      its 32 kHz LPO from CLKOUT (TaishanPi 3M, the CM5 module): the
+ *      register is battery-backed, so an OS that turned it off would leave
+ *      WiFi and Bluetooth dead with nothing to turn it back on.
  *    - GetTime() never writes.  A time with VL set, STOP set or a register
  *      that is not valid BCD is reported from the virtual clock instead;
  *      nothing is "repaired".
@@ -85,10 +94,16 @@
 
 #define RTC_REG_CTL1  0x00
 #define RTC_REG_SEC   0x02
+#define RTC_REG_CLKOUT  0x0D
 
 #define RTC_CTL1_TEST  BIT7
 #define RTC_CTL1_STOP  BIT5
 #define RTC_SEC_VL     BIT7
+
+#define RTC_CLKOUT_FE        BIT7
+#define RTC_CLKOUT_FD_MASK   0x03
+#define RTC_CLKOUT_FD_32768  0x00
+#define RTC_CLKOUT_ON_32768  (RTC_CLKOUT_FE | RTC_CLKOUT_FD_32768)
 
 #define RTC_SEC_MASK    0x7F
 #define RTC_MIN_MASK    0x7F
@@ -330,6 +345,39 @@ RtcReadRegs (
                      NULL
                      );
   if (!EFI_ERROR (Status) && (Packet.Operation[1].LengthInBytes != sizeof (*Regs))) {
+    Status = EFI_DEVICE_ERROR;
+  }
+
+  return Status;
+}
+
+STATIC
+EFI_STATUS
+RtcReadReg (
+  IN  EFI_I2C_MASTER_PROTOCOL  *Master,
+  IN  UINT8                    Reg,
+  OUT UINT8                    *Value
+  )
+{
+  EFI_STATUS      Status;
+  RTC_I2C_PACKET  Packet;
+
+  Packet.OperationCount             = 2;
+  Packet.Operation[0].Flags         = 0;
+  Packet.Operation[0].LengthInBytes = sizeof (Reg);
+  Packet.Operation[0].Buffer        = &Reg;
+  Packet.Operation[1].Flags         = I2C_FLAG_READ;
+  Packet.Operation[1].LengthInBytes = sizeof (*Value);
+  Packet.Operation[1].Buffer        = Value;
+
+  Status = Master->StartRequest (
+                     Master,
+                     RTC_ADDRESS,
+                     (EFI_I2C_REQUEST_PACKET *)&Packet,
+                     NULL,
+                     NULL
+                     );
+  if (!EFI_ERROR (Status) && (Packet.Operation[1].LengthInBytes != sizeof (*Value))) {
     Status = EFI_DEVICE_ERROR;
   }
 
@@ -690,8 +738,59 @@ LibSetWakeupTime (
 }
 
 /**
+  Make sure CLKOUT runs at 32.768 kHz, for a board whose WiFi/Bluetooth
+  module takes its LPO from it.  Called only after RtcProbe() has accepted
+  the chip.  Writes register 0x0D, and only it, only when it is not already
+  enabled at 32.768 kHz.
+**/
+STATIC
+VOID
+RtcEnsureClkout (
+  IN EFI_I2C_MASTER_PROTOCOL  *Master
+  )
+{
+  EFI_STATUS  Status;
+  UINT8       Before;
+  UINT8       Value;
+  UINT8       After;
+
+  Status = RtcReadReg (Master, RTC_REG_CLKOUT, &Before);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_WARN, "Hym8563Rtc: CLKOUT read failed (%r); not written\n", Status));
+    return;
+  }
+
+  if (((Before & RTC_CLKOUT_FE) != 0) &&
+      ((Before & RTC_CLKOUT_FD_MASK) == RTC_CLKOUT_FD_32768))
+  {
+    DEBUG ((DEBUG_INFO, "Hym8563Rtc: CLKOUT 0x%02x, 32.768 kHz on, not written\n", Before));
+    return;
+  }
+
+  Value  = RTC_CLKOUT_ON_32768;
+  Status = RtcWriteRegs (Master, RTC_REG_CLKOUT, &Value, sizeof (Value));
+  if (!EFI_ERROR (Status)) {
+    Status = RtcReadReg (Master, RTC_REG_CLKOUT, &After);
+  }
+
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_WARN, "Hym8563Rtc: CLKOUT was 0x%02x, write 0x%02x failed (%r)\n", Before, Value, Status));
+    return;
+  }
+
+  DEBUG ((
+    (After == Value) ? DEBUG_INFO : DEBUG_WARN,
+    "Hym8563Rtc: CLKOUT was 0x%02x, wrote 0x%02x, reads back 0x%02x%a\n",
+    Before,
+    Value,
+    After,
+    (After == Value) ? " (32.768 kHz on)" : " (MISMATCH)"
+    ));
+}
+
+/**
   Check the chip on its bus, once, when I2cDxe has brought the bus up.
-  Reads only.
+  Reads only, except for CLKOUT on a board that asks for it.
 **/
 STATIC
 VOID
@@ -779,6 +878,10 @@ RtcProbe (
   }
 
   mI2cMaster = Master;
+
+  if (FixedPcdGetBool (PcdRtc8563ClkoutEnable)) {
+    RtcEnsureClkout (Master);
+  }
 }
 
 STATIC

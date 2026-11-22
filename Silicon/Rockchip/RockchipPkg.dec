@@ -98,6 +98,11 @@
   # the I2C bus I2cDxe numbers it on, and its 7-bit address.
   gRockchipTokenSpaceGuid.PcdRtc8563Bus|0|UINT8|0x0200000E
   gRockchipTokenSpaceGuid.PcdRtc8563Address|0x51|UINT8|0x0200000F
+  # TRUE: at boot, after the chip checks pass, make sure CLKOUT (register
+  # 0x0D) is on at 32.768 kHz.  For a board whose WiFi/Bluetooth module takes
+  # its 32 kHz LPO from the RTC's CLKOUT: the register is battery-backed, so
+  # an OS that turned it off would otherwise leave WiFi and Bluetooth dead.
+  gRockchipTokenSpaceGuid.PcdRtc8563ClkoutEnable|FALSE|BOOLEAN|0x02000010
 
   gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress|0x0|UINT32|0x40000030
   gRockchipTokenSpaceGuid.PcdRkSdmmcCardDetectBroken|FALSE|BOOLEAN|0x40000031

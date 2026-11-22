@@ -240,6 +240,17 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   #
   gRK3588TokenSpaceGuid.PcdHdmiAudioPreset|TRUE
 
+  #
+  # The SYN43752 WiFi/BT module on the CM5 takes its 32 kHz LPO from the
+  # LK8563S CLKOUT (ArmSoM-CM5-1V1 schematic: R2425 0R, net 32KOUT_RTC2WIFI
+  # to the module's LPO; &sdio_pwrseq ext_clock = <&hym8563> in the DTS).
+  # CLKOUT is battery-backed: if an OS ever switched it off, WiFi and
+  # Bluetooth would stay dead.  Turn it back on at boot
+  # (Hym8563RealTimeClockLib, register 0x0D only).  The ROCK 4D wires CLKOUT
+  # to the SoC only (32KOUT_RTC2SOC) and leaves this off.
+  #
+  gRockchipTokenSpaceGuid.PcdRtc8563ClkoutEnable|TRUE
+
 ################################################################################
 [Components.common]
   # ACPI tables (Windows ARM64, FreeBSD, ACPI-capable OS)

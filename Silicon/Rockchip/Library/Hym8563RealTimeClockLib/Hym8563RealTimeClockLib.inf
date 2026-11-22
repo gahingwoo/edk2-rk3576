@@ -46,6 +46,7 @@
 [FixedPcd]
   gRockchipTokenSpaceGuid.PcdRtc8563Bus
   gRockchipTokenSpaceGuid.PcdRtc8563Address
+  gRockchipTokenSpaceGuid.PcdRtc8563ClkoutEnable
 
 [BuildOptions]
   *_*_*_CC_FLAGS = -DBUILD_EPOCH=$(SOURCE_DATE_EPOCH)

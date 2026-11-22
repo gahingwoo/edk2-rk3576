@@ -190,6 +190,13 @@
   gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x0, 0x1, 0x2 }
   gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ FALSE, TRUE, TRUE }
 
+  # The AP6256's 32 kHz LPO is the HYM8563S CLKOUT (through R454/R198 to
+  # module pin 24; &sdio_pwrseq ext_clock and the Bluetooth node's lpo clock
+  # are both <&hym8563> in the DTS).  CLKOUT is battery-backed: if an OS ever
+  # switched it off, WiFi and Bluetooth would stay dead.  Turn it back on at
+  # boot (Hym8563RealTimeClockLib, register 0x0D only).
+  gRockchipTokenSpaceGuid.PcdRtc8563ClkoutEnable|TRUE
+
   # PSCI SYSTEM_OFF only raises PWR_CTRL1, which the RK806 ignores unless
   # told otherwise; see Rk806I2cPowerOffDxe.
   gRK3576TokenSpaceGuid.PcdRk806I2cBase|0x2AC40000
