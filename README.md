@@ -86,7 +86,7 @@ stick (the 65th is the Debug Report page itself, open underneath).
 | USB | yes | yes; USB-C is USB 2.0 in UEFI and Windows | four USB-A ports; USB-C unused |
 | Ethernet | yes | yes, in UEFI, Linux and Windows | yes, in UEFI and Windows; not checked in Linux |
 | Linux through UEFI | Fedora from NVMe | Fedora from NVMe | Armbian edge from the eMMC: DSI screen, touch, headphones, backlight; [details and limits](#linux-on-the-taishanpi-3m) |
-| Windows 11 23H2 | not tried | boots to the desktop | boots to the desktop: GPU driver, touch, landscape; no sound yet |
+| Windows 11 23H2 | not tried | boots to the desktop | boots to the desktop: GPU driver, touch, landscape, Bluetooth; no sound yet |
 
 Serial console: 1500000 8N1.
 
@@ -238,8 +238,15 @@ driver for the Mali-G52 that moves the desktop onto the GPU. It is an early
 driver, built by that repository's CI and without a release, and has run on
 the TaishanPi 3M only.
 
-Not working under Windows on either board: audio, WiFi and Bluetooth. The
-TaishanPi 3M's audio drivers load, but its SAI never starts sending; a fix
+Bluetooth works under Windows on the TaishanPi 3M: the firmware declares the
+module's controller on UART6 (`ACPI\RKCP4345`), and sets its pins and clock.
+The module runs from the RTC chip's 32 kHz output, which is on as the chip
+leaves the factory; the driver is
+[bcm4345bt](https://github.com/gahingwoo/woa-rk3576/tree/main/drivers/bluetooth/bcm4345bt)
+in woa-rk3576. Pairing and file transfer work; voice (SCO) does not yet.
+
+Not working under Windows on either board: audio and WiFi, and Bluetooth on
+the CM5-IO. The TaishanPi 3M's audio drivers load, but its SAI never starts sending; a fix
 is in progress in woa-rk3576. The board's RTC chip holds no valid time, so
 the clock is wrong after every boot until Windows syncs it; set
 `HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation\RealTimeIsUniversal`
