@@ -223,6 +223,7 @@
   GpioLib|Silicon/Rockchip/RK3576/Library/GpioLib/GpioLib.inf
   Rk3576PwmLib|Silicon/Rockchip/RK3576/Library/Rk3576PwmLib/Rk3576PwmLib.inf
   Rk3576TsadcLib|Silicon/Rockchip/RK3576/Library/Rk3576TsadcLib/Rk3576TsadcLib.inf
+  Rk3576Fusb302Lib|Silicon/Rockchip/RK3576/Library/Rk3576Fusb302Lib/Rk3576Fusb302Lib.inf
 
 [LibraryClasses.common.SEC]
   MemoryInitPeiLib|Silicon/Rockchip/RK3576/Library/MemoryInitPeiLib/MemoryInitPeiLib.inf

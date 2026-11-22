@@ -1,0 +1,30 @@
+#/** @file
+#
+#  USB-C plug orientation from an FCS FUSB302 over a polled RK I2C master.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = Rk3576Fusb302Lib
+  FILE_GUID                      = 5c1f7a3e-2d84-4b6f-9a0e-7e3b1c4d8f62
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = Rk3576Fusb302Lib
+
+[Sources]
+  Rk3576Fusb302Lib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
+
+[LibraryClasses]
+  DebugLib
+  IoLib
+  TimerLib
