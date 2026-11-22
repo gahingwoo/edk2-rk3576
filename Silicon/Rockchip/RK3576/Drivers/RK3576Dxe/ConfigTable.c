@@ -145,6 +145,24 @@ SetupConfigTableVariables (
   }
 
   //
+  // AcpiCpuIdleStates: whether the _LPI SSDT (CpuIdle.asl) is installed.
+  // Every board that builds ACPI tables carries it, so there is no
+  // "supported" variable.
+  //
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"AcpiCpuIdleStates",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdAcpiCpuIdleStates, FixedPcdGet8 (PcdAcpiCpuIdleStatesDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
   // Publish which FDT compat modes are actually supported (have an embedded DTB).
   // The HII form grays out the selector when only one mode is available.
   //

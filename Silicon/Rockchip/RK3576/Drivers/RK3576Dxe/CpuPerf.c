@@ -20,6 +20,7 @@
 #include <ScmiDefinitions.h>
 
 #include "CpuPerf.h"
+#include "CpuMaxFreq.h"
 
 STATIC EFI_EVENT  mScmiNotifyEvent = NULL;
 STATIC VOID       *mScmiRegistration = NULL;
@@ -131,10 +132,11 @@ OnScmiClockAvailable (
   DEBUG ((DEBUG_ERROR, "CpuPerf: SCMI clock protocol v0x%08x\n", Version));
 
   //
-  // The rates these default to are bounded by the voltage the PMIC init table
-  // puts on vdd_cpu_lit_s0 / vdd_cpu_big_s0, NOT by what the silicon can do.
-  // mainline's cluster OPP tables in rk3576.dtsi pair each rate with a
-  // minimum:
+  // The rates these default to are bounded by the voltage on vdd_cpu_lit_s0
+  // / vdd_cpu_big_s0, NOT by what the silicon can do.  Nothing raises those
+  // rails at boot (the boards' RK806 init tables have no caller), so they are
+  // at the PMIC's power-on defaults.  mainline's cluster OPP tables in
+  // rk3576.dtsi pair each rate with a minimum:
   //
   //           A53                       A72
   //   1416 MHz  725.0 mV        1416 MHz  712.5 mV
@@ -144,8 +146,8 @@ OnScmiClockAvailable (
   //                             2208 MHz  925.0 mV
   //
   // Going above the configured rate without raising those rails first is an
-  // undervolt, and an undervolted core does not fail politely.  Raise the
-  // rails in the board's RK806 init table in the same change, or not at all.
+  // undervolt, and an undervolted core does not fail politely.  The one path
+  // that goes higher is CpuMaxFreq.c, which raises each rail first.
   //
   ApplyOneCluster (
     Clock,
@@ -159,6 +161,12 @@ OnScmiClockAvailable (
     "ARMCLK_B (A72)",
     PcdGet64 (PcdCPUBClusterClockHz)
     );
+
+  //
+  // "CPU Maximum Frequency" = Max, on a board whose rails the firmware can
+  // set: rails first, then clocks, from the rates just applied.
+  //
+  RK3576CpuMaxFreqStart (Clock);
 }
 
 
@@ -246,6 +254,8 @@ RK3576SetupCpuPerf (
   VOID
   )
 {
+  RK3576CpuMaxFreqSetupVariables ();
+
   ProbePsci ();
 
   //

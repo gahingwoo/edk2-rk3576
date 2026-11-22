@@ -44,6 +44,7 @@
   $(RK_COMMON_ACPI_DIR)/Mcfg.aslc
   $(RK_COMMON_ACPI_DIR)/Dbg2.aslc
   $(RK_COMMON_ACPI_DIR)/Pptt.aslc
+  $(RK_COMMON_ACPI_DIR)/CpuIdle.asl
 
 [Packages]
   ArmPkg/ArmPkg.dec

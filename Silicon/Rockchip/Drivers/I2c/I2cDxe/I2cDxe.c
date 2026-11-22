@@ -694,6 +694,20 @@ I2cReadOperation (
 
   I2cWrite (I2cMasterContext, I2C_MRXADDR, I2C_MRXADDR_SET (1, SlaveAddress << 1 | 1));
 
+  //
+  // No register address phase: the register was sent by the write before
+  // this read.  In TRX mode the controller sends every MRXRADDR byte whose
+  // valid bit is set before the restart, and this driver never wrote that
+  // register, so a value left there by another driver on the same bus was
+  // sent instead.  Rk806I2cPowerOffDxe (and the NPU power code) program
+  // the controller directly and leave MRXRADDR = valid | the last register
+  // they read; Rk806I2cPowerOffDxe's entry read is 0x62 (SLEEP_CONFIG0), so
+  // every read through this driver on I2C1 then returned SLEEP_CONFIG0
+  // (0x88), and CpuMaxFreq saw the RK806 ID as 0x8888.  Mainline rk3x_i2c_setup
+  // writes 0 here for the same case.
+  //
+  I2cWrite (I2cMasterContext, I2C_MRXRADDR, 0);
+
   (*Read) = 0;
   while (BytesRemainLen) {
     if (BytesRemainLen > RK_I2C_FIFO_SIZE) {
