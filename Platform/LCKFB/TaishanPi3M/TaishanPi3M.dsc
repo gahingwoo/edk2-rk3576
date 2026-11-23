@@ -214,6 +214,12 @@
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqSupported|TRUE
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0
 
+  # Log vdd_gpu_s0 (BUCK5 under the same pmic@23, dcdc-reg5 in
+  # rk3576-lckfb-tspi-3m.dts) and the GPU OTP bytes at boot, and hand them
+  # to the Windows GPU driver as the GpuRail variable (RK3576Dxe GpuRail.c).
+  # Reads only.
+  gRK3576TokenSpaceGuid.PcdGpuRailReport|TRUE
+
   # Start the fan on CN2 (PWM2 ch3, see PwmFanIoSetup) at full speed and
   # leave it running into the OS.  Windows has no driver for it and nothing
   # turns it down again.  60% was tried first: the fan ran, but the 2 kHz

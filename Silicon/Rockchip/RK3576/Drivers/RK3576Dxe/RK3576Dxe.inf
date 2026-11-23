@@ -24,6 +24,7 @@
   ComboPhy.c
   ConfigTable.c
   Gpu.c
+  GpuRail.c
   Npu.c
   RK3576DxeHii.vfr
   RK3576DxeHii.uni
@@ -97,6 +98,7 @@
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqSupported
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault
   gRK3576TokenSpaceGuid.PcdRk806I2cBus
+  gRK3576TokenSpaceGuid.PcdGpuRailReport
   gRK3576TokenSpaceGuid.PcdAcpiNpuDefault
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress

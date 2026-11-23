@@ -36,6 +36,7 @@
 #include "RK3576DxeFormSetGuid.h"
 #include "ConfigTable.h"
 #include "Gpu.h"
+#include "GpuRail.h"
 #include "Npu.h"
 #include "CpuPerf.h"
 #include "Display.h"
@@ -422,6 +423,9 @@ RK3576EntryPoint (
 
   /* Power the Mali-G52 for OS drivers that cannot (Windows) */
   RK3576GpuPowerOn ();
+
+  /* Log vdd_gpu_s0 and the GPU OTP bytes, read only (PcdGpuRailReport) */
+  RK3576GpuRailStart ();
 
   /*
    * The NPU, only if setup asks for it, the OS gets ACPI and the board can
