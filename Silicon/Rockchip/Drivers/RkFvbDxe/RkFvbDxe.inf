@@ -22,6 +22,7 @@
 
 [Sources]
   RkFvbDxe.c
+  RkFvbRt.c
 
 [Packages]
   ArmPkg/ArmPkg.dec
@@ -30,22 +31,27 @@
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
   Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
 
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
+  CacheMaintenanceLib
   DebugLib
   DevicePathLib
   DxeServicesTableLib
   FdtLib
   HobLib
+  IoLib
   MemoryAllocationLib
   PcdLib
   RkAtagsLib
+  TimerLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
   UefiLib
   UefiRuntimeLib
+  UefiRuntimeServicesTableLib
 
 [Guids]
   gEdkiiNvVarStoreFormattedGuid
@@ -56,6 +62,9 @@
   gEfiVariableGuid
   gEfiEventReadyToBootGuid
   gEfiEndOfDxeEventGroupGuid
+  gEfiEventExitBootServicesGuid
+  gEfiGlobalVariableGuid
+  gRK3576DxeFormSetGuid
 
 [Protocols]
   gEfiDevicePathProtocolGuid
@@ -66,6 +75,7 @@
   gEdkiiNonDiscoverableDeviceProtocolGuid
   gEfiResetNotificationProtocolGuid
   gRockchipFirmwareBootDeviceProtocolGuid
+  gEfiVariableWriteArchProtocolGuid
 
 [FixedPcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
@@ -77,6 +87,8 @@
   gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress
   gArmTokenSpaceGuid.PcdFdBaseAddress
   gRockchipTokenSpaceGuid.PcdRkFvbNvStorageSpiOffset
+  gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreBase
+  gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreSize
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64

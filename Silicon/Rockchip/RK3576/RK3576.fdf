@@ -54,6 +54,17 @@ NumBlocks     = 0x1000
 gArmTokenSpaceGuid.PcdFvBaseAddress|gArmTokenSpaceGuid.PcdFvSize
 FV = BL33_AP_UEFI
 
+# RUNTIME_VARIABLE_STORE: DRAM only, nothing of the FD is put here.
+#
+# On SD and eMMC, RkFvbDxe keeps a checksummed copy of the variable store
+# here once the OS owns the medium, and commits it on the next boot.  It has
+# to be DRAM the boot chain leaves alone across a reset: the SPL loads the FV
+# to 0x40800000, appends its DTB (about 190 KB) right after the FV, and loads
+# "nvdata" at 0x415C0000.  The FV region ends at 0x41500000, so this leaves
+# 512 KB for the DTB.  Rk3576Mem.c keeps the range out of the allocator.
+0x00F80000|0x00040000
+gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreBase|gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreSize
+
 # NV_VARIABLE_STORE
 0x00FC0000|0x00010000
 gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize

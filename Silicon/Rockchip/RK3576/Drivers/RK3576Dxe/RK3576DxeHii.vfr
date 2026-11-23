@@ -213,6 +213,11 @@ formset
       name  = FdtOverrideOverlayPath,
       guid  = RK3576DXE_FORMSET_GUID;
 
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = RtVarEmmcCommit,
+      guid  = RK3576DXE_FORMSET_GUID;
+
     //
     // Main form — ROCK 4D / RK3576 Settings
     //
@@ -296,6 +301,22 @@ formset
         help        = STRING_TOKEN(STR_NETWORK_TIME_SYNC_HELP),
         flags       = NUMERIC_SIZE_1,
         default     = FixedPcdGet8 (PcdNetworkTimeSyncDefault),
+        option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+        option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+      endoneof;
+
+      //
+      // RkFvbDxe (RkFvbRt.c) reads it at EndOfDxe.  Off by default: it has
+      // the firmware drive the eMMC from the ResetSystem() an OS makes.
+      //
+      subtitle text = STRING_TOKEN(STR_NULL_STRING);
+      subtitle text = STRING_TOKEN(STR_RTVAR_SUBTITLE);
+
+      oneof varid = RtVarEmmcCommit,
+        prompt      = STRING_TOKEN(STR_RTVAR_EMMC_PROMPT),
+        help        = STRING_TOKEN(STR_RTVAR_EMMC_HELP),
+        flags       = NUMERIC_SIZE_1 | RESET_REQUIRED,
+        default     = 0,
         option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
         option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
       endoneof;

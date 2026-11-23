@@ -258,6 +258,8 @@ ArmPlatformGetVirtualMemoryMap (
  #endif
       UINT64  FvBase  = FixedPcdGet64 (PcdFvBaseAddress);
       UINT64  FvSize  = FixedPcdGet32 (PcdFvSize);
+      UINT64  RtStoreBase = FixedPcdGet64 (PcdRkFvbRuntimeStoreBase);
+      UINT64  RtStoreSize = FixedPcdGet32 (PcdRkFvbRuntimeStoreSize);
 
       ASSERT (DramTop > RK3576_DRAM_SAFE_BASE);
       ASSERT (FvBase >= RK3576_DRAM_SAFE_BASE);
@@ -303,10 +305,37 @@ ArmPlatformGetVirtualMemoryMap (
       // So: leave it as ordinary System RAM and let RkFvbDxe claim it.
       //
 
-      // System RAM above the FV — the bulk of it, including the NV store.
+      //
+      // The runtime variable store (RK3576.fdf, RUNTIME_VARIABLE_STORE) is
+      // carved out, unlike the NV store.  It is what RkFvbDxe reads first
+      // thing on the next boot to recover variable writes an OS made, so no
+      // allocation before RkFvbDxe may land on it, and RkFvbDxe does not
+      // claim it itself: it uses it at this address.  Runtime data, so the
+      // OS keeps its hands off it and maps it for runtime services.
+      //
+      ASSERT (RtStoreBase >= FvBase + FvSize);
+      ASSERT (RtStoreBase + RtStoreSize <= VariablesBase);
+
+      // System RAM between the FV and the runtime variable store
       VirtualMemoryTable[Index].PhysicalBase = FvBase + FvSize;
       VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
-      VirtualMemoryTable[Index].Length       = DramTop - (FvBase + FvSize);
+      VirtualMemoryTable[Index].Length       = RtStoreBase - (FvBase + FvSize);
+      VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
+      VirtualMemoryInfo[Index].Type          = RK3576_MEM_BASIC_REGION;
+      VirtualMemoryInfo[Index++].Name        = L"System RAM (FV..RT store)";
+
+      // Runtime variable store
+      VirtualMemoryTable[Index].PhysicalBase = RtStoreBase;
+      VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
+      VirtualMemoryTable[Index].Length       = RtStoreSize;
+      VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
+      VirtualMemoryInfo[Index].Type          = RK3576_MEM_RUNTIME_REGION;
+      VirtualMemoryInfo[Index++].Name        = L"Runtime Variable Store";
+
+      // System RAM above it: the bulk of DRAM, including the NV store.
+      VirtualMemoryTable[Index].PhysicalBase = RtStoreBase + RtStoreSize;
+      VirtualMemoryTable[Index].VirtualBase  = VirtualMemoryTable[Index].PhysicalBase;
+      VirtualMemoryTable[Index].Length       = DramTop - (RtStoreBase + RtStoreSize);
       VirtualMemoryTable[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
       VirtualMemoryInfo[Index].Type          = RK3576_MEM_BASIC_REGION;
       VirtualMemoryInfo[Index++].Name        = L"System RAM";
