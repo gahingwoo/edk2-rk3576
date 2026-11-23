@@ -39,6 +39,7 @@
   DebugLib
   IoLib
   GpioLib
+  Rk3576Fusb302Lib
   RK806
   PcdLib
   Rk3576PwmLib

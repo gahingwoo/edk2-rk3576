@@ -20,23 +20,14 @@
  *
  *  Left out, on purpose:
  *
- *    - XHC0 (DRD0, the USB-C port).  On this board its VBUS switch
- *      (vcc_5v0_typec, GPIO0_B6, dts:90-100) is only turned on by Linux after
- *      the FUSB302 sees a sink, and the firmware leaves it off, so a host
- *      port there has no power to give.  UsbHcd now brings up the USBDP
- *      PHY's USB3 half at ExitBootServices and enables DRD0's U3 port only
- *      once its PLL locks, the CM5-IO's fix for the synchronous external
- *      abort usbxhci took reading XHC0's port-2 PORTSC (WHEA_INTERNAL_ERROR
- *      at WinPE shutdown).  This board's library does not read its FUSB302
- *      (UsbTypeCGetOrientation returns Unknown), so the lanes are a guess,
- *      and on the CM5-IO SuperSpeed has not trained on that port even with
- *      the orientation known.  Adding XHC0 here would need VBUS, and so a
- *      port manager, first.
  *    - XHC2 and ATA0..ATA2.  The CM5-IO includes them as _STA = 0 stubs whose
  *      addresses are RK3588's; a disabled device with a wrong address adds
  *      nothing.
  *    - FUSB302 (I2C2 0x22, dts:636-673): no Windows driver, and nothing here
- *      runs a Type-C port manager.
+ *      runs a Type-C port manager.  The firmware reads it once at
+ *      ExitBootServices for the USBDP lane mapping and the VBUS switch,
+ *      then leaves Rp on the attached CC line with VBUS on (a sink found)
+ *      or the chip reset with VBUS off (anything else).
  *    - WiFi on SDIO (dts:789-814): the CM5-IO does not declare it, there is
  *      no Windows driver for an SDIO BCM43456, and its power, reset and
  *      32 kHz clock are sequenced by Linux (sdio_pwrseq, dts:167-175).
@@ -223,6 +214,22 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // GPIO0_C3, dts:66-88) are turned on by the firmware and are not
     // described here.
     include ("Usb3Host1.asl")
+
+    // USB: DRD0 at 0x23000000, the USB-C port (usb_drd0_dwc3, dts:903-919),
+    // as the CM5-IO declares it.  UsbHcd brings up the USBDP PHY's USB3 half
+    // at ExitBootServices with the lanes for the plug orientation it read
+    // from the FUSB302, and enables DRD0's U3 port only once the PHY's PLL
+    // locks (the fix for the synchronous external abort usbxhci took on the
+    // CM5-IO reading port 2's PORTSC with no PHY behind it).  If the PLL does
+    // not lock, the U3 port stays disabled and Windows fails XHC0 with code
+    // 10 instead.
+    //
+    // The port's VBUS switch (vcc_5v0_typec, GPIO0_B6, dts:90-100) is set
+    // by the firmware from the FUSB302 at ExitBootServices: on when a sink
+    // is attached, off otherwise.  Windows has no port manager, so VBUS
+    // keeps that state: plug a bus-powered device in before booting, and
+    // reboot before connecting a PC or a charger to this port.
+    include ("Usb3Host0.asl")
 
     // GMAC0 at 0x2a220000, the only Ethernet port (dts:281-295).
     //

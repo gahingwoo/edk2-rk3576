@@ -947,10 +947,10 @@ UsbReadyToBootCallback (
  * OS made the bugcheck go away (2 of 2 runs, against 5 of 5 before).
  * With the PHY's PLL locked, the SS port has a PIPE clock behind it.
  *
- * Orientation is not known here (the CC controller is an FUSB302 on I2C0 that
- * UEFI does not drive), so the lanes are set up unflipped: a SuperSpeed
- * device trains in one plug orientation and falls back to high speed in the
- * other. All four lanes are muxed to USB (mainline's USB-only mode).
+ * The lanes follow the plug orientation the board library reads from its
+ * Type-C controller (UsbTypeCGetOrientation: the FUSB302 on CM5-IO and
+ * TaishanPi 3M); when it cannot say, both mappings are tried, see
+ * Rk3576UsbDpPhyUsb3Init.
  */
 #define RK3576_PMU1CRU_BASE           0x27220000UL
 #define RK3576_PMU1CRU_GATE_CON0      (RK3576_PMU1CRU_BASE + 0x800)
@@ -1181,7 +1181,8 @@ Rk3576UsbDpPhyUsb3Init (
   // the LCPLL never locked with all four lanes muxed to USB (3 boots of 3,
   // 0x38), while the other way round it locked within 200 us.
   //
-  // Ask the board (CM5-IO reads its FUSB302). If it cannot say, try the
+  // Ask the board (CM5-IO and TaishanPi 3M read their FUSB302 and leave Rp
+  // on the attached line, or the chip reset). If it cannot say, try the
   // unflipped mapping and then the flipped one and keep whichever locks.
   //
   Orientation = UsbTypeCGetOrientation (0);
@@ -1290,6 +1291,25 @@ UsbExitBootServicesCallback (
            (UINTN)gXhciAddrArray[Index + 3] << 24;
     MmioOr32 (Base + DWC3_REG_OFFSET + 0x100, DWC3_GUSB2PHYCFG_SUSPHY);   // GUSB2PHYCFG(0)
     MmioOr32 (Base + DWC3_REG_OFFSET + 0x1C0, DWC3_GUSB3PIPECTL_SUSPHY);  // GUSB3PIPECTL(0)
+  }
+
+  //
+  // What the OS gets on the USB-C controller: the DWC3 port capability
+  // direction (GCTL 13:12, 1 = host, 2 = device, 3 = OTG) and the U3 port
+  // enable. Windows has no DWC3 role switch, so host here is host for good.
+  //
+  {
+    UINT32  Gctl;
+
+    Gctl = MmioRead32 (0x23000000UL + 0xC110);
+    DEBUG ((
+      DEBUG_INFO,
+      "UsbHcd ExitBootServices: DRD0 GCTL 0x%08x PRTCAP %a, USB3OTG0_CON1 0x%04x (U3 port %a)\n",
+      Gctl,
+      (((Gctl >> 12) & 3) == 1) ? "host" : (((Gctl >> 12) & 3) == 2) ? "device" : "otg/none",
+      MmioRead32 (RK3576_USB_GRF_USB3OTG0_CON1) & 0xFFFF,
+      ((MmioRead32 (RK3576_USB_GRF_USB3OTG0_CON1) & 0xFFFF) == RK3576_USB3OTG0_U3_PORT_EN) ? "enabled" : "disabled"
+      ));
   }
 }
 
