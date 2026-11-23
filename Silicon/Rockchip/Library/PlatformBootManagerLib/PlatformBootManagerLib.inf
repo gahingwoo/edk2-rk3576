@@ -87,12 +87,14 @@
   gRockchipEventPlatformBmDevicesConnectedGuid
   gRockchipMaskromResetFileGuid
   gRockchipFullResetFileGuid
+  gRockchipArmbianOnceFileGuid
 
 [Protocols]
   gEdkiiNonDiscoverableDeviceProtocolGuid
   gEfiBootManagerPolicyProtocolGuid
   gEfiDevicePathProtocolGuid
   gEfiGraphicsOutputProtocolGuid
+  gEfiFirmwareVolume2ProtocolGuid
   gEfiLoadedImageProtocolGuid
   gEfiPciRootBridgeIoProtocolGuid
   gEfiSimpleFileSystemProtocolGuid

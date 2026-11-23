@@ -80,6 +80,8 @@
   DEFINE RK_X86_EMULATOR_ENABLE  = FALSE
   DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
   DEFINE RK_USB_ENABLE           = TRUE
+  # Boot option "Armbian (U-Boot)".  Needs the SPL from scripts/build-spl.sh.
+  DEFINE RK_ARMBIAN_ONCE_ENABLE  = TRUE
 
 !include Silicon/Rockchip/RK3576/RK3576Base.dsc.inc
 

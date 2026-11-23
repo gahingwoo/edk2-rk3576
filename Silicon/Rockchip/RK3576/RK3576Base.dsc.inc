@@ -151,6 +151,16 @@
 !endif
 
   #
+  # "Armbian (U-Boot)": a boot option that has the SPL boot Armbian's own
+  # U-Boot once.  Only for a board whose SPL is built from uboot/v2026.10
+  # (scripts/build-spl.sh); with any other SPL the option can only say that
+  # it does not work.  See docs/ARMBIAN-CHAINLOAD.md.
+  #
+!ifndef RK_ARMBIAN_ONCE_ENABLE
+  DEFINE RK_ARMBIAN_ONCE_ENABLE     = FALSE
+!endif
+
+  #
   # RK3576 has no SATA controller.
   #
 !ifndef RK_AHCI_ENABLE
