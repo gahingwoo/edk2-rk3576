@@ -82,3 +82,46 @@ jobs:
             out/*/*.img
             out/*/*.sfdisk
           if-no-files-found: error
+
+  # A rolling release tagged "ci" with the images of the latest successful
+  # build of main, for Maskrom Studio's CI tier (and anyone who wants the
+  # newest build without logging in to download Actions artifacts). It is a
+  # pre-release, never "latest", replaced by every successful build, and its
+  # notes say it is untested. Asset names follow the releases'
+  # (<Board>-emmc-edk2-<tag>.img) with "ci-<sha>" as the tag part, so the
+  # same prefixes find them.
+  ci-release:
+    name: Rolling "ci" release
+    needs: firmware
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Files and checksums
+        run: |
+          set -eu
+          sha=${GITHUB_SHA::7}
+          mkdir rel
+          find artifacts -name '*.img' | while read -r f; do
+            b=$(basename "$f" .img)
+            cp "$f" "rel/${b}-edk2-ci-${sha}.img"
+          done
+          find artifacts -name '*.sfdisk' -exec cp {} rel/ \;
+          (cd rel && sha256sum -- * > SHA256SUMS.txt)
+          cat rel/SHA256SUMS.txt
+      - name: Replace the ci release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          sha=${GITHUB_SHA::7}
+          date=$(date -u +%Y-%m-%d)
+          printf '%s\n' "Built from ${GITHUB_SHA} on ${date} by the build workflow on main." "" \
+            "Untested: these images have not been run on a board. Every successful build of main replaces this release." > notes.md
+          gh release delete ci --yes --cleanup-tag -R "$GITHUB_REPOSITORY" || true
+          gh release create ci rel/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "CI build ${sha} ${date}" --notes-file notes.md
