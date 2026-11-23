@@ -1,8 +1,10 @@
 /** @file
  *
  *  Report the Mali-G52's supply, vdd_gpu_s0, and the per-chip OTP data that
- *  decide which GPU clock that supply is good for.  Read only: nothing here
- *  writes a PMIC register, a clock or anything else on the chip.
+ *  decide which GPU clock that supply is good for.  With PcdGpuRailRaise775
+ *  (TaishanPi 3M only) it also raises BUCK5 from 750 to 775 mV, and to no
+ *  more (RaiseRail); otherwise nothing here writes a PMIC register, a
+ *  clock or anything else on the chip.
  *
  *  Why
  *  ---
@@ -68,6 +70,8 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/OtpLib.h>
 #include <Library/PcdLib.h>
+#include <Library/Rk3576TsadcLib.h>
+#include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
@@ -133,6 +137,28 @@ typedef struct {
   UINTN                OperationCount;
   EFI_I2C_OPERATION    Operation[2];
 } RK806_I2C_REQUEST;
+
+//
+// The raise to 775 mV (PcdGpuRailRaise775), approved for the TaishanPi 3M
+// after its BUCK5 read 0x28 = 750 mV on 2026-11-23: 775 mV is mainline's
+// voltage for the 800 MHz operating point, which governs SPLL / 1 =
+// 702 MHz.  The ceiling is this constant and nothing else; no PCD, setup
+// option or variable can move it.
+//
+#define GPU_RAIL_FROM_VSEL      0x28    // 750.0 mV, the value read on the board
+#define GPU_RAIL_CEIL_VSEL      0x2C    // 775.0 mV, never written above
+#define GPU_RAIL_STEP_WAIT_US   100     // one 6.25 mV step: 1 us at the slowest ramp (6250 uV/us)
+#define GPU_RAIL_SETTLE_US      1000    // after the last step, > 2x regulator-enable-ramp-delay
+#define RK806_EXPECT_NAME       0x80    // CHIP_NAME / CHIP_VER the TaishanPi 3M's RK806 reads
+#define RK806_EXPECT_VER        0x6A
+#define TSADC_CRU_EN_REG        (RK3576_TSADC_BASE + 0x01C)
+#define TSADC_GPU_CHANNELS      (BIT3 | BIT5)   // the TRM says 3, the OTP trim and vendor say 5: both
+
+STATIC_ASSERT (GPU_RAIL_CEIL_VSEL == 0x2C, "the approved ceiling is 775 mV");
+STATIC_ASSERT (RK806_BUCK_UV_BASE + GPU_RAIL_CEIL_VSEL * RK806_BUCK_UV_STEP == 775000, "0x2C is 775 mV");
+
+STATIC UINT8  mChipName;
+STATIC UINT8  mChipVer;
 
 STATIC EFI_I2C_MASTER_PROTOCOL  *mI2c;
 STATIC VOID                     *mI2cRegistration;
@@ -307,6 +333,9 @@ ReadRail (
     return;
   }
 
+  mChipName = Name;
+  mChipVer  = Ver;
+
   if (EFI_ERROR (Rk806Read (RK806_BUCK5_ON_VSEL, &Report->OnVsel)) ||
       EFI_ERROR (Rk806Read (RK806_BUCK5_SLP_VSEL, &Report->SlpVsel)) ||
       EFI_ERROR (Rk806Read (RK806_POWER_EN1, &Report->PowerEn1)) ||
@@ -352,6 +381,187 @@ ReadRail (
   }
 
   DEBUG ((DEBUG_ERROR, "GpuRail: vdd_gpu_s0 (RK806 BUCK5) %u uV\n", Report->RailUv));
+}
+
+STATIC
+EFI_STATUS
+Rk806Write (
+  IN UINT8  Reg,
+  IN UINT8  Value
+  )
+{
+  RK806_I2C_REQUEST  Request;
+  UINT8              Buffer[2];
+
+  Buffer[0]                          = Reg;
+  Buffer[1]                          = Value;
+  Request.OperationCount             = 1;
+  Request.Operation[0].Flags         = 0;
+  Request.Operation[0].LengthInBytes = sizeof (Buffer);
+  Request.Operation[0].Buffer        = Buffer;
+
+  return mI2c->StartRequest (
+                 mI2c,
+                 FixedPcdGet8 (PcdRk806I2cAddress),
+                 (EFI_I2C_REQUEST_PACKET *)&Request,
+                 NULL,
+                 NULL
+                 );
+}
+
+/**
+  Write one BUCK5 ON_VSEL selector, never above GPU_RAIL_CEIL_VSEL, and
+  read it back.
+**/
+STATIC
+EFI_STATUS
+WriteVselChecked (
+  IN  UINT8  Vsel,
+  OUT UINT8  *ReadBack
+  )
+{
+  EFI_STATUS  Status;
+
+  *ReadBack = 0xFF;
+  if (Vsel > GPU_RAIL_CEIL_VSEL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = Rk806Write (RK806_BUCK5_ON_VSEL, Vsel);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = Rk806Read (RK806_BUCK5_ON_VSEL, ReadBack);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  return (*ReadBack == Vsel) ? EFI_SUCCESS : EFI_DEVICE_ERROR;
+}
+
+/**
+  TRUE when the TSADC is sampling and TSHUT (CRU reset) is armed on both
+  channels that may be the GPU's.
+**/
+STATIC
+BOOLEAN
+TshutArmed (
+  VOID
+  )
+{
+  UINT32  CruEn;
+
+  if (!FixedPcdGetBool (PcdTsadcEnable) || !FixedPcdGetBool (PcdTsadcTshutEnable) ||
+      !Rk3576TsadcIsRunning ())
+  {
+    return FALSE;
+  }
+
+  CruEn = MmioRead32 (TSADC_CRU_EN_REG);
+  DEBUG ((DEBUG_ERROR, "GpuRail: TSADC_CRU_EN 0x%08x, TSHUT %u mC\n", CruEn, FixedPcdGet32 (PcdTsadcTshutTemp)));
+  return (CruEn & TSADC_GPU_CHANNELS) == TSADC_GPU_CHANNELS;
+}
+
+/**
+  Raise BUCK5 from 0x28 to 0x2C (750 to 775 mV) one 6.25 mV step at a
+  time, reading each step back.  Any precondition not met: nothing is
+  written.  Any step that does not read back: 0x28 is written back.
+
+  SLP_VSEL is left as it is.  It is the voltage the RK806 switches to only
+  when its sleep function is entered (a PMIC sleep pin or a suspend);
+  nothing in this firmware or in Windows on this board does that, and the
+  device tree turns vdd_gpu_s0 off in suspend (regulator-off-in-suspend),
+  so the GPU never runs on it.
+**/
+STATIC
+VOID
+RaiseRail (
+  IN OUT GPU_RAIL_REPORT  *Report
+  )
+{
+  EFI_STATUS  Status;
+  UINT8       Vsel;
+  UINT8       ReadBack;
+
+  if (!FixedPcdGetBool (PcdGpuRailRaise775)) {
+    return;
+  }
+
+  if ((mChipName != RK806_EXPECT_NAME) || (mChipVer != RK806_EXPECT_VER)) {
+    DEBUG ((DEBUG_ERROR, "GpuRail: not raising BUCK5: PMIC reads 0x%02x 0x%02x, not 0x80 0x6A\n", mChipName, mChipVer));
+    return;
+  }
+
+  if ((Report->Flags & GPU_RAIL_FLAG_ENABLED) == 0) {
+    DEBUG ((DEBUG_ERROR, "GpuRail: not raising BUCK5: it is off (POWER_EN1 0x%02x)\n", Report->PowerEn1));
+    return;
+  }
+
+  if (Report->OnVsel == GPU_RAIL_CEIL_VSEL) {
+    DEBUG ((DEBUG_ERROR, "GpuRail: BUCK5 already 0x%02x (775000 uV), not written\n", Report->OnVsel));
+    return;
+  }
+
+  if (Report->OnVsel != GPU_RAIL_FROM_VSEL) {
+    DEBUG ((DEBUG_ERROR, "GpuRail: not raising BUCK5: ON_VSEL 0x%02x is not 0x28\n", Report->OnVsel));
+    return;
+  }
+
+  if (((Report->Flags & GPU_RAIL_FLAG_OTP_VALID) == 0) || (Report->Specification != 0x01)) {
+    DEBUG ((DEBUG_ERROR, "GpuRail: not raising BUCK5: OTP specification 0x%02x is not 0x01 (or OTP unread)\n", Report->Specification));
+    return;
+  }
+
+  if (!TshutArmed ()) {
+    DEBUG ((DEBUG_ERROR, "GpuRail: not raising BUCK5: TSHUT is not armed on TSADC channels 3 and 5\n"));
+    return;
+  }
+
+  for (Vsel = GPU_RAIL_FROM_VSEL + 1; Vsel <= GPU_RAIL_CEIL_VSEL; Vsel++) {
+    Status = WriteVselChecked (Vsel, &ReadBack);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "GpuRail: BUCK5 wrote 0x%02x, read back 0x%02x (%r); writing 0x28 back\n",
+        Vsel,
+        ReadBack,
+        Status
+        ));
+      Rk806Write (RK806_BUCK5_ON_VSEL, GPU_RAIL_FROM_VSEL);
+      if (!EFI_ERROR (Rk806Read (RK806_BUCK5_ON_VSEL, &ReadBack))) {
+        DEBUG ((DEBUG_ERROR, "GpuRail: BUCK5 now reads 0x%02x\n", ReadBack));
+        Report->OnVsel = ReadBack;
+      } else {
+        Report->OnVsel = 0xFF;
+      }
+
+      //
+      // Whatever it reads now, it is not a value to build a clock on.
+      //
+      Report->RailUv = 0;
+      Report->Flags &= (UINT8)~GPU_RAIL_FLAG_RAIL_VALID;
+      return;
+    }
+
+    MicroSecondDelay (GPU_RAIL_STEP_WAIT_US);
+  }
+
+  MicroSecondDelay (GPU_RAIL_SETTLE_US);
+
+  Status = Rk806Read (RK806_BUCK5_ON_VSEL, &ReadBack);
+  if (EFI_ERROR (Status) || (ReadBack != GPU_RAIL_CEIL_VSEL)) {
+    DEBUG ((DEBUG_ERROR, "GpuRail: BUCK5 final read 0x%02x (%r); writing 0x28 back\n", ReadBack, Status));
+    Rk806Write (RK806_BUCK5_ON_VSEL, GPU_RAIL_FROM_VSEL);
+    Report->RailUv = 0;
+    Report->Flags &= (UINT8)~GPU_RAIL_FLAG_RAIL_VALID;
+    return;
+  }
+
+  Report->OnVsel  = ReadBack;
+  Report->RailUv  = RK806_BUCK_UV_BASE + (UINT32)ReadBack * RK806_BUCK_UV_STEP;
+  Report->Flags  |= GPU_RAIL_FLAG_RAISED;
+  DEBUG ((DEBUG_ERROR, "GpuRail: raised BUCK5 0x28 -> 0x2C, read back %u uV\n", Report->RailUv));
 }
 
 STATIC
@@ -429,6 +639,10 @@ GpuRailRun (
 
   ReadOtp (&Report);
   ReadRail (&Report);
+  if ((Report.Flags & GPU_RAIL_FLAG_RAIL_VALID) != 0) {
+    RaiseRail (&Report);
+  }
+
   LogVerdict (&Report);
 
   Status = gRT->SetVariable (

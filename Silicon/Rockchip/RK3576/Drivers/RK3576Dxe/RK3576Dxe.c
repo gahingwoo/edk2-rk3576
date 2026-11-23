@@ -424,9 +424,6 @@ RK3576EntryPoint (
   /* Power the Mali-G52 for OS drivers that cannot (Windows) */
   RK3576GpuPowerOn ();
 
-  /* Log vdd_gpu_s0 and the GPU OTP bytes, read only (PcdGpuRailReport) */
-  RK3576GpuRailStart ();
-
   /*
    * The NPU, only if setup asks for it, the OS gets ACPI and the board can
    * set the NPU rail: the Windows driver (woa-rk3576-npu) is its only user.
@@ -463,6 +460,13 @@ RK3576EntryPoint (
    * the fan, so the log shows the temperature the fan starts at.
    */
   Rk3576TsadcInit ();
+
+  /*
+   * vdd_gpu_s0 and the GPU OTP bytes (PcdGpuRailReport), and on the
+   * TaishanPi 3M the raise to 775 mV (PcdGpuRailRaise775).  After the
+   * TSADC, because the raise requires TSHUT armed.
+   */
+  RK3576GpuRailStart ();
 
   /* Board fan, if the board has one the firmware knows how to drive */
   RK3576InitCoolingFan ();

@@ -220,6 +220,11 @@
   # Reads only.
   gRK3576TokenSpaceGuid.PcdGpuRailReport|TRUE
 
+  # BUCK5 read 0x28 (750 mV) on this board on 2026-11-23; 702 MHz (SPLL / 1)
+  # needs mainline's 775 mV for the 800 MHz operating point.  Raised to
+  # 775 mV and no higher, approved by the user for this board only.
+  gRK3576TokenSpaceGuid.PcdGpuRailRaise775|TRUE
+
   # Start the fan on CN2 (PWM2 ch3, see PwmFanIoSetup) at full speed and
   # leave it running into the OS.  Windows has no driver for it and nothing
   # turns it down again.  60% was tried first: the fan ran, but the 2 kHz

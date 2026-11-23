@@ -19,6 +19,7 @@
 #define GPU_RAIL_FLAG_ENABLED       BIT1   // POWER_EN1 bit 0
 #define GPU_RAIL_FLAG_OTP_VALID     BIT2   // cpu-code read as 35 76
 #define GPU_RAIL_FLAG_PLAIN_RK3576  BIT3   // specification 0 or 1 (not J, M or S)
+#define GPU_RAIL_FLAG_RAISED        BIT4   // RaiseRail took BUCK5 from 0x28 to 0x2C this boot
 
 //
 // The variable's layout, 32 bytes.  Shared with wddm-mali-g52 (adapter.c,
@@ -29,7 +30,7 @@ typedef struct {
   UINT32    Signature;       // 'GPUR'
   UINT16    Version;         // 1
   UINT16    Size;            // sizeof (GPU_RAIL_REPORT)
-  UINT32    RailUv;          // BUCK5 ON_VSEL as microvolts; 0 when not read
+  UINT32    RailUv;          // BUCK5 ON_VSEL as microvolts, after any raise; 0 when not read
   UINT8     OnVsel;          // RK806 0x1E
   UINT8     SlpVsel;         // RK806 0x28
   UINT8     PowerEn1;        // RK806 0x01
