@@ -209,6 +209,24 @@ GpioPinSetFunction (
  * (RK3576_DRV_GPIO0_AL_OFFSET 0x10, GPIO1 0x6020, GPIO2 0x6040, GPIO3 0x6060,
  * GPIO4_AL 0x6080), 4 bits per pin, 4 pins per register.
  * ----------------------------------------------------------------------- */
+//
+// Pull-up/down, as mainline Linux's rk3576_calc_pull_reg_and_bit() and
+// rockchip_set_pull() (drivers/pinctrl/pinctrl-rockchip.c): 2 bits per pin,
+// 8 pins per 32-bit register in IOC_GRF, the upper 16 bits a write mask.
+// Every RK3576 bank is PULL_TYPE_IO_1V8_ONLY in Linux (rk3576_pin_banks),
+// so the field is 0 none, 1 pull-down, 3 pull-up, as in the TRM's
+// VCCIO_IOC_GPIOxx_PULL registers.  That is the GPIO_PIN_PULL encoding.
+// The reset value of most fields is 1, a pull-down.
+//
+#define RK3576_PULL_GPIO0_AL_OFFSET   0x20
+#define RK3576_PULL_GPIO0_BH_OFFSET   0x2028
+#define RK3576_PULL_GPIO1_OFFSET      0x6110
+#define RK3576_PULL_GPIO2_OFFSET      0x6120
+#define RK3576_PULL_GPIO3_OFFSET      0x6130
+#define RK3576_PULL_GPIO4_AL_OFFSET   0x6140
+#define RK3576_PULL_GPIO4_CL_OFFSET   0xA148
+#define RK3576_PULL_GPIO4_DL_OFFSET   0xB14C
+
 VOID
 GpioPinSetPull (
   IN UINT8          Group,
@@ -216,14 +234,54 @@ GpioPinSetPull (
   IN GPIO_PIN_PULL  Pull
   )
 {
-  if (Pull == GPIO_PIN_PULL_NONE) {
-    return;  /* No-op: reset-default is pull-none for most pins */
+  UINT32  Reg;
+  UINT32  Bit;
+  UINT32  Value;
+
+  //
+  // NONE leaves the pin's reset-default pull alone, as it always has: the
+  // iomux tables pass NONE for every pin, and writing "no pull" would undo
+  // the defaults some pins need (the SD card's lines pull up out of reset).
+  //
+  switch (Pull) {
+    case GPIO_PIN_PULL_NONE: return;
+    case GPIO_PIN_PULL_UP:   Value = 3; break;
+    case GPIO_PIN_PULL_DOWN: Value = 1; break;
+    default:
+      DEBUG ((DEBUG_WARN, "GpioPinSetPull: GPIO%d pin %d: unknown pull %d\n", Group, Pin, Pull));
+      return;
   }
 
+  if ((Group == 0) && (Pin < 12)) {
+    Reg = RK3576_PULL_GPIO0_AL_OFFSET;
+  } else if (Group == 0) {
+    Reg = RK3576_PULL_GPIO0_BH_OFFSET - 0x4;
+  } else if (Group == 1) {
+    Reg = RK3576_PULL_GPIO1_OFFSET;
+  } else if (Group == 2) {
+    Reg = RK3576_PULL_GPIO2_OFFSET;
+  } else if (Group == 3) {
+    Reg = RK3576_PULL_GPIO3_OFFSET;
+  } else if ((Group == 4) && (Pin < 16)) {
+    Reg = RK3576_PULL_GPIO4_AL_OFFSET;
+  } else if ((Group == 4) && (Pin < 24)) {
+    Reg = RK3576_PULL_GPIO4_CL_OFFSET - 0x8;
+  } else if (Group == 4) {
+    Reg = RK3576_PULL_GPIO4_DL_OFFSET - 0xc;
+  } else {
+    DEBUG ((DEBUG_WARN, "GpioPinSetPull: no GPIO%d\n", Group));
+    return;
+  }
+
+  Reg += (Pin / 8) * 4;
+  Bit  = (Pin % 8) * 2;
+
+  MmioWrite32 (RK3576_IOC_GRF_BASE + Reg, (0x3U << (Bit + 16)) | (Value << Bit));
   DEBUG ((
-    DEBUG_WARN,
-    "GpioPinSetPull: RK3576 has no pull-config support -- request for GPIO%d pin %d (pull=%d) SILENTLY DROPPED\n",
-    Group, Pin, Pull
+    DEBUG_INFO,
+    "GpioPinSetPull: GPIO%d pin %d pull %d -> IOC 0x%x = 0x%08x\n",
+    Group, Pin, Pull, RK3576_IOC_GRF_BASE + Reg,
+    MmioRead32 (RK3576_IOC_GRF_BASE + Reg)
     ));
 }
 
