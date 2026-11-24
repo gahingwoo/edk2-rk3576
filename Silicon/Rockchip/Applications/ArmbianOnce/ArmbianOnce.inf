@@ -1,0 +1,55 @@
+#/** @file
+#
+#  Armbian (U-Boot): ask the SPL to boot Armbian's own U-Boot once, then
+#  restart.  Registered as a boot option by PlatformBootManagerLib on boards
+#  that set RK_ARMBIAN_ONCE_ENABLE.  See docs/ARMBIAN-CHAINLOAD.md.
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ArmbianOnce
+  FILE_GUID                      = 323f6033-ab50-4d2b-8839-a82d7acbde7b
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = UefiMain
+
+[Sources]
+  ArmbianOnce.c
+  ArmbianOnce.h
+
+[Packages]
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  FdtLib
+  MemoryAllocationLib
+  PrintLib
+  UefiApplicationEntryPoint
+  UefiBootServicesTableLib
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gEfiFileInfoGuid
+
+[Protocols]
+  gEfiBlockIoProtocolGuid
+  gEfiDiskIoProtocolGuid
+  gEdkiiNonDiscoverableDeviceProtocolGuid
+  gEfiPartitionInfoProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+
+[FixedPcd]
+  gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress
+  gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress

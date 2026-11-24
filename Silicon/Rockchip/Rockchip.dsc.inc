@@ -920,3 +920,8 @@ FspiLib|Silicon/Rockchip/Library/FspiLib/FspiLib.inf
 
   # Reset All Settings (front page entry and F9)
   Silicon/Rockchip/Applications/FullReset/FullReset.inf
+
+!if $(RK_ARMBIAN_ONCE_ENABLE) == TRUE
+  # Armbian (U-Boot); needs an SPL built from uboot/v2026.10
+  Silicon/Rockchip/Applications/ArmbianOnce/ArmbianOnce.inf
+!endif

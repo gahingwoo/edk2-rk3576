@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+#include "rk3576-u-boot.dtsi"
+
+/*
+ * The BootROM on this board only tries the eMMC, so the SPL always comes
+ * from there.  Let the SPL look on the SD card first for its FIT, and fall
+ * back to the device it was loaded from.  With no card, or a card without a
+ * FIT at sector 16384, the board boots from the eMMC as before.
+ */
+/ {
+	chosen {
+		u-boot,spl-boot-order = &sdmmc, "same-as-spl", &sdhci;
+	};
+};

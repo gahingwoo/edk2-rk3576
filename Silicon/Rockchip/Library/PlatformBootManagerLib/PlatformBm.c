@@ -535,6 +535,35 @@ AddOutput (
     ));
 }
 
+/**
+  TRUE if the firmware volume this driver came from has the file FileGuid.
+**/
+STATIC
+BOOLEAN
+PlatformFvHasFile (
+  CONST EFI_GUID  *FileGuid
+  )
+{
+  EFI_STATUS                     Status;
+  EFI_LOADED_IMAGE_PROTOCOL      *LoadedImage;
+  EFI_FIRMWARE_VOLUME2_PROTOCOL  *Fv;
+  EFI_FV_FILETYPE                FileType;
+  EFI_FV_FILE_ATTRIBUTES         Attributes;
+  UINTN                          Size;
+  UINT32                         AuthenticationStatus;
+
+  Status = gBS->HandleProtocol (gImageHandle, &gEfiLoadedImageProtocolGuid, (VOID **)&LoadedImage);
+  if (!EFI_ERROR (Status)) {
+    Status = gBS->HandleProtocol (LoadedImage->DeviceHandle, &gEfiFirmwareVolume2ProtocolGuid, (VOID **)&Fv);
+  }
+
+  if (!EFI_ERROR (Status)) {
+    Status = Fv->ReadFile (Fv, FileGuid, NULL, &Size, &FileType, &Attributes, &AuthenticationStatus);
+  }
+
+  return !EFI_ERROR (Status);
+}
+
 STATIC
 VOID
 PlatformRegisterFvBootOption (
@@ -596,14 +625,16 @@ PlatformRegisterFvBootOption (
   if (OptionIndex == -1) {
     Status = EfiBootManagerAddLoadOptionVariable (&NewOption, MAX_UINTN);
     ASSERT_EFI_ERROR (Status);
-    Status = EfiBootManagerAddKeyOptionVariable (
-               NULL,
-               (UINT16)NewOption.OptionNumber,
-               0,
-               Key,
-               NULL
-               );
-    ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
+    if (Key != NULL) {
+      Status = EfiBootManagerAddKeyOptionVariable (
+                 NULL,
+                 (UINT16)NewOption.OptionNumber,
+                 0,
+                 Key,
+                 NULL
+                 );
+      ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
+    }
   }
 
   EfiBootManagerFreeLoadOption (&NewOption);
@@ -949,6 +980,15 @@ PlatformRegisterOptionsAndKeys (
   F9.ScanCode    = SCAN_F9;
   F9.UnicodeChar = CHAR_NULL;
   PlatformRegisterFvBootOption (&gRockchipFullResetFileGuid, L"Reset All Settings", 0, &F9);
+
+  //
+  // Register "Armbian (U-Boot)" where the board builds it in
+  // (RK_ARMBIAN_ONCE_ENABLE).  No hotkey.  It is not active, so it is never
+  // picked by the boot order: only by hand, or as BootNext.
+  //
+  if (PlatformFvHasFile (&gRockchipArmbianOnceFileGuid)) {
+    PlatformRegisterFvBootOption (&gRockchipArmbianOnceFileGuid, L"Armbian (U-Boot)", 0, NULL);
+  }
 }
 
 //
