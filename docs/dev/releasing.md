@@ -1,5 +1,7 @@
 # Releasing
 
+English | [简体中文](releasing.zh-CN.md)
+
 ## A release
 
 Releases are made by hand with `gh release create`; no workflow publishes

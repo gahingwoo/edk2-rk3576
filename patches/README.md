@@ -1,5 +1,7 @@
 # Local patches to the EDK2 core
 
+English | [简体中文](README.zh-CN.md)
+
 `third_party/edk2/` is the upstream [tianocore/edk2](https://github.com/tianocore/edk2)
 submodule, pinned by `scripts/setup-host.sh` to edk2-stable202602. Edits made
 inside it are lost when the checkout is reset, so every change to it is kept

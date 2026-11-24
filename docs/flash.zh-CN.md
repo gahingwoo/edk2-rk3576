@@ -181,7 +181,7 @@ MaskROM：板子上没有 MaskROM 键。
 替换 SPL 之前，先确认能进入 MaskROM。SPL 写坏了，要靠 MaskROM 恢复。
 
 自己编译映像：`scripts/build.sh tspi3m` 和 `scripts/package.sh tspi3m`
-（[编译说明](dev/building.md)，英文）。
+（见[编译说明](dev/building.zh-CN.md)）。
 
 ## 恢复
 

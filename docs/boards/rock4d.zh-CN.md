@@ -33,4 +33,4 @@
 
 ## 硬件细节
 
-见[硬件](../dev/hardware.md#radxa-rock-4d)（英文）。
+见[硬件](../dev/hardware.zh-CN.md#radxa-rock-4d)。

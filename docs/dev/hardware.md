@@ -1,5 +1,7 @@
 # Hardware
 
+English | [简体中文](hardware.zh-CN.md)
+
 Board facts the firmware depends on, as of `main` on 2026-11-24. What works
 on each board is on the board pages: [ROCK 4D](../boards/rock4d.md),
 [CM5-IO](../boards/cm5io.md), [TaishanPi 3M](../boards/tspi3m.md). Which

@@ -45,4 +45,4 @@ Windows 一栏大部分是 2026-10-01 用固件 0.2.0 和 woa-rk3576 0.1.0 看�
 
 ## 硬件细节
 
-见[硬件](../dev/hardware.md#armsom-cm5-io)（英文）。
+见[硬件](../dev/hardware.zh-CN.md#armsom-cm5-io)。

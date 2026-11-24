@@ -1,5 +1,7 @@
 # ACPI
 
+English | [简体中文](acpi.zh-CN.md)
+
 What the firmware tells an ACPI operating system (Windows) on each board,
 and which build setting or setup option decides it. As of `main` on
 2026-11-24.

@@ -78,4 +78,4 @@ Windows 下的触摸、蓝牙、音频和 USB-C 要用 [`ci` 构建](../flash.zh
 
 ## 硬件细节
 
-PHY、GPIO、I2C 地址、GPU 供电等：见[硬件](../dev/hardware.md#lckfb-taishanpi-3m)（英文）。
+PHY、GPIO、I2C 地址、GPU 供电等：见[硬件](../dev/hardware.zh-CN.md#立创泰山派-3m)。

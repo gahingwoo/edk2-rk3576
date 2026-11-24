@@ -1,5 +1,7 @@
 # Building
 
+English | [简体中文](building.zh-CN.md)
+
 How to build the firmware images from source. For writing them to a board, see
 [flashing](../flash.md). The image offsets and the FIT are in
 [image layout](image-layout.md).

@@ -1,5 +1,7 @@
 # Testing
 
+English | [简体中文](testing.zh-CN.md)
+
 What "tested" means for this firmware, and what has been run where.
 
 ## What CI checks

@@ -15,7 +15,7 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 |---|---|
 | ![泰山派 3M 上的 Windows 11 23H2](docs/imgs/tspi3m-win11-desktop.jpg) | ![CM5-IO 上的 Fedora GNOME](docs/imgs/cm5io-desktop.png) |
 
-更多图片：[图片](docs/gallery.md)。
+更多图片：[图片](docs/gallery.zh-CN.md)。
 
 ## 从一块新板子到 Windows 或 Linux
 
@@ -58,7 +58,7 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 | Windows：蓝牙、WiFi | | 不能用 | 蓝牙可用（ci），WiFi 不能用 |
 | Windows：NPU | | 不支持 | 配合 woa-rk3576-npu 可用（ci） |
 
-每块板的结果都来自同一块实物。每块板最后一次测试的时间和版本见[测试](docs/dev/testing.md)（英文）。串口：1500000 8N1。
+每块板的结果都来自同一块实物。每块板最后一次测试的时间和版本见[测试](docs/dev/testing.zh-CN.md)。串口：1500000 8N1。
 
 固件本身的功能：简体中文菜单、截图、调试报告、恢复全部设置、网络校时、屏幕键盘。见[固件菜单](docs/firmware-menus.zh-CN.md)。
 
@@ -101,9 +101,9 @@ scripts/build.sh   cm5io      # 或 rock4d、tspi3m
 scripts/package.sh cm5io      # 输出到 out/CM5IO/
 ```
 
-开发文档（英文）：[编译](docs/dev/building.md)、[架构](docs/dev/architecture.md)、[映像布局](docs/dev/image-layout.md)、
-[硬件](docs/dev/hardware.md)、[ACPI](docs/dev/acpi.md)、[测试](docs/dev/testing.md)、[发布](docs/dev/releasing.md)、
-[核心补丁](patches/README.md)、[历史记录](docs/history/README.md)。
+开发文档：[编译](docs/dev/building.zh-CN.md)、[架构](docs/dev/architecture.zh-CN.md)、[映像布局](docs/dev/image-layout.zh-CN.md)、
+[硬件](docs/dev/hardware.zh-CN.md)、[ACPI](docs/dev/acpi.zh-CN.md)、[测试](docs/dev/testing.zh-CN.md)、[发布](docs/dev/releasing.zh-CN.md)、
+[核心补丁](patches/README.zh-CN.md)、[历史记录](docs/history/README.md)。
 
 ## 致谢
 

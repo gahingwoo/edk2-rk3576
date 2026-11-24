@@ -1,5 +1,7 @@
 # Architecture
 
+English | [简体中文](architecture.zh-CN.md)
+
 How the tree is put together, and why.
 
 ## Boot chain

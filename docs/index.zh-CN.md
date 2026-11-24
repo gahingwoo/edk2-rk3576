@@ -25,8 +25,8 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 ## 其他页面
 
 - [固件菜单和功能](firmware-menus.zh-CN.md)：语言、截图、调试报告、恢复全部设置、时钟、显示、触摸、给操作系统用的选项
-- [图片](gallery.md)（英文）
-- 开发文档（英文）：[编译](dev/building.md)、[架构](dev/architecture.md)、[映像布局](dev/image-layout.md)、[硬件](dev/hardware.md)、[ACPI](dev/acpi.md)、[测试](dev/testing.md)、[发布](dev/releasing.md)
+- [图片](gallery.zh-CN.md)
+- 开发文档：[编译](dev/building.zh-CN.md)、[架构](dev/architecture.zh-CN.md)、[映像布局](dev/image-layout.zh-CN.md)、[硬件](dev/hardware.zh-CN.md)、[ACPI](dev/acpi.zh-CN.md)、[测试](dev/testing.zh-CN.md)、[发布](dev/releasing.zh-CN.md)
 
 ## 相关项目
 
