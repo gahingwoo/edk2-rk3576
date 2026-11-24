@@ -36,6 +36,7 @@
 #include "RK3576DxeFormSetGuid.h"
 #include "ConfigTable.h"
 #include "Gpu.h"
+#include "GpuRail.h"
 #include "Npu.h"
 #include "CpuPerf.h"
 #include "Display.h"
@@ -459,6 +460,13 @@ RK3576EntryPoint (
    * the fan, so the log shows the temperature the fan starts at.
    */
   Rk3576TsadcInit ();
+
+  /*
+   * vdd_gpu_s0 and the GPU OTP bytes (PcdGpuRailReport), and on the
+   * TaishanPi 3M the raise to 775 mV (PcdGpuRailRaise775).  After the
+   * TSADC, because the raise requires TSHUT armed.
+   */
+  RK3576GpuRailStart ();
 
   /* Board fan, if the board has one the firmware knows how to drive */
   RK3576InitCoolingFan ();

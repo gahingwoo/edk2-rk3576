@@ -88,6 +88,22 @@
   #
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqSupported|FALSE|BOOLEAN|0x00010901
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0|UINT8|0x00010902
+  #
+  # GPU rail report (RK3576Dxe GpuRail.c): read vdd_gpu_s0 (RK806 BUCK5 on
+  # bus PcdRk806I2cBus) and the GPU's OTP bytes, log them with the
+  # operating points they allow, and publish the GpuRail variable for the
+  # Windows GPU driver.  Reads only; set it on a board whose RK806 the
+  # firmware has been seen to reach.
+  #
+  gRK3576TokenSpaceGuid.PcdGpuRailReport|FALSE|BOOLEAN|0x00010903
+  #
+  # With PcdGpuRailReport: raise vdd_gpu_s0 from exactly 750 mV (selector
+  # 0x28) to 775 mV (0x2C) in 6.25 mV steps, each read back, only on an
+  # RK806 reading 0x80 0x6A, a plain RK3576 (OTP specification 0x01) and
+  # TSHUT armed.  The 775 mV ceiling is a constant in GpuRail.c.  Approved
+  # for the TaishanPi 3M only.
+  #
+  gRK3576TokenSpaceGuid.PcdGpuRailRaise775|FALSE|BOOLEAN|0x00010904
   # NPU (RKNN) for an ACPI OS: the setup option (PcdAcpiNpu, default
   # PcdAcpiNpuDefault) decides whether RK3576Dxe sets the NPU rail, powers
   # the NPU domains and sets its clock (Npu.c), and whether
