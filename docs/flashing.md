@@ -1,179 +1,237 @@
 # Flashing
 
-Images are on the
-[Releases page](https://github.com/gahingwoo/edk2-rk3576/releases/latest);
+How to put the firmware on a board, update it later, and get a board back
+when something went wrong. [简体中文](zh-CN/flashing.md)
+
+## Which image
+
+Releases are on the
+[Releases page](https://github.com/gahingwoo/edk2-rk3576/releases/latest).
 `scripts/package.sh` writes the same files under `out/`.
 
 | Release file | Board | Goes on |
 |---|---|---|
-| `ROCK4D-spi-edk2-<ver>.img` | Radxa ROCK 4D | 16 MB SPI NOR |
-| `CM5IO-sdcard-edk2-<ver>.img` | ArmSoM CM5-IO | SD card |
+| `ROCK4D-spi-edk2-<ver>.img` | Radxa ROCK 4D | 16 MB SPI NOR, from sector 0 |
 | `CM5IO-emmc-edk2-<ver>.img` | ArmSoM CM5-IO | eMMC, with a partition table |
-| `CM5IO-emmc.sfdisk` | ArmSoM CM5-IO | that partition table on its own |
+| `CM5IO-sdcard-edk2-<ver>.img` | ArmSoM CM5-IO | SD card |
+| `TaishanPi3M-emmc-edk2-<ver>.img` | LCKFB TaishanPi 3M | eMMC, with a partition table. Needed for Windows. |
+| `TaishanPi3M-sdcard-edk2-<ver>.img` | LCKFB TaishanPi 3M | SD card, with the SPL on the eMMC |
+| `TaishanPi3M-spl-<ver>.bin` | LCKFB TaishanPi 3M | the SPL alone, eMMC sector 64 |
+| `<Board>-emmc.sfdisk` | CM5-IO, TaishanPi 3M | the eMMC partition table on its own |
 
-Offsets inside each image: [SPI_LAYOUT.md](SPI_LAYOUT.md).
+Offsets inside each image: [image layout](dev/image-layout.md).
 
-## The rolling ci build
+### The rolling ci build
 
-Besides the releases, the pre-release tagged
+The pre-release tagged
 [`ci`](https://github.com/gahingwoo/edk2-rk3576/releases/tag/ci) holds the
 images of the latest successful build of `main`: the same files, named
 `<Board>-emmc-edk2-ci-<sha>.img` (and `-sdcard-`, `-spi-`), with the
-`.sfdisk` tables and `SHA256SUMS.txt`. Its title is "CI build <sha> <date>"
-and its notes give the commit. It is never marked latest, every successful
-build of `main` replaces it, and nothing in it has been run on a board.
+`.sfdisk` tables and `SHA256SUMS.txt`. Every successful build of `main`
+replaces it. It is never marked latest, and nothing in it has been run on a
+board as a whole.
 
-Use a release; take the `ci` build only for a change that is on `main` and
-not released yet, and keep the release image at hand to go back.
-[Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)'s CI tier
-(Settings, Firmware and WinPE) writes from it.
+Use a release. Take the `ci` build only for a change that is on `main` and
+not released yet, and keep the release image at hand to go back. On
+2026-11-24 that includes, for the TaishanPi 3M under Windows: touch,
+Bluetooth, the headphone jack, HDMI audio and the USB-C port. Release 0.4.1
+has none of them.
 
-## From the browser
+## Three ways to write it
 
-[flash.gahingwoo.com](https://flash.gahingwoo.com/) runs `rkdeveloptool` over
-WebUSB in Chrome or Edge.
+All three talk to the board in MaskROM mode over USB.
 
-1. Download the image for your board.
-2. Hold the MaskROM button, plug in USB-C, release.
-3. Pick the board, click **Flash Custom Image**, choose the file, and pick the
-   Rockchip device in the browser prompt.
-4. After the loader is sent, click **Reconnect Device** and pick it again.
-5. The board reboots when the flash completes.
+1. [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio), a desktop
+   app for Windows, macOS and Linux. It writes the firmware and can also
+   install Windows without a USB stick. Not yet run on a board
+   (2026-11-24).
+2. [flash.gahingwoo.com](https://flash.gahingwoo.com/), in Chrome or Edge.
+   Nothing to install.
+3. `rkdeveloptool` on the command line, described below.
 
-Linux and macOS need no driver. On Windows, install WinUSB for the device with
-[Zadig](https://zadig.akeo.ie/) first.
+On Windows, MaskROM devices need the WinUSB driver: install it for the
+Rockchip device with [Zadig](https://zadig.akeo.ie/) first. Linux and
+macOS need no driver.
 
-## rkdeveloptool
+### From the browser
+
+1. Put the board in MaskROM mode (see your board below) and connect it.
+2. Open [flash.gahingwoo.com](https://flash.gahingwoo.com/), pick the board
+   and the firmware choice.
+3. Click **Connect and write** and pick the Rockchip device in the browser
+   prompt.
+4. After the loader is sent, the board comes back as a new USB device:
+   click **Choose the board** and pick it again.
+5. Wait for the write to finish. The board restarts.
+
+### rkdeveloptool
 
 `db` needs a Rockchip loader, a file starting with `LDR `, such as rkbin's
-`rk3576_spl_loader_*.bin`. It is not in this repo. `binaries/rk3576_ddr.bin`
-is a raw DDR blob, and `db` rejects it with `Opening loader failed`.
+`rk3576_spl_loader_*.bin`. It is not in this repository.
+`binaries/rk3576_ddr.bin` is a raw DDR blob, and `db` rejects it with
+`Opening loader failed`.
 
-After `db`, give the board a few seconds before the next command. Check that
-`wl` reached 100% before `rd`: a failed write still reboots into whatever was
-there before.
+After `db`, wait a few seconds before the next command: the device
+re-enumerates, and the first `wl` right after `db` can fail with
+`Write LBA failed`. Check that `wl` reached 100% before `rd`: a failed write
+still reboots into whatever was there before. Some builds of rkdeveloptool
+spell the commands `boot`, `write` and `reset`.
 
-On the CM5-IO the MaskROM port is the USB-C port, so unplug anything else from
-it first.
+## Writing the whole image
 
-### ROCK 4D
+This is for a new board, or an eMMC you want to start again. **It replaces
+the partition table and everything installed on the eMMC**, and the saved
+UEFI settings.
+
+```bash
+rkdeveloptool db rk3576_spl_loader.bin
+rkdeveloptool wl 0 <Board>-emmc-edk2-<ver>.img
+rkdeveloptool rd
+```
+
+The eMMC images carry a GPT: the firmware in p1 (sector 64, 64 MiB) and the
+rest of the eMMC as p2, unformatted. The image stops at 32 MiB, so the backup
+GPT is missing until you run `sudo sgdisk -e /dev/mmcblk0` once from Linux
+(the Windows install script does not need it).
+
+In the web flasher this is "UEFI firmware, whole image".
+
+## Updating the firmware and keeping everything else
+
+For an eMMC that was set up with the whole image before and now holds
+Windows, Linux or anything else. It writes sectors 64 to 43647 of the eMMC
+image (the SPL and the firmware) back to sector 64, and stops before
+sector 43648, where the saved UEFI settings are. The partition table, the
+other partitions and the settings stay. The same range is used on the
+CM5-IO and the TaishanPi 3M.
+
+In the web flasher and in Maskrom Studio this is "UEFI firmware, keep the
+partitions". With rkdeveloptool:
+
+```bash
+dd if=<Board>-emmc-edk2-<ver>.img of=firmware.bin bs=512 skip=64 count=43584
+rkdeveloptool db rk3576_spl_loader.bin
+rkdeveloptool wl 64 firmware.bin
+rkdeveloptool rd
+```
+
+From Linux running on the board itself, the same thing is:
+
+```bash
+sudo dd if=<Board>-emmc-edk2-<ver>.img of=/dev/mmcblk0 bs=512 skip=64 seek=64 count=43584 conv=fsync
+```
+
+Check that `/dev/mmcblk0` is the eMMC (`lsblk`) before running it.
+
+Do not write the whole `p1` partition, and do not use `tail -c +32769` on the
+image: both write the image's empty settings store over sector 43648 and
+reset every UEFI setting and boot option.
+
+If the partition table was lost anyway,
+`sudo sfdisk --wipe always /dev/mmcblk0 < <Board>-emmc.sfdisk` writes the
+image's table back; the data behind it survives.
+
+## Radxa ROCK 4D
+
+The firmware lives on the 16 MB SPI NOR.
 
 The ROCK 4D's USB-C port only supplies power (its data pins are not
-connected). Connect a USB-A to USB-A cable from the board's upper USB 3.0 USB-A port to
-the computer, hold MaskROM while plugging in the power supply, then:
+connected). For MaskROM:
+
+1. Connect a USB-A to USB-A cable from the board's upper USB 3.0 USB-A port
+   to the computer.
+2. Hold the MaskROM button while plugging in the power supply.
+3. Write the image:
+
+   ```bash
+   rkdeveloptool db rk3576_spl_loader.bin
+   rkdeveloptool wl 0 ROCK4D-spi-edk2-<ver>.img
+   rkdeveloptool rd
+   ```
+
+From a Linux booted off an SD card, `flashcp` to `/dev/mtd0` also works.
+UEFI settings are kept in the SPI NOR at `0xFC0000`; writing the whole image
+resets them.
+
+## ArmSoM CM5-IO
+
+The firmware lives on the eMMC or on an SD card. The carrier's SPI NOR is
+64 KB, too small for it.
+
+MaskROM: hold the MaskROM button while powering on. The MaskROM port is the
+USB-C port, so unplug anything else from it first.
+
+On the eMMC: "Writing the whole image" or "Updating the firmware" above,
+with the `CM5IO-emmc` file.
+
+On an SD card:
 
 ```bash
-rkdeveloptool db rk3576_spl_loader.bin
-rkdeveloptool wl 0 ROCK4D-spi-edk2-<ver>.img
-rkdeveloptool rd
-```
-
-### CM5-IO, empty eMMC
-
-```bash
-rkdeveloptool db rk3576_spl_loader.bin
-rkdeveloptool wl 0 CM5IO-emmc-edk2-<ver>.img
-rkdeveloptool rd
-```
-
-The image carries a GPT with the firmware in p1 (sector 64, 64 MiB) and the
-rest of the eMMC as p2, unformatted. It stops at 32 MiB, so the backup GPT is
-missing until you run `sudo sgdisk -e /dev/mmcblk0` once.
-
-### CM5-IO, eMMC that already holds Windows or other partitions
-
-Writing the whole image at sector 0 replaces the partition table. Write only
-the firmware partition: drop the first 32 KiB of the image and write the rest
-at sector 64.
-
-```bash
-tail -c +32769 CM5IO-emmc-edk2-<ver>.img > p1.bin
-rkdeveloptool db rk3576_spl_loader.bin
-rkdeveloptool rl 0 17408 gpt.bin       # check p1 starts at sector 64 first
-rkdeveloptool wl 64 p1.bin
-rkdeveloptool rd
-```
-
-From Linux on the board, the same thing is
-`dd if=CM5IO-emmc-edk2-<ver>.img of=/dev/mmcblk0p1 bs=512 skip=64 conv=fsync`.
-
-If the table was lost anyway, `sudo sfdisk --wipe always /dev/mmcblk0 <
-CM5IO-emmc.sfdisk` writes the image's table back; the data behind it survives.
-
-## CM5-IO: SD card
-
-The carrier's SPI NOR is 64 KB, too small for the firmware.
-
-```bash
-dd if=CM5IO-sdcard-edk2-<ver>.img of=/dev/sdX bs=1M status=progress
+dd if=CM5IO-sdcard-edk2-<ver>.img of=/dev/sdX bs=1M status=progress conv=fsync
 ```
 
 The BootROM tries the eMMC before the SD card, so a card is ignored while the
-eMMC holds a bootloader. UEFI variables are stored on the card at `0x1600000`.
-
-## Recovery
-
-MaskROM is in the BootROM, which nothing here writes, so a board can always be
-put back into MaskROM and reflashed.
+eMMC holds a bootloader. UEFI settings are stored on the card, inside the
+firmware image at sector 43648.
 
 ## LCKFB TaishanPi 3M
 
-Images are in the
-[latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest),
-from 0.3.0 on. The notes of the
-[0.3.0-tspi3m.1 pre-release](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.3.0-tspi3m.1)
-have the expected serial output. To build
-one yourself use `scripts/build.sh tspi3m` and `scripts/package.sh tspi3m`.
-
 The BootROM on this board reads the eMMC and nothing else, so an SD card on
-its own does not boot. There are two layouts.
+its own does not boot. At least the SPL has to be on the eMMC.
 
-Everything on the eMMC, which is what Windows needs. From MaskROM (reached as
-described at the end of this section):
+MaskROM: the board has no MaskROM button.
 
-```bash
-rkdeveloptool db rk3576_spl_loader.bin
-rkdeveloptool wl 0 TaishanPi3M-emmc-edk2-<version>.img
-rkdeveloptool rd
-```
+1. Power off.
+2. Short the two pads marked `MSK`, directly under the `RK3576` silkscreen
+   (a photo is attached to the 0.4.1 release as `TaishanPi3M-msk-pads.png`).
+3. Connect the USB-C port marked `OTG+DP` to the computer and power on.
+   A device `2207:350e` appears.
 
-This replaces the partition table and the first 32 MiB of the eMMC. To update
-the firmware later without touching an installed system, write only the
-firmware slice:
+A board that already runs this firmware can also be sent to MaskROM with F4
+during the boot countdown.
 
-```bash
-dd if=TaishanPi3M-emmc-edk2-<version>.img of=firmware.bin bs=512 skip=16384 count=27264
-rkdeveloptool wl 16384 firmware.bin
-```
+Everything on the eMMC, which is what Windows needs: "Writing the whole
+image" or "Updating the firmware" above, with the `TaishanPi3M-emmc` file.
+Writing the whole image also replaces LCKFB's stock system; it will not start
+again until LCKFB's own firmware is written back.
 
-Or the SPL on the eMMC and the firmware on an SD card:
+Or the SPL on the eMMC and the firmware on an SD card. With the card in, the
+SPL prints `Trying to boot from MMC2` and loads the firmware from it. With
+the card out, the board boots whatever is on the eMMC.
 
-```bash
-# On the board, from a running Linux. Replaces only the SPL, about 200 KB.
-# An OS whose own U-Boot FIT is at sector 16384 of the eMMC still boots
-# whenever no card is in the slot.
-dd if=binaries/idblock_tspi3m.bin of=/dev/mmcblk0 bs=512 seek=64 conv=fsync
+1. Write the SPL to eMMC sector 64. From a running Linux on the board (this
+   replaces only the SPL, about 200 KB; an OS whose own U-Boot FIT is at
+   sector 16384 still boots when no card is in the slot):
 
-# On the PC.
-dd if=out/TaishanPi3M/TaishanPi3M-sdcard.img of=/dev/sdX bs=1M status=progress
-```
+   ```bash
+   sudo dd if=TaishanPi3M-spl-<ver>.bin of=/dev/mmcblk0 bs=512 seek=64 conv=fsync
+   ```
 
-With the card in, the SPL prints `Trying to boot from MMC2` and loads the
-firmware from it. With the card out, the board boots whatever is on the eMMC.
+   Or from MaskROM:
 
-Without a running Linux on the board, write the SPL from MaskROM instead:
+   ```bash
+   rkdeveloptool db rk3576_spl_loader.bin
+   rkdeveloptool wl 64 TaishanPi3M-spl-<ver>.bin
+   rkdeveloptool rd
+   ```
 
-```bash
-rkdeveloptool db rk3576_spl_loader.bin     # Rockchip's RK3576 loader, from rkbin
-rkdeveloptool wl 64 idblock_tspi3m.bin
-rkdeveloptool rd
-```
+2. Write the firmware to the card on the computer:
 
-Some builds of rkdeveloptool spell these `boot`, `write 64` and `reset`. Wait
-a couple of seconds after the loader download before the write; the device
-re-enumerates.
+   ```bash
+   dd if=TaishanPi3M-sdcard-edk2-<ver>.img of=/dev/sdX bs=1M status=progress conv=fsync
+   ```
 
-Before replacing the SPL, check that MaskROM can be reached: power off, short
-the two `MSK` pads under the `RK3576` silkscreen, connect the `OTG+DP` USB-C
-port to the PC and power on. A device `2207:350e` should appear. If the SPL
-write goes wrong, that is the way back.
+Check that MaskROM can be reached before replacing the SPL. If the SPL write
+goes wrong, MaskROM is the way back.
+
+To build an image yourself: `scripts/build.sh tspi3m` and
+`scripts/package.sh tspi3m` ([building](dev/building.md)).
+
+## Recovery
+
+MaskROM is in the BootROM, which nothing here writes, so a board can always
+be put back into MaskROM and written again.
+
+If the board starts but the settings are wrong, "Reset All Settings" on the
+front page, or F9 during the boot countdown, erases the UEFI settings and
+starts as a freshly written board. See [firmware menus](firmware-menus.md).

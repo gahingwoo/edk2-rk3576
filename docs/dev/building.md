@@ -1,5 +1,9 @@
 # Building
 
+How to build the firmware images from source. For writing them to a board, see
+[flashing](../flashing.md). The image offsets and the FIT are in
+[image layout](image-layout.md).
+
 ```bash
 git clone --recurse-submodules https://github.com/gahingwoo/edk2-rk3576
 cd edk2-rk3576
@@ -11,7 +15,8 @@ scripts/package.sh cm5io       # -> out/CM5IO/CM5IO-sdcard.img
 
 Boards live in
 [`boards/`](https://github.com/gahingwoo/edk2-rk3576/tree/main/boards):
-`cm5io`, `rock4d`, and `tspi3m` (LCKFB TaishanPi 3M, early).
+`rock4d` (Radxa ROCK 4D), `cm5io` (ArmSoM CM5-IO) and `tspi3m` (LCKFB
+TaishanPi 3M).
 
 `scripts/build.sh <board> clean` wipes `Build/` and `Conf/` first.
 
@@ -44,15 +49,18 @@ keep them somewhere else; `build.sh` reads the same variable.
 
 ### EDK2 core patches
 
-Our patches to the EDK2 core live in
+The patches to the EDK2 core live in
 [`patches/`](https://github.com/gahingwoo/edk2-rk3576/tree/main/patches) and
-`setup-host.sh` applies them. Two are functional fixes: flushing the FD before
-decompression, and printing ESR/FAR on RELEASE-build faults. The other two are
-UART tracing and are applied only with `EDK2_CORE_DEBUG_PATCHES=1`.
+`setup-host.sh` applies them. There are 19: fixes the firmware needs (the FD
+flush before decompression, ESR/FAR on RELEASE-build faults, the SD/MMC
+timeouts), the Simplified Chinese strings and the front-page and popup
+changes, and two UART tracing patches that are applied only with
+`EDK2_CORE_DEBUG_PATCHES=1`. Each is described in
+[patches/README.md](https://github.com/gahingwoo/edk2-rk3576/blob/main/patches/README.md).
 
-Without the two fixes the build still produces an image that behaves
-differently. Applying them modifies the submodule, so a built image reports its
-version with a `-dirty` suffix.
+Without them the build still produces an image, and it misbehaves. Applying
+them modifies the submodule, so a built image reports its version with a
+`-dirty` suffix.
 
 ### The device-tree include mirror
 
