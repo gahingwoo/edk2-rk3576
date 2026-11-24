@@ -1,6 +1,7 @@
 > Historical copy, 2026-05-01 to 2026-11-22: docs/HARDWARE.md as it was before the
-> 2026-11-24 rewrite, unchanged, with the TaishanPi 3M bring-up notes and the list of
-> changes merged on 2026-11-14. It may not match main; the current page is [dev/hardware.md](../dev/hardware.md).
+> 2026-11-24 rewrite, with the TaishanPi 3M bring-up notes and the list of changes
+> merged on 2026-11-14. Unchanged except that its links into this repository now
+> point at commit 4479752. It may not match main; the current page is [dev/hardware.md](../dev/hardware.md).
 
 # Hardware
 

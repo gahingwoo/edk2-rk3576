@@ -1,10 +1,11 @@
 > Historical copy, 2026-05-01 to 2026-11-24: the README as it was before the
-> 2026-11-24 rewrite, unchanged. It may not match main; the current page is [README.md](../../README.md). Relative links below are as they were and may not resolve from here.
+> 2026-11-24 rewrite, unchanged except that its links into this
+> repository now point at commit 4479752, where they resolve. It may not match main; the current page is [README.md](../../README.md).
 
 # edk2-rk3576
 
 [![SoC](https://img.shields.io/badge/SoC-RK3576-blue)]()
-[![License](https://img.shields.io/badge/license-BSD--2--Clause--Patent-lightgrey)](LICENSE)
+[![License](https://img.shields.io/badge/license-BSD--2--Clause--Patent-lightgrey)](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/LICENSE)
 [![Flash](https://img.shields.io/badge/flash-WebUSB%20browser%20tool-informational)](https://flash.gahingwoo.com/)
 [![Docs](https://img.shields.io/badge/docs-edk2.gahingwoo.com-informational)](https://edk2.gahingwoo.com/)
 
@@ -22,7 +23,7 @@ the TaishanPi 3M boot Windows 11 23H2 from their eMMC, with the drivers from
 
 - Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest);
   the newest build of main, untested: the [`ci` pre-release](https://github.com/gahingwoo/edk2-rk3576/releases/tag/ci)
-  ([FLASHING.md](docs/FLASHING.md#the-rolling-ci-build))
+  ([FLASHING.md](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/FLASHING.md#the-rolling-ci-build))
 - Flash from the browser: [flash.gahingwoo.com](https://flash.gahingwoo.com/)
 - Docs: [edk2.gahingwoo.com](https://edk2.gahingwoo.com/)
 
@@ -30,14 +31,14 @@ the TaishanPi 3M boot Windows 11 23H2 from their eMMC, with the drivers from
 
 | Radxa ROCK 4D | ArmSoM CM5-IO |
 |---|---|
-| ![Fedora GNOME on ROCK 4D](docs/imgs/rock4d-desktop.png) | ![Fedora GNOME on CM5-IO](docs/imgs/cm5io-desktop.png) |
+| ![Fedora GNOME on ROCK 4D](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/rock4d-desktop.png) | ![Fedora GNOME on CM5-IO](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/cm5io-desktop.png) |
 | Fedora 44 from NVMe | Fedora 45 from NVMe, Mali-G52 through Panfrost |
-| ![UEFI front page on ROCK 4D](docs/imgs/monitor-4d.png) | ![UEFI front page on CM5-IO](docs/imgs/monitor-cm5io.jpeg) |
+| ![UEFI front page on ROCK 4D](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/monitor-4d.png) | ![UEFI front page on CM5-IO](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/monitor-cm5io.jpeg) |
 | UEFI front page, 2560x1440 over HDMI | UEFI front page, 2560x1440 over HDMI |
 
 | ArmSoM CM5-IO | LCKFB TaishanPi 3M |
 |---|---|
-| ![Windows 11 on CM5-IO](docs/imgs/cm5io-win11-desktop.jpg) | ![Windows 11 on TaishanPi 3M](docs/imgs/tspi3m-win11-desktop.jpg) |
+| ![Windows 11 on CM5-IO](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/cm5io-win11-desktop.jpg) | ![Windows 11 on TaishanPi 3M](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/tspi3m-win11-desktop.jpg) |
 | Windows 11 23H2 from the eMMC | Windows 11 23H2 from the eMMC, desktop drawn on the Mali-G52 |
 
 ### Firmware menus
@@ -48,14 +49,14 @@ to Simplified Chinese on the front page.
 
 | | |
 |---|---|
-| ![Front page](docs/imgs/tspi3m-uefi-front-page.png) | ![About](docs/imgs/tspi3m-uefi-about.png) |
+| ![Front page](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/tspi3m-uefi-front-page.png) | ![About](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/tspi3m-uefi-about.png) |
 | Front page, with Shut Down and About | About: firmware build, board, clocks, what was found at boot |
-| ![Front page in Simplified Chinese](docs/imgs/tspi3m-uefi-front-page-zh.png) | ![Boot Manager](docs/imgs/tspi3m-uefi-boot-manager.png) |
+| ![Front page in Simplified Chinese](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/tspi3m-uefi-front-page-zh.png) | ![Boot Manager](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/tspi3m-uefi-boot-manager.png) |
 | The same front page in Simplified Chinese | Boot Manager: eMMC, Touch Test, UEFI Shell, MaskROM, network, a USB stick |
-| ![Platform configuration](docs/imgs/tspi3m-uefi-platform.png) | ![Display settings](docs/imgs/tspi3m-uefi-display.png) |
+| ![Platform configuration](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/tspi3m-uefi-platform.png) | ![Display settings](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/tspi3m-uefi-display.png) |
 | Platform configuration | Display settings |
 
-![HWiNFO system summary on the TaishanPi 3M](docs/imgs/tspi3m-hwinfo.jpg)
+![HWiNFO system summary on the TaishanPi 3M](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/imgs/tspi3m-hwinfo.jpg)
 
 HWiNFO on the TaishanPi 3M under Windows: eight cores, 3838 MB, the board and
 firmware names from SMBIOS, the Mali-G52.
@@ -132,8 +133,8 @@ The BootROM on this board only tries the eMMC, and there is no MaskROM
 button: two pads marked `MSK` are shorted instead. So the first flash goes
 through MaskROM, and at least the SPL has to live on the eMMC. After that the
 firmware can reset into MaskROM by itself (F4 during the boot countdown). See
-[Flashing](docs/FLASHING.md#lckfb-taishanpi-3m) and
-[Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
+[Flashing](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/FLASHING.md#lckfb-taishanpi-3m) and
+[Hardware](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/HARDWARE.md#lckfb-taishanpi-3m).
 
 The fan connector is driven from firmware and runs at full speed.
 
@@ -294,7 +295,7 @@ test-signed drivers look "not yet valid" to pnputil.
   operating system yet.
 - The release images are built from `main`. Some of what is in them has
   booted without being checked for what it is meant to do; that is listed in
-  [Hardware](docs/HARDWARE.md#lckfb-taishanpi-3m).
+  [Hardware](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/HARDWARE.md#lckfb-taishanpi-3m).
 - The ComboPHY and PCIe device-tree fixups look for `/pcie@…` at the root,
   where mainline has `/soc/`, so they do nothing. NVMe works without them.
 - The TaishanPi 3M's RTC (HYM8563) holds no valid time, so the firmware's
@@ -309,8 +310,8 @@ scripts/build.sh   cm5io
 scripts/package.sh cm5io      # -> out/CM5IO/CM5IO-sdcard.img
 ```
 
-[Building](docs/BUILDING.md) · [Flashing](docs/FLASHING.md) ·
-[Image layout](docs/SPI_LAYOUT.md) · [Hardware](docs/HARDWARE.md)
+[Building](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/BUILDING.md) · [Flashing](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/FLASHING.md) ·
+[Image layout](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/SPI_LAYOUT.md) · [Hardware](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/docs/HARDWARE.md)
 
 ## Layout
 
@@ -342,4 +343,4 @@ Thanks to [JLC](https://jlc.com/) (嘉立创) for sponsoring the LCKFB TaishanPi
 ## Licence
 
 BSD-2-Clause-Patent, like TianoCore and edk2-rockchip. Code taken from Linux,
-U-Boot and Rockchip keeps its own licence; [LICENSE](LICENSE) lists those files.
+U-Boot and Rockchip keeps its own licence; [LICENSE](https://github.com/gahingwoo/edk2-rk3576/blob/4479752/LICENSE) lists those files.
