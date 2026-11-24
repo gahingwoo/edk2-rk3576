@@ -31,7 +31,7 @@ jobs:
             build-essential uuid-dev nasm acpica-tools device-tree-compiler \
             python3 python3-pyelftools python3-dev swig \
             libssl-dev libgnutls28-dev u-boot-tools \
-            gdisk
+            gdisk bison flex bc python3-setuptools
 
       - name: Fetch the device-tree include mirror
         # Compiling the board DTS needs the upstream kernel dt-bindings
@@ -72,6 +72,12 @@ jobs:
       - name: Build ${{ matrix.board }}
         run: scripts/build.sh ${{ matrix.board }}
 
+      - name: Build the SPL for ${{ matrix.board }}
+        # Only boards with SPL_DEFCONFIG in boards/<board>.conf (the
+        # TaishanPi 3M); the others keep the prebuilt SPL in binaries/.
+        # package.sh prefers out/<PLATFORM>/idbloader.img when it exists.
+        run: scripts/build-spl.sh ${{ matrix.board }}
+
       - name: Package ${{ matrix.board }}
         run: scripts/package.sh ${{ matrix.board }}
 
@@ -81,6 +87,7 @@ jobs:
           path: |
             out/*/*.img
             out/*/*.sfdisk
+            out/*/spl.config
           if-no-files-found: error
 
   # A rolling release tagged "ci" with the images of the latest successful

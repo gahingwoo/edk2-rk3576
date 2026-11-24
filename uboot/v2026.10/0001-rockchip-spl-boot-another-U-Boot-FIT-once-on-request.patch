@@ -1,0 +1,382 @@
+From 258625c59b2d9c56eca989fea78e97eaea39ccc1 Mon Sep 17 00:00:00 2001
+From: gahingwoo <gahing@gahingwoo.com>
+Date: Mon, 23 Nov 2026 22:28:31 +1300
+Subject: [PATCH] rockchip: spl: boot another U-Boot FIT once, on request from
+ EDK2
+
+On boards whose SPL normally loads a FIT with TF-A and the EDK2
+firmware, let the firmware hand one boot to another U-Boot, such as the
+one on an Armbian disk.
+
+The firmware writes a request record (magic, version, target, CRC32)
+to sector 0x3fff of the eMMC user area and resets. The SPL reads it on
+the next boot, erases it and reads the sector back before it loads
+anything, then loads the requested FIT: the one at the usual sector of
+the SD card, a copy the firmware made at sector 0x10000 of the eMMC, or,
+when the firmware itself runs from the SD card, the one at the usual
+sector of the eMMC.
+If the erase does not stick, only the firmware is booted. A reset,
+crash or power cycle after that is a normal boot again.
+
+The record has to live on the eMMC: on RK3576 nothing on the chip
+survives TF-A's reset. The first global reset drives the reset output
+to the PMIC, which power-cycles the SoC; DRAM, the PMU GRF OS registers
+and a battery-less RTC all come back cleared.
+
+Without a request, a FIT that is not the firmware's (no /images/edk2)
+is skipped on the SD card when the eMMC holds the firmware, so a card
+left in the slot no longer takes over every boot.
+
+On the other U-Boot's path the SPL sets /config/bootcmd in that
+U-Boot's control device tree to "setenv bootmeths script extlinux;
+bootflow scan -lb", so its EFI boot manager does not start an EFI
+loader on another disk (Windows on the eMMC) before the boot script.
+SPL_ROCKCHIP_ARMBIAN_ONCE_BOOTCMD="" leaves it alone.
+
+Uses board_spl_mmc_get_uboot_raw_sector() and spl_perform_board_fixups().
+Needs SPL_MMC_WRITE.
+
+Signed-off-by: gahingwoo <gahing@gahingwoo.com>
+---
+ arch/arm/mach-rockchip/Kconfig            |  43 ++++
+ arch/arm/mach-rockchip/Makefile           |   1 +
+ arch/arm/mach-rockchip/spl-armbian-once.c | 264 ++++++++++++++++++++++
+ 3 files changed, 308 insertions(+)
+ create mode 100644 arch/arm/mach-rockchip/spl-armbian-once.c
+
+diff --git a/arch/arm/mach-rockchip/Kconfig b/arch/arm/mach-rockchip/Kconfig
+index 1a2e7847..4b44a2df 100644
+--- a/arch/arm/mach-rockchip/Kconfig
++++ b/arch/arm/mach-rockchip/Kconfig
+@@ -636,6 +636,49 @@ config SPL_ROCKCHIP_COMMON_BOARD
+ 	  load and boot Trust ATF/U-Boot firmware, and DRAM init if there is
+ 	  no TPL for the board.
+ 
++config SPL_ROCKCHIP_ARMBIAN_ONCE
++	bool "Boot another U-Boot FIT once, on request from the EDK2 firmware"
++	depends on SPL_ROCKCHIP_COMMON_BOARD && SPL_LOAD_FIT && SPL_MMC
++	depends on SPL_MMC_WRITE && SPL_OF_LIBFDT && SPL_CRC32
++	help
++	  For an SPL whose normal payload is a FIT with TF-A and the EDK2
++	  firmware.  The firmware's "Armbian (U-Boot)" boot option leaves a
++	  request record in one sector of the eMMC and resets.  The SPL erases
++	  the record before it loads anything, then boots the U-Boot FIT on
++	  the SD card, or the copy the firmware made in a slot on the eMMC.
++	  The boot after that is a normal one again.  Without a request, a FIT
++	  that is not the firmware's is skipped on the SD card when the eMMC
++	  carries the firmware.
++
++if SPL_ROCKCHIP_ARMBIAN_ONCE
++
++config SPL_ROCKCHIP_ARMBIAN_ONCE_REQ_SECTOR
++	hex "eMMC sector of the request record"
++	default 0x3fff
++	help
++	  The sector just below the firmware FIT at 0x4000.  Nothing else on
++	  a Rockchip boot medium uses it.
++
++config SPL_ROCKCHIP_ARMBIAN_ONCE_SLOT_SECTOR
++	hex "eMMC sector of the slot for a copied U-Boot FIT"
++	default 0x10000
++	help
++	  The firmware copies a U-Boot FIT here when it is not on the SD card
++	  (Armbian on USB, NVMe, or another partition of the eMMC).  32 MiB
++	  into the eMMC, past the end of the firmware FIT.
++
++config SPL_ROCKCHIP_ARMBIAN_ONCE_BOOTCMD
++	string "bootcmd for the other U-Boot, set through /config/bootcmd"
++	default "setenv bootmeths script extlinux; bootflow scan -lb"
++	help
++	  Put into the other U-Boot's control device tree when it is booted.
++	  U-Boot runs /config/bootcmd instead of its bootcmd variable.  The
++	  default keeps the EFI boot manager and EFI bootmeths from starting
++	  an EFI loader on another disk before the boot script is found.
++	  Empty to leave that U-Boot as it is.
++
++endif
++
+ config TPL_ROCKCHIP_COMMON_BOARD
+ 	bool "Rockchip TPL common board file"
+ 	depends on TPL
+diff --git a/arch/arm/mach-rockchip/Makefile b/arch/arm/mach-rockchip/Makefile
+index d3bc0689..41989473 100644
+--- a/arch/arm/mach-rockchip/Makefile
++++ b/arch/arm/mach-rockchip/Makefile
+@@ -9,6 +9,7 @@
+ # the stack-pointer is valid before switching to the U-Boot stack).
+ obj-spl-$(CONFIG_ROCKCHIP_BROM_HELPER) += bootrom.o
+ obj-spl-$(CONFIG_SPL_ROCKCHIP_COMMON_BOARD) += spl.o spl-boot-order.o spl_common.o
++obj-spl-$(CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE) += spl-armbian-once.o
+ obj-tpl-$(CONFIG_ROCKCHIP_BROM_HELPER) += bootrom.o
+ obj-tpl-$(CONFIG_TPL_ROCKCHIP_COMMON_BOARD) += tpl.o spl_common.o
+ obj-tpl-$(CONFIG_ROCKCHIP_PX30) += px30-board-tpl.o spl_common.o
+diff --git a/arch/arm/mach-rockchip/spl-armbian-once.c b/arch/arm/mach-rockchip/spl-armbian-once.c
+new file mode 100644
+index 00000000..ca2f3352
+--- /dev/null
++++ b/arch/arm/mach-rockchip/spl-armbian-once.c
+@@ -0,0 +1,264 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Boot another U-Boot FIT once, when the EDK2 firmware asks for it.
++ *
++ * Normally this SPL loads a FIT that carries TF-A and the EDK2 firmware.
++ * The firmware's "Armbian (U-Boot)" boot option writes a request record to
++ * one sector of the eMMC and resets.  On the next boot this file:
++ *
++ *   1. reads the record from the eMMC user area,
++ *   2. erases it and reads the sector back, before it loads anything, so
++ *      that every later boot (a reboot, a crash, a power cycle) is a normal
++ *      one again,
++ *   3. loads the requested U-Boot FIT (its own TF-A, U-Boot and U-Boot
++ *      device tree) instead of the firmware: from the SD card at the usual
++ *      sector, from a copy the firmware made in a slot on the eMMC, or from
++ *      the usual sector of the eMMC when the firmware itself is on the SD
++ *      card.
++ *
++ * If the record cannot be erased, nothing but the firmware is booted.
++ *
++ * Without a request, a FIT that is not the firmware's (no /images/edk2) is
++ * skipped on the SD card when the eMMC carries the firmware, so an Armbian
++ * card left in the slot no longer takes over every boot.  With no firmware
++ * on the eMMC the card boots as before.
++ *
++ * The record is the only state, and it lives on the eMMC because nothing
++ * on the chip survives a reset on these boards: TF-A's first global reset
++ * drives the reset output to the PMIC, which power-cycles the SoC.
++ */
++
++#include <blk.h>
++#include <fdt_support.h>
++#include <image.h>
++#include <log.h>
++#include <mmc.h>
++#include <spl.h>
++#include <u-boot/crc.h>
++#include <asm/byteorder.h>
++#include <linux/libfdt.h>
++#include <linux/string.h>
++
++#define AO_REQ_SECTOR	CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_REQ_SECTOR
++#define AO_SLOT_SECTOR	CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SLOT_SECTOR
++#define AO_HDR_MAX	(64 * 1024)
++#define AO_SKIP_SECTOR	0	/* no image there: makes the SPL try the next device */
++
++#define AO_MAGIC		"ARMBONCE"
++#define AO_VERSION		1
++#define AO_TARGET_SD		1	/* the FIT at the usual sector of the SD card */
++#define AO_TARGET_EMMC_SLOT	2	/* the copy at AO_SLOT_SECTOR on the eMMC */
++#define AO_TARGET_EMMC_FIT	3	/* a U-Boot FIT at the usual sector of the eMMC */
++
++/* One 512-byte sector, little endian.  Keep in step with ArmbianOnce.h. */
++struct ao_request {
++	char	magic[8];
++	__le32	version;
++	__le32	target;
++	__le32	slot_sector;
++	__le32	reserved;
++	u8	pad[484];
++	__le32	crc32;		/* crc32(0, bytes 0..507) */
++} __packed;
++
++enum ao_kind { AO_NONE, AO_FIRMWARE, AO_FOREIGN };
++
++/* Also the string the firmware looks for to tell that this SPL can do it. */
++static const char ao_tag[] = "ArmbianOnce/1";
++
++static bool ao_done;
++static bool ao_requested;
++static u32 ao_target;
++static enum ao_kind ao_emmc_fit;
++static bool ao_slot_tried;
++static bool ao_last_foreign;
++
++/* Scratch memory in DRAM, below where the SPL puts FIT headers itself. */
++static void *ao_buf(size_t offset, size_t len)
++{
++	return (void *)spl_get_load_buffer(-(ssize_t)(offset + len), len);
++}
++
++static enum ao_kind ao_classify(struct blk_desc *bd, lbaint_t sect)
++{
++	void *buf = ao_buf(0, AO_HDR_MAX);
++	lbaint_t cnt;
++	u32 size;
++
++	if (bd->blksz != 512 || blk_dread(bd, sect, 1, buf) != 1)
++		return AO_NONE;
++	if (fdt_magic(buf) != FDT_MAGIC)
++		return AO_NONE;
++
++	size = fdt_totalsize(buf);
++	if (size > AO_HDR_MAX)
++		return AO_FOREIGN;	/* a FIT with embedded data; ours never is */
++
++	cnt = DIV_ROUND_UP(size, 512);
++	if (blk_dread(bd, sect, cnt, buf) != cnt || fdt_check_header(buf))
++		return AO_NONE;
++	if (fdt_path_offset(buf, "/images/edk2") >= 0)
++		return AO_FIRMWARE;
++	if (fdt_path_offset(buf, "/images") >= 0)
++		return AO_FOREIGN;
++
++	return AO_NONE;
++}
++
++static struct mmc *ao_find_emmc(void)
++{
++	int n;
++
++	/* The SPL knows two MMC boot devices; spl_mmc.c maps them to 0 and 1. */
++	for (n = 0; n < 2; n++) {
++		struct mmc *mmc;
++
++		if (mmc_init_device(n))
++			continue;
++		mmc = find_mmc_device(n);
++		if (!mmc || mmc_init(mmc))
++			continue;
++		if (!IS_SD(mmc))
++			return mmc;
++	}
++
++	return NULL;
++}
++
++static bool ao_request_valid(const struct ao_request *req)
++{
++	if (memcmp(req->magic, AO_MAGIC, sizeof(req->magic)))
++		return false;
++	if (le32_to_cpu(req->crc32) !=
++	    crc32(0, (const u8 *)req, offsetof(struct ao_request, crc32)))
++		return false;
++	if (le32_to_cpu(req->version) != AO_VERSION)
++		return false;
++
++	switch (le32_to_cpu(req->target)) {
++	case AO_TARGET_SD:
++	case AO_TARGET_EMMC_FIT:
++		return true;
++	case AO_TARGET_EMMC_SLOT:
++		return le32_to_cpu(req->slot_sector) == AO_SLOT_SECTOR;
++	default:
++		return false;
++	}
++}
++
++static void ao_init(void)
++{
++	struct ao_request *req = ao_buf(AO_HDR_MAX, sizeof(*req));
++	struct blk_desc *bd;
++	struct mmc *emmc;
++	u32 target;
++
++	if (ao_done)
++		return;
++	ao_done = true;
++
++	emmc = ao_find_emmc();
++	if (!emmc) {
++		printf("%s: no eMMC, no request to look for\n", ao_tag);
++		return;
++	}
++	bd = mmc_get_blk_desc(emmc);
++	ao_emmc_fit = ao_classify(bd, CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR);
++
++	if (blk_dread(bd, AO_REQ_SECTOR, 1, req) != 1 || !ao_request_valid(req))
++		return;
++	target = le32_to_cpu(req->target);
++
++	/*
++	 * Consume the request before anything is loaded.  If that does not
++	 * stick, booting the other U-Boot would make it the default for every
++	 * boot after this one, so boot the firmware instead.
++	 */
++	memset(req, 0, sizeof(*req));
++	if (blk_dwrite(bd, AO_REQ_SECTOR, 1, req) != 1 ||
++	    blk_dread(bd, AO_REQ_SECTOR, 1, req) != 1 ||
++	    memchr_inv(req, 0, sizeof(*req))) {
++		printf("%s: could not erase the request at eMMC sector %#x, booting the firmware\n",
++		       ao_tag, AO_REQ_SECTOR);
++		return;
++	}
++
++	if ((target == AO_TARGET_EMMC_SLOT &&
++	     ao_classify(bd, AO_SLOT_SECTOR) != AO_FOREIGN) ||
++	    (target == AO_TARGET_EMMC_FIT && ao_emmc_fit != AO_FOREIGN)) {
++		printf("%s: request erased, but the U-Boot FIT is not on the eMMC, booting the firmware\n",
++		       ao_tag);
++		return;
++	}
++
++	ao_requested = true;
++	ao_target = target;
++	printf("%s: request found and erased: booting U-Boot from the %s, once\n",
++	       ao_tag, target == AO_TARGET_SD ? "SD card" :
++	       target == AO_TARGET_EMMC_SLOT ? "eMMC slot" : "eMMC");
++}
++
++unsigned long board_spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
++						  unsigned long raw_sect)
++{
++	enum ao_kind kind;
++
++	ao_init();
++	ao_last_foreign = false;
++
++	if (!IS_SD(mmc)) {
++		/* Try the slot once; a second visit of the eMMC gets the firmware. */
++		if (ao_requested && ao_target == AO_TARGET_EMMC_SLOT && !ao_slot_tried) {
++			ao_slot_tried = true;
++			ao_last_foreign = true;
++			return AO_SLOT_SECTOR;
++		}
++		ao_last_foreign = ao_requested && ao_target == AO_TARGET_EMMC_FIT;
++		return raw_sect;
++	}
++
++	kind = ao_classify(mmc_get_blk_desc(mmc), raw_sect);
++
++	if (ao_requested && ao_target == AO_TARGET_SD) {
++		if (kind == AO_FOREIGN) {
++			ao_last_foreign = true;
++			return raw_sect;
++		}
++		printf("%s: no U-Boot FIT on the SD card any more, booting the firmware\n",
++		       ao_tag);
++	} else if (ao_requested) {
++		/* The eMMC comes after the card in the boot order: go there. */
++		return AO_SKIP_SECTOR;
++	}
++
++	if (kind == AO_FOREIGN && ao_emmc_fit == AO_FIRMWARE) {
++		printf("%s: not booting the U-Boot FIT on the SD card, the firmware is on the eMMC\n",
++		       ao_tag);
++		return AO_SKIP_SECTOR;
++	}
++
++	return raw_sect;
++}
++
++void spl_perform_board_fixups(struct spl_image_info *spl_image)
++{
++	const char *cmd = CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_BOOTCMD;
++	void *blob = spl_image_fdt_addr(spl_image);
++	int node, ret;
++
++	if (!ao_last_foreign || !blob || !*cmd)
++		return;
++
++	/*
++	 * U-Boot runs /config/bootcmd from its control device tree in place
++	 * of the bootcmd variable (cli_process_fdt()).  This keeps its EFI
++	 * boot manager from starting another disk's EFI loader (Windows on
++	 * the eMMC, say) before it gets to the script on the Armbian disk.
++	 */
++	node = fdt_find_or_add_subnode(blob, 0, "config");
++	ret = node < 0 ? node : fdt_setprop_string(blob, node, "bootcmd", cmd);
++	if (ret)
++		printf("%s: could not set /config/bootcmd: %d\n", ao_tag, ret);
++	else
++		printf("%s: U-Boot will run \"%s\"\n", ao_tag, cmd);
++}

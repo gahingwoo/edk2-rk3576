@@ -301,3 +301,8 @@
 
   # Reset All Settings (front page entry and F9)
   INF Silicon/Rockchip/Applications/FullReset/FullReset.inf
+
+!if $(RK_ARMBIAN_ONCE_ENABLE) == TRUE
+  # Armbian (U-Boot): one boot of Armbian's own U-Boot, through the SPL
+  INF Silicon/Rockchip/Applications/ArmbianOnce/ArmbianOnce.inf
+!endif

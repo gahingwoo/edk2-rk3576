@@ -80,6 +80,8 @@
   DEFINE RK_X86_EMULATOR_ENABLE  = FALSE
   DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
   DEFINE RK_USB_ENABLE           = TRUE
+  # Boot option "Armbian (U-Boot)".  Needs the SPL from scripts/build-spl.sh.
+  DEFINE RK_ARMBIAN_ONCE_ENABLE  = TRUE
 
 !include Silicon/Rockchip/RK3576/RK3576Base.dsc.inc
 
@@ -252,6 +254,12 @@
   # checked on the board.
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
+
+  # TEST IMAGE ONLY (test-flash-2026-11-24): the video decoder (VDPU383)
+  # defaults on, so the woa-rk3576 vdpu383 driver has a device to bind.
+  # It still needs ACPI in the config table mode.  Turn it off in setup:
+  # ACPI / Device Tree > Video Decoder (VDPU383, experimental) > Disabled.
+  gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|1
 
 ################################################################################
 [Components.common]

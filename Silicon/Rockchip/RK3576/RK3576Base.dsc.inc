@@ -151,6 +151,16 @@
 !endif
 
   #
+  # "Armbian (U-Boot)": a boot option that has the SPL boot Armbian's own
+  # U-Boot once.  Only for a board whose SPL is built from uboot/v2026.10
+  # (scripts/build-spl.sh); with any other SPL the option can only say that
+  # it does not work.  See docs/ARMBIAN-CHAINLOAD.md.
+  #
+!ifndef RK_ARMBIAN_ONCE_ENABLE
+  DEFINE RK_ARMBIAN_ONCE_ENABLE     = FALSE
+!endif
+
+  #
   # RK3576 has no SATA controller.
   #
 !ifndef RK_AHCI_ENABLE
@@ -481,6 +491,12 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiNpuDefault|0
   #
+  # Video decoder for an ACPI OS (setup option, backs PcdAcpiVdec below): off.
+  # When on, RK3576Dxe powers PD_VDEC and RK3576AcpiPlatformDxe installs the
+  # decoder SSDT (Vdec.asl).
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|0
+  #
   # MIPI DSI screen brightness in percent (setup option, backs
   # PcdDisplayBrightness below), read only on a board with a DSI panel.
   #
@@ -573,6 +589,11 @@
   # NPU
   #
   gRK3576TokenSpaceGuid.PcdAcpiNpu|L"AcpiNpu"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiNpuDefault
+
+  #
+  # Video decoder
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiVdec|L"AcpiVdec"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiVdecDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault
