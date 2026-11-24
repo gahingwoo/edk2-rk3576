@@ -2,8 +2,14 @@
 
 English | [简体中文](ARMBIAN-CHAINLOAD.zh-CN.md)
 
-Status: implemented on branch `armbian-chainload`, built for the TaishanPi 3M,
-**not run on a board yet**. The board test is at the end.
+Status: merged into `main` on 2026-11-24 (`2187846`), built for the TaishanPi 3M.
+Board-tested on the TaishanPi 3M the same day (merge `a23adb9`): with the SD
+card in, a normal boot still reaches UEFI and Windows; "Armbian (U-Boot)"
+boots the card's Armbian U-Boot and Armbian; the request sector reads back
+zero; a reboot and a power cycle from Armbian both return to UEFI. The change
+that lists the option only while there is a U-Boot to boot (`e081771`) was
+merged after that test, and no run of it is recorded. The full board test is
+at the end.
 
 ## What it does
 
@@ -26,7 +32,7 @@ firmware again.
 The first idea was a magic value in a PMU GRF OS register, read by the SPL.
 That cannot work on these boards: **nothing on the chip survives a reset.**
 
-Measured on the TaishanPi 3M (serial log `tspi3m-serial.raw`, 2026-11-22):
+Measured on the TaishanPi 3M (2026-11-22, read over the serial console):
 
 * PMU1 GRF OS_REG15 (`0x2602623C`), documented as "with npor reset", was set
   to `0xB007000A` from the UEFI Shell with `mm`; after `reset` it read 0
@@ -110,7 +116,7 @@ touches no existing code.
 
 Our SPL for the TaishanPi 3M is mainline U-Boot v2026.10 with Armbian's
 `lckfb-tspi-3m-rk3576_defconfig` and DTS, DDR blob v1.08, and the one local
-change that it tries the SD card first (`binaries/README.md`). Until now it was
+change that it tries the SD card first (`binaries/README.md`). Before this work it was
 built by hand; `scripts/build-spl.sh tspi3m` now builds it from pinned inputs
 (U-Boot tag and commit, the board files in `uboot/v2026.10/tspi3m/`, the
 patches, the DDR blob from armbian/rkbin by SHA-256) into
@@ -272,7 +278,8 @@ Armbian's own state, which is G4.
 * **R7** the SPL now brings up the eMMC on every boot, also when the firmware
   is on the SD card (a few milliseconds).
 * **R8** BootNext set from Windows does not survive a reset on the TaishanPi
-  (no RTC power, `project_tspi3m_rtc_loses_power_on_reset`), so "restart into
+  (the board has no RTC battery and the RTC loses power on every reset, see
+  [hardware](dev/hardware.md#lckfb-taishanpi-3m)), so "restart into
   Armbian" from Windows is not available; from the boot manager it is.
 
 ## Building
@@ -317,7 +324,7 @@ variables stay.
    `ArmbianOnce/1` line, firmware and Windows as before. `Armbian (U-Boot)` is
    in the boot manager.
 3. Card in, reboot: `ArmbianOnce/1: not booting the U-Boot FIT on the SD card,
-   the firmware is on the eMMC`, then the firmware. (Before this branch the
+   the firmware is on the eMMC`, then the firmware. (Without this change the
    card would have booted.)
 4. Boot manager, `Armbian (U-Boot)`: `Found a U-Boot FIT on the SD card.`,
    `Request written. Restarting`. Next boot: `ArmbianOnce/1: request found and

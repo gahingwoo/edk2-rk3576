@@ -2,8 +2,11 @@
 
 [English](ARMBIAN-CHAINLOAD.md) | 简体中文
 
-状态：已在 `armbian-chainload` 分支上实现，并为泰山派 3M 构建，
-**还没有在板子上跑过**。板上测试步骤在本文末尾。
+状态：2026-11-24 已合并到 `main`（`2187846`），并为泰山派 3M 构建。
+同一天在泰山派 3M 上做了板测（合并提交 `a23adb9`）：插着 SD 卡时，正常启动仍然进入 UEFI 和 Windows；
+"Armbian (U-Boot)" 能启动卡上 Armbian 的 U-Boot 和 Armbian；请求扇区读回来是零；
+从 Armbian 重启和断电再上电都会回到 UEFI。"只在有 U-Boot 可启动时才列出这个启动项"的改动（`e081771`）
+是在那次板测之后合并的，没有它的运行记录。完整的板测步骤在本文末尾。
 
 ## 它做什么
 
@@ -25,7 +28,7 @@ Armbian 自己的 U-Boot，再由它运行 Armbian 的 `boot.scr`，用的是 Ar
 最初的想法是在 PMU GRF 的某个 OS 寄存器里写一个魔数，由 SPL 读取。
 在这些板子上这行不通：**芯片上没有任何东西能在复位后保留下来。**
 
-在泰山派 3M 上的测量结果（串口日志 `tspi3m-serial.raw`，2026-11-22）：
+在泰山派 3M 上的测量结果（2026-11-22，通过串口读取）：
 
 * PMU1 GRF OS_REG15（`0x2602623C`），文档说是"with npor reset"。在 UEFI Shell 里用 `mm`
   把它设成 `0xB007000A`，执行 `reset` 后读出来是 0
@@ -104,7 +107,7 @@ eMMC 用户区，扇区大小 512 字节：
 
 我们给泰山派 3M 用的 SPL 是主线 U-Boot v2026.10，加上 Armbian 的
 `lckfb-tspi-3m-rk3576_defconfig` 和 DTS、DDR blob v1.08，以及一处本地改动：先试 SD 卡
-（见 `binaries/README.md`）。以前它是手工构建的；现在 `scripts/build-spl.sh tspi3m`
+（见 `binaries/README.md`）。在这项工作之前它是手工构建的；现在 `scripts/build-spl.sh tspi3m`
 从固定的输入（U-Boot 标签和提交、`uboot/v2026.10/tspi3m/` 里的板子文件、补丁、按 SHA-256
 校验的 armbian/rkbin DDR blob）构建它，输出到 `out/TaishanPi3M/idbloader.img`，
 `package.sh` 本来就优先用这个文件。CI 会运行这个脚本。
@@ -239,7 +242,7 @@ Armbian 的 U-Boot 软件包只有在 `FORCE_UBOOT_UPDATE=yes`（它的 `postins
   之后那次启动就是本固件。
 * **R7** 现在 SPL 每次启动都会初始化 eMMC，固件在 SD 卡上时也一样（多几毫秒）。
 * **R8** 在泰山派上，从 Windows 设置的 BootNext 在复位后保留不下来
-  （RTC 没有供电，`project_tspi3m_rtc_loses_power_on_reset`），所以不能从 Windows
+  （板子没有 RTC 电池，每次复位 RTC 都会断电，见[硬件](dev/hardware.zh-CN.md#立创泰山派-3m)），所以不能从 Windows
   "重启进入 Armbian"；从启动管理器可以。
 
 ## 构建
@@ -279,7 +282,7 @@ scripts/package.sh tspi3m       # picks up out/TaishanPi3M/idbloader.img
 2. 不插卡，冷启动三次：出现 `U-Boot SPL 2026.10-edk2-rk3576`，没有
    `ArmbianOnce/1` 开头的行，固件和 Windows 和以前一样。启动管理器里有 `Armbian (U-Boot)`。
 3. 插卡，重启：出现 `ArmbianOnce/1: not booting the U-Boot FIT on the SD card,
-   the firmware is on the eMMC`，然后进入固件。（在这个分支之前，这时会从卡启动。）
+   the firmware is on the eMMC`，然后进入固件。（没有这项改动时，这时会从卡启动。）
 4. 在启动管理器里选 `Armbian (U-Boot)`：出现 `Found a U-Boot FIT on the SD card.`、
    `Request written. Restarting`。下一次启动：出现 `ArmbianOnce/1: request found and
    erased: booting U-Boot from the SD card, once`、`ArmbianOnce/1: U-Boot will
