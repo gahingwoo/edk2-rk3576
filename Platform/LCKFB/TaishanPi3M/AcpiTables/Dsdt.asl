@@ -312,6 +312,9 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
 #define BOARD_CODEC_GPIO_PIN      GPIO_PIN_PB0
 #define BOARD_CODEC_AMP_GPIO      "\\_SB.GPI4"
 #define BOARD_CODEC_AMP_GPIO_PIN  GPIO_PIN_PB2
+    // hp-det-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH> (pull-up, above):
+    // the line reads high with a plug in.
+#define BOARD_CODEC_HPDET_ACTIVE_HIGH 1
     Scope (I2C3) {
       include ("Es8388.asl")
     }
