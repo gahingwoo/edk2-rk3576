@@ -26,7 +26,7 @@ with DISM instead, by one of two tools:
   over USB, without a stick. Not yet run on a board (2026-11-24).
 
 Both need this firmware on the eMMC, written as a whole image first
-([flashing](flashing.md)).
+([flashing](flash.md)).
 
 ## Which firmware
 
@@ -34,7 +34,7 @@ Both need this firmware on the eMMC, written as a whole image first
 |---|---|
 | Windows itself: eMMC, SD, Ethernet, USB-A, NVMe (CM5-IO) | 0.4.0 or later. Older images ran the eMMC at 148.5 MHz instead of 52 MHz, and files written under Windows could come back different with no error: before 0.3.0 on the TaishanPi 3M, before 0.4.0 on the CM5-IO. |
 | TaishanPi 3M DSI screen | 0.4.0 or later |
-| Touch, Bluetooth, headphone jack, HDMI audio, USB-C (TaishanPi 3M) | the `ci` build until the next release ([flashing](flashing.md#the-rolling-ci-build)) |
+| Touch, Bluetooth, headphone jack, HDMI audio, USB-C (TaishanPi 3M) | the `ci` build until the next release ([flashing](flash.md#the-rolling-ci-build)) |
 
 ## More drivers
 

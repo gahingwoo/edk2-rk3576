@@ -39,13 +39,13 @@ languages.
 On the eMMC (needed for Windows):
 
 1. Write the `CM5IO-emmc` image as a whole image
-   ([flashing](../flashing.md#writing-the-whole-image)). This replaces
+   ([flashing](../flash.md#writing-the-whole-image)). This replaces
    everything on the eMMC.
 2. Later updates: "keep the partitions"
-   ([flashing](../flashing.md#updating-the-firmware-and-keeping-everything-else)).
+   ([flashing](../flash.md#updating-the-firmware-and-keeping-everything-else)).
 
 Or on an SD card, with an eMMC that holds no bootloader:
-[flashing](../flashing.md#armsom-cm5-io).
+[flashing](../flash.md#armsom-cm5-io).
 
 Then:
 

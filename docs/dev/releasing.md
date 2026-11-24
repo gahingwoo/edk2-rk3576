@@ -27,5 +27,5 @@ with a manual run of its deploy workflow.
 ## The rolling ci release
 
 `build.yml` replaces the pre-release tagged `ci` after every successful
-build of `main` (see [flashing](../flashing.md#the-rolling-ci-build)).
+build of `main` (see [flashing](../flash.md#the-rolling-ci-build)).
 Maskrom Studio's CI tier writes from it.

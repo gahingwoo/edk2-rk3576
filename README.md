@@ -29,7 +29,7 @@ More pictures: [gallery](docs/gallery.md).
 1. Read your board's page: [Radxa ROCK 4D](docs/boards/rock4d.md),
    [ArmSoM CM5-IO](docs/boards/cm5io.md),
    [LCKFB TaishanPi 3M](docs/boards/tspi3m.md).
-2. Write the firmware ([flashing](docs/flashing.md)) with one of:
+2. Write the firmware ([flashing](docs/flash.md)) with one of:
    - [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio), a
      desktop app;
    - [flash.gahingwoo.com](https://flash.gahingwoo.com/), in Chrome or Edge;
@@ -46,7 +46,7 @@ More pictures: [gallery](docs/gallery.md).
    [known issues](docs/known-issues.md).
 
 Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
-(0.4.1, 2026-11-17), or the [`ci` build](docs/flashing.md#the-rolling-ci-build)
+(0.4.1, 2026-11-17), or the [`ci` build](docs/flash.md#the-rolling-ci-build)
 of `main`, which has everything merged since.
 
 ## Boards

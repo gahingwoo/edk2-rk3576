@@ -13,7 +13,7 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
 
 1. Read your board's page: [Radxa ROCK 4D](boards/rock4d.md),
    [ArmSoM CM5-IO](boards/cm5io.md), [LCKFB TaishanPi 3M](boards/tspi3m.md).
-2. Write the firmware: [flashing](flashing.md). The easiest ways are
+2. Write the firmware: [flashing](flash.md). The easiest ways are
    [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio) and
    [flash.gahingwoo.com](https://flash.gahingwoo.com/).
 3. Windows 11 23H2 (CM5-IO, TaishanPi 3M): [Windows](windows.md).
@@ -24,7 +24,7 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
 ## Get it
 
 - Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest),
-  or the [`ci` build](flashing.md#the-rolling-ci-build) of `main`
+  or the [`ci` build](flash.md#the-rolling-ci-build) of `main`
 - Flash from the browser: [flash.gahingwoo.com](https://flash.gahingwoo.com/)
 - Source: [github.com/gahingwoo/edk2-rk3576](https://github.com/gahingwoo/edk2-rk3576)
 

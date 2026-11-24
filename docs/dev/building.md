@@ -1,7 +1,7 @@
 # Building
 
 How to build the firmware images from source. For writing them to a board, see
-[flashing](../flashing.md). The image offsets and the FIT are in
+[flashing](../flash.md). The image offsets and the FIT are in
 [image layout](image-layout.md).
 
 ```bash

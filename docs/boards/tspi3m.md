@@ -26,7 +26,7 @@ board. The board was sponsored by JLC (嘉立创).
 
 Release 0.4.1 (2026-11-17) has the DSI screen, touch in the menus, Chinese
 menus and Windows. Touch, Bluetooth, audio and USB-C under Windows need the
-[`ci` build](../flashing.md#the-rolling-ci-build) until the next release.
+[`ci` build](../flash.md#the-rolling-ci-build) until the next release.
 
 ## Before you start
 
@@ -40,10 +40,10 @@ menus and Windows. Touch, Bluetooth, audio and USB-C under Windows need the
 ## Install the firmware
 
 1. Write the `TaishanPi3M-emmc` image to the eMMC as a whole image
-   ([flashing](../flashing.md#lckfb-taishanpi-3m)). This replaces LCKFB's
+   ([flashing](../flash.md#lckfb-taishanpi-3m)). This replaces LCKFB's
    stock system.
 2. Later updates: "keep the partitions"
-   ([flashing](../flashing.md#updating-the-firmware-and-keeping-everything-else)),
+   ([flashing](../flash.md#updating-the-firmware-and-keeping-everything-else)),
    which keeps Windows, Linux and the settings.
 
 Then:

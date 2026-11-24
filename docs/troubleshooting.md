@@ -32,13 +32,13 @@ first and attach it to an
 
 The BootROM tries the eMMC first. A card is used only when the eMMC holds no
 bootloader. On the TaishanPi 3M an SD card never boots on its own; the SPL has
-to be on the eMMC ([flashing](flashing.md#lckfb-taishanpi-3m)).
+to be on the eMMC ([flashing](flash.md#lckfb-taishanpi-3m)).
 
 ## The settings were lost after an update
 
 The update wrote over the settings store at sector 43648. Use "keep the
 partitions" in the web flasher or Maskrom Studio, or the `dd` range in
-[flashing](flashing.md#updating-the-firmware-and-keeping-everything-else).
+[flashing](flash.md#updating-the-firmware-and-keeping-everything-else).
 
 ## Boot entries made in Linux or Windows are gone after a reboot
 

@@ -12,7 +12,7 @@ Fedora (44 on the ROCK 4D, 45 on the CM5-IO) installs from a Fedora ARM64
 USB stick and boots from NVMe. On the CM5-IO the GNOME desktop runs on the
 Mali-G52 through Panfrost.
 
-1. Write the firmware ([flashing](flashing.md)).
+1. Write the firmware ([flashing](flash.md)).
 2. Boot a Fedora ARM64 installer stick from the boot manager.
 3. Install to the NVMe disk.
 

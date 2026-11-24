@@ -34,7 +34,7 @@ boards and were run there.
 ## Install the firmware
 
 Write the `ROCK4D-spi` image to the SPI NOR
-([flashing](../flashing.md#radxa-rock-4d)). The UEFI settings are kept on the
+([flashing](../flash.md#radxa-rock-4d)). The UEFI settings are kept on the
 same flash; writing the image resets them.
 
 Then: [Linux](../linux.md).

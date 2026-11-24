@@ -37,7 +37,7 @@ of the image are all `0xFF`.
 
 So a write that should keep the settings stops at sector 43648: the
 "keep the partitions" write is sectors 64 to 43647 of the eMMC image, written
-at sector 64 ([flashing](../flashing.md#updating-the-firmware-and-keeping-everything-else)).
+at sector 64 ([flashing](../flash.md#updating-the-firmware-and-keeping-everything-else)).
 The web flasher reads the FIT in the image and refuses that write if
 `nvdata` does not start at sector 43648.
 
