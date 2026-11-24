@@ -45,6 +45,9 @@ and puts the board values next to the device tree line they come from.
 | Touch GT9271 (`\_SB.I2C0.TCH0`) | `RKCP9271` | no | when the screen answers at boot | screen detection |
 | Bluetooth BCM4345C5 (`\_SB.BTH0`) | `RKCP4345` | no | yes | TaishanPi 3M DSDT |
 | RTC HYM8563 | `HYMB0001` | yes | yes | board DSDT |
+| PMIC RK806 (`\_SB.I2C1.PMC0`) | `RKCP0806`, `_CID` `PRP0001` | yes | yes | board DSDT; no Windows driver, the firmware manages it (woa-rk3576 `drivers/null` names it) |
+| Pin controller (`\_SB.PINC`) | `RKCP3005`, `_CID` `PRP0001` | yes | yes | always; no Windows driver, the same |
+| UART2 (`\_SB.UAR2`) | `HISI0031` | yes | no | CM5-IO DSDT; left out on the TaishanPi 3M, where no pin option of it reaches a connector |
 | Thermal zones (TSADC read-out) | | yes | yes | always; a reading that cannot be trusted shows as 100.0 C |
 | Fan (`PNP0C0B`, `Fan.asl`) | | yes | yes | setup "Fan Control by ACPI Thermal Zone", off by default |
 | CPU idle states (SSDT `RKLPI`) | | yes | yes | setup "CPU Idle States", off by default |

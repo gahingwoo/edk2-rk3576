@@ -39,6 +39,9 @@ SoC 级的表（MADT、GTDT、PPTT、MCFG、SPCR、DBG2、FADT）是共用的，
 | 触摸 GT9271（`\_SB.I2C0.TCH0`） | `RKCP9271` | 无 | 开机时屏幕有应答才有 | 屏幕检测 |
 | 蓝牙 BCM4345C5（`\_SB.BTH0`） | `RKCP4345` | 无 | 有 | 泰山派 3M 的 DSDT |
 | RTC HYM8563 | `HYMB0001` | 有 | 有 | 板级 DSDT |
+| PMIC RK806（`\_SB.I2C1.PMC0`） | `RKCP0806`，`_CID` `PRP0001` | 有 | 有 | 板级 DSDT；没有 Windows 驱动，由固件管理（woa-rk3576 的 `drivers/null` 给它起名） |
+| 引脚控制器（`\_SB.PINC`） | `RKCP3005`，`_CID` `PRP0001` | 有 | 有 | 始终；没有 Windows 驱动，同上 |
+| UART2（`\_SB.UAR2`） | `HISI0031` | 有 | 无 | CM5-IO 的 DSDT；泰山派 3M 上不声明，它的任何引脚选项都没有引到接口上 |
 | 温度区（TSADC 读数） | | 有 | 有 | 始终；不可信的读数显示为 100.0 C |
 | 风扇（`PNP0C0B`，`Fan.asl`） | | 有 | 有 | 设置项 "Fan Control by ACPI Thermal Zone"（由 ACPI 温度区控制风扇），默认关闭 |
 | CPU 空闲状态（SSDT `RKLPI`） | | 有 | 有 | 设置项 "CPU Idle States"，默认关闭 |
