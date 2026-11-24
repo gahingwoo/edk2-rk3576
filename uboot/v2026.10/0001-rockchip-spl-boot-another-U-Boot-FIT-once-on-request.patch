@@ -40,8 +40,8 @@ Signed-off-by: gahingwoo <gahing@gahingwoo.com>
 ---
  arch/arm/mach-rockchip/Kconfig            |  43 ++++
  arch/arm/mach-rockchip/Makefile           |   1 +
- arch/arm/mach-rockchip/spl-armbian-once.c | 264 ++++++++++++++++++++++
- 3 files changed, 308 insertions(+)
+ arch/arm/mach-rockchip/spl-armbian-once.c | 266 ++++++++++++++++++++++
+ 3 files changed, 310 insertions(+)
  create mode 100644 arch/arm/mach-rockchip/spl-armbian-once.c
 
 diff --git a/arch/arm/mach-rockchip/Kconfig b/arch/arm/mach-rockchip/Kconfig
@@ -115,7 +115,7 @@ new file mode 100644
 index 00000000..ca2f3352
 --- /dev/null
 +++ b/arch/arm/mach-rockchip/spl-armbian-once.c
-@@ -0,0 +1,264 @@
+@@ -0,0 +1,266 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
 + * Boot another U-Boot FIT once, when the EDK2 firmware asks for it.
@@ -332,6 +332,8 @@ index 00000000..ca2f3352
 +			return AO_SLOT_SECTOR;
 +		}
 +		ao_last_foreign = ao_requested && ao_target == AO_TARGET_EMMC_FIT;
++		if (ao_requested && ao_target == AO_TARGET_SD)
++			printf("%s: U-Boot was not loaded from the SD card, booting the firmware\n", ao_tag);
 +		return raw_sect;
 +	}
 +
