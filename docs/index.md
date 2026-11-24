@@ -1,55 +1,49 @@
 # edk2-rk3576
 
 UEFI firmware (EDK2 / TianoCore) for Rockchip RK3576 boards: Radxa ROCK 4D,
-ArmSoM CM5-IO and LCKFB TaishanPi 3M.
+ArmSoM CM5-IO and LCKFB TaishanPi 3M. [简体中文](zh-CN/index.md)
 
 ```
-BootROM → U-Boot SPL → TF-A BL31 → EDK2 (BL33) → OS
+BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
 ```
 
-The ROCK 4D and the CM5-IO boot Fedora from NVMe. The CM5-IO and the
-TaishanPi 3M boot Windows 11 23H2 from their eMMC;
-[how to install it](https://github.com/gahingwoo/edk2-rk3576#windows).
+![Windows 11 on the TaishanPi 3M](imgs/tspi3m-win11-desktop.jpg)
+
+## From a new board to Windows or Linux
+
+1. Read your board's page: [Radxa ROCK 4D](boards/rock4d.md),
+   [ArmSoM CM5-IO](boards/cm5io.md), [LCKFB TaishanPi 3M](boards/tspi3m.md).
+2. Write the firmware: [flashing](flashing.md). The easiest ways are
+   [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio) and
+   [flash.gahingwoo.com](https://flash.gahingwoo.com/).
+3. Windows 11 23H2 (CM5-IO, TaishanPi 3M): [Windows](windows.md).
+4. Linux: [Linux](linux.md).
+5. Something wrong: [troubleshooting](troubleshooting.md),
+   [known issues](known-issues.md).
 
 ## Get it
 
-- Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
+- Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest),
+  or the [`ci` build](flashing.md#the-rolling-ci-build) of `main`
 - Flash from the browser: [flash.gahingwoo.com](https://flash.gahingwoo.com/)
-- Source, board status and known issues: [github.com/gahingwoo/edk2-rk3576](https://github.com/gahingwoo/edk2-rk3576#boards)
+- Source: [github.com/gahingwoo/edk2-rk3576](https://github.com/gahingwoo/edk2-rk3576)
 
-## Screenshots
+## Pages
 
-| Radxa ROCK 4D | ArmSoM CM5-IO |
+- [Firmware menus and features](firmware-menus.md): language, screenshots,
+  debug report, Reset All Settings, clock, display, touch, OS options
+- [Gallery](gallery.md)
+- For developers: [building](dev/building.md), [architecture](dev/architecture.md),
+  [image layout](dev/image-layout.md), [hardware](dev/hardware.md),
+  [ACPI](dev/acpi.md), [testing](dev/testing.md), [releasing](dev/releasing.md)
+- [History](history/README.md): dated notes kept as written
+
+## Related projects
+
+| Repository | What |
 |---|---|
-| ![UEFI front page on ROCK 4D](imgs/monitor-4d.png) | ![UEFI front page on CM5-IO](imgs/monitor-cm5io.jpeg) |
-| TianoCore front page, 2560×1440@60 over HDMI | TianoCore front page, 2560×1440@60 over HDMI |
-| ![GNOME on ROCK 4D](imgs/rock4d-desktop.png) | ![GNOME on CM5-IO](imgs/cm5io-desktop.png) |
-| GNOME *About*: Fedora 44, 11.5 GiB RAM | GNOME *About*: Fedora 45 Workstation, kernel 7.2, 3.7 GiB RAM, Mali-G52 via Panfrost |
-
-| | |
-|---|---|
-| ![GRUB on USB](imgs/grub.png) | ![Fedora live console](imgs/fedora.png) |
-| GRUB from a Fedora USB stick | Fedora live console |
-
-![Windows 11 on CM5-IO](imgs/cm5io-win11-desktop.jpg)
-
-Windows 11 23H2 on CM5-IO, booted from the eMMC: eight cores, 3.7 GB, the eMMC
-as C:, the NVMe, the SD card, Ethernet and both USB controllers. The drivers
-are in [woa-rk3576](https://github.com/gahingwoo/woa-rk3576).
-
-![Windows 11 on TaishanPi 3M](imgs/tspi3m-win11-desktop.jpg)
-
-Windows 11 23H2 on the TaishanPi 3M, booted from the eMMC. The desktop in
-this photo is drawn on the Mali-G52 by
-[wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52).
-
-![HWiNFO system summary on the TaishanPi 3M](imgs/tspi3m-hwinfo.jpg)
-
-HWiNFO on the TaishanPi 3M under Windows.
-
-## Docs
-
-- [Flashing](FLASHING.md): the browser tool, `rkdeveloptool`, SD card and eMMC
-- [Building](BUILDING.md): host setup, dependencies, the three build scripts
-- [Image layout](SPI_LAYOUT.md): byte offsets in each image, and the FIT
-- [Hardware](HARDWARE.md): the board facts the firmware depends on
+| [woa-rk3576](https://github.com/gahingwoo/woa-rk3576) | Windows drivers and the WinPE install image |
+| [wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52) | Windows GPU and display driver for the Mali-G52 |
+| [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) | Windows NPU driver and the charsiu LLM runtime |
+| [maskrom-studio](https://github.com/gahingwoo/maskrom-studio) | Desktop app: firmware, Windows without a USB stick, back to Armbian or the factory image |
+| [edk2-webflash](https://github.com/gahingwoo/edk2-webflash) | The browser flasher at flash.gahingwoo.com |
