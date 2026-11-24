@@ -2,10 +2,11 @@
 
 `third_party/edk2/` is the upstream [tianocore/edk2](https://github.com/tianocore/edk2)
 submodule, pinned by `scripts/setup-host.sh` to edk2-stable202602. Edits made
-inside it are lost when the checkout is reset. Three of the five patches here are
-real fixes, and without them the firmware still builds but misbehaves, so they
-are kept as patch files.  The others add Chinese to the stock menus and make
-them follow a language switch.
+inside it are lost when the checkout is reset, so every change to it is kept
+here as a patch file. There are 19: fixes without which the firmware still
+builds but misbehaves, the Simplified Chinese strings and the front-page,
+popup and mouse changes the menus rely on, and two UART tracing patches that
+are applied only on request.
 
 They were first generated against tianocore/edk2 `46548b1` and apply cleanly
 to edk2-stable202602, which is what CI builds against.
@@ -160,6 +161,26 @@ Simulated over every zh-Hans string at the help widths of 80, 100, 128 and
 160 columns: lines starting with closing punctuation 36 before, 0 after
 except inside such over-long runs; Latin words split 20 before, 0 after.
 
+### `0011-TerminalDxe-send-non-ASCII-text-as-UTF-8.patch`
+
+The serial console is a TTYTERM terminal, and for every terminal type but
+VT-UTF8 `TerminalConOutOutputString ()` turned a character that is neither
+ASCII nor a box or arrow glyph into `?`. With the menus in Chinese the
+serial console showed rows of question marks. Such characters are now sent
+as UTF-8, and an East Asian wide character advances the driver's cursor by
+two columns, as it does on a terminal and on the graphics console. English
+output is unchanged. Switching the terminal type to VT-UTF8 was not an
+option: its function keys differ, and `PlatformBm.c` asserts TTYTERM.
+
+### `0012-UiApp-add-Shut-Down-to-the-front-page.patch`
+
+Applies on top of 0006 and 0008. Adds "Shut Down" / "关机" under "Reset" on
+the front page, which calls `ResetSystem (EfiResetShutdown)`. On the
+TaishanPi 3M that reaches the PMIC through Rk806I2cPowerOffDxe; on the other
+boards it is the PSCI SYSTEM_OFF it always was. The patch also adds the
+missing `break` after the Reset case, which used to fall through to
+`default`.
+
 ### `0013-DisplayEngine-select-the-statement-a-mouse-clicks.patch`
 
 Applies on top of 0009 and 0010, and after 0012 when that is there; it
@@ -207,6 +228,41 @@ returns the button byte of the last report (bit 2 the middle button).
 Nothing else changes; failing to install it is not an error. The
 definition is copied in `RockchipOnScreenKeyboard.h`.
 
+### `0016-UiApp-add-Reset-All-Settings-to-the-front-page.patch`
+
+Applies on top of 0012. Adds "Reset All Settings" / "重置所有设置" under
+"Shut Down". The entry starts the platform's FullReset application
+(`Silicon/Rockchip/Applications/FullReset`, FILE_GUID
+`4bdbb2bd-8c5c-4400-bcca-0fd73a11ed49`) from the firmware volume UiApp was
+loaded from, and is only shown when that file is there. The application
+asks, and does the work; the patch holds no platform logic.
+
+### `0017-FileExplorerLib-add-zh-Hans-strings.patch`
+
+Independent of the others. The file explorer ("Boot From File", "Add Boot
+Option", "Add Driver Option") had no zh-Hans strings, so with the menus in
+Chinese its title and its "new file" / "new folder" entries stayed English.
+Every string gets a zh-Hans entry, in the same \wide ... \narrow form as
+0006 and 0007. The file keeps its CRLF line endings.
+
+### `0018-DisplayEngine-Yes-No-popups-start-on-No.patch`
+
+Applies on top of 0013. A Yes/No (or Yes/No/Cancel) popup from the HII
+popup protocol used to open with Yes highlighted, so a stray Enter answered
+Yes. These popups confirm what cannot be undone: Reset All Settings, which
+erases the whole variable store, and deleting Secure Boot keys. They now
+open with No highlighted; Y, N, the arrows and a click work as before. The
+protocol has no way for a caller to choose the default (the selection is an
+output only), so this is the one place to do it.
+
+### `0019-DisplayEngine-warning-popups-in-red.patch`
+
+Applies on top of 0013 and 0018. Every HII popup was drawn in the one popup
+colour whatever its style. Warning and error popups are now white on red, so
+a question that cannot be undone, such as Reset All Settings, stands out; an
+informational popup keeps the normal colour. The highlighted button keeps
+the highlight colour.
+
 ## Optional (`--with-debug`)
 
 ### `0003-DEBUG-PeilessSec-UART-checkpoints.patch`
@@ -235,57 +291,3 @@ git diff -- path/File.c > ../../patches/000N-what-it-does.patch
 
 Name it `NNNN-DEBUG-...` if it is tracing rather than a fix. That prefix is
 what `apply.sh` keys on to decide whether it is opt-in.
-
-### `0011-TerminalDxe-send-non-ASCII-text-as-UTF-8.patch`
-
-The serial console is a TTYTERM terminal, and for every terminal type but
-VT-UTF8 `TerminalConOutOutputString ()` turned a character that is neither
-ASCII nor a box or arrow glyph into `?`. With the menus in Chinese the
-serial console showed rows of question marks. Such characters are now sent
-as UTF-8, and an East Asian wide character advances the driver's cursor by
-two columns, as it does on a terminal and on the graphics console. English
-output is unchanged. Switching the terminal type to VT-UTF8 was not an
-option: its function keys differ, and `PlatformBm.c` asserts TTYTERM.
-
-### `0012-UiApp-add-Shut-Down-to-the-front-page.patch`
-
-Applies on top of 0006 and 0008. Adds "Shut Down" / "关机" under "Reset" on
-the front page, which calls `ResetSystem (EfiResetShutdown)`. On the
-TaishanPi 3M that reaches the PMIC through Rk806I2cPowerOffDxe; on the other
-boards it is the PSCI SYSTEM_OFF it always was. The patch also adds the
-missing `break` after the Reset case, which used to fall through to
-`default`.
-
-### `0016-UiApp-add-Reset-All-Settings-to-the-front-page.patch`
-
-Applies on top of 0012. Adds "Reset All Settings" / "重置所有设置" under
-"Shut Down". The entry starts the platform's FullReset application
-(`Silicon/Rockchip/Applications/FullReset`, FILE_GUID
-`4bdbb2bd-8c5c-4400-bcca-0fd73a11ed49`) from the firmware volume UiApp was
-loaded from, and is only shown when that file is there. The application
-asks, and does the work; the patch holds no platform logic.
-
-### `0018-DisplayEngine-Yes-No-popups-start-on-No.patch`
-
-Applies on top of 0013. A Yes/No (or Yes/No/Cancel) popup from the HII
-popup protocol used to open with Yes highlighted, so a stray Enter answered
-Yes. These popups confirm what cannot be undone: Reset All Settings, which
-erases the whole variable store, and deleting Secure Boot keys. They now
-open with No highlighted; Y, N, the arrows and a click work as before. The
-protocol has no way for a caller to choose the default (the selection is an
-output only), so this is the one place to do it.
-### `0017-FileExplorerLib-add-zh-Hans-strings.patch`
-
-Independent of the others. The file explorer ("Boot From File", "Add Boot
-Option", "Add Driver Option") had no zh-Hans strings, so with the menus in
-Chinese its title and its "new file" / "new folder" entries stayed English.
-Every string gets a zh-Hans entry, in the same \wide ... \narrow form as
-0006 and 0007. The file keeps its CRLF line endings.
-
-### `0019-DisplayEngine-warning-popups-in-red.patch`
-
-Applies on top of 0013 and 0018. Every HII popup was drawn in the one popup
-colour whatever its style. Warning and error popups are now white on red, so
-a question that cannot be undone, such as Reset All Settings, stands out; an
-informational popup keeps the normal colour. The highlighted button keeps
-the highlight colour.
