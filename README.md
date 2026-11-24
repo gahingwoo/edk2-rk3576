@@ -17,7 +17,9 @@ the TaishanPi 3M boot Windows 11 23H2 from their eMMC, with the drivers from
 [woa-rk3576](https://github.com/gahingwoo/woa-rk3576); see
 [Windows](#windows) below.
 
-- Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
+- Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest);
+  the newest build of main, untested: the [`ci` pre-release](https://github.com/gahingwoo/edk2-rk3576/releases/tag/ci)
+  ([FLASHING.md](docs/FLASHING.md#the-rolling-ci-build))
 - Flash from the browser: [flash.gahingwoo.com](https://flash.gahingwoo.com/)
 - Docs: [edk2.gahingwoo.com](https://edk2.gahingwoo.com/)
 

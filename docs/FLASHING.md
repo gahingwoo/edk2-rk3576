@@ -13,6 +13,21 @@ Images are on the
 
 Offsets inside each image: [SPI_LAYOUT.md](SPI_LAYOUT.md).
 
+## The rolling ci build
+
+Besides the releases, the pre-release tagged
+[`ci`](https://github.com/gahingwoo/edk2-rk3576/releases/tag/ci) holds the
+images of the latest successful build of `main`: the same files, named
+`<Board>-emmc-edk2-ci-<sha>.img` (and `-sdcard-`, `-spi-`), with the
+`.sfdisk` tables and `SHA256SUMS.txt`. Its title is "CI build <sha> <date>"
+and its notes give the commit. It is never marked latest, every successful
+build of `main` replaces it, and nothing in it has been run on a board.
+
+Use a release; take the `ci` build only for a change that is on `main` and
+not released yet, and keep the release image at hand to go back.
+[Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)'s CI tier
+(Settings, Firmware and WinPE) writes from it.
+
 ## From the browser
 
 [flash.gahingwoo.com](https://flash.gahingwoo.com/) runs `rkdeveloptool` over
