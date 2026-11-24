@@ -59,6 +59,7 @@
   gRK3576TokenSpaceGuid.PcdAcpiPcieRequireRootBridge
   gRK3576TokenSpaceGuid.PcdTsadcEnable
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported
 
 [Pcd]
   gRK3576TokenSpaceGuid.PcdConfigTableMode
@@ -67,6 +68,7 @@
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates
   gRK3576TokenSpaceGuid.PcdAcpiNpu
   gRK3576TokenSpaceGuid.PcdAcpiVdec
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifi
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode
   gRK3576TokenSpaceGuid.PcdComboPhy1Mode
   gRK3576TokenSpaceGuid.PcdPcieEcamCompliantSegmentsMask

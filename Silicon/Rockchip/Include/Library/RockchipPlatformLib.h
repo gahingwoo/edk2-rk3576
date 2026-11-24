@@ -170,4 +170,18 @@ PlatformEarlyInit (
   VOID
   );
 
+/*
+ * PlatformSdioWifiInit -- set up the board's SDIO Wi-Fi module for an OS
+ * that has no pin, clock or power-sequence driver of its own (pins, clocks,
+ * WL_REG_ON), and probe the card so the serial log says whether it answers.
+ * Called by RK3576Dxe only when the "SDIO Wi-Fi" setup option is on
+ * (PcdAcpiSdioWifi) and the board says it has one (PcdAcpiSdioWifiSupported).
+ * Returns EFI_UNSUPPORTED on a board without one.
+ */
+EFI_STATUS
+EFIAPI
+PlatformSdioWifiInit (
+  VOID
+  );
+
 #endif

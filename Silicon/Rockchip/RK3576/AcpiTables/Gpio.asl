@@ -141,9 +141,17 @@ Device (GPI4)
   }
 }//GPIO4
 
+// The pin controller (IOC).  No Windows driver programs it: the firmware
+// sets every pin a Windows driver relies on before handing over, and the
+// GPIO banks above own their registers.  It has a _HID of its own so that a
+// Windows INF can name it (woa-rk3576 drivers/null/rk3576-null.inf), where
+// the generic PRP0001 would match every PRP0001 device.  PRP0001 stays as
+// the _CID, so an ACPI Linux still binds the "compatible" below; Linux on
+// these boards boots with the device tree in any case.
 Device (PINC)
 {
-  Name (_HID, "PRP0001")
+  Name (_HID, "RKCP3005")
+  Name (_CID, "PRP0001")
   Name (_UID, 0x4)
   Name (_DSD, Package () {
     ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),

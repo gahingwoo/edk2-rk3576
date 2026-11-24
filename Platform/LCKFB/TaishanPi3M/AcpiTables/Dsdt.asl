@@ -15,8 +15,10 @@
  *  that is known.
  *
  *  Kept from the CM5-IO, because the device is the SoC's and the board does
- *  not change it: CPUs, PCIe root complexes, eMMC, SD, GPIO, DMA, UART2,
+ *  not change it: CPUs, PCIe root complexes, eMMC, SD, GPIO, DMA,
  *  I2C0..I2C9, SPI0..SPI4, GMAC0, the RK806 PMIC and the HYM8563 RTC.
+ *  UART2 was kept too until 2026-11-24 and is now left out (see below,
+ *  where it used to be included).
  *
  *  Left out, on purpose:
  *
@@ -102,10 +104,17 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // DMA controllers DMA0..DMA2
     include ("Dma.asl")
 
-    // UART2 at 0x2ad50000.  Not used by this board's device tree, as it is
-    // not by the CM5-IO's; kept so the SoC set matches the one that has been
-    // booted.  UART0 is the SPCR/DBG2 console (dts:849-851, 1500000 8N1).
-    include ("Uart.asl")
+    // UART2 (Uart.asl, HISI0031) is not declared.  This board cannot use
+    // it: the device tree leaves it disabled, and none of its pin options
+    // reaches a connector.  UART2 M0 is GPIO1_C6/C7, which are WIFI_REG_ON
+    // and BT_REG_ON here (dts:174, dts:870); M1 is GPIO4_B4/B5, which are
+    // I2C3 to the ES8388; M2 is GPIO3_B7/C0, which the device tree does not
+    // use and LCKFB's 40-pin table does not list (the header's UARTs are
+    // UART3, 4, 7, 8, 9 and 11).  Windows also has no driver for it: the
+    // inbox serial.sys takes byte-spaced 16550 registers only, and this is
+    // a DesignWare UART with 32-bit registers.  Declared, it was a device
+    // with a yellow mark in Device Manager and nothing behind it.  UART0 is
+    // the SPCR/DBG2 console (dts:849-851, 1500000 8N1).
 
     // I2C0..I2C9 (SoC-level)
     include ("I2c.asl")
@@ -121,7 +130,12 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // which is the Linux default.
     Scope (I2C1) {
       Device (PMC0) {
-        Name (_HID, "PRP0001")
+        // RKCP0806 so that a Windows INF can name this device (woa-rk3576
+        // drivers/null/rk3576-null.inf: the firmware manages the PMIC and
+        // Windows has no driver for it).  PRP0001 as the _CID keeps the
+        // "compatible" match for an ACPI Linux.
+        Name (_HID, "RKCP0806")
+        Name (_CID, "PRP0001")
         Name (_UID, 0)
         Name (_CRS, ResourceTemplate () {
           I2cSerialBusV2 (0x0023, ControllerInitiated, 100000,

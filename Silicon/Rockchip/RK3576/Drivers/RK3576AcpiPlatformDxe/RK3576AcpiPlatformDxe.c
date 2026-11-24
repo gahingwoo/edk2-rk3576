@@ -465,6 +465,14 @@ AcpiDsdtFixupStatus (
 //
 #define VDEC_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'V', 'D', 'E', 'C', ' ', ' ')
 
+//
+// The board's Wi-Fi SSDT (OEM table ID "RKWIFI", the SDIO controller the
+// Wi-Fi module is on) is installed only when "SDIO Wi-Fi" is on in setup
+// (PcdAcpiSdioWifi) on a board that has one (PcdAcpiSdioWifiSupported).
+// RK3576Dxe powers and probes the module under the same condition.
+//
+#define WIFI_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'W', 'I', 'F', 'I', ' ', ' ')
+
 STATIC
 BOOLEAN
 EFIAPI
@@ -525,6 +533,17 @@ AcpiTableCheck (
     }
 
     DEBUG ((DEBUG_INFO, "AcpiPlatform: video decoder on, installing its SSDT\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == WIFI_SSDT_OEM_TABLE_ID))
+  {
+    if (!FixedPcdGetBool (PcdAcpiSdioWifiSupported) || (PcdGet8 (PcdAcpiSdioWifi) == 0)) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: SDIO Wi-Fi off in setup, Wi-Fi SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_ERROR, "AcpiPlatform: SDIO Wi-Fi on, installing the Wi-Fi SSDT (\\_SB.SDIO, RKCPFE2D)\n"));
   }
 
   return TRUE;

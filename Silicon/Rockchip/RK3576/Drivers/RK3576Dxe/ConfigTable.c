@@ -208,6 +208,34 @@ SetupConfigTableVariables (
   }
 
   //
+  // AcpiSdioWifi: whether the board powers and probes its SDIO Wi-Fi module
+  // and installs the Wi-Fi SSDT.  Shown only on a board that has both
+  // (AcpiSdioWifiSupported).
+  //
+  Var8   = FixedPcdGetBool (PcdAcpiSdioWifiSupported) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"AcpiSdioWifiSupported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"AcpiSdioWifi",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdAcpiSdioWifi, FixedPcdGet8 (PcdAcpiSdioWifiDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
   // Publish which FDT compat modes are actually supported (have an embedded DTB).
   // The HII form grays out the selector when only one mode is available.
   //

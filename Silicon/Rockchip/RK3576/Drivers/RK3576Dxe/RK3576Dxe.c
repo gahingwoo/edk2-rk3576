@@ -462,6 +462,21 @@ RK3576EntryPoint (
     RK3576VdecPowerOn ();
   }
 
+  /*
+   * SDIO Wi-Fi, only if setup asks for it, the OS gets ACPI and the board has
+   * a module the firmware knows (PcdAcpiSdioWifiSupported).  The board
+   * library sets the pins and clocks, raises WL_REG_ON and probes the card;
+   * RK3576AcpiPlatformDxe installs the Wi-Fi SSDT under the same option.
+   * Off by default, and with it off nothing here touches the module.
+   */
+  if (FixedPcdGetBool (PcdAcpiSdioWifiSupported) &&
+      (PcdGet8 (PcdAcpiSdioWifi) != 0) &&
+      ((PcdGet32 (PcdConfigTableMode) & CONFIG_TABLE_MODE_ACPI) != 0))
+  {
+    Status = PlatformSdioWifiInit ();
+    DEBUG ((DEBUG_ERROR, "RK3576Dxe: SDIO Wi-Fi on in setup, board init %r\n", Status));
+  }
+
   /* Initialize status LED */
   RK3576InitStatusLed ();
 
