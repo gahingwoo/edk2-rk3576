@@ -253,6 +253,12 @@
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
 
+  # TEST IMAGE ONLY (test-flash-2026-11-24): the video decoder (VDPU383)
+  # defaults on, so the woa-rk3576 vdpu383 driver has a device to bind.
+  # It still needs ACPI in the config table mode.  Turn it off in setup:
+  # ACPI / Device Tree > Video Decoder (VDPU383, experimental) > Disabled.
+  gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|1
+
 ################################################################################
 [Components.common]
   # ACPI tables, installed alongside the DTB (PcdConfigTableModeDefault above)
