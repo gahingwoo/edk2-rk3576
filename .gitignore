@@ -8,7 +8,7 @@
 !/third_party/edk2
 
 # The upstream kernel dt-bindings mirror used to compile the DTS (~90 MB).
-# scripts/setup-host.sh does not fetch it yet -- see docs/BUILDING.md.
+# scripts/setup-host.sh does not fetch it yet -- see docs/dev/building.md.
 # It is a symlink on the maintainer's machine, so ignore the path itself and
 # not just a directory at that path -- a trailing slash matches only a
 # directory, which is how the symlink came to be committed and why CI could

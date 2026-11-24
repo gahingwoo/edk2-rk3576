@@ -2538,8 +2538,9 @@ FvbProcessBootDiskDeviceHandle (
   if (EFI_ERROR (Status)) {
     //
     // Not fatal.  Failing to seed the NV store on the boot medium costs
-    // variable persistence, which docs/FLASHING.md already documents as this
-    // board's behaviour ("EFI variables are volatile on SD card boot").
+    // variable persistence, which docs/FLASHING.md documented as this
+    // board's behaviour when this was written ("EFI variables are volatile
+    // on SD card boot"); the store has been saved on SD and eMMC since.
     // Asserting here instead loses the entire boot, which is a much worse
     // outcome than a variable that does not survive a power cycle.
     //

@@ -63,14 +63,16 @@
   # are PcdsDynamicHii, so the token space GUID is baked into the runtime PCD
   # database; giving it a new value would change the firmware image and the
   # stored variable layout.  Renaming it is a separate change that has to be
-  # verified on hardware — see docs/STATUS.md.
+  # verified on hardware; see docs/STATUS.md as of 024e68e~1
+  # (removed on 2026-10-01, kept in the git history).
   gRK3588TokenSpaceGuid = { 0x32594b40, 0x45e7, 0x11ec, { 0xbb, 0xc1, 0xf4, 0x2a, 0x7d, 0xcb, 0x92, 0x5d } }
 
   # PlatformLib reads the L"DebugSerialPortBaudRate" variable under this GUID.
   # KNOWN MISMATCH: the HII formset that would write it is gRK3576DxeFormSetGuid,
   # so that lookup never finds anything.  Kept at its original value here rather
   # than "fixed" during the restructure, because changing it changes runtime
-  # behaviour and wants a hardware pass.  See docs/STATUS.md.
+  # behaviour and wants a hardware pass.  See docs/STATUS.md as of
+  # 024e68e~1 (removed on 2026-10-01, kept in the git history).
   gRK3588DxeFormSetGuid = { 0x10f41c33, 0xa468, 0x42cd, { 0x85, 0xee, 0x70, 0x43, 0x21, 0x3f, 0x73, 0xa3 } }
 
 [PcdsFixedAtBuild]

@@ -855,7 +855,8 @@ HdmiTxIomux (
        * SRST_HDMITXHDP is the one to watch on this board: it gates the
        * hot-plug-detect block, CLK_HDMITXHDP is ungated above, and the reset
        * was never actually released.  That fits the symptom recorded in
-       * docs/STATUS.md -- IOC_HDMI_HPD_STATUS stuck at 0 while DDC, which is
+       * docs/STATUS.md (as of 024e68e~1, removed on 2026-10-01) --
+       * IOC_HDMI_HPD_STATUS stuck at 0 while DDC, which is
        * a different block on a different pair, works fine.  It is a cheaper
        * thing to rule out than a cable with a broken pin 19.
        */
