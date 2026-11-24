@@ -223,9 +223,14 @@
   gRK3576TokenSpaceGuid.PcdGpuRailReport|TRUE
 
   # BUCK5 read 0x28 (750 mV) on this board on 2026-11-23; 702 MHz (SPLL / 1)
-  # needs mainline's 775 mV for the 800 MHz operating point.  Raised to
-  # 775 mV and no higher, approved by the user for this board only.
-  gRK3576TokenSpaceGuid.PcdGpuRailRaise775|TRUE
+  # needs mainline's 775 mV for the 800 MHz operating point.  The setup
+  # option "GPU voltage for 702 MHz (775 mV)" raises it to 775 mV and no
+  # higher.  On by default on this board, as 537ea09 did unconditionally:
+  # on 2026-11-24 FurMark at 702 MHz scored 334-336 against 288-290 at
+  # 594 MHz and peaked at 49.9 C with the fan on.  Turn it off to keep the
+  # PMIC's 750 mV (the Windows driver then stays at 594 MHz).
+  gRK3576TokenSpaceGuid.PcdGpuRail775Supported|TRUE
+  gRK3576TokenSpaceGuid.PcdGpuRail775Default|1
 
   # Start the fan on CN2 (PWM2 ch3, see PwmFanIoSetup) at full speed and
   # leave it running into the OS.  Windows has no driver for it and nothing

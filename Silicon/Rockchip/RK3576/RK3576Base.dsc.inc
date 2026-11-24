@@ -490,6 +490,13 @@
   # until a board has run sustained load at it with its temperature logged.
   #
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0
+  #
+  # GPU 775 mV (setup option, backs PcdGpuRail775 below): hidden unless a
+  # board sets PcdGpuRail775Supported, and off unless the board says
+  # otherwise.  With the fan off the TaishanPi 3M idles at 67-68 C at
+  # 594 MHz, so the higher rail and clock are a choice, not a default.
+  #
+  gRK3576TokenSpaceGuid.PcdGpuRail775Default|0
   # NPU for an ACPI OS (setup option, backs PcdAcpiNpu below): off.  When on,
   # RK3576Dxe sets the NPU rail, powers the NPU domains and sets its clock,
   # and RK3576AcpiPlatformDxe installs the NPU SSDT (Npu.asl).
@@ -598,6 +605,11 @@
   # Cooling
   #
   gRK3576TokenSpaceGuid.PcdCoolingFan|L"CoolingFan"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdCoolingFanDefault
+
+  #
+  # GPU
+  #
+  gRK3576TokenSpaceGuid.PcdGpuRail775|L"GpuRail775"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdGpuRail775Default
 
   #
   # NPU

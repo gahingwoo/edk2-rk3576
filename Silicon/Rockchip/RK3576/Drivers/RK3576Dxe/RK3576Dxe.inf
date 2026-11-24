@@ -101,7 +101,8 @@
   gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault
   gRK3576TokenSpaceGuid.PcdRk806I2cBus
   gRK3576TokenSpaceGuid.PcdGpuRailReport
-  gRK3576TokenSpaceGuid.PcdGpuRailRaise775
+  gRK3576TokenSpaceGuid.PcdGpuRail775Supported
+  gRK3576TokenSpaceGuid.PcdGpuRail775Default
   gRK3576TokenSpaceGuid.PcdTsadcEnable
   gRK3576TokenSpaceGuid.PcdTsadcTshutEnable
   gRK3576TokenSpaceGuid.PcdTsadcTshutTemp
@@ -149,6 +150,7 @@
   gRK3576TokenSpaceGuid.PcdCoolingFan
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq
+  gRK3576TokenSpaceGuid.PcdGpuRail775
   gRK3576TokenSpaceGuid.PcdAcpiNpu
   gRK3576TokenSpaceGuid.PcdAcpiVdec
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi

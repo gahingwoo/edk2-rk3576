@@ -11,6 +11,17 @@
 #ifndef RK3576_GPU_RAIL_H_
 #define RK3576_GPU_RAIL_H_
 
+//
+// Values of the GpuRail775 setup variable (PcdGpuRail775).
+//
+#define GPU_RAIL_775_OFF  0   // vdd_gpu_s0 as the PMIC powers up (750 mV on the TaishanPi 3M)
+#define GPU_RAIL_775_ON   1   // raised to 775 mV for 702 MHz (RaiseRail)
+
+//
+// Don't declare these in the VFR file.
+//
+#ifndef VFR_FILE_INCLUDE
+
 #define GPU_RAIL_VARIABLE_NAME     L"GpuRail"
 #define GPU_RAIL_REPORT_SIGNATURE  SIGNATURE_32 ('G', 'P', 'U', 'R')
 #define GPU_RAIL_REPORT_VERSION    1
@@ -57,5 +68,16 @@ VOID
 RK3576GpuRailStart (
   VOID
   );
+
+/**
+  Publish GpuRail775Supported and seed PcdGpuRail775 from the setup
+  variable (or the board default).
+**/
+VOID
+RK3576GpuRailSetupVariables (
+  VOID
+  );
+
+#endif // VFR_FILE_INCLUDE
 
 #endif // RK3576_GPU_RAIL_H_

@@ -62,6 +62,6 @@
 | 音频 | ES8388 在 I2C3 0x11，SAI1（DMA0 请求 2 和 3，lane 0 从 SDO2 输出），耳机功放使能 GPIO4 PB2，耳机插入检测 GPIO4 PB0，mclk_sai1 为 12.288 MHz，来自 clk_audio_frac_1。`PcdAnalogAudioPreset` 为 TRUE 时（这块板子就是）由 `Tspi3mAudio.c` 设置。 |
 | 蓝牙 | AP6256（BCM4345C5），在 UART6 上（uart6m1，GPIO2 PD2 到 PD5），sclk_uart6 为 24 MHz，来自 xin24m；BT_REG_ON 为 GPIO1 PC7，BT_WAKE 为 GPIO1 PD4。32 kHz 睡眠时钟来自 HYM8563 的 CLKOUT，芯片出厂时就是打开的；固件不写它。 |
 | RTC | HYM8563，在 I2C2 0x51。这块板子上每次断电和复位它都会丢失时间（没有电池），所以时间由网络（NTP）或操作系统设置。 |
-| GPU 供电 | `vdd_gpu_s0` = RK806 BUCK5，上电时 750 mV。固件读取它，为了 702 MHz 工作点把它升到 775 mV（`PcdGpuRailRaise775`），并把读数以 `GpuRail` 变量的形式提供给 Windows GPU 驱动。除非驱动的 `GpuClkHigh` 设置打开，否则驱动保持在 594 MHz。 |
+| GPU 供电 | `vdd_gpu_s0` = RK806 BUCK5，上电时 750 mV。固件读取它；设置选项“702 MHz 用的 GPU 电压（775 mV）”打开时（`PcdGpuRail775`，这块板默认打开）为了 702 MHz 工作点把它升到 775 mV，并把读数以 `GpuRail` 变量的形式提供给 Windows GPU 驱动。读数达到 775 mV 时驱动运行 702 MHz，否则 594 MHz。 |
 | 风扇 | 2 针接口 CN2，接 PWM2 通道 3（GPIO3_D0），高电平为开，由一个 P-MOSFET 在供电端开关。固件以 100%（`PcdPwmFanSpeedDefault`）、2 kHz 周期（`PcdPwmFanPeriodNs` 500000）启动它；在 60% 时能听到 2 kHz 的开关声。在 Windows 下，除非在设置里启用 "Fan Control by ACPI Thermal Zone"（默认关闭），风扇一直保持 100%。在 Linux 下，固件的设备树描述了 PWM 通道，但没有 `pwm-fan`，所以风扇停在固件留下的状态。 |
 | 测试过的型号 | 4 GB LPDDR5，64 GB eMMC |

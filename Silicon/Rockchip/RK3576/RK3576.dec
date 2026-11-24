@@ -97,13 +97,18 @@
   #
   gRK3576TokenSpaceGuid.PcdGpuRailReport|FALSE|BOOLEAN|0x00010903
   #
-  # With PcdGpuRailReport: raise vdd_gpu_s0 from exactly 750 mV (selector
-  # 0x28) to 775 mV (0x2C) in 6.25 mV steps, each read back, only on an
-  # RK806 reading 0x80 0x6A, a plain RK3576 (OTP specification 0x01) and
-  # TSHUT armed.  The 775 mV ceiling is a constant in GpuRail.c.  Approved
-  # for the TaishanPi 3M only.
+  # "GPU voltage for 702 MHz (775 mV)" (RK3576Dxe GpuRail.c).  Supported
+  # makes the setup option visible; the option (PcdGpuRail775, default
+  # PcdGpuRail775Default) is 0 for the PMIC's 750 mV and 1 for raising
+  # vdd_gpu_s0 from exactly 750 mV (selector 0x28) to 775 mV (0x2C) in
+  # 6.25 mV steps, each read back, only on an RK806 reading 0x80 0x6A, a
+  # plain RK3576 (OTP specification 0x01) and TSHUT armed.  The 775 mV
+  # ceiling is a constant in GpuRail.c.  Off, a rail left at 775 mV by an
+  # earlier boot is stepped back to 750 mV (LowerRail).  A board sets
+  # Supported only where vdd_gpu_s0 is RK806 BUCK5 on PcdRk806I2cBus.
   #
-  gRK3576TokenSpaceGuid.PcdGpuRailRaise775|FALSE|BOOLEAN|0x00010904
+  gRK3576TokenSpaceGuid.PcdGpuRail775Supported|FALSE|BOOLEAN|0x00010904
+  gRK3576TokenSpaceGuid.PcdGpuRail775Default|0|UINT8|0x00010905
   # NPU (RKNN) for an ACPI OS: the setup option (PcdAcpiNpu, default
   # PcdAcpiNpuDefault) decides whether RK3576Dxe sets the NPU rail, powers
   # the NPU domains and sets its clock (Npu.c), and whether
@@ -239,6 +244,7 @@
   gRK3576TokenSpaceGuid.PcdCoolingFan|1|UINT8|0x00000720
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates|0|UINT8|0x00000900
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq|0|UINT8|0x00000901
+  gRK3576TokenSpaceGuid.PcdGpuRail775|0|UINT8|0x00000902
   gRK3576TokenSpaceGuid.PcdAcpiNpu|0|UINT8|0x00000305
   gRK3576TokenSpaceGuid.PcdAcpiVdec|0|UINT8|0x00000304
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|0|UINT8|0x00000306

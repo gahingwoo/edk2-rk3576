@@ -447,6 +447,9 @@ RK3576EntryPoint (
   /* Whether NetworkTimeSyncDxe sets the clock from NTP */
   SetupNetworkTimeSyncVariables ();
 
+  /* Seed the GPU 775 mV option (GpuRail.c) */
+  RK3576GpuRailSetupVariables ();
+
   /* Read the cluster clocks we were handed, and apply the configured rates */
   RK3576SetupCpuPerf ();
 
@@ -516,8 +519,8 @@ RK3576EntryPoint (
   Rk3576TsadcInit ();
 
   /*
-   * vdd_gpu_s0 and the GPU OTP bytes (PcdGpuRailReport), and on the
-   * TaishanPi 3M the raise to 775 mV (PcdGpuRailRaise775).  After the
+   * vdd_gpu_s0 and the GPU OTP bytes (PcdGpuRailReport), and where a
+   * board offers it the setup option for 775 mV (PcdGpuRail775).  After the
    * TSADC, because the raise requires TSHUT armed.
    */
   RK3576GpuRailStart ();

@@ -1,10 +1,14 @@
 /** @file
  *
  *  Report the Mali-G52's supply, vdd_gpu_s0, and the per-chip OTP data that
- *  decide which GPU clock that supply is good for.  With PcdGpuRailRaise775
- *  (TaishanPi 3M only) it also raises BUCK5 from 750 to 775 mV, and to no
- *  more (RaiseRail); otherwise nothing here writes a PMIC register, a
- *  clock or anything else on the chip.
+ *  decide which GPU clock that supply is good for.  The report is always
+ *  made and writes nothing.  On a board with PcdGpuRail775Supported the
+ *  setup option "GPU voltage for 702 MHz (775 mV)" (PcdGpuRail775, its
+ *  default the board's PcdGpuRail775Default) raises BUCK5 from 750 to
+ *  775 mV and to no more (RaiseRail); with the option off, a rail an earlier boot left
+ *  at 775 mV (the RK806 keeps its selectors across a SoC reset) is stepped
+ *  back to 750 mV (LowerRail).  Nothing else here writes a PMIC register,
+ *  a clock or anything else on the chip.
  *
  *  Why
  *  ---
@@ -78,6 +82,7 @@
 #include <Protocol/I2cMaster.h>
 #include <Protocol/RockchipI2cMasterProtocol.h>
 
+#include "RK3576DxeFormSetGuid.h"
 #include "GpuRail.h"
 
 STATIC_ASSERT (sizeof (GPU_RAIL_REPORT) == 32, "GpuRail layout is shared with the Windows driver");
@@ -139,8 +144,10 @@ typedef struct {
 } RK806_I2C_REQUEST;
 
 //
-// The raise to 775 mV (PcdGpuRailRaise775), approved for the TaishanPi 3M
-// after its BUCK5 read 0x28 = 750 mV on 2026-11-23: 775 mV is mainline's
+// The raise to 775 mV (setup option GpuRail775, PcdGpuRail775), approved
+// first for the TaishanPi 3M after its BUCK5 read 0x28 = 750 mV on
+// 2026-11-23, then as an opt-in on boards that set PcdGpuRail775Supported
+// (the user's decision, 2026-11-25): 775 mV is mainline's
 // voltage for the 800 MHz operating point, which governs SPLL / 1 =
 // 702 MHz.  The ceiling is this constant and nothing else; no PCD, setup
 // option or variable can move it.
@@ -149,7 +156,7 @@ typedef struct {
 #define GPU_RAIL_CEIL_VSEL      0x2C    // 775.0 mV, never written above
 #define GPU_RAIL_STEP_WAIT_US   100     // one 6.25 mV step: 1 us at the slowest ramp (6250 uV/us)
 #define GPU_RAIL_SETTLE_US      1000    // after the last step, > 2x regulator-enable-ramp-delay
-#define RK806_EXPECT_NAME       0x80    // CHIP_NAME / CHIP_VER the TaishanPi 3M's RK806 reads
+#define RK806_EXPECT_NAME       0x80    // CHIP_NAME / CHIP_VER the TaishanPi 3M's RK806S-5 reads
 #define RK806_EXPECT_VER        0x6A
 #define TSADC_CRU_EN_REG        (RK3576_TSADC_BASE + 0x01C)
 #define TSADC_GPU_CHANNELS      (BIT3 | BIT5)   // the TRM says 3, the OTP trim and vendor say 5: both
@@ -484,10 +491,6 @@ RaiseRail (
   UINT8       Vsel;
   UINT8       ReadBack;
 
-  if (!FixedPcdGetBool (PcdGpuRailRaise775)) {
-    return;
-  }
-
   if ((mChipName != RK806_EXPECT_NAME) || (mChipVer != RK806_EXPECT_VER)) {
     DEBUG ((DEBUG_ERROR, "GpuRail: not raising BUCK5: PMIC reads 0x%02x 0x%02x, not 0x80 0x6A\n", mChipName, mChipVer));
     return;
@@ -562,6 +565,82 @@ RaiseRail (
   Report->RailUv  = RK806_BUCK_UV_BASE + (UINT32)ReadBack * RK806_BUCK_UV_STEP;
   Report->Flags  |= GPU_RAIL_FLAG_RAISED;
   DEBUG ((DEBUG_ERROR, "GpuRail: raised BUCK5 0x28 -> 0x2C, read back %u uV\n", Report->RailUv));
+}
+
+/**
+  With the option off: a BUCK5 at 0x2C is what an earlier boot with the
+  option on left (the RK806 keeps its selectors across a SoC reset).  Step
+  it back to the PMIC's 0x28 the same way it went up, each step read back.
+  Any other value is left alone.  Lowering is safe here: the GPU is at
+  GPLL / 6 = 198 MHz, which every voltage of the table covers.
+**/
+STATIC
+VOID
+LowerRail (
+  IN OUT GPU_RAIL_REPORT  *Report
+  )
+{
+  EFI_STATUS  Status;
+  UINT8       Vsel;
+  UINT8       ReadBack;
+
+  if (Report->OnVsel != GPU_RAIL_CEIL_VSEL) {
+    DEBUG ((DEBUG_ERROR, "GpuRail: 775 mV option off; BUCK5 0x%02x left as it is\n", Report->OnVsel));
+    return;
+  }
+
+  if ((mChipName != RK806_EXPECT_NAME) || (mChipVer != RK806_EXPECT_VER) ||
+      ((Report->Flags & GPU_RAIL_FLAG_ENABLED) == 0))
+  {
+    DEBUG ((DEBUG_ERROR, "GpuRail: 775 mV option off, BUCK5 0x2C, but the PMIC is not as expected; not written\n"));
+    return;
+  }
+
+  for (Vsel = GPU_RAIL_CEIL_VSEL - 1; Vsel >= GPU_RAIL_FROM_VSEL; Vsel--) {
+    Status = WriteVselChecked (Vsel, &ReadBack);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "GpuRail: BUCK5 wrote 0x%02x, read back 0x%02x (%r); writing 0x28\n", Vsel, ReadBack, Status));
+      Rk806Write (RK806_BUCK5_ON_VSEL, GPU_RAIL_FROM_VSEL);
+      Report->RailUv = 0;
+      Report->Flags &= (UINT8)~GPU_RAIL_FLAG_RAIL_VALID;
+      return;
+    }
+
+    MicroSecondDelay (GPU_RAIL_STEP_WAIT_US);
+  }
+
+  MicroSecondDelay (GPU_RAIL_SETTLE_US);
+  Status = Rk806Read (RK806_BUCK5_ON_VSEL, &ReadBack);
+  if (EFI_ERROR (Status) || (ReadBack != GPU_RAIL_FROM_VSEL)) {
+    DEBUG ((DEBUG_ERROR, "GpuRail: BUCK5 final read 0x%02x (%r)\n", ReadBack, Status));
+    Report->RailUv = 0;
+    Report->Flags &= (UINT8)~GPU_RAIL_FLAG_RAIL_VALID;
+    return;
+  }
+
+  Report->OnVsel = ReadBack;
+  Report->RailUv = RK806_BUCK_UV_BASE + (UINT32)ReadBack * RK806_BUCK_UV_STEP;
+  DEBUG ((DEBUG_ERROR, "GpuRail: 775 mV option off: lowered BUCK5 0x2C -> 0x28, read back %u uV\n", Report->RailUv));
+}
+
+/**
+  The setup option decides: raise, or put an earlier raise back.
+**/
+STATIC
+VOID
+ApplyRailOption (
+  IN OUT GPU_RAIL_REPORT  *Report
+  )
+{
+  if (!FixedPcdGetBool (PcdGpuRail775Supported)) {
+    return;
+  }
+
+  if (PcdGet8 (PcdGpuRail775) == GPU_RAIL_775_ON) {
+    RaiseRail (Report);
+  } else {
+    LowerRail (Report);
+  }
 }
 
 STATIC
@@ -640,7 +719,7 @@ GpuRailRun (
   ReadOtp (&Report);
   ReadRail (&Report);
   if ((Report.Flags & GPU_RAIL_FLAG_RAIL_VALID) != 0) {
-    RaiseRail (&Report);
+    ApplyRailOption (&Report);
   }
 
   LogVerdict (&Report);
@@ -733,5 +812,32 @@ RK3576GpuRailStart (
             );
   if (Event == NULL) {
     DEBUG ((DEBUG_ERROR, "GpuRail: could not register for the I2C bus; no report\n"));
+  }
+}
+
+VOID
+RK3576GpuRailSetupVariables (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       Size;
+  UINT8       Var8;
+
+  Var8   = FixedPcdGetBool (PcdGpuRail775Supported) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"GpuRail775Supported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (L"GpuRail775", &gRK3576DxeFormSetGuid, NULL, &Size, &Var8);
+  if (EFI_ERROR (Status) || (Var8 > GPU_RAIL_775_ON)) {
+    Status = PcdSet8S (PcdGpuRail775, FixedPcdGet8 (PcdGpuRail775Default));
+    ASSERT_EFI_ERROR (Status);
   }
 }

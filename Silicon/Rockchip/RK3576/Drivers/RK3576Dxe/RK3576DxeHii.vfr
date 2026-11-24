@@ -20,6 +20,7 @@
 #define VFR_FILE_INCLUDE
 #include "ConfigTable.h"
 #include "CpuMaxFreq.h"
+#include "GpuRail.h"
 
 //
 // EFI Variable attributes
@@ -198,6 +199,20 @@ formset
       name  = CpuMaxFreqSupported,
       guid  = RK3576DXE_FORMSET_GUID;
 
+    //
+    // GPU
+    //
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = GpuRail775,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      name  = GpuRail775Supported,
+      guid  = RK3576DXE_FORMSET_GUID;
+
     efivarstore FDT_COMPAT_MODE_VARSTORE_DATA,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
       name  = FdtCompatMode,
@@ -312,6 +327,24 @@ formset
           default     = FixedPcdGet8 (PcdCoolingFanDefault),
           option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
           option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+        endoneof;
+      endif;
+
+      //
+      // Only on a board whose GPU rail raise was approved
+      // (PcdGpuRail775Supported).
+      //
+      suppressif ideqval GpuRail775Supported == 0;
+        subtitle text = STRING_TOKEN(STR_NULL_STRING);
+        subtitle text = STRING_TOKEN(STR_GPU_SUBTITLE);
+
+        oneof varid = GpuRail775,
+          prompt      = STRING_TOKEN(STR_GPU_RAIL_775_PROMPT),
+          help        = STRING_TOKEN(STR_GPU_RAIL_775_HELP),
+          flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+          default     = FixedPcdGet8 (PcdGpuRail775Default),
+          option text = STRING_TOKEN(STR_GPU_RAIL_775_OFF), value = GPU_RAIL_775_OFF, flags = 0;
+          option text = STRING_TOKEN(STR_GPU_RAIL_775_ON),  value = GPU_RAIL_775_ON,  flags = 0;
         endoneof;
       endif;
 
