@@ -93,6 +93,7 @@
   gRK3576TokenSpaceGuid.PcdStatusLedGpio
   gRK3576TokenSpaceGuid.PcdStatusLedGpioPolarity
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault
+  gRK3576TokenSpaceGuid.PcdCoolingFanDefault
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault
@@ -145,6 +146,7 @@
   gRK3576TokenSpaceGuid.PcdFdtCompatMode
   gRK3576TokenSpaceGuid.PcdFdtForceGop
   gRK3576TokenSpaceGuid.PcdAcpiFanControl
+  gRK3576TokenSpaceGuid.PcdCoolingFan
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq
   gRK3576TokenSpaceGuid.PcdAcpiNpu
