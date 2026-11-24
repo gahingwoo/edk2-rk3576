@@ -1,0 +1,76 @@
+name: docs-zh-cn
+
+# Each English page X.md may have a Simplified Chinese twin X.zh-CN.md next
+# to it. When a push or a pull request changes an English page and leaves
+# its twin alone, the twin is probably out of date: say so with a warning
+# annotation on the English file. This job never fails; a translation can
+# follow in a later commit.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  twins:
+    name: Chinese twins of changed pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare changed English pages with their twins
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -u
+          base=""
+          if [ "$EVENT" = pull_request ]; then
+            base="$PR_BASE"
+          elif [ -n "${PUSH_BEFORE:-}" ] && ! [[ "$PUSH_BEFORE" =~ ^0+$ ]] \
+               && git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
+            base="$PUSH_BEFORE"
+          fi
+          if [ -z "$base" ]; then
+            # a new branch, a forced push to an unknown commit, or a manual
+            # run: compare with where this branch left the default branch
+            base=$(git merge-base HEAD "origin/$DEFAULT_BRANCH" 2>/dev/null || true)
+          fi
+          if [ -z "$base" ] || [ "$base" = "$(git rev-parse HEAD)" ]; then
+            echo "nothing to compare"
+            exit 0
+          fi
+          echo "comparing $base..HEAD"
+
+          changed=$(git diff --name-only "$base" HEAD)
+          stale=0
+          while IFS= read -r f; do
+            case "$f" in
+              *.zh-CN.md) continue ;;
+              *.md) ;;
+              *) continue ;;
+            esac
+            # pages kept as written on their date, and generated files
+            case "$f" in
+              docs/history/*|*CHANGELOG*.md) continue ;;
+            esac
+            [ -f "$f" ] || continue            # deleted or renamed away
+            twin="${f%.md}.zh-CN.md"
+            if [ ! -f "$twin" ]; then
+              echo "$f: no Chinese twin ($twin)"
+              continue
+            fi
+            if ! grep -qxF "$twin" <<<"$changed"; then
+              echo "::warning file=$f,line=1::$f changed but $twin did not; the Chinese page may be out of date"
+              stale=$((stale + 1))
+            fi
+          done <<<"$changed"
+          echo "$stale English page(s) changed without their Chinese twin"
+          exit 0
