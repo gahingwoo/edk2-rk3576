@@ -1,5 +1,7 @@
 # Hardware (moved)
 
+English | [简体中文](HARDWARE.zh-CN.md)
+
 This page moved on 2026-11-24. Board facts are in
 [hardware](dev/hardware.md); what works on each board is on the board pages.
 The notes and the "merged, not yet checked" list that were here are kept in

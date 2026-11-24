@@ -1,5 +1,7 @@
 # Booting Armbian's own U-Boot once ("Armbian (U-Boot)")
 
+English | [简体中文](ARMBIAN-CHAINLOAD.zh-CN.md)
+
 Status: implemented on branch `armbian-chainload`, built for the TaishanPi 3M,
 **not run on a board yet**. The board test is at the end.
 

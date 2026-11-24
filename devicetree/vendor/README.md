@@ -1,5 +1,7 @@
 # Vendor BSP device trees
 
+English | [简体中文](README.zh-CN.md)
+
 Precompiled DTBs from a vendor kernel, offered as an alternative to the
 mainline device tree built from `devicetree/mainline/`.
 

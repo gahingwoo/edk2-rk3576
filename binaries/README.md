@@ -1,5 +1,7 @@
 # Prebuilt binaries
 
+English | [简体中文](README.zh-CN.md)
+
 Build inputs, not build outputs. `scripts/package.sh` reads these; nothing
 here is produced by `scripts/build.sh`.
 

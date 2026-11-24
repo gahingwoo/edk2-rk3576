@@ -1,5 +1,7 @@
 # Gallery
 
+English | [简体中文](gallery.zh-CN.md)
+
 ## Operating systems
 
 | | |

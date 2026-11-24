@@ -1,5 +1,7 @@
 # Flashing (moved)
 
+English | [简体中文](FLASHING.zh-CN.md)
+
 This page moved to [flash](flash.md) on 2026-11-24. The sections that were
 here:
 
