@@ -192,6 +192,22 @@ SetupConfigTableVariables (
   }
 
   //
+  // AcpiVdec: whether the video decoder is powered and its SSDT installed.
+  //
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"AcpiVdec",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdAcpiVdec, FixedPcdGet8 (PcdAcpiVdecDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
   // Publish which FDT compat modes are actually supported (have an embedded DTB).
   // The HII form grays out the selector when only one mode is available.
   //
