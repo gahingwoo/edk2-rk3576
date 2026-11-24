@@ -38,6 +38,7 @@
   Silicon/Rockchip/RockchipPkg.dec
 
 [LibraryClasses]
+  ArmbianOnceLib
   BaseLib
   BaseMemoryLib
   BootLogoLib
