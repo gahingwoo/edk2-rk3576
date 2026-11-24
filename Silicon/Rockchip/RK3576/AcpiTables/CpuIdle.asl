@@ -5,8 +5,8 @@
  *
  *  Installed only when "CPU Idle States" is enabled in setup
  *  (PcdAcpiCpuIdleStates): RK3576AcpiPlatformDxe skips any SSDT with OEM
- *  table ID "RKLPI" otherwise, and the OS then idles the cores with WFI only,
- *  as it did before this table existed.
+ *  table ID "RKLPI" otherwise and installs CpuIdleWfi.asl ("RKWFI") in its
+ *  place, which has state 0 below and nothing else.
  *
  *  The states
  *  ----------

@@ -72,10 +72,10 @@
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|FALSE|BOOLEAN|0x00010303
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0|UINT8|0x00010304
   #
-  # CPU idle states (AcpiTables/CpuIdle.asl, OEM table ID "RKLPI"): the
-  # setup option (PcdAcpiCpuIdleStates, default PcdAcpiCpuIdleStatesDefault)
-  # decides whether RK3576AcpiPlatformDxe installs that SSDT.  Without it the
-  # OS idles the cores with WFI only.
+  # CPU idle states: the setup option (PcdAcpiCpuIdleStates, default
+  # PcdAcpiCpuIdleStatesDefault) picks which _LPI SSDT RK3576AcpiPlatformDxe
+  # installs: AcpiTables/CpuIdle.asl ("RKLPI", WFI and core power-down) when
+  # enabled, AcpiTables/CpuIdleWfi.asl ("RKWFI", WFI only) when disabled.
   #
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|0|UINT8|0x00010900
   #

@@ -432,12 +432,23 @@ AcpiDsdtFixupStatus (
 #define FAN_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'F', 'A', 'N', ' ', ' ', ' ')
 
 //
-// The CPU idle states SSDT (AcpiTables/CpuIdle.asl, OEM table ID "RKLPI")
-// is installed only when "CPU Idle States" is enabled in setup
-// (PcdAcpiCpuIdleStates).  Without it the tables are what they were before
-// it existed: no _LPI and no \_SB._OSC, so the OS idles with WFI.
+// Exactly one CPU idle SSDT is installed, chosen by "CPU Idle States" in
+// setup (PcdAcpiCpuIdleStates):
 //
-#define CPU_IDLE_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'L', 'P', 'I', ' ', ' ', ' ')
+//   enabled   AcpiTables/CpuIdle.asl,    OEM table ID "RKLPI": WFI and core
+//             power-down.
+//   disabled  AcpiTables/CpuIdleWfi.asl, OEM table ID "RKWFI": WFI only.
+//
+// Both define _LPI on the same eight processors and the same \_SB._OSC, so
+// installing both would be a duplicate-object error.  The WFI-only table is
+// not a no-op even though the cores idle with WFI without it: Windows keeps
+// idle time out of "% Processor Utility" (Task Manager's CPU graph) only
+// when the processor driver registered an idle state, and fxppm.sys
+// registers one only from _LPI.  With none, that counter reads 100 % at any
+// load.  CpuIdleWfi.asl has the details.
+//
+#define CPU_IDLE_SSDT_OEM_TABLE_ID      SIGNATURE_64 ('R', 'K', 'L', 'P', 'I', ' ', ' ', ' ')
+#define CPU_IDLE_WFI_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'W', 'F', 'I', ' ', ' ', ' ')
 
 //
 // The NPU SSDT (Npu.asl, OEM table ID "RKNPU") is installed only when the NPU
@@ -459,11 +470,22 @@ AcpiTableCheck (
       (AcpiHeader->OemTableId == CPU_IDLE_SSDT_OEM_TABLE_ID))
   {
     if (PcdGet8 (PcdAcpiCpuIdleStates) == 0) {
-      DEBUG ((DEBUG_INFO, "AcpiPlatform: CPU idle states off in setup, _LPI SSDT not installed\n"));
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: CPU idle states off in setup, power-down _LPI SSDT not installed\n"));
       return FALSE;
     }
 
     DEBUG ((DEBUG_INFO, "AcpiPlatform: CPU idle states on, installing the _LPI SSDT\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == CPU_IDLE_WFI_SSDT_OEM_TABLE_ID))
+  {
+    if (PcdGet8 (PcdAcpiCpuIdleStates) != 0) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: CPU idle states on, WFI-only _LPI SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_INFO, "AcpiPlatform: CPU idle states off, installing the WFI-only _LPI SSDT\n"));
   }
 
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&

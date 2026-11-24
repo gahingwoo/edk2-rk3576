@@ -145,7 +145,8 @@ SetupConfigTableVariables (
   }
 
   //
-  // AcpiCpuIdleStates: whether the _LPI SSDT (CpuIdle.asl) is installed.
+  // AcpiCpuIdleStates: which _LPI SSDT is installed, CpuIdle.asl (1, WFI
+  // and core power-down) or CpuIdleWfi.asl (0, WFI only).
   // Every board that builds ACPI tables carries it, so there is no
   // "supported" variable.
   //
