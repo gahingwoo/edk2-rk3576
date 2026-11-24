@@ -86,7 +86,7 @@ request. The slot is past the 32 MiB the images cover; ArmbianOnce refuses to
 use it if any partition other than the `firmware` one (type
 `8DA63339-0007-60C0-C436-083AC8230908`) overlaps it.
 
-The record (`Silicon/Rockchip/Applications/ArmbianOnce/ArmbianOnce.h`, and
+The record (`Silicon/Rockchip/Include/ArmbianOnce.h`, and
 `struct ao_request` in the SPL):
 
 | Offset | Field |
@@ -142,10 +142,31 @@ device, so a damaged Armbian FIT on the SD card ends in the firmware.
 
 `Silicon/Rockchip/Applications/ArmbianOnce` is built into boards that set
 `RK_ARMBIAN_ONCE_ENABLE` (the TaishanPi 3M only, for now).
-`PlatformBootManagerLib` registers it as `Armbian (U-Boot)` when the file is in
-the FV: not active, so the boot order never picks it, no hotkey. It can also be
-reached as BootNext (`efibootmgr -n` from a Linux booted through this firmware,
-with "Save OS Variable Changes to eMMC" on).
+`PlatformBootManagerLib` lists it as `Armbian (U-Boot)` only while it has
+something to boot. On every boot, after the disks are connected and before the
+boot manager reads its options, it connects the SD controller (in case the boot
+discovery policy did not) and asks `ArmbianOnceProbe()` (`ArmbianOnceLib`,
+shared with the application). The option is there when the SPL takes requests
+and there is an arm64 U-Boot FIT (an image with `os = "u-boot"`,
+`arch = "arm64"`, and no image for another architecture) at sector 0x4000 of the
+SD card, of the eMMC (firmware on the SD card), or of a USB or NVMe disk, or
+already in the eMMC slot. Otherwise the Boot#### variable is deleted, which also
+takes it out of BootOrder. With no card the SD disk has no media, so the check
+reads nothing from it and only a sector or two of the eMMC; the 1 MiB SPL read
+happens only when a U-Boot was found. A card put in after the boot shows the
+option on the next boot.
+
+The file-system search for `/usr/lib/linux-u-boot-*/u-boot-rockchip.bin` is
+not part of that check (it would cost a directory walk of every file system on
+every boot). So Armbian that lives only in a partition of the eMMC, with no
+card, USB disk or filled slot, does not get the option. Once the slot holds a
+U-Boot (filled from a USB disk), it does.
+
+The option is not active, so the boot order never picks it, and it has no
+hotkey. It is added at the end of BootOrder, and moved back to the end if
+anything put it first. The variables are written only when something changes.
+It can also be reached as BootNext (`efibootmgr -n` from a Linux booted through
+this firmware, with "Save OS Variable Changes to eMMC" on).
 
 The application:
 
@@ -309,12 +330,19 @@ variables stay.
    then in Armbian `echo b | sudo tee /proc/sysrq-trigger`: firmware. Choose
    it again and pull the power while Armbian's U-Boot is up: firmware.
    Repeat step 4 at least three times in all.
-6. Errors: card out, choose the entry: the "No Armbian U-Boot found" text, back
-   to the menu, nothing written (sector 16383 still zero).
-7. Optional, slot path: card out, an Armbian USB disk on a USB-A port, choose
+6. Card out, boot: `Armbian (U-Boot)` is not in the boot manager (and not in
+   BootOrder). Card in, boot: it is back, last in the list.
+7. Card pulled after the request: choose the entry, and while the screen says
+   `Restarting`, pull the card. SPL: `request found and erased: booting U-Boot
+   from the SD card, once`, then `U-Boot was not loaded from the SD card,
+   booting the firmware`, then the firmware from the eMMC; sector 16383 is zero
+   and the next boot is a normal one.
+8. Optional, slot path: card out, an Armbian USB disk on a USB-A port, choose
    the entry: `Found a U-Boot FIT on ...`, `Copying it to the eMMC slot`, SPL
    `booting U-Boot from the eMMC slot, once`; whether Armbian's U-Boot finds
    the disk is the open part. A second use prints `The eMMC slot already holds
-   that U-Boot.`
+   that U-Boot.` With the USB disk gone too, the option stays (the slot holds a
+   U-Boot) and the application says `Using the U-Boot copied to the eMMC slot
+   earlier`.
 
 Send the serial log of steps 3 to 5 back; the SPL lines are the evidence.

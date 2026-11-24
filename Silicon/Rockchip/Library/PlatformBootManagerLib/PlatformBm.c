@@ -15,6 +15,7 @@
 #include <IndustryStandard/Pci22.h>
 #include <IndustryStandard/SmBios.h>
 #include <Protocol/Smbios.h>
+#include <Library/ArmbianOnceLib.h>
 #include <Library/BootLogoLib.h>
 #include <Library/CapsuleLib.h>
 #include <Guid/GlobalVariable.h>
@@ -982,13 +983,137 @@ PlatformRegisterOptionsAndKeys (
   PlatformRegisterFvBootOption (&gRockchipFullResetFileGuid, L"Reset All Settings", 0, &F9);
 
   //
-  // Register "Armbian (U-Boot)" where the board builds it in
-  // (RK_ARMBIAN_ONCE_ENABLE).  No hotkey.  It is not active, so it is never
-  // picked by the boot order: only by hand, or as BootNext.
+  // "Armbian (U-Boot)" is not registered here: it depends on the disks,
+  // which are connected later (PlatformSyncArmbianOnceOption).
   //
-  if (PlatformFvHasFile (&gRockchipArmbianOnceFileGuid)) {
+}
+
+/**
+  TRUE if Option boots FileGuid from a firmware volume (Fv(...)/FvFile(GUID),
+  whatever its description or attributes).
+**/
+STATIC
+BOOLEAN
+IsFvFileOption (
+  IN CONST EFI_BOOT_MANAGER_LOAD_OPTION  *Option,
+  IN CONST EFI_GUID                      *FileGuid
+  )
+{
+  EFI_DEVICE_PATH_PROTOCOL  *Node;
+
+  for (Node = Option->FilePath; !IsDevicePathEnd (Node); Node = NextDevicePathNode (Node)) {
+    if (  (DevicePathType (Node) == MEDIA_DEVICE_PATH)
+       && (DevicePathSubType (Node) == MEDIA_PIWG_FW_FILE_DP))
+    {
+      return CompareGuid (&((MEDIA_FW_VOL_FILEPATH_DEVICE_PATH *)Node)->FvFileName, FileGuid);
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+  Move Boot#### OptionNumber from the front of BootOrder to its end, if it
+  is at the front and not alone there.
+**/
+STATIC
+VOID
+PlatformKeepOptionOffFront (
+  IN UINTN  OptionNumber
+  )
+{
+  UINT16  *BootOrder;
+  UINTN   Size;
+  UINTN   Count;
+
+  GetEfiGlobalVariable2 (EFI_BOOT_ORDER_VARIABLE_NAME, (VOID **)&BootOrder, &Size);
+  if (BootOrder == NULL) {
+    return;
+  }
+
+  Count = Size / sizeof (UINT16);
+  if ((Count > 1) && (BootOrder[0] == OptionNumber)) {
+    CopyMem (&BootOrder[0], &BootOrder[1], (Count - 1) * sizeof (UINT16));
+    BootOrder[Count - 1] = (UINT16)OptionNumber;
+    gRT->SetVariable (
+           EFI_BOOT_ORDER_VARIABLE_NAME,
+           &gEfiGlobalVariableGuid,
+           EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+           Size,
+           BootOrder
+           );
+    DEBUG ((DEBUG_INFO, "%a: Boot%04x moved to the end of BootOrder\n", __func__, (UINT32)OptionNumber));
+  }
+
+  FreePool (BootOrder);
+}
+
+/**
+  "Armbian (U-Boot)" is listed only while it has something to boot: a U-Boot
+  FIT on the SD card (or on the eMMC when this firmware runs from the card,
+  or on a USB/NVMe disk, or already copied to the eMMC slot) and an SPL that
+  takes requests.  Checked once per boot, after the disks are connected and
+  before the boot manager reads the options; a card put in later shows the
+  option on the next boot.  With no card the SD disk has no media and the
+  check costs a sector read or two on the eMMC.
+
+  The option is never active, so the boot order never picks it, and it is
+  added at the end of BootOrder and kept off its front.  The variables are
+  only written when something changes.
+**/
+STATIC
+VOID
+PlatformSyncArmbianOnceOption (
+  VOID
+  )
+{
+  EFI_STATUS                    Status;
+  CONST CHAR16                  *Where;
+  EFI_BOOT_MANAGER_LOAD_OPTION  *BootOptions;
+  UINTN                         BootOptionCount;
+  UINTN                         Index;
+  BOOLEAN                       Listed = FALSE;
+
+  if (!PlatformFvHasFile (&gRockchipArmbianOnceFileGuid)) {
+    return;
+  }
+
+  ArmbianOnceConnectSd ();
+  Status = ArmbianOnceProbe (&Where);
+
+  BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
+  for (Index = 0; Index < BootOptionCount; Index++) {
+    if (!IsFvFileOption (&BootOptions[Index], &gRockchipArmbianOnceFileGuid)) {
+      continue;
+    }
+
+    if (EFI_ERROR (Status)) {
+      //
+      // Also takes it out of BootOrder.
+      //
+      EfiBootManagerDeleteLoadOptionVariable (BootOptions[Index].OptionNumber, LoadOptionTypeBoot);
+      DEBUG ((DEBUG_INFO, "%a: Boot%04x removed: %r\n", __func__, (UINT32)BootOptions[Index].OptionNumber, Status));
+    } else {
+      Listed = TRUE;
+      PlatformKeepOptionOffFront (BootOptions[Index].OptionNumber);
+    }
+  }
+
+  EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
+
+  if (!EFI_ERROR (Status) && !Listed) {
     PlatformRegisterFvBootOption (&gRockchipArmbianOnceFileGuid, L"Armbian (U-Boot)", 0, NULL);
   }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: %a (%r)%s%s\n",
+    __func__,
+    EFI_ERROR (Status) ? "not listed" : "listed",
+    Status,
+    (Where != NULL) ? L", U-Boot on " : L"",
+    (Where != NULL) ? Where : L""
+    ));
 }
 
 //
@@ -1473,6 +1598,11 @@ PlatformBootManagerAfterConsole (
   // refresh Boot order for newly discovered boot devices
   //
   BootDiscoveryPolicyHandler ();
+
+  //
+  // Disks are connected and the boot manager has not read the options yet.
+  //
+  PlatformSyncArmbianOnceOption ();
 
   //
   // Devices are connected; the boot timeout has not started yet.  Work that

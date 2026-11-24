@@ -1,0 +1,45 @@
+## @file
+#
+#  Finding a U-Boot for "Armbian (U-Boot)" (ArmbianOnce and
+#  PlatformBootManagerLib).
+#
+#  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ArmbianOnceLib
+  FILE_GUID                      = a981c4f2-5a09-4222-b818-8b4178e9887b
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = ArmbianOnceLib|DXE_DRIVER UEFI_APPLICATION
+
+[Sources]
+  ArmbianOnceLib.c
+
+[Packages]
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  Silicon/Rockchip/RockchipPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  FdtLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+
+[Protocols]
+  gEfiBlockIoProtocolGuid
+  gEfiDiskIoProtocolGuid
+  gEdkiiNonDiscoverableDeviceProtocolGuid
+  gEfiPartitionInfoProtocolGuid
+
+[FixedPcd]
+  gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress
+  gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress

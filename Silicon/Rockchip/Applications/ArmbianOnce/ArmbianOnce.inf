@@ -20,7 +20,6 @@
 
 [Sources]
   ArmbianOnce.c
-  ArmbianOnce.h
 
 [Packages]
   MdeModulePkg/MdeModulePkg.dec
@@ -28,6 +27,7 @@
   Silicon/Rockchip/RockchipPkg.dec
 
 [LibraryClasses]
+  ArmbianOnceLib
   BaseLib
   BaseMemoryLib
   DebugLib
