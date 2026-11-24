@@ -50,4 +50,13 @@ DisableQuietBoot (
   VOID
   );
 
+/**
+  On a board that offers "CPU Maximum Frequency" Max, ask once which to use
+  (CpuMaxFreqAsk.c).  Restarts the board when the answer changes it.
+**/
+VOID
+PlatformAskCpuMaxFreqOnce (
+  VOID
+  );
+
 #endif // PLATFORM_BM_H_
