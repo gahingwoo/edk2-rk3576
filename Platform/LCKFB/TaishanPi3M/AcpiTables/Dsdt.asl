@@ -121,7 +121,12 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // which is the Linux default.
     Scope (I2C1) {
       Device (PMC0) {
-        Name (_HID, "PRP0001")
+        // RKCP0806 so that a Windows INF can name this device (woa-rk3576
+        // drivers/null/rk3576-null.inf: the firmware manages the PMIC and
+        // Windows has no driver for it).  PRP0001 as the _CID keeps the
+        // "compatible" match for an ACPI Linux.
+        Name (_HID, "RKCP0806")
+        Name (_CID, "PRP0001")
         Name (_UID, 0)
         Name (_CRS, ResourceTemplate () {
           I2cSerialBusV2 (0x0023, ControllerInitiated, 100000,
