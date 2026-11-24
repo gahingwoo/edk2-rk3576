@@ -458,12 +458,13 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
   #
-  # CPU idle states (setup option, backs PcdAcpiCpuIdleStates below): off.
-  # edk2-rk3588 publishes no _LPI at all, so this is not upstream behaviour
-  # to inherit, and the core power-down state stops the core's generic timer
-  # on a SoC with no always-on timer frame Windows could use instead
-  # (AcpiTables/CpuIdle.asl).  Turn it on per board once a board has run
-  # with it.
+  # CPU idle states (setup option, backs PcdAcpiCpuIdleStates below): off,
+  # which installs the WFI-only _LPI table (AcpiTables/CpuIdleWfi.asl) that
+  # Windows needs for a sane "% Processor Utility".  On adds core power-down
+  # (AcpiTables/CpuIdle.asl).  edk2-rk3588 publishes no _LPI at all, so that
+  # is not upstream behaviour to inherit, and core power-down stops the
+  # core's generic timer on a SoC with no always-on timer frame Windows could
+  # use instead.  Turn it on per board once a board has run with it.
   #
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|0
   #
