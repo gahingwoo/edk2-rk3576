@@ -1,6 +1,6 @@
 # edk2-rk3576
 
-[English](README.md)（本页对应 2026-11-24 的英文版）
+[English](README.md) | 简体中文
 
 Rockchip RK3576 开发板的 UEFI 固件（EDK2 / TianoCore），支持 Radxa ROCK 4D、ArmSoM CM5-IO
 和立创泰山派 3M。它能像 PC 一样启动 Linux，在 CM5-IO 和泰山派 3M 上还能启动 Windows 11 23H2。
@@ -19,23 +19,23 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 
 ## 从一块新板子到 Windows 或 Linux
 
-1. 先看你的板子：[Radxa ROCK 4D](docs/zh-CN/boards/rock4d.md)、
-   [ArmSoM CM5-IO](docs/zh-CN/boards/cm5io.md)、[立创泰山派 3M](docs/zh-CN/boards/tspi3m.md)。
-2. 写入固件（见[刷写固件](docs/zh-CN/flash.md)），三种方法任选：
+1. 先看你的板子：[Radxa ROCK 4D](docs/boards/rock4d.zh-CN.md)、
+   [ArmSoM CM5-IO](docs/boards/cm5io.zh-CN.md)、[立创泰山派 3M](docs/boards/tspi3m.zh-CN.md)。
+2. 写入固件（见[刷写固件](docs/flash.zh-CN.md)），三种方法任选：
    - [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)，桌面程序；
    - [flash.gahingwoo.com](https://flash.gahingwoo.com/)，用 Chrome 或 Edge 打开；
    - `rkdeveloptool`。
 3. 装 Windows 11 23H2（CM5-IO、泰山派 3M）：按
-   [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/zh-CN/install.md)操作，
-   或者用 Maskrom Studio 在电脑上直接装，不用 U 盘。概览见 [Windows](docs/zh-CN/windows.md)。
+   [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.zh-CN.md)操作，
+   或者用 Maskrom Studio 在电脑上直接装，不用 U 盘。概览见 [Windows](docs/windows.zh-CN.md)。
 4. 在 Windows 下按需加装驱动：GPU 和显示驱动
    [wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52)，NPU 驱动
    [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu)。
-5. 装 Linux：见 [Linux](docs/zh-CN/linux.md)。
-6. 遇到问题：[故障排查](docs/zh-CN/troubleshooting.md)、[已知问题](docs/zh-CN/known-issues.md)。
+5. 装 Linux：见 [Linux](docs/linux.zh-CN.md)。
+6. 遇到问题：[故障排查](docs/troubleshooting.zh-CN.md)、[已知问题](docs/known-issues.zh-CN.md)。
 
 映像：[最新正式版](https://github.com/gahingwoo/edk2-rk3576/releases/latest)（0.4.1，2026-11-17），
-或 `main` 的 [`ci` 构建](docs/zh-CN/flash.md#滚动的-ci-构建)，包含之后合并的全部改动。
+或 `main` 的 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)，包含之后合并的全部改动。
 
 ## 板子
 
@@ -51,7 +51,7 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 | USB-A | 可用 | 可用 | 可用 |
 | USB-C | USB 2.0 | USB 2.0 | 上电时插着的设备可用（ci） |
 | 以太网 | 可用 | 可用 | 可用 |
-| 通过 UEFI 启动 Linux | 从 NVMe 启动 Fedora | 从 NVMe 启动 Fedora | 从 eMMC 启动 Armbian edge，[有限制](docs/zh-CN/linux.md#立创泰山派-3m) |
+| 通过 UEFI 启动 Linux | 从 NVMe 启动 Fedora | 从 NVMe 启动 Fedora | 从 eMMC 启动 Armbian edge，[有限制](docs/linux.zh-CN.md#立创泰山派-3m) |
 | Windows 11 23H2 | 不支持（没有 ACPI） | 能进桌面 | 能进桌面 |
 | Windows：GPU 绘制桌面 | | 未试过 | 配合 wddm-mali-g52 可用 |
 | Windows：音频 | | 未试过 | 耳机、麦克风、HDMI（ci） |
@@ -60,23 +60,23 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 
 每块板的结果都来自同一块实物。每块板最后一次测试的时间和版本见[测试](docs/dev/testing.md)（英文）。串口：1500000 8N1。
 
-固件本身的功能：简体中文菜单、截图、调试报告、恢复全部设置、网络校时、屏幕键盘。见[固件菜单](docs/zh-CN/firmware-menus.md)。
+固件本身的功能：简体中文菜单、截图、调试报告、恢复全部设置、网络校时、屏幕键盘。见[固件菜单](docs/firmware-menus.zh-CN.md)。
 
 ## Windows
 
 Windows 11 23H2 可以从 CM5-IO 和泰山派 3M 的 eMMC 启动。Windows 11 24H2 及以后的版本跑不了：RK3576 是
 ARMv8.0。Windows 安装程序在这些板子上用不了，所以要用 WinPE U 盘里的 DISM 写入系统映像，或者用 Maskrom Studio。
-步骤见 [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/zh-CN/install.md)。
-各项功能需要哪个固件：见 [Windows](docs/zh-CN/windows.md)。
+步骤见 [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.zh-CN.md)。
+各项功能需要哪个固件：见 [Windows](docs/windows.zh-CN.md)。
 
 ### 泰山派 3M 上的 Linux
 
 Armbian edge 和 Windows 一起装在 eMMC 上，经 GRUB 用固件的设备树启动：DSI 屏、触摸、耳机、背光、USB-A、
-以太网和 EC20 模块都能用。目前 GPU 是关的。详情和限制见 [Linux](docs/zh-CN/linux.md#立创泰山派-3m)。
+以太网和 EC20 模块都能用。目前 GPU 是关的。详情和限制见 [Linux](docs/linux.zh-CN.md#立创泰山派-3m)。
 
 ## 已知问题
 
-主要的几条，完整列表见[已知问题](docs/zh-CN/known-issues.md)：
+主要的几条，完整列表见[已知问题](docs/known-issues.zh-CN.md)：
 
 - Windows 11 24H2 及以后的版本跑不了（ARMv8.0）。
 - 泰山派 3M 的 USB-C 口只给上电时就插着的设备供电。

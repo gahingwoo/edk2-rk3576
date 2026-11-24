@@ -1,6 +1,6 @@
 # ArmSoM CM5-IO
 
-[简体中文](../zh-CN/boards/cm5io.md)
+English | [简体中文](cm5io.zh-CN.md)
 
 The ArmSoM CM5 module (RK3576) on the CM5-IO carrier. Boots Fedora from NVMe
 and Windows 11 23H2 from the eMMC. Everything below is from one board, a

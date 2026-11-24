@@ -1,6 +1,6 @@
 # Radxa ROCK 4D
 
-[English](../../boards/rock4d.md)（本页对应 2026-11-24 的英文版）
+[English](rock4d.md) | 简体中文
 
 固件放在 ROCK 4D 的 16 MB SPI NOR 上，从 NVMe 启动 Fedora。这块板子编译时不带 ACPI 表，所以不能启动 Windows。
 
@@ -27,10 +27,10 @@
 
 ## 安装固件
 
-把 `ROCK4D-spi` 映像写到 SPI NOR（[刷写固件](../flash.md#radxa-rock-4d)）。UEFI 设置也存在这块闪存上，写入映像会清空设置。
+把 `ROCK4D-spi` 映像写到 SPI NOR（[刷写固件](../flash.zh-CN.md#radxa-rock-4d)）。UEFI 设置也存在这块闪存上，写入映像会清空设置。
 
-接下来：[Linux](../linux.md)。
+接下来：[Linux](../linux.zh-CN.md)。
 
 ## 硬件细节
 
-见[硬件](../../dev/hardware.md#radxa-rock-4d)（英文）。
+见[硬件](../dev/hardware.md#radxa-rock-4d)（英文）。

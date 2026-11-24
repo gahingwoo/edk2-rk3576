@@ -1,6 +1,6 @@
 # Linux
 
-[简体中文](zh-CN/linux.md)
+English | [简体中文](linux.zh-CN.md)
 
 Linux boots through the firmware like on a PC: from a USB stick, NVMe or
 the eMMC, through GRUB, with the firmware's device tree. Nothing has to be

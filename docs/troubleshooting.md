@@ -1,6 +1,6 @@
 # Troubleshooting
 
-[简体中文](zh-CN/troubleshooting.md)
+English | [简体中文](troubleshooting.zh-CN.md)
 
 For a problem to report, save a [debug report](firmware-menus.md#debug-report)
 first and attach it to an

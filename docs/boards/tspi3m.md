@@ -1,6 +1,6 @@
 # LCKFB TaishanPi 3M
 
-[简体中文](../zh-CN/boards/tspi3m.md)
+English | [简体中文](tspi3m.zh-CN.md)
 
 The board most of this work runs on: Windows 11 23H2 and Armbian from the
 eMMC, LCKFB's DSI screen with touch, HDMI. Everything below is from one

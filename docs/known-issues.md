@@ -1,6 +1,8 @@
 # Known issues
 
-As of `main` on 2026-11-24. [简体中文](zh-CN/known-issues.md)
+English | [简体中文](known-issues.zh-CN.md)
+
+As of `main` on 2026-11-24.
 
 - Windows 11 24H2 and later cannot run: RK3576 is ARMv8.0. Use Windows 11
   23H2.

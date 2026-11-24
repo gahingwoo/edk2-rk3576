@@ -1,11 +1,11 @@
 # edk2-rk3576
 
+English | [简体中文](README.zh-CN.md)
+
 [![SoC](https://img.shields.io/badge/SoC-RK3576-blue)]()
 [![License](https://img.shields.io/badge/license-BSD--2--Clause--Patent-lightgrey)](LICENSE)
 [![Flash](https://img.shields.io/badge/flash-WebUSB%20browser%20tool-informational)](https://flash.gahingwoo.com/)
 [![Docs](https://img.shields.io/badge/docs-edk2.gahingwoo.com-informational)](https://edk2.gahingwoo.com/)
-
-[简体中文](README.zh-CN.md)
 
 UEFI firmware (EDK2 / TianoCore) for Rockchip RK3576 boards: the Radxa
 ROCK 4D, the ArmSoM CM5-IO and the LCKFB TaishanPi 3M. It boots Linux like

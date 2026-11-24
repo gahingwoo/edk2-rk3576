@@ -1,6 +1,6 @@
 # 立创泰山派 3M
 
-[English](../../boards/tspi3m.md)（本页对应 2026-11-24 的英文版）
+[English](tspi3m.md) | 简体中文
 
 这个项目大部分工作都在这块板子上做：eMMC 上跑 Windows 11 23H2 和 Armbian，
 接立创的 DSI 屏和触摸，也接 HDMI。下面的结果都来自同一块板子。板子由嘉立创（JLC）赞助。
@@ -24,7 +24,7 @@
 | 风扇 | 100% 转速 | 100%，或者打开设置项后按温度调速 | 保持 100% |
 
 0.4.1 正式版（2026-11-17）已经支持 DSI 屏、菜单里的触摸、中文菜单和 Windows。
-Windows 下的触摸、蓝牙、音频和 USB-C 要用 [`ci` 构建](../flash.md#滚动的-ci-构建)，等下一个正式版发布。
+Windows 下的触摸、蓝牙、音频和 USB-C 要用 [`ci` 构建](../flash.zh-CN.md#滚动的-ci-构建)，等下一个正式版发布。
 
 ## 开始之前
 
@@ -36,15 +36,15 @@ Windows 下的触摸、蓝牙、音频和 USB-C 要用 [`ci` 构建](../flash.md
 ## 安装固件
 
 1. 把 `TaishanPi3M-emmc` 映像作为完整映像写到 eMMC
-   （[刷写固件](../flash.md#立创泰山派-3m)）。这会替换立创的出厂系统。
+   （[刷写固件](../flash.zh-CN.md#立创泰山派-3m)）。这会替换立创的出厂系统。
 2. 以后更新时选"保留分区"
-   （[只更新固件](../flash.md#只更新固件保留其他内容)），Windows、Linux 和设置都会保留。
+   （[只更新固件](../flash.zh-CN.md#只更新固件保留其他内容)），Windows、Linux 和设置都会保留。
 
 接下来：
 
-- Windows：看 [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/zh-CN/install.md)，
-  或者用 [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio) 不用 U 盘直接装。概览见 [Windows](../windows.md)。
-- Linux：见 [Linux](../linux.md)。
+- Windows：看 [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.zh-CN.md)，
+  或者用 [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio) 不用 U 盘直接装。概览见 [Windows](../windows.zh-CN.md)。
+- Linux：见 [Linux](../linux.zh-CN.md)。
 
 ## DSI 屏和触摸
 
@@ -69,7 +69,7 @@ Windows 下的触摸、蓝牙、音频和 USB-C 要用 [`ci` 构建](../flash.md
 ## 时钟
 
 这块板子的 RTC 每次断电和复位都会丢时间。插着网线时，固件每次启动会通过 NTP 校时
-（见[固件菜单](../firmware-menus.md#时钟)）；没插网线时，时间会一直不对，直到操作系统自己同步。
+（见[固件菜单](../firmware-menus.zh-CN.md#时钟)）；没插网线时，时间会一直不对，直到操作系统自己同步。
 
 ## 风扇
 
@@ -78,4 +78,4 @@ Windows 下的触摸、蓝牙、音频和 USB-C 要用 [`ci` 构建](../flash.md
 
 ## 硬件细节
 
-PHY、GPIO、I2C 地址、GPU 供电等：见[硬件](../../dev/hardware.md#lckfb-taishanpi-3m)（英文）。
+PHY、GPIO、I2C 地址、GPU 供电等：见[硬件](../dev/hardware.md#lckfb-taishanpi-3m)（英文）。

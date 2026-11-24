@@ -1,6 +1,6 @@
 # Radxa ROCK 4D
 
-[简体中文](../zh-CN/boards/rock4d.md)
+English | [简体中文](rock4d.zh-CN.md)
 
 The firmware lives on the ROCK 4D's 16 MB SPI NOR and boots Fedora from
 NVMe. This board builds without ACPI tables, so Windows does not start on

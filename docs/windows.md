@@ -1,6 +1,6 @@
 # Windows
 
-[简体中文](zh-CN/windows.md)
+English | [简体中文](windows.zh-CN.md)
 
 Windows 11 23H2 runs from the eMMC of the ArmSoM CM5-IO and of the LCKFB
 TaishanPi 3M. The Radxa ROCK 4D builds without ACPI tables, so Windows does

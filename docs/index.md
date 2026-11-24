@@ -1,7 +1,9 @@
 # edk2-rk3576
 
+English | [简体中文](index.zh-CN.md)
+
 UEFI firmware (EDK2 / TianoCore) for Rockchip RK3576 boards: Radxa ROCK 4D,
-ArmSoM CM5-IO and LCKFB TaishanPi 3M. [简体中文](zh-CN/index.md)
+ArmSoM CM5-IO and LCKFB TaishanPi 3M.
 
 ```
 BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS

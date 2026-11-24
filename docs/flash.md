@@ -1,7 +1,9 @@
 # Flashing
 
+English | [简体中文](flash.zh-CN.md)
+
 How to put the firmware on a board, update it later, and get a board back
-when something went wrong. [简体中文](zh-CN/flash.md)
+when something went wrong.
 
 ## Which image
 

@@ -1,6 +1,6 @@
 # Linux
 
-[English](../linux.md)（本页对应 2026-11-24 的英文版）
+[English](linux.md) | 简体中文
 
 Linux 像在 PC 上一样通过固件启动：从 U 盘、NVMe 或 eMMC，经过 GRUB，使用固件自带的设备树。不需要往 ESP 里放任何东西。
 
@@ -8,7 +8,7 @@ Linux 像在 PC 上一样通过固件启动：从 U 盘、NVMe 或 eMMC，经过
 
 Fedora（ROCK 4D 上是 44，CM5-IO 上是 45）用 Fedora ARM64 U 盘安装，从 NVMe 启动。CM5-IO 上的 GNOME 桌面通过 Panfrost 跑在 Mali-G52 上。
 
-1. 写入固件（见[刷写固件](flash.md)）。
+1. 写入固件（见[刷写固件](flash.zh-CN.md)）。
 2. 在启动管理器里选 Fedora ARM64 安装 U 盘。
 3. 安装到 NVMe。
 

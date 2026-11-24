@@ -1,6 +1,6 @@
 # ArmSoM CM5-IO
 
-[English](../../boards/cm5io.md)（本页对应 2026-11-24 的英文版）
+[English](cm5io.md) | 简体中文
 
 ArmSoM CM5 核心板（RK3576）配 CM5-IO 底板。从 NVMe 启动 Fedora，从 eMMC 启动
 Windows 11 23H2。下面的结果都来自同一块 4 GB 的 CM5。核心板和底板由 ArmSoM 赞助。
@@ -33,16 +33,16 @@ Windows 一栏大部分是 2026-10-01 用固件 0.2.0 和 woa-rk3576 0.1.0 看�
 
 放在 eMMC 上（装 Windows 需要这样）：
 
-1. 把 `CM5IO-emmc` 映像作为完整映像写入（[刷写固件](../flash.md#写入完整映像)）。这会替换 eMMC 上的全部内容。
-2. 以后更新时选"保留分区"（[只更新固件](../flash.md#只更新固件保留其他内容)）。
+1. 把 `CM5IO-emmc` 映像作为完整映像写入（[刷写固件](../flash.zh-CN.md#写入完整映像)）。这会替换 eMMC 上的全部内容。
+2. 以后更新时选"保留分区"（[只更新固件](../flash.zh-CN.md#只更新固件保留其他内容)）。
 
-或者放在 SD 卡上，前提是 eMMC 上没有引导程序：[刷写固件](../flash.md#armsom-cm5-io)。
+或者放在 SD 卡上，前提是 eMMC 上没有引导程序：[刷写固件](../flash.zh-CN.md#armsom-cm5-io)。
 
 接下来：
 
-- Windows：看 [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/zh-CN/install.md)。概览见 [Windows](../windows.md)。
-- Linux：见 [Linux](../linux.md)。
+- Windows：看 [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.zh-CN.md)。概览见 [Windows](../windows.zh-CN.md)。
+- Linux：见 [Linux](../linux.zh-CN.md)。
 
 ## 硬件细节
 
-见[硬件](../../dev/hardware.md#armsom-cm5-io)（英文）。
+见[硬件](../dev/hardware.md#armsom-cm5-io)（英文）。

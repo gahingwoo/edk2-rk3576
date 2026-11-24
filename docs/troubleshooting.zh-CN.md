@@ -1,8 +1,8 @@
 # 故障排查
 
-[English](../troubleshooting.md)（本页对应 2026-11-24 的英文版）
+[English](troubleshooting.md) | 简体中文
 
-要报告问题，先保存一份[调试报告](firmware-menus.md#调试报告)，附在 [issue](https://github.com/gahingwoo/edk2-rk3576/issues) 里。
+要报告问题，先保存一份[调试报告](firmware-menus.zh-CN.md#调试报告)，附在 [issue](https://github.com/gahingwoo/edk2-rk3576/issues) 里。
 
 ## 电脑上看不到 MaskROM 设备
 
@@ -20,15 +20,15 @@
 
 ## CM5-IO 不从 SD 卡启动
 
-BootROM 先试 eMMC，只有 eMMC 上没有引导程序时才会用 SD 卡。泰山派 3M 的 SD 卡单独永远启动不了，eMMC 上必须有 SPL（见[刷写固件](flash.md#立创泰山派-3m)）。
+BootROM 先试 eMMC，只有 eMMC 上没有引导程序时才会用 SD 卡。泰山派 3M 的 SD 卡单独永远启动不了，eMMC 上必须有 SPL（见[刷写固件](flash.zh-CN.md#立创泰山派-3m)）。
 
 ## 更新后设置丢了
 
-写入覆盖了 43648 扇区的设置区。请用网页刷机工具或 Maskrom Studio 的"保留分区"，或者[只更新固件](flash.md#只更新固件保留其他内容)里给出的 `dd` 范围。
+写入覆盖了 43648 扇区的设置区。请用网页刷机工具或 Maskrom Studio 的"保留分区"，或者[只更新固件](flash.zh-CN.md#只更新固件保留其他内容)里给出的 `dd` 范围。
 
 ## Linux 或 Windows 里加的启动项重启后没了
 
-在 eMMC 上，只有打开 "Save OS Variable Changes to eMMC" 后，操作系统改的启动项才会保留（见[固件菜单](firmware-menus.md#操作系统写入的启动项)）。Reset All Settings 之后，手动加的启动项也会消失。
+在 eMMC 上，只有打开 "Save OS Variable Changes to eMMC" 后，操作系统改的启动项才会保留（见[固件菜单](firmware-menus.zh-CN.md#操作系统写入的启动项)）。Reset All Settings 之后，手动加的启动项也会消失。
 
 ## 时间不对
 

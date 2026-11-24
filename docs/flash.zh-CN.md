@@ -1,7 +1,8 @@
 # 刷写固件
 
+[English](flash.md) | 简体中文
+
 怎样把固件写到板子上、以后怎样更新、出问题时怎样恢复。
-[English](../flash.md)（本页对应 2026-11-24 的英文版）
 
 ## 用哪个映像
 
@@ -180,11 +181,11 @@ MaskROM：板子上没有 MaskROM 键。
 替换 SPL 之前，先确认能进入 MaskROM。SPL 写坏了，要靠 MaskROM 恢复。
 
 自己编译映像：`scripts/build.sh tspi3m` 和 `scripts/package.sh tspi3m`
-（[编译说明](../dev/building.md)，英文）。
+（[编译说明](dev/building.md)，英文）。
 
 ## 恢复
 
 MaskROM 在 BootROM 里，这里的任何操作都不会改写它，所以板子总能进入 MaskROM 重新写入。
 
 如果板子能启动但设置有问题，在首页选 "Reset All Settings"，或者在启动倒计时按 F9，
-会清空 UEFI 设置，像刚写好固件的板子一样启动。见[固件菜单](firmware-menus.md)。
+会清空 UEFI 设置，像刚写好固件的板子一样启动。见[固件菜单](firmware-menus.zh-CN.md)。

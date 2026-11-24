@@ -1,7 +1,9 @@
 # Firmware menus and features
 
+English | [简体中文](firmware-menus.zh-CN.md)
+
 What the firmware offers before an operating system starts. Applies to all
-three boards unless a board is named. [简体中文](zh-CN/firmware-menus.md)
+three boards unless a board is named.
 
 Serial console: 1500000 8N1. Keys during the boot countdown: F4 resets into
 MaskROM, F9 starts Reset All Settings.

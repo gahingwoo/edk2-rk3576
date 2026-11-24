@@ -1,7 +1,8 @@
 # 固件菜单和功能
 
+[English](firmware-menus.md) | 简体中文
+
 操作系统启动之前，固件本身提供的功能。除非注明板子，三块板都适用。
-[English](../firmware-menus.md)（本页对应 2026-11-24 的英文版）
 
 串口：1500000 8N1。启动倒计时里的按键：F4 重启进入 MaskROM，F9 开始 Reset All Settings。
 
@@ -68,7 +69,7 @@
 - "Screen Rotation" 旋转菜单、UEFI Shell 和触摸测试。操作系统拿到的是屏幕原本的方向，自己负责旋转。
 - "Screen Brightness (%)" 设置泰山派 3M DSI 屏的背光，10% 到 100%。
 
-ACPI / Device Tree 页的 "Force UEFI GOP Display" 决定 Linux 沿用固件的画面，还是自己驱动显示（见 [Linux](linux.md)）。
+ACPI / Device Tree 页的 "Force UEFI GOP Display" 决定 Linux 沿用固件的画面，还是自己驱动显示（见 [Linux](linux.zh-CN.md)）。
 
 ## 屏幕键盘和鼠标
 
