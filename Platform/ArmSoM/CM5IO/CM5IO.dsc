@@ -117,6 +117,10 @@
   #       DWC3 DRD1 @ 0x23400000 (USB-A, combphy1 SS+HS)
   DEFINE RK_USB_ENABLE           = TRUE
 
+  # Boot option "Armbian (U-Boot)".  Needs the SPL from scripts/build-spl.sh
+  # (SPL_* in boards/cm5io.conf); with any other SPL the option is not listed.
+  DEFINE RK_ARMBIAN_ONCE_ENABLE  = TRUE
+
 !include Silicon/Rockchip/RK3576/RK3576Base.dsc.inc
 
 ################################################################################
