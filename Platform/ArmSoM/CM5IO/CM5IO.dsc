@@ -271,6 +271,49 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   #
   gRockchipTokenSpaceGuid.PcdRtc8563ClkoutEnable|TRUE
 
+  #
+  # I2C.  The base file lists the RTC only; this board's devices are:
+  #   I2C1 0x23  the RK806 PMIC (pmic@23 under &i2c1 in
+  #              rk3576-armsom-cm5.dtsi, the same bus, address and part as
+  #              the TaishanPi 3M).  Listed so that I2cDxe sets that bus up
+  #              (pins, clock divider) and maps it for runtime;
+  #              Rk806I2cPowerOffDxe switches the PMIC off through it when an
+  #              OS asks for a shutdown.
+  #   I2C2 0x51  the LK8563S RTC (rtc@51 under &i2c2), for
+  #              Hym8563RealTimeClockLib; mapped for runtime because Windows
+  #              gets its time from it.
+  # I2C0 (FUSB302 0x22, ES8388 0x10) is not listed: the firmware reaches the
+  # FUSB302 without I2cDxe (Rk3576Fusb302Lib), and the codec is the OS's.
+  #
+  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x23, 0x51 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x1, 0x2 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ TRUE, TRUE }
+
+  # PSCI SYSTEM_OFF only raises PWR_CTRL1, which the RK806 ignores unless
+  # told otherwise; see Rk806I2cPowerOffDxe.  On the CM5 GPIO0_A3 is
+  # PMIC_PWR_CTRL1 (ArmSoM-CM5-1V1 schematic p4 and p13), as on the
+  # TaishanPi 3M.  Setting the base also offers the NPU setup option (Npu.c
+  # sets vdd_npu_s0, dcdc-reg2 under the same pmic@23).
+  gRK3576TokenSpaceGuid.PcdRk806I2cBase|0x2AC40000
+  gRK3576TokenSpaceGuid.PcdRk806I2cAddress|0x23
+  gRK3576TokenSpaceGuid.PcdRk806I2cBus|1
+
+  # "CPU Maximum Frequency" (RK3576Dxe CpuMaxFreq.c).  vdd_cpu_big_s0 is
+  # dcdc-reg1 (BUCK1) and vdd_cpu_lit_s0 dcdc-reg3 (BUCK3) under pmic@23 in
+  # rk3576-armsom-cm5.dtsi, with 550000/950000 uV limits, the same as the
+  # TaishanPi 3M; CpuMaxFreq.c also checks the PMIC's chip ID and the SoC
+  # variant in OTP before it raises anything.  Default stays 1608 MHz.  NOT
+  # RUN on this board.
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0
+
+  # Log vdd_gpu_s0 (BUCK5, dcdc-reg5 under the same pmic@23) and the GPU OTP
+  # bytes at boot, and hand them to the Windows GPU driver as the GpuRail
+  # variable (RK3576Dxe GpuRail.c).  Reads only.  PcdGpuRailRaise775 stays
+  # FALSE here: 775 mV was approved for the TaishanPi 3M only, so maliwddm
+  # keeps this board at 594 MHz.
+  gRK3576TokenSpaceGuid.PcdGpuRailReport|TRUE
+
 ################################################################################
 [Components.common]
   # ACPI tables (Windows ARM64, FreeBSD, ACPI-capable OS)
@@ -295,6 +338,9 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   # from the live ComboPHY mode; runs only when ConfigTableMode has the ACPI bit.
   # Board-level because only this carrier enables ACPI.
   Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
+
+  # Power the board off through the RK806 at a shutdown (PcdRk806I2cBase).
+  Silicon/Rockchip/RK3576/Drivers/Rk806I2cPowerOffDxe/Rk806I2cPowerOffDxe.inf
 
   # RK3576Dxe, FdtPlatformDxe, the PCIe stack and the GMAC stack are common to
   # every RK3576 board and are declared in RK3576Base.dsc.inc.

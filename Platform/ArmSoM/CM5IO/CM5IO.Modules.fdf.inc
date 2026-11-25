@@ -33,3 +33,6 @@
 
   # Splash screen / boot logo
   INF $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
+
+  # RK806 power-off at a shutdown (PcdRk806I2cBase in CM5IO.dsc)
+  INF Silicon/Rockchip/RK3576/Drivers/Rk806I2cPowerOffDxe/Rk806I2cPowerOffDxe.inf
