@@ -63,7 +63,7 @@ CM5-IO V1.1 原理图）。都已编译通过，本节的内容都还没有在�
 | "Armbian (U-Boot)" 单次启动 | **新增** | SPL 改为用主线 U-Boot v2026.10 加 Armbian 的 CM5-IO 板级文件和单次启动补丁编译；现在先试 SD 卡，和泰山派 3M 一样 |
 | 风扇开关（"Fan"，默认开） | 早已具备（main，`fan-onoff`） | 极性仍未确定，见本板 RockchipPlatformLib.c 里的 `PwmFanSetSpeed`："开"会把引脚拉低，只有反相的解读正确时才是全速 |
 | 首次启动询问一次 CPU 频率 | 随 CPU Maximum Frequency **新增** | `cpu-ask-once`（已在 main）会在所有提供 Max 的板子上询问 |
-| Wi-Fi、蓝牙（SYN43752） | 没有移植 | 这颗芯片没有 Windows 驱动；泰山派 3M 的驱动是给 BCM43456/BCM4345C5 的 |
+| Wi-Fi、蓝牙（BW3752-50B1 模组上的 BCM43752） | **已加** | 蓝牙：`\_SB.BTH0`（`RKCP4362`），UART4 M1，BT_REG_ON 为 GPIO1_C7，BT_WAKE 为 GPIO1_D4，配 woa-rk3576 的 bcm4345bt 和 BCM4362A2.hcd。Wi-Fi：设置项“SDIO Wi-Fi”（默认关）打开后固件配置 SDIO 并探测一次网卡，再装 `RKCPFE2D` 的 SSDT，给 bcmwlsdio 用（woa-rk3576 的 `cm5io-wifi-bt` 分支，没跑过）。引脚取自 ArmSoM-CM5-1V1 原理图第 11、17 页，和泰山派 3M 相同，只有串口不同 |
 | DSI 屏、触摸、触摸按键 | 不适用 | 底板有 DSI 接口，但没有测过屏；泰山派 3M 的代码针对它自己的屏 |
 | USB-C 设备等待 / USB-A VBUS 设备树修正 | 不需要 | CM5-IO 的 USB-C 口有供电；USB-A 的稳压器在主线设备树里是 PHY 的电源 |
 
@@ -86,6 +86,12 @@ CM5-IO V1.1 原理图）。都已编译通过，本节的内容都还没有在�
   `m5test clk`（或 GPU 时钟性能计数器）显示 702 MHz；FurMark 跑 60 秒没有 TDR；记下分数和 GPU、CPU
   最高温度。然后把选项设为关并重启：日志显示 `lowered BUCK5 0x2C -> 0x28, read back 750000 uV`，
   Windows 运行 594 MHz。
+- 蓝牙（Windows）：`ACPI\RKCP4362` 装上 bcm4345bt；它的 Device Parameters 里 `ResetStatus` 为 0，
+  有 `RomVersion`，用 BCM4362A2.hcd 时 `FirmwareLoaded` 为 1，`Baud` 为 1500000。`ResetStatus` 超时说明
+  模组没上电、没有 32 kHz 时钟，或串口引脚不对。
+- 打开 "SDIO Wi-Fi"：串口日志里有 `CM5-IO Wi-Fi: CIS vendor 0x02d0 device 0xaae8`、
+  `chip ID ... chip 0xaae8 (43752) rev N` 和 `probe PASS`；记下版本号（Armbian 的固件是给 rev 2 的）。
+  Windows 里 `\_SB.SDIO` 绑定 dwcmshc，并出现 `SD\VID_02D0&PID_AAE8` 的卡。
 - Linux：和以前一样启动（音频、NPU 和电源芯片在 Linux 下归设备树管）；`poweroff` 仍能断电。
 
 ## 硬件细节

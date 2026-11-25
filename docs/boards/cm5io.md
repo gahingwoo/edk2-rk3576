@@ -74,7 +74,7 @@ V1.1 schematics). Built, and nothing in this section has run on the board.
 | "Armbian (U-Boot)" one-shot | **added** | SPL rebuilt from mainline U-Boot v2026.10 with Armbian's CM5-IO files and the one-shot patch; it now tries the SD card first, like the TaishanPi 3M's |
 | Fan on/off switch ("Fan", default on) | already there (main, `fan-onoff`) | polarity still not settled, see `PwmFanSetSpeed` in this board's RockchipPlatformLib.c: "on" holds the pin low, which is full speed only if the inverted reading is right |
 | CPU frequency asked once at first boot | **added** with CPU Maximum Frequency | `cpu-ask-once` (main) asks on every board that offers Max |
-| Wi-Fi, Bluetooth (SYN43752) | not ported | no Windows driver for this chip; the TaishanPi 3M drivers are for the BCM43456/BCM4345C5 |
+| Wi-Fi, Bluetooth (BCM43752 on the BW3752-50B1 module) | **added** | Bluetooth: `\_SB.BTH0` (`RKCP4362`) on UART4 M1, BT_REG_ON GPIO1_C7, BT_WAKE GPIO1_D4, for woa-rk3576 bcm4345bt with BCM4362A2.hcd. Wi-Fi: setup option "SDIO Wi-Fi" (off by default) sets up SDIO and probes the card, then installs the `RKCPFE2D` SSDT for bcmwlsdio (branch `cm5io-wifi-bt` in woa-rk3576, never run). Pins from the ArmSoM-CM5-1V1 schematic pages 11 and 17; they are the TaishanPi 3M's, only the UART differs |
 | DSI screen, touch, touch keys | not applicable | the carrier has a DSI connector but no screen was tested; the TaishanPi 3M code is for its own panel |
 | USB-C device wait / USB-A VBUS FDT fixup | not needed | the CM5-IO powers its USB-C port; its USB-A regulator is a PHY supply in the mainline tree |
 
@@ -112,6 +112,15 @@ What to check on the board, firmware first:
   the peak GPU and CPU temperatures. Then set the option to Off and restart:
   the log shows `lowered BUCK5 0x2C -> 0x28, read back 750000 uV` and
   Windows runs 594 MHz.
+- Bluetooth (Windows): `ACPI\RKCP4362` gets bcm4345bt; its Device
+  Parameters show `ResetStatus` 0, `RomVersion`, `FirmwareLoaded` 1 with
+  BCM4362A2.hcd, `Baud` 1500000. A `ResetStatus` timeout means the module
+  is off, has no 32 kHz clock, or the UART pins are wrong.
+- "SDIO Wi-Fi" on: the serial log has `CM5-IO Wi-Fi: CIS
+  vendor 0x02d0 device 0xaae8`, `chip ID ... chip 0xaae8 (43752) rev N` and
+  `probe PASS`; note the revision (Armbian's firmware is for rev 2). In
+  Windows `\_SB.SDIO` binds dwcmshc and a `SD\VID_02D0&PID_AAE8` card
+  appears.
 - Linux: boots as before (audio, NPU and the PMIC are the device tree's
   business there); `poweroff` still powers off.
 

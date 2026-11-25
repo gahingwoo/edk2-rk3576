@@ -44,6 +44,8 @@ and puts the board values next to the device tree line they come from.
 | SAI1 (analog audio) | `RKCP3004` | no | yes | the same |
 | Touch GT9271 (`\_SB.I2C0.TCH0`) | `RKCP9271` | no | when the screen answers at boot | screen detection |
 | Bluetooth BCM4345C5 (`\_SB.BTH0`) | `RKCP4345` | no | yes | TaishanPi 3M DSDT |
+| Bluetooth BCM43752 (`\_SB.BTH0`, BCM4362A2 core, UART4) | `RKCP4362` | yes | no | CM5-IO DSDT |
+| SDIO Wi-Fi controller (`\_SB.SDIO`, SSDT `RKWIFI`) | `RKCPFE2D` | yes | yes | setup option "SDIO Wi-Fi", off by default |
 | RTC HYM8563 | `HYMB0001` | yes | yes | board DSDT |
 | PMIC RK806 (`\_SB.I2C1.PMC0`) | `RKCP0806`, `_CID` `PRP0001` | yes | yes | board DSDT; no Windows driver, the firmware manages it (woa-rk3576 `drivers/null` names it) |
 | Pin controller (`\_SB.PINC`) | `RKCP3005`, `_CID` `PRP0001` | yes | yes | always; no Windows driver, the same |

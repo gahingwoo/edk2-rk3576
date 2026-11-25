@@ -38,6 +38,8 @@ SoC 级的表（MADT、GTDT、PPTT、MCFG、SPCR、DBG2、FADT）是共用的，
 | SAI1（模拟音频） | `RKCP3004` | 无 | 有 | 同上 |
 | 触摸 GT9271（`\_SB.I2C0.TCH0`） | `RKCP9271` | 无 | 开机时屏幕有应答才有 | 屏幕检测 |
 | 蓝牙 BCM4345C5（`\_SB.BTH0`） | `RKCP4345` | 无 | 有 | 泰山派 3M 的 DSDT |
+| 蓝牙 BCM43752（`\_SB.BTH0`，BCM4362A2 内核，UART4） | `RKCP4362` | 有 | 无 | CM5-IO 的 DSDT |
+| SDIO Wi-Fi 控制器（`\_SB.SDIO`，SSDT `RKWIFI`） | `RKCPFE2D` | 有 | 有 | 设置项“SDIO Wi-Fi”，默认关 |
 | RTC HYM8563 | `HYMB0001` | 有 | 有 | 板级 DSDT |
 | PMIC RK806（`\_SB.I2C1.PMC0`） | `RKCP0806`，`_CID` `PRP0001` | 有 | 有 | 板级 DSDT；没有 Windows 驱动，由固件管理（woa-rk3576 的 `drivers/null` 给它起名） |
 | 引脚控制器（`\_SB.PINC`） | `RKCP3005`，`_CID` `PRP0001` | 有 | 有 | 始终；没有 Windows 驱动，同上 |
