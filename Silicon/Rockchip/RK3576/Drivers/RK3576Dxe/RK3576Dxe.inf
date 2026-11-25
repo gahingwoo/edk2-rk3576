@@ -114,6 +114,10 @@
   gRK3576TokenSpaceGuid.PcdPin40Supported
   gRK3576TokenSpaceGuid.PcdPin40UartDefault
   gRK3576TokenSpaceGuid.PcdPin40RhProxyDefault
+  gRK3576TokenSpaceGuid.PcdHwWatchdogDefault
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault
+  gRK3576TokenSpaceGuid.PcdAcpiLedsSupported
+  gRK3576TokenSpaceGuid.PcdAcpiLedsDefault
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress
   gRK3576TokenSpaceGuid.PcdAcpiVdecDefault
@@ -162,6 +166,9 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi
   gRK3576TokenSpaceGuid.PcdPin40Uart
   gRK3576TokenSpaceGuid.PcdPin40RhProxy
+  gRK3576TokenSpaceGuid.PcdHwWatchdog
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKey
+  gRK3576TokenSpaceGuid.PcdAcpiLeds
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath

@@ -277,6 +277,77 @@ SetupConfigTableVariables (
   }
 
   //
+  // HwWatchdog: whether RK3576AcpiPlatformDxe prepares WDT_NS and installs
+  // the WDAT for an ACPI OS (Wdat.aslc).
+  //
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"HwWatchdog",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdHwWatchdog, FixedPcdGet8 (PcdHwWatchdogDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
+  // AcpiPwrKey: the RK806 power key as the OS's power button.  Shown only on
+  // a board whose RK806 the firmware reaches (AcpiPwrKeySupported).
+  //
+  Var8   = (FixedPcdGet32 (PcdRk806I2cBase) != 0) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"AcpiPwrKeySupported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"AcpiPwrKey",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdAcpiPwrKey, FixedPcdGet8 (PcdAcpiPwrKeyDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
+  // AcpiLeds: the board's LEDs for the OS.  Shown only on a board whose
+  // AcpiTables carry an LED SSDT (AcpiLedsSupported).
+  //
+  Var8   = FixedPcdGetBool (PcdAcpiLedsSupported) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"AcpiLedsSupported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"AcpiLeds",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdAcpiLeds, FixedPcdGet8 (PcdAcpiLedsDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
   // Publish which FDT compat modes are actually supported (have an embedded DTB).
   // The HII form grays out the selector when only one mode is available.
   //

@@ -520,6 +520,14 @@
   gRK3576TokenSpaceGuid.PcdPin40UartDefault|0
   gRK3576TokenSpaceGuid.PcdPin40RhProxyDefault|0
   #
+  # Hardware watchdog (WDAT), RK806 power button and board LEDs for an ACPI
+  # OS (setup options, back PcdHwWatchdog, PcdAcpiPwrKey and PcdAcpiLeds
+  # below): all off.  See RK3576.dec.
+  #
+  gRK3576TokenSpaceGuid.PcdHwWatchdogDefault|0
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault|0
+  gRK3576TokenSpaceGuid.PcdAcpiLedsDefault|0
+  #
   # MIPI DSI screen brightness in percent (setup option, backs
   # PcdDisplayBrightness below), read only on a board with a DSI panel.
   #
@@ -635,6 +643,12 @@
   #
   gRK3576TokenSpaceGuid.PcdPin40Uart|L"Pin40Uart"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdPin40UartDefault
   gRK3576TokenSpaceGuid.PcdPin40RhProxy|L"Pin40RhProxy"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdPin40RhProxyDefault
+  #
+  # Hardware watchdog (WDAT), RK806 power button, board LEDs
+  #
+  gRK3576TokenSpaceGuid.PcdHwWatchdog|L"HwWatchdog"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdHwWatchdogDefault
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKey|L"AcpiPwrKey"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault
+  gRK3576TokenSpaceGuid.PcdAcpiLeds|L"AcpiLeds"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiLedsDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault

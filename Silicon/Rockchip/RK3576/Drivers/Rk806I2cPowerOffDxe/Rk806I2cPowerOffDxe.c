@@ -32,6 +32,17 @@
  *  the OS becomes a power-off; the next power-on is a cold start with the
  *  PMIC back at its defaults.
  *
+ *  With "Power button (RK806)" on in setup (PcdAcpiPwrKey) this driver also
+ *  gets the PMIC's interrupt ready for woa-rk3576 rk806pwrkey
+ *  (AcpiTables/PwrKey.asl): at boot GPIO0_A6, the PMIC INT line on every
+ *  RK3576 board here, becomes a GPIO input with its pull-up (mainline
+ *  rk3576-pinctrl.dtsi pmic_pins: pull_up; the Windows GPIO driver sets no
+ *  pin function or pull), and at ExitBootServices the PMIC's interrupt is
+ *  made active low (GPIO_INT_CONFIG bit 1 = 0, as mainline rk8xx-core.c
+ *  rk806_pre_init_reg) with everything but PWRON_FALL and PWRON_RISE masked
+ *  and whatever is pending cleared, so that a stale event (the power-on
+ *  itself, VDC_RISE) does not hold the line low before the driver starts.
+ *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -89,6 +100,13 @@
 #define RK806_PWRCTRL1_FUN   0x07
 #define RK806_FUN_NULL       0
 #define RK806_FUN_POWOFF     2
+#define RK806_INT_STS0       0x77
+#define RK806_INT_MSK0       0x78
+#define RK806_INT_STS1       0x79
+#define RK806_INT_MSK1       0x7A
+#define RK806_GPIO_INT_CONFIG 0x7B
+#define RK806_INT_POL_H      BIT1
+#define RK806_PWRON_EVENTS   (BIT0 | BIT1)   // PWRON_FALL, PWRON_RISE
 
 //
 // GPIO0_A3 = PWR_CTRL1 (RK3576 TRM, PMU0_IOC_GPIO0A_IOMUX_SEL_L), the pin
@@ -100,12 +118,16 @@
 #define GPIO_SWPORT_DDR_L            0x0008
 #define GPIO_EXT_PORT                0x0070
 #define GPIO0_A3                     BIT3
+#define PMU0_IOC_GPIO0A_IOMUX_SEL_H  0x26040004   // GPIO0_A4..A7, 4 bits each
+#define PMU0_IOC_GPIO0A_PULL         0x26040020   // RK3576_PULL_GPIO0_AL_OFFSET
+#define GPIO0_A6                     BIT6
 
 STATIC UINTN             mI2cBase;
 STATIC UINT8             mAddress;
 STATIC EFI_RESET_SYSTEM  mOriginalResetSystem;
 STATIC EFI_EVENT         mVirtualAddressChangeEvent;
 STATIC EFI_EVENT         mExitBootServicesEvent;
+STATIC BOOLEAN           mPwrKey;
 
 STATIC
 EFI_STATUS
@@ -272,6 +294,60 @@ Rk806VirtualAddressChange (
 }
 
 /**
+  The PMIC interrupt for the OS's power button driver: active low, only the
+  power key's press and release unmasked, nothing pending.
+**/
+STATIC
+VOID
+Rk806PwrKeyArm (
+  VOID
+  )
+{
+  UINT8  Config;
+
+  if (!EFI_ERROR (Rk806Read (RK806_GPIO_INT_CONFIG, &Config))) {
+    Rk806Write (RK806_GPIO_INT_CONFIG, Config & ~RK806_INT_POL_H);
+  }
+
+  Rk806Write (RK806_INT_MSK0, (UINT8)~RK806_PWRON_EVENTS);
+  Rk806Write (RK806_INT_MSK1, 0xFF);
+  Rk806Write (RK806_INT_STS0, 0xFF);
+  Rk806Write (RK806_INT_STS1, 0xFF);
+}
+
+/**
+  GPIO0_A6, the PMIC INT line: GPIO function, input, pulled up.
+**/
+STATIC
+VOID
+Rk806PwrKeyPin (
+  VOID
+  )
+{
+  UINT8  Sts0;
+  UINT8  Msk0;
+
+  MmioWrite32 (PMU0_IOC_GPIO0A_IOMUX_SEL_H, (0xFU << (8 + 16)) | 0);
+  MmioWrite32 (PMU0_IOC_GPIO0A_PULL, (0x3U << (12 + 16)) | (0x3U << 12));
+  MmioWrite32 (GPIO0_BASE + GPIO_SWPORT_DDR_L, (GPIO0_A6 << 16) | 0);
+
+  if (EFI_ERROR (Rk806Read (RK806_INT_STS0, &Sts0)) ||
+      EFI_ERROR (Rk806Read (RK806_INT_MSK0, &Msk0)))
+  {
+    Sts0 = 0xFF;
+    Msk0 = 0xFF;
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "Rk806PowerOff: power button on: GPIO0_A6 GPIO in, pull-up, level %u; INT_STS0 0x%02x INT_MSK0 0x%02x\n",
+    (MmioRead32 (GPIO0_BASE + GPIO_EXT_PORT) & GPIO0_A6) != 0,
+    Sts0,
+    Msk0
+    ));
+}
+
+/**
   Arm the PMIC for TF-A's SYSTEM_OFF: GPIO0_A3 low first, then PWRCTRL1 =
   power off.  Order matters: with the pin high (its reset pull is up) the
   second write would cut power on the spot.
@@ -285,6 +361,10 @@ Rk806ExitBootServices (
   )
 {
   UINT8  Sleep0;
+
+  if (mPwrKey) {
+    Rk806PwrKeyArm ();
+  }
 
   MmioWrite32 (GPIO0_BASE + GPIO_SWPORT_DR_L, (GPIO0_A3 << 16) | 0);
   MmioWrite32 (GPIO0_BASE + GPIO_SWPORT_DDR_L, (GPIO0_A3 << 16) | GPIO0_A3);
@@ -409,6 +489,11 @@ Rk806I2cPowerOffDxeInitialize (
   }
 
   Rk806DisarmAtBoot ();
+
+  mPwrKey = (PcdGet8 (PcdAcpiPwrKey) != 0);
+  if (mPwrKey) {
+    Rk806PwrKeyPin ();
+  }
 
   EfiCreateEventReadyToBootEx (TPL_CALLBACK, Rk806ReadyToBoot, NULL, &ReadyToBootEvent);
 

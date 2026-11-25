@@ -51,6 +51,12 @@
   $(RK_COMMON_ACPI_DIR)/Npu.asl
   # Video decoder SSDT, installed only when enabled in setup (PcdAcpiVdec).
   $(RK_COMMON_ACPI_DIR)/Vdec.asl
+  # Hardware watchdog WDAT, installed only when enabled in setup
+  # (PcdHwWatchdog).
+  $(RK_COMMON_ACPI_DIR)/Wdat.aslc
+  # RK806 power button SSDT, installed only when enabled in setup
+  # (PcdAcpiPwrKey) on a board that reaches its RK806 (PcdRk806I2cBase).
+  $(RK_COMMON_ACPI_DIR)/PwrKey.asl
 
 [Packages]
   ArmPkg/ArmPkg.dec
