@@ -73,8 +73,8 @@ jobs:
         run: scripts/build.sh ${{ matrix.board }}
 
       - name: Build the SPL for ${{ matrix.board }}
-        # Only boards with SPL_DEFCONFIG in boards/<board>.conf (the
-        # TaishanPi 3M); the others keep the prebuilt SPL in binaries/.
+        # Only boards with SPL_DEFCONFIG in boards/<board>.conf; the others
+        # keep the prebuilt SPL in binaries/.
         # package.sh prefers out/<PLATFORM>/idbloader.img when it exists.
         run: scripts/build-spl.sh ${{ matrix.board }}
 
@@ -84,8 +84,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.board }}-firmware
+          # <Board>-<medium>.img only.  out/<PLATFORM>/idbloader.img, the SPL
+          # build-spl.sh leaves for package.sh, is inside those images; as
+          # an artifact of its own it reached the ci release as one
+          # idbloader-edk2-ci-*.img for whichever board was copied last.
           path: |
-            out/*/*.img
+            out/*/*-*.img
             out/*/*.sfdisk
             out/*/spl.config
           if-no-files-found: error
