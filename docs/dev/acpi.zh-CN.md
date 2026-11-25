@@ -54,6 +54,8 @@ SoC 级的表（MADT、GTDT、PPTT、MCFG、SPCR、DBG2、FADT）是共用的，
 
 显示器的 EDID 以 `\_SB.GPU0.EDID` 的形式提供给 Windows 显示驱动，同时也挂在 GOP 句柄上。
 
+可选的 SSDT 只能用 `External` 引用 DSDT 里的对象，不能引用另一个可选 SSDT 声明的设备。SSDT 按 FV 里的顺序安装，这样的引用在 Windows 加载这张表时指向的是一个还不存在的对象。一张表需要知道另一张表是否安装时，由 RK3576AcpiPlatformDxe 在安装时改写表里的一个 `Name`，例如 `\_SB.RHPX.UAON`（40-pin UART 的 SSDT 也安装时为 1）。最早的 RhProxy 表是用 `External` 加 `CondRefOf` 去找 `\_SB.URT4` 的，两个 40-pin 选项都打开时 Windows 起不来。
+
 ## 硬件看门狗
 
 WDAT 描述的是 WDT_NS（0x2ACE0000），TF-A 留给非安全世界的 DesignWare 看门狗（TF-A 自己用 WDT_S）。Windows 自带的看门狗驱动读取这张表。这个模块数不了 Windows 要求的那么久（Windows 设 5 分钟，并要求上限超过 4 分钟），所以表里声明以 1 秒为单位、最多 600，而固件总是设置硬件最长的周期：24 MHz 下 2^31 个周期，两次（先中断，再复位），约 179 秒。Windows 约 179 秒没有喂狗时开发板复位。寄存器细节和出处见 `Wdat.aslc` 和 `RK3576AcpiPlatformDxe/Watchdog.c`；每次启动的串口日志都会写明上一次复位是不是看门狗造成的。

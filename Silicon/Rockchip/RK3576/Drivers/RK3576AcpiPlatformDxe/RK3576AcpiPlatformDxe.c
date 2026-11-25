@@ -510,6 +510,9 @@ AcpiTableCheck (
   IN EFI_ACPI_DESCRIPTION_HEADER  *AcpiHeader
   )
 {
+  EFI_STATUS  Status;
+  BOOLEAN     Uart;
+
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
       (AcpiHeader->OemTableId == CPU_IDLE_SSDT_OEM_TABLE_ID))
   {
@@ -595,7 +598,23 @@ AcpiTableCheck (
       return FALSE;
     }
 
-    DEBUG ((DEBUG_ERROR, "AcpiPlatform: 40-pin GPIO/I2C/SPI on, installing the RhProxy SSDT (\\_SB.RHPX)\n"));
+    //
+    // \_SB.RHPX.UAON: 1 when the UART SSDT goes in too, so _CRS leaves the
+    // UART pins out.  The table itself must not look for the UART devices
+    // (RhProxy.asl): it is installed before the UART SSDT.
+    //
+    Uart   = (PcdGet8 (PcdPin40Uart) != 0);
+    Status = AcpiUpdateSdtNameInteger (AcpiHeader, "UAON", Uart ? 1 : 0);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "AcpiPlatform: RhProxy SSDT has no UAON to patch (%r), not installed\n", Status));
+      return FALSE;
+    }
+
+    DEBUG ((
+      DEBUG_ERROR,
+      "AcpiPlatform: 40-pin GPIO/I2C/SPI on, installing the RhProxy SSDT (\\_SB.RHPX, UART pins %a)\n",
+      Uart ? "left out" : "listed as GPIOs"
+      ));
   }
 
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
