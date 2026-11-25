@@ -39,6 +39,7 @@ TaishanPi 3M v1.4) and the vendor kernel tree; the ROCK 4D's are cited in
 | SDIO Wi-Fi | `PcdAcpiSdioWifiSupported` | yes (AP6256) | missing on main (SYN43752 on SDIO; no Windows driver either) | n/a: Wi-Fi is a USB module (FCU760K, AIC8800D80) |
 | Device tree: compat mode, Force UEFI GOP, DTB override, overlays, fixups | DT on | yes | yes | yes |
 | CPU Maximum Frequency | `PcdCpuMaxFreqSupported` | yes, 1608 MHz | missing (same RK806 rails) | yes, 1608 MHz (main: missing) |
+| GPU voltage for 702 MHz (775 mV) | `PcdGpuRail775Supported` | yes, on | missing on main (branch `cm5io-parity`: yes, off) | yes, off (main: missing) |
 | Fan (on/off, CPU page) | `PcdPwmFanSpeedDefault` != 0 | yes, on | yes, on | yes, on (main: hidden, no fan) |
 | CPU frequency asked once at first boot (with a screen) | `PcdCpuMaxFreqSupported` | yes | no (option not offered) | yes (main: no) |
 | Screenshot target | every board with a display | yes | yes | yes |
@@ -64,7 +65,7 @@ TaishanPi 3M v1.4) and the vendor kernel tree; the ROCK 4D's are cited in
 | NV variable store | on the eMMC, in the firmware region | on the boot medium (eMMC or SD) | SPI NOR at 0xFC0000 |
 | Power off through the RK806 (Shut Down, `reset -s`, Windows) | yes | missing (RK806 on I2C1 0x23) | yes (main: missing) |
 | GPU rail report (`GpuRail` variable, reads only) | yes | missing | yes (main: missing) |
-| GPU rail raised to 775 mV for 702 MHz | yes, approved for this board only | n/a until approved | not ported: approved for the TaishanPi 3M only; the Windows driver then defaults to 594 MHz |
+| GPU rail raised to 775 mV for 702 MHz | yes, setup option on by default | setup option off by default on branch `cm5io-parity` | setup option, off by default (main: missing); on, the Windows driver runs 702 MHz, off 594 MHz |
 | TSADC read-out and TSHUT at 120 C | yes | yes | yes |
 | Fan started at 100% | yes (CN2, PWM2 ch3) | yes (CN32, PWM2 ch6, polarity disputed) | yes, J16, PWM2 ch5, GPIO4_C5, normal polarity (main: no fan) |
 | HDMI audio preset (SAI6, 48 kHz) | yes | yes | yes (main: off) |
@@ -132,9 +133,12 @@ wiring take it from ACPI (`_CRS`, `_DSD`).
 
 ## What is left for the ROCK 4D, and why
 
-* **GPU at 702 MHz.** Needs vdd_gpu_s0 at 775 mV. Raising it was approved
-  for the TaishanPi 3M only; the rail report is on, so the Windows driver
-  runs the ROCK 4D at 594 MHz (wddm branch `gpu702-default`).
+* **GPU at 702 MHz: opt-in, not run.** vdd_gpu_s0 is BUCK5 of the same
+  RK806S-5 as on the TaishanPi 3M (schematic V1.12 p25 VOUT5/FB5 to
+  VDD_GPU_S0, I2C1_M0 on GPIO0_B2/B3 p5; `rk3576-rock-4d.dts` dcdc-reg5,
+  550000 to 900000 uV, mali-supply of `&gpu`). "GPU voltage for 702 MHz
+  (775 mV)" is off by default: the Windows driver runs 594 MHz until the
+  option is turned on and the board test below has passed.
 * **Wi-Fi and Bluetooth under Windows.** USB AIC8800D80; no driver that runs
   on 23H2. Recorded, not ported.
 * **Headphone jack detect.** A SARADC input; Windows has no ADC driver
@@ -143,6 +147,21 @@ wiring take it from ACPI (`_CRS`, `_DSD`).
   panel, nothing to drive.
 * **Armbian on USB or NVMe through "Armbian (U-Boot)".** The SPL boots only
   the SD card's FIT; the eMMC slot of the other boards does not exist here.
+
+## Board test: GPU voltage for 702 MHz
+
+With the fan on:
+
+1. Set "GPU voltage for 702 MHz (775 mV)" to On and restart. The serial log
+   shows `GpuRail: raised BUCK5 0x28 -> 0x2C, read back 775000 uV`. If it
+   shows `not raising BUCK5: ...` instead, note the reason (this board's
+   RK806 has not been read yet); nothing was written.
+2. Windows, with no `GpuClk` stored and `GpuClkHigh` not set: `m5test clk`
+   (or the GPU clock perf counter) shows 702 MHz.
+3. FurMark 60 s: no TDR; note the score and the peak GPU and CPU
+   temperatures.
+4. Set the option to Off and restart: the log shows `lowered BUCK5 0x2C ->
+   0x28, read back 750000 uV`, and Windows runs 594 MHz.
 
 ## Not on main for any board
 
