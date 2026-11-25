@@ -25,3 +25,6 @@
 
   # Splash screen logo
   INF $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
+
+  # Powers the board off through the RK806 at a shutdown (ROCK4D.dsc)
+  INF Silicon/Rockchip/RK3576/Drivers/Rk806I2cPowerOffDxe/Rk806I2cPowerOffDxe.inf
