@@ -184,6 +184,21 @@ formset
       name  = AcpiSdioWifiSupported,
       guid  = RK3576DXE_FORMSET_GUID;
 
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = Pin40Uart,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = Pin40RhProxy,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      name  = Pin40Supported,
+      guid  = RK3576DXE_FORMSET_GUID;
+
     //
     // CPU
     //
@@ -442,6 +457,24 @@ formset
               help        = STRING_TOKEN(STR_ACPI_SDIO_WIFI_HELP),
               flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
               default     = FixedPcdGet8 (PcdAcpiSdioWifiDefault),
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+            endoneof;
+          endif;
+          suppressif ideqval Pin40Supported == 0;
+            oneof varid = Pin40Uart,
+              prompt      = STRING_TOKEN(STR_PIN40_UART_PROMPT),
+              help        = STRING_TOKEN(STR_PIN40_UART_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              default     = FixedPcdGet8 (PcdPin40UartDefault),
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+            endoneof;
+            oneof varid = Pin40RhProxy,
+              prompt      = STRING_TOKEN(STR_PIN40_RHPROXY_PROMPT),
+              help        = STRING_TOKEN(STR_PIN40_RHPROXY_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              default     = FixedPcdGet8 (PcdPin40RhProxyDefault),
               option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
               option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
             endoneof;

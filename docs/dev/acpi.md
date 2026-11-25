@@ -52,6 +52,8 @@ and puts the board values next to the device tree line they come from.
 | Fan (`PNP0C0B`, `Fan.asl`) | | yes | yes | setup "Fan Control by ACPI Thermal Zone", off by default |
 | CPU idle states (SSDT `RKLPI`) | | yes | yes | setup "CPU Idle States", off by default |
 | NPU (`Npu.asl`) | `RKCP3576` | no | yes | setup "NPU (experimental)", off by default; offered only on a board that names its RK806's I2C bus (`PcdRk806I2cBase`), which on 2026-11-24 is the TaishanPi 3M |
+| 40-pin UARTs (SSDT `RKUART40`, `Uart40.asl`) | `RKCP3006`, `_CID` `PRP0001` | no | yes | setup "40-pin UART (experimental)", off by default; offered on a board that sets `PcdPin40Supported` (TaishanPi 3M on `main`). `SerCx-FriendlyName` makes them COM-port interfaces for woa-rk3576 rk3xuart |
+| RhProxy (SSDT `RKRHPX`, `\_SB.RHPX`, `RhProxy.asl`) | `MSFT8000` | no | yes | setup "40-pin GPIO/I2C/SPI for apps (experimental)", off by default; the same boards. The header's GPIO pins, I2C and SPI buses for Windows.Devices.Gpio, .I2c and .Spi |
 
 The EDID of the monitor is published as `\_SB.GPU0.EDID` for the Windows
 display driver, and on the GOP handle.

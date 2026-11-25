@@ -39,6 +39,7 @@
 #include "GpuRail.h"
 #include "Npu.h"
 #include "Vdec.h"
+#include "Pin40.h"
 #include "CpuPerf.h"
 #include "Display.h"
 #include "ComboPhy.h"
@@ -504,6 +505,14 @@ RK3576EntryPoint (
     Status = PlatformSdioWifiInit ();
     DEBUG ((DEBUG_ERROR, "RK3576Dxe: SDIO Wi-Fi on in setup, board init %r\n", Status));
   }
+
+  /*
+   * The 40-pin header's UARTs and its GPIO/I2C/SPI for Windows
+   * applications: pins and clocks, only for the setup options that ask for
+   * them, in ACPI mode, on a board that describes its header.  Off by
+   * default, and with both off nothing here touches a pin.  See Pin40.c.
+   */
+  RK3576Pin40Init ();
 
   /* Initialize status LED */
   RK3576InitStatusLed ();

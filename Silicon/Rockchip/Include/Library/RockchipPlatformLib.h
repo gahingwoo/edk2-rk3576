@@ -11,6 +11,7 @@
 #define __PALTFORM_LIB_H__
 
 #include <Uefi.h>
+#include <Library/GpioLib.h>
 
 VOID
 EFIAPI
@@ -181,6 +182,47 @@ PlatformEarlyInit (
 EFI_STATUS
 EFIAPI
 PlatformSdioWifiInit (
+  VOID
+  );
+
+/*
+ * The board's 40-pin header, for the "40-pin UART" and "40-pin GPIO/I2C/SPI
+ * for apps" setup options (PcdPin40Uart, PcdPin40RhProxy).  RK3576Dxe does
+ * the work from this description: clocks of the listed controllers (UARTs
+ * from xin24m, I2C and SPI from their 200 MHz default parent), then the
+ * pin functions.  The board's AcpiTables describe the same controllers and
+ * pins (its UART and RhProxy SSDTs); the two must agree.
+ *
+ * Uart/I2c/Spi are controller numbers (UARTn, I2Cn, SPIn).  UartPins are
+ * applied with the UART option, BusPins (I2C and SPI) with the RhProxy
+ * option, GpioPins (the pins RhProxy exposes as GPIOs, function 0, pull left
+ * as it is) with the RhProxy option too.  The debug console UART (UART0)
+ * must never be listed.
+ */
+#define PIN40_MAX_CONTROLLERS  4
+
+typedef struct {
+  UINT8                       UartCount;
+  UINT8                       Uart[PIN40_MAX_CONTROLLERS];
+  UINT8                       I2cCount;
+  UINT8                       I2c[PIN40_MAX_CONTROLLERS];
+  UINT8                       SpiCount;
+  UINT8                       Spi[PIN40_MAX_CONTROLLERS];
+  CONST GPIO_IOMUX_CONFIG     *UartPins;
+  UINT32                      UartPinCount;
+  CONST GPIO_IOMUX_CONFIG     *BusPins;
+  UINT32                      BusPinCount;
+  CONST GPIO_IOMUX_CONFIG     *GpioPins;
+  UINT32                      GpioPinCount;
+} PIN40_CONFIG;
+
+/*
+ * PlatformGetPin40Config -- the description above, or NULL on a board that
+ * does not set PcdPin40Supported.
+ */
+CONST PIN40_CONFIG *
+EFIAPI
+PlatformGetPin40Config (
   VOID
   );
 

@@ -473,6 +473,17 @@ AcpiDsdtFixupStatus (
 //
 #define WIFI_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'W', 'I', 'F', 'I', ' ', ' ')
 
+//
+// The board's 40-pin header SSDTs: the UARTs (OEM table ID "RKUART40",
+// RKCP3006 devices for woa-rk3576 rk3xuart) and the RhProxy device (OEM
+// table ID "RKRHPX", \_SB.RHPX) that hands its GPIO, I2C and SPI to
+// Windows applications.  Each is installed only with its setup option on,
+// on a board that describes its header (PcdPin40Supported); RK3576Dxe sets
+// the pins and clocks under the same conditions (Pin40.c).
+//
+#define PIN40_UART_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'U', 'A', 'R', 'T', '4', '0')
+#define PIN40_RHPX_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'R', 'H', 'P', 'X', ' ', ' ')
+
 STATIC
 BOOLEAN
 EFIAPI
@@ -544,6 +555,28 @@ AcpiTableCheck (
     }
 
     DEBUG ((DEBUG_ERROR, "AcpiPlatform: SDIO Wi-Fi on, installing the Wi-Fi SSDT (\\_SB.SDIO, RKCPFE2D)\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == PIN40_UART_SSDT_OEM_TABLE_ID))
+  {
+    if (!FixedPcdGetBool (PcdPin40Supported) || (PcdGet8 (PcdPin40Uart) == 0)) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: 40-pin UART off in setup, its SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_ERROR, "AcpiPlatform: 40-pin UART on, installing its SSDT (RKCP3006)\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == PIN40_RHPX_SSDT_OEM_TABLE_ID))
+  {
+    if (!FixedPcdGetBool (PcdPin40Supported) || (PcdGet8 (PcdPin40RhProxy) == 0)) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: 40-pin GPIO/I2C/SPI off in setup, RhProxy SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_ERROR, "AcpiPlatform: 40-pin GPIO/I2C/SPI on, installing the RhProxy SSDT (\\_SB.RHPX)\n"));
   }
 
   return TRUE;

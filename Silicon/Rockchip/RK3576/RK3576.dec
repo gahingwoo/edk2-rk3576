@@ -132,6 +132,27 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|FALSE|BOOLEAN|0x00010307
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault|0|UINT8|0x00010308
   #
+  # The 40-pin header for Windows applications (both experimental, both off
+  # by default, both shown only where PcdPin40Supported is TRUE: a board
+  # whose library returns a header description from PlatformGetPin40Config
+  # and whose AcpiTables carry the two SSDTs below).
+  #
+  #   PcdPin40Uart (default PcdPin40UartDefault): RK3576Dxe clocks the
+  #   header's UARTs from xin24m and muxes their TX/RX pins, and
+  #   RK3576AcpiPlatformDxe installs the UART SSDT (OEM table ID "RKUART40",
+  #   _HID RKCP3006, woa-rk3576 rk3xuart).  Off, those pins stay GPIOs.
+  #
+  #   PcdPin40RhProxy (default PcdPin40RhProxyDefault): RK3576Dxe muxes the
+  #   header's I2C and SPI pins and opens those controllers' clocks, sets the
+  #   header's GPIO pins to their GPIO function (direction and level are left
+  #   alone), and RK3576AcpiPlatformDxe installs the RhProxy SSDT (OEM table
+  #   ID "RKRHPX", \_SB.RHPX, MSFT8000) that hands them to
+  #   Windows.Devices.Gpio, .I2c and .Spi.
+  #
+  gRK3576TokenSpaceGuid.PcdPin40Supported|FALSE|BOOLEAN|0x00010309
+  gRK3576TokenSpaceGuid.PcdPin40UartDefault|0|UINT8|0x0001030A
+  gRK3576TokenSpaceGuid.PcdPin40RhProxyDefault|0|UINT8|0x0001030B
+  #
   # Analog audio preset: the board library sets up the SAI that carries its
   # codec (power domain, mclk, pins) and the DSDT publishes that SAI and the
   # codec for the woa-rk3576 audio drivers.  Only boards that implement it
@@ -242,6 +263,8 @@
   gRK3576TokenSpaceGuid.PcdAcpiNpu|0|UINT8|0x00000305
   gRK3576TokenSpaceGuid.PcdAcpiVdec|0|UINT8|0x00000304
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|0|UINT8|0x00000306
+  gRK3576TokenSpaceGuid.PcdPin40Uart|0|UINT8|0x00000307
+  gRK3576TokenSpaceGuid.PcdPin40RhProxy|0|UINT8|0x00000308
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|60|UINT8|0x00000400
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353

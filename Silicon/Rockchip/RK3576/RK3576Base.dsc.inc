@@ -506,6 +506,13 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault|0
   #
+  # The 40-pin header's UARTs, and its GPIO/I2C/SPI through RhProxy, for an
+  # ACPI OS (setup options, back PcdPin40Uart and PcdPin40RhProxy below):
+  # off.  Shown only where a board sets PcdPin40Supported.
+  #
+  gRK3576TokenSpaceGuid.PcdPin40UartDefault|0
+  gRK3576TokenSpaceGuid.PcdPin40RhProxyDefault|0
+  #
   # MIPI DSI screen brightness in percent (setup option, backs
   # PcdDisplayBrightness below), read only on a board with a DSI panel.
   #
@@ -611,6 +618,11 @@
   # SDIO Wi-Fi
   #
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|L"AcpiSdioWifi"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault
+  #
+  # 40-pin header: UARTs, and GPIO/I2C/SPI for applications (RhProxy)
+  #
+  gRK3576TokenSpaceGuid.PcdPin40Uart|L"Pin40Uart"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdPin40UartDefault
+  gRK3576TokenSpaceGuid.PcdPin40RhProxy|L"Pin40RhProxy"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdPin40RhProxyDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault
