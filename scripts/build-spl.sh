@@ -69,6 +69,13 @@ BD="$ROOT/$SPL_BOARD_DIR"
 cp "$BD/$SPL_DEFCONFIG" "$SRC/configs/"
 cp "$BD/$SPL_DTS" "$SRC/dts/upstream/src/arm64/rockchip/"
 cp "$BD/${SPL_DTS%.dts}-u-boot.dtsi" "$SRC/arch/arm/dts/"
+# Any other .dtsi in the board directory is one the board DTS includes and
+# U-Boot's dts/upstream lacks (the CM5-IO's rk3576-armsom-cm5.dtsi).
+for f in "$BD"/*.dtsi; do
+    [ -e "$f" ] || continue
+    case "$f" in *-u-boot.dtsi) continue ;; esac
+    cp "$f" "$SRC/dts/upstream/src/arm64/rockchip/"
+done
 
 shopt -s nullglob
 PATCHES=("$ROOT/$SPL_PATCH_DIR"/*.patch)
