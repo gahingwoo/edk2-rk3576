@@ -165,6 +165,32 @@
   gRK3576TokenSpaceGuid.PcdPin40UartDefault|0|UINT8|0x0001030A
   gRK3576TokenSpaceGuid.PcdPin40RhProxyDefault|0|UINT8|0x0001030B
   #
+  # Hardware watchdog for an ACPI OS (setup option PcdHwWatchdog, default
+  # PcdHwWatchdogDefault, off): RK3576AcpiPlatformDxe prepares WDT_NS and
+  # installs the WDAT (AcpiTables/Wdat.aslc) that Windows' in-box watchdog
+  # driver uses.  Off, the table is not installed and WDT_NS is not touched.
+  #
+  gRK3576TokenSpaceGuid.PcdHwWatchdogDefault|0|UINT8|0x00010A00
+  #
+  # RK806 power key as the ACPI OS's power button (setup option
+  # PcdAcpiPwrKey, default PcdAcpiPwrKeyDefault, off; shown only on a board
+  # that sets PcdRk806I2cBase): RK3576AcpiPlatformDxe installs the PwrKey
+  # SSDT (OEM table ID "RKPWRKEY", \_SB.I2C1.PWRK, RKCP806B for woa-rk3576
+  # rk806pwrkey), and Rk806I2cPowerOffDxe makes GPIO0_A6 (the RK806 INT
+  # line on every RK3576 board here) a pulled-up GPIO input and, at
+  # ExitBootServices, sets the RK806 interrupt active low with only
+  # PWRON_FALL and PWRON_RISE unmasked.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault|0|UINT8|0x00010A01
+  #
+  # Board LEDs for an ACPI OS (setup option PcdAcpiLeds, default
+  # PcdAcpiLedsDefault, off; shown only where PcdAcpiLedsSupported is TRUE,
+  # a board whose AcpiTables carry an LED SSDT, OEM table ID "RKLED",
+  # \_SB.LEDS, RKCP1ED0 for woa-rk3576 rkled).
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiLedsSupported|FALSE|BOOLEAN|0x00010A02
+  gRK3576TokenSpaceGuid.PcdAcpiLedsDefault|0|UINT8|0x00010A03
+  #
   # Analog audio preset: the board library sets up the SAI that carries its
   # codec (power domain, mclk, pins) and the DSDT publishes that SAI and the
   # codec for the woa-rk3576 audio drivers.  Only boards that implement it
@@ -278,6 +304,9 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|0|UINT8|0x00000306
   gRK3576TokenSpaceGuid.PcdPin40Uart|0|UINT8|0x00000307
   gRK3576TokenSpaceGuid.PcdPin40RhProxy|0|UINT8|0x00000308
+  gRK3576TokenSpaceGuid.PcdHwWatchdog|0|UINT8|0x00000A00
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKey|0|UINT8|0x00000A01
+  gRK3576TokenSpaceGuid.PcdAcpiLeds|0|UINT8|0x00000A02
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|60|UINT8|0x00000400
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353

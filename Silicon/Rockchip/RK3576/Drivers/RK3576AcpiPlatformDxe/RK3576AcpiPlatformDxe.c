@@ -32,6 +32,8 @@
 #include <AcpiTables.h>
 #include <VarStoreData.h>
 
+#include "Watchdog.h"
+
 STATIC CONST EFI_GUID  mAcpiTableFile = {
   0x7E374E25, 0x8E01, 0x4FEE, { 0x87, 0xf2, 0x39, 0x0C, 0x23, 0xC6, 0x06, 0xCD }
 };
@@ -484,6 +486,23 @@ AcpiDsdtFixupStatus (
 #define PIN40_UART_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'U', 'A', 'R', 'T', '4', '0')
 #define PIN40_RHPX_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'R', 'H', 'P', 'X', ' ', ' ')
 
+//
+// The RK806 power key SSDT (AcpiTables/PwrKey.asl, OEM table ID "RKPWRKEY",
+// \_SB.I2C1.PWRK, RKCP806B for woa-rk3576 rk806pwrkey) is installed only
+// with "Power button (RK806)" on in setup (PcdAcpiPwrKey) on a board whose
+// RK806 the firmware reaches (PcdRk806I2cBase).  Rk806I2cPowerOffDxe sets
+// up the PMIC interrupt pin and the PMIC's interrupt masks under the same
+// condition.
+//
+#define PWRKEY_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'P', 'W', 'R', 'K', 'E', 'Y')
+
+//
+// The board's LED SSDT (OEM table ID "RKLED", \_SB.LEDS, RKCP1ED0 for
+// woa-rk3576 rkled) is installed only with "Status LEDs for the OS" on in
+// setup (PcdAcpiLeds) on a board that has one (PcdAcpiLedsSupported).
+//
+#define LEDS_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'L', 'E', 'D', ' ', ' ', ' ')
+
 STATIC
 BOOLEAN
 EFIAPI
@@ -577,6 +596,37 @@ AcpiTableCheck (
     }
 
     DEBUG ((DEBUG_ERROR, "AcpiPlatform: 40-pin GPIO/I2C/SPI on, installing the RhProxy SSDT (\\_SB.RHPX)\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == PWRKEY_SSDT_OEM_TABLE_ID))
+  {
+    if ((FixedPcdGet32 (PcdRk806I2cBase) == 0) || (PcdGet8 (PcdAcpiPwrKey) == 0)) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: RK806 power button off in setup, PwrKey SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_ERROR, "AcpiPlatform: RK806 power button on, installing the PwrKey SSDT (\\_SB.I2C1.PWRK)\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == LEDS_SSDT_OEM_TABLE_ID))
+  {
+    if (!FixedPcdGetBool (PcdAcpiLedsSupported) || (PcdGet8 (PcdAcpiLeds) == 0)) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: OS LEDs off in setup, LED SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_ERROR, "AcpiPlatform: OS LEDs on, installing the LED SSDT (\\_SB.LEDS)\n"));
+  }
+
+  if (AcpiHeader->Signature == EFI_ACPI_3_0_WATCHDOG_ACTION_TABLE_SIGNATURE) {
+    if (PcdGet8 (PcdHwWatchdog) == 0) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: hardware watchdog off in setup, WDAT not installed\n"));
+      return FALSE;
+    }
+
+    return WatchdogPrepareWdat (AcpiHeader);
   }
 
   return TRUE;

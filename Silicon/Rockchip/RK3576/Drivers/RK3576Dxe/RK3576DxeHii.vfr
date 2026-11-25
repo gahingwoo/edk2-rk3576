@@ -200,6 +200,31 @@ formset
       name  = Pin40Supported,
       guid  = RK3576DXE_FORMSET_GUID;
 
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = HwWatchdog,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = AcpiPwrKey,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      name  = AcpiPwrKeySupported,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = AcpiLeds,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      name  = AcpiLedsSupported,
+      guid  = RK3576DXE_FORMSET_GUID;
+
     //
     // CPU
     //
@@ -508,6 +533,34 @@ formset
               help        = STRING_TOKEN(STR_PIN40_RHPROXY_HELP),
               flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
               default     = FixedPcdGet8 (PcdPin40RhProxyDefault),
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+            endoneof;
+          endif;
+          oneof varid = HwWatchdog,
+            prompt      = STRING_TOKEN(STR_HW_WATCHDOG_PROMPT),
+            help        = STRING_TOKEN(STR_HW_WATCHDOG_HELP),
+            flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+            default     = FixedPcdGet8 (PcdHwWatchdogDefault),
+            option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+            option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+          endoneof;
+          suppressif ideqval AcpiPwrKeySupported == 0;
+            oneof varid = AcpiPwrKey,
+              prompt      = STRING_TOKEN(STR_ACPI_PWRKEY_PROMPT),
+              help        = STRING_TOKEN(STR_ACPI_PWRKEY_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              default     = FixedPcdGet8 (PcdAcpiPwrKeyDefault),
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+            endoneof;
+          endif;
+          suppressif ideqval AcpiLedsSupported == 0;
+            oneof varid = AcpiLeds,
+              prompt      = STRING_TOKEN(STR_ACPI_LEDS_PROMPT),
+              help        = STRING_TOKEN(STR_ACPI_LEDS_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              default     = FixedPcdGet8 (PcdAcpiLedsDefault),
               option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
               option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
             endoneof;

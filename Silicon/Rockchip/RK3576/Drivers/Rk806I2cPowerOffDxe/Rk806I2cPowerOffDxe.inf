@@ -40,11 +40,20 @@
 [Guids]
   gEfiEventVirtualAddressChangeGuid
 
+[Protocols]
+  gEfiVariableArchProtocolGuid           ## DEPEX
+
 [FixedPcd]
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress
 
+[Pcd]
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKey
+
 [Depex]
   # After ResetSystemRuntimeDxe has filled gRT->ResetSystem, and after
   # I2cDxe has set up the bus (pins, clock divider, runtime mapping).
-  gEfiResetArchProtocolGuid AND gEfiI2cMasterProtocolGuid
+  # The variable services too, so that PcdAcpiPwrKey (a setup variable)
+  # reads what setup stored rather than its default.
+  gEfiResetArchProtocolGuid AND gEfiI2cMasterProtocolGuid AND
+  gEfiVariableArchProtocolGuid
