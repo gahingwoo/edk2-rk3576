@@ -245,6 +245,9 @@
   # Fan control by ACPI thermal zone (AcpiTables/Fan.asl, all levels 100%):
   # the setup option exists on this board and is off, as on the other two.
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
+  # The 40-pin header: Rock4dPin40.c describes it, AcpiTables has its UART
+  # and RhProxy SSDTs.  Both setup options stay off by default.
+  gRK3576TokenSpaceGuid.PcdPin40Supported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
 
   #

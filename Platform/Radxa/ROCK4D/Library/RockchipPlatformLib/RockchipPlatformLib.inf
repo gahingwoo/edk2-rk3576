@@ -21,6 +21,7 @@
 [Sources]
   RockchipPlatformLib.c
   Rock4dAudio.c
+  Rock4dPin40.c
 
 [Packages]
   MdePkg/MdePkg.dec
