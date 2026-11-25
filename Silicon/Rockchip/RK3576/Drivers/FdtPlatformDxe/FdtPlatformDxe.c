@@ -21,7 +21,6 @@
 #include <Library/FdtLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PrintLib.h>
-#include <Library/Rk3576Pcie.h>
 #include <Library/RockchipPlatformLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
@@ -158,81 +157,33 @@ FdtEnableNode (
   return EFI_SUCCESS;
 }
 
-STATIC
-VOID
-EFIAPI
-FdtFixupComboPhyDevices (
-  IN VOID  *Fdt
-  )
-{
-  UINT32      Index;
-  INT32       Node;
-  INT32       Ret;
-  CONST VOID  *Property;
-  INT32       Length;
-
-  DEBUG ((DEBUG_INFO, "FdtPlatform: Fixing up Combo PHY devices (PCIe, SATA, USB)\n"));
-
-  struct {
-    UINT32    Mode;
-    CHAR8     *PcieNodePath;
-    CHAR8     *SataNodePath;
-  } Phys[] = {
-    { PcdGet32 (PcdComboPhy0ModeDefault), "/pcie@22000000", "/sata@2a240000" },
-    { PcdGet32 (PcdComboPhy1ModeDefault), "/pcie@22400000", "/sata@2a250000" },
-  };
-
-  for (Index = 0; Index < ARRAY_SIZE (Phys); Index++) {
-    FdtEnableNode (
-      Fdt,
-      Phys[Index].PcieNodePath,
-      Phys[Index].Mode == COMBO_PHY_MODE_PCIE
-      );
-
-    FdtEnableNode (
-      Fdt,
-      Phys[Index].SataNodePath,
-      Phys[Index].Mode == COMBO_PHY_MODE_SATA
-      );
-
-    //
-    // For M.2 slots supporting both PCIe and SATA, we must reference
-    // the 3V3 supply in SATA mode as well, to prevent the kernel from
-    // turning it off.
-    //
-    if (Phys[Index].Mode == COMBO_PHY_MODE_SATA) {
-      Node = FdtPathOffset (Fdt, Phys[Index].PcieNodePath);
-      if (Node < 0) {
-        continue;
-      }
-
-      Property = FdtGetProp (Fdt, Node, "vpcie3v3-supply", &Length);
-      if (Property == NULL) {
-        continue;
-      }
-
-      ASSERT (Length == sizeof (UINT32));
-
-      Node = FdtPathOffset (Fdt, Phys[Index].SataNodePath);
-      if (Node < 0) {
-        continue;
-      }
-
-      Ret = FdtSetProp (Fdt, Node, "phy-supply", Property, Length);
-      if (Ret < 0) {
-        DEBUG ((
-          DEBUG_ERROR,
-          "FdtPlatform: Failed to set 'phy-supply' property for '%a'. Ret=%a\n",
-          Phys[Index].SataNodePath,
-          FdtStrerror (Ret)
-          ));
-        continue;
-      }
-    }
-  }
-}
-
-/* RK3576 has no PCIe 3.0 controller - FdtFixupPcie3Devices() not needed */
+//
+// Not ported from RK3588: FdtFixupComboPhyDevices, FdtFixupPcie3Devices and
+// FdtFixupPcieResources.
+//
+// On RK3588 the firmware moves the PCIe windows and bus numbers away from
+// the ones in the mainline DTS, so the DT has to be rewritten to match, and
+// the combo PHY users are switched on and off from the setup menu.  Neither
+// applies here:
+//
+//  - Rk3576Pcie.h uses the same I/O, MEM32 and MEM64 windows and the same
+//    bus ranges (0x00-0x0f, 0x20-0x2f) as mainline rk3576.dtsi.  There is
+//    nothing to sync, and RK3576 has no msi-map or iommu-map to renumber.
+//    The RK3588 copy would only have changed two flags that Linux then acts
+//    on: the I/O bus address and the MEM64 window's prefetchable bit.
+//  - The node status a board needs is already in its DTS (CM5-IO and
+//    ROCK 4D: pcie0 on, SATA off; TaishanPi 3M: sata0 on, pcie0 off).  The
+//    firmware has one combo PHY default for all three boards (PHY0 PCIe), so
+//    applying it would have disabled the TaishanPi 3M's sata0 and enabled a
+//    pcie0 with no reset GPIO or supply.
+//
+// The RK3588 copies also looked for /pcie@22000000 and friends at the root,
+// where neither the mainline nor the vendor RK3576 DT has them (both put
+// them under /soc), so they never matched a node and changed nothing.
+//
+// If Rk3576Pcie.h ever stops matching rk3576.dtsi, the PCIe ranges fixup has
+// to come back, with /soc/ paths.
+//
 
 STATIC
 VOID
@@ -297,118 +248,6 @@ FdtFixupChosen (
     "FdtPlatform: Injected default bootargs=\"%a\"\n",
     DefaultBootArgs
     ));
-}
-
-STATIC
-VOID
-EFIAPI
-FdtFixupPcieResources (
-  IN VOID  *Fdt
-  )
-{
-  STATIC CHAR8  *PcieNodes[] = {
-    [PCIE_SEGMENT_PCIE0] = "/pcie@22000000",
-    [PCIE_SEGMENT_PCIE1] = "/pcie@22400000",
-  };
-
-  UINT32  Segment;
-  CHAR8   *NodePath;
-  INT32   Node;
-  INT32   Ret;
-
-  DEBUG ((DEBUG_INFO, "FdtPlatform: Fixing up PCIe resources\n"));
-
-  for (Segment = 0; Segment < ARRAY_SIZE (PcieNodes); Segment++) {
-    NodePath = PcieNodes[Segment];
-
-    Node = FdtPathOffset (Fdt, NodePath);
-    if (Node < 0) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "FdtPlatform: Couldn't locate '%a' node. Ret=%a\n",
-        NodePath,
-        FdtStrerror (Node)
-        ));
-      continue;
-    }
-
-    UINT32  Ranges[][7] = {
-      {
-        CpuToFdt32 (0x01000000), // I/O space
-        CpuToFdt32 ((UINT32)((UINT64)PCIE_IO_BUS_BASE >> 32)),
-        CpuToFdt32 ((UINT32)(PCIE_IO_BUS_BASE)),
-        CpuToFdt32 ((UINT32)((UINT64)PCIE_IO_BASE (Segment) >> 32)),
-        CpuToFdt32 ((UINT32)(PCIE_IO_BASE (Segment))),
-        CpuToFdt32 ((UINT32)((UINT64)PCIE_IO_SIZE >> 32)),
-        CpuToFdt32 ((UINT32)(PCIE_IO_SIZE))
-      },
-      {
-        CpuToFdt32 (0x02000000), // 32-bit non-prefetchable memory
-        CpuToFdt32 ((UINT32)((UINT64)PCIE_MEM32_BUS_BASE >> 32)),
-        CpuToFdt32 ((UINT32)(PCIE_MEM32_BUS_BASE)),
-        CpuToFdt32 ((UINT32)((UINT64)PCIE_MEM32_BASE (Segment) >> 32)),
-        CpuToFdt32 ((UINT32)(PCIE_MEM32_BASE (Segment))),
-        CpuToFdt32 ((UINT32)((UINT64)PCIE_MEM32_SIZE >> 32)),
-        CpuToFdt32 ((UINT32)(PCIE_MEM32_SIZE))
-      },
-      {
-        CpuToFdt32 (0x43000000), // 64-bit prefetchable memory
-        CpuToFdt32 ((UINT32)((UINT64)PCIE_MEM64_BASE (Segment) >> 32)),
-        CpuToFdt32 ((UINT32)(PCIE_MEM64_BASE (Segment))),
-        CpuToFdt32 ((UINT32)((UINT64)PCIE_MEM64_BASE (Segment) >> 32)),
-        CpuToFdt32 ((UINT32)(PCIE_MEM64_BASE (Segment))),
-        CpuToFdt32 ((UINT32)((UINT64)PCIE_MEM64_SIZE >> 32)),
-        CpuToFdt32 ((UINT32)(PCIE_MEM64_SIZE))
-      },
-    };
-    Ret = FdtSetProp (Fdt, Node, "ranges", Ranges, sizeof (Ranges));
-    if (Ret < 0) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "FdtPlatform: Failed to set 'ranges' property for '%a'. Ret=%a\n",
-        NodePath,
-        FdtStrerror (Ret)
-        ));
-      continue;
-    }
-
-    UINT32  BusRange[] = {
-      CpuToFdt32 (PCIE_BUS_BASE (Segment)),
-      CpuToFdt32 (PCIE_BUS_LIMIT (Segment))
-    };
-    Ret = FdtSetProp (Fdt, Node, "bus-range", BusRange, sizeof (BusRange));
-    if (Ret < 0) {
-      DEBUG ((
-        DEBUG_ERROR,
-        "FdtPlatform: Failed to set 'bus-range' property for '%a'. Ret=%a\n",
-        NodePath,
-        FdtStrerror (Ret)
-        ));
-      continue;
-    }
-
-    CHAR8  *RidMapProps[] = { "msi-map", "iommu-map" };
-    for (UINT32 RidMapIndex = 0; RidMapIndex < ARRAY_SIZE (RidMapProps); RidMapIndex++) {
-      UINT32  *RidMap;
-      INT32   RidMapLength;
-
-      RidMap = (UINT32 *)FdtGetProp (Fdt, Node, RidMapProps[RidMapIndex], &RidMapLength);
-      if ((RidMap == NULL) || (RidMapLength != sizeof (UINT32) * 4)) {
-        DEBUG ((
-          DEBUG_ERROR,
-          "FdtPlatform: Failed to get '%a' property for '%a'. Ret=%a\n",
-          RidMapProps[RidMapIndex],
-          NodePath,
-          FdtStrerror ((RidMapLength < 0) ? RidMapLength : -FDT_ERR_BADVALUE)
-          ));
-        continue;
-      }
-
-      RidMap[0] = CpuToFdt32 (PCIE_BUS_BASE (Segment) << 8);
-      RidMap[2] = RidMap[0];
-      RidMap[3] = CpuToFdt32 (PCIE_BUS_COUNT << 8);
-    }
-  }
 }
 
 STATIC
@@ -1123,8 +962,6 @@ ApplyPlatformFdtFixups (
     return Status;
   }
 
-  FdtFixupComboPhyDevices (*Fdt);
-  FdtFixupPcieResources (*Fdt);
   FdtFixupVopDevices (*Fdt);
   FdtFixupNorFlashDevices (*Fdt);
   FdtFixupUfsDevices (*Fdt);

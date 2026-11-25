@@ -65,8 +65,6 @@
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath
   gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPath
-  gRK3576TokenSpaceGuid.PcdComboPhy0ModeDefault
-  gRK3576TokenSpaceGuid.PcdComboPhy1ModeDefault
 
 [Depex]
   gRockchipPlatformConfigAppliedProtocolGuid
