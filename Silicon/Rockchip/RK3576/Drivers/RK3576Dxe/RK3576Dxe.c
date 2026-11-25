@@ -218,14 +218,24 @@ RK3576InitStatusLed (
 }
 
 /*
- * Start the board's cooling fan at a fixed duty and leave it running.
+ * Start the board's cooling fan and leave it running, or hold it off.
  *
- * There is no HII setting for this on RK3576: the RK3588 cooling-fan form and
- * its variables were never ported (VarStoreData.h carries the two structures,
- * nothing uses them).  The duty is PcdPwmFanSpeedDefault; boards that leave it
- * at 0 skip this entirely, so their fan pins and PWM blocks are not touched.
+ * Boards that leave PcdPwmFanSpeedDefault at 0 (the ROCK 4D) skip this
+ * entirely, so their fan pins and PWM blocks are not touched, and the setup
+ * option is hidden (CoolingFanSupported 0).
+ *
+ * The setup option "Fan" (PcdCoolingFan, default on) is on or off and
+ * nothing in between: on is 100% and off is 0%, so the pin is held at one
+ * level and never switches.  A partial duty made the TaishanPi 3M's fan
+ * whine (TaishanPi3M.dsc), so no speed is offered.  Which level is "on" is
+ * each board's PwmFanSetSpeed: the TaishanPi 3M's pin is high for on, the
+ * CM5-IO's is inverted, low for on, the level it has had all along
+ * (RockchipPlatformLib.c of each board says why).
+ *
  * The fan is left on after ExitBootServices on purpose: Windows has no driver
- * for it, and Linux's pwm-fan takes the channel over when it probes.
+ * for it, and Linux's pwm-fan takes the channel over when it probes.  "Fan
+ * Control by ACPI Thermal Zone" is separate: with it on, the OS may start
+ * the fan from its thermal zone even with this option off.
  */
 STATIC
 VOID
@@ -233,19 +243,37 @@ RK3576InitCoolingFan (
   VOID
   )
 {
-  UINT32  Percentage = FixedPcdGet32 (PcdPwmFanSpeedDefault);
+  EFI_STATUS  Status;
+  UINT8       Supported;
+  UINT8       On;
+  UINTN       Size;
 
-  if (Percentage == 0) {
+  Supported = (FixedPcdGet32 (PcdPwmFanSpeedDefault) != 0) ? 1 : 0;
+  Status    = gRT->SetVariable (
+                     L"CoolingFanSupported",
+                     &gRK3576DxeFormSetGuid,
+                     EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                     sizeof (Supported),
+                     &Supported
+                     );
+  ASSERT_EFI_ERROR (Status);
+
+  if (Supported == 0) {
     return;
   }
 
-  if (Percentage > 100) {
-    Percentage = 100;
+  Size   = sizeof (On);
+  Status = gRT->GetVariable (L"CoolingFan", &gRK3576DxeFormSetGuid, NULL, &Size, &On);
+  if (EFI_ERROR (Status) || (On > 1)) {
+    Status = PcdSet8S (PcdCoolingFan, FixedPcdGet8 (PcdCoolingFanDefault));
+    ASSERT_EFI_ERROR (Status);
   }
 
+  On = (PcdGet8 (PcdCoolingFan) != 0) ? 1 : 0;
+
   PwmFanIoSetup ();
-  PwmFanSetSpeed (Percentage);
-  DEBUG ((DEBUG_INFO, "RK3576Dxe: cooling fan started at %u%%\n", Percentage));
+  PwmFanSetSpeed (On ? 100 : 0);
+  DEBUG ((DEBUG_ERROR, "RK3576Dxe: cooling fan %a (setup option Fan)\n", On ? "on, full speed" : "off"));
 }
 
 /*

@@ -181,6 +181,12 @@
   # pin is held high and the period does not matter.
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|500000|UINT32|0x00010702
 
+  # "Fan" setup option (PcdCoolingFan): 1 runs the board fan at full speed
+  # (the pin held at its on level, no PWM switching), 0 holds it at its off
+  # level.  Shown only where PcdPwmFanSpeedDefault is not 0, the boards whose
+  # fan the firmware drives.
+  gRK3576TokenSpaceGuid.PcdCoolingFanDefault|1|UINT8|0x00010720
+
   # Rk806I2cPowerOffDxe: the I2C controller and address of an RK806 that
   # the firmware has to switch off itself at a shutdown (see the driver).
   # 0 leaves shutdown to PSCI alone.  RK3576Dxe (Npu.c) sets the NPU rail
@@ -230,6 +236,7 @@
   gRK3576TokenSpaceGuid.PcdConfigTableMode|0|UINT32|0x00000300
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|0|UINT32|0x00000351
   gRK3576TokenSpaceGuid.PcdAcpiFanControl|0|UINT8|0x00000303
+  gRK3576TokenSpaceGuid.PcdCoolingFan|1|UINT8|0x00000720
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates|0|UINT8|0x00000900
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq|0|UINT8|0x00000901
   gRK3576TokenSpaceGuid.PcdAcpiNpu|0|UINT8|0x00000305
