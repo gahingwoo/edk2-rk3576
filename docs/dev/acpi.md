@@ -2,109 +2,98 @@
 
 English | [简体中文](acpi.zh-CN.md)
 
-What the firmware tells an ACPI operating system (Windows) on each board,
-and which build setting or setup option decides it. As of `main` on
-2026-11-24.
+What the firmware describes to an ACPI OS (Windows) on each board, and which
+build setting or setup option decides it.
 
 ## Table mode per board
 
-| Board | Default (`PcdConfigTableModeDefault`) | ACPI tables built |
+| Board | Default (`PcdConfigTableModeDefault`) | ACPI tables |
 |---|---|---|
-| ROCK 4D | device tree only | no; the board builds FDT-only, so Windows cannot start on it |
-| CM5-IO | ACPI + device tree | yes, `Platform/ArmSoM/CM5IO/AcpiTables/` |
-| TaishanPi 3M | ACPI + device tree | yes, `Platform/LCKFB/TaishanPi3M/AcpiTables/` |
+| ROCK 4D | device tree only | not built, so Windows cannot start |
+| CM5-IO | ACPI + device tree | `Platform/ArmSoM/CM5IO/AcpiTables/` |
+| TaishanPi 3M | ACPI + device tree | `Platform/LCKFB/TaishanPi3M/AcpiTables/` |
 
-"Config Table Mode" on the ACPI / Device Tree setup page switches between
-ACPI + device tree, ACPI only and device tree only where ACPI is built.
-
-The SoC tables (MADT, GTDT, PPTT, MCFG, SPCR, DBG2, FADT) are shared and
-compile to the same bytes on both ACPI boards. Each board has its own DSDT,
-which includes the SoC device files from `Silicon/Rockchip/RK3576/AcpiTables/`
-and puts the board values next to the device tree line they come from.
+"Config Table Mode" in setup switches between ACPI + device tree, ACPI only
+and device tree only where ACPI is built. The SoC tables (MADT, GTDT, PPTT,
+MCFG, SPCR, DBG2, FADT) are shared and identical on both ACPI boards. Each
+board's DSDT includes the SoC device files from
+`Silicon/Rockchip/RK3576/AcpiTables/` and notes the device tree line each
+board value comes from.
 
 ## Devices
 
-| Device | `_HID` | CM5-IO | TaishanPi 3M | Decided by |
-|---|---|---|---|---|
-| eMMC | `RKCP0D40` | yes | yes | always |
-| SD card | `RKCPFE2C` | yes | yes | always |
-| GPIO, 5 banks | `RKCP3002` | yes | yes | always |
-| I2C | `RKCP3001` | yes | yes | always |
-| SPI | `RKCP3003` | yes | yes | always |
-| DMA (PL330), 3 | `ARMH0330` | yes | yes | always |
-| Ethernet (GMAC0) | `RKCP6543` | yes | yes | always |
-| USB-C (XHC0, DRD0) | `PNP0D10` | yes | yes | always; on the TaishanPi 3M with VBUS only for a sink attached at boot ([hardware](hardware.md)) |
-| USB-A (XHC1, DRD1) | `PNP0D10` | yes | yes | always |
-| XHC2, SATA | | yes | no | CM5-IO only |
-| PCIe | | yes | yes | the TaishanPi 3M's mini-PCIe root complex is hidden when its link does not train in UEFI (the usual case with a USB modem in the slot) |
-| GPU (Mali-G52) | `RKCP7402` | yes | yes | always; the firmware powers `PD_GPU` |
-| Display (VOP2) | `RKCP7403` | yes | yes | always |
-| HDMI audio (SAI6) | `RKCP3004` | yes | yes | `PcdHdmiAudioPreset`, TRUE on both boards |
-| Headphone codec ES8388 | `RKCP8388` | no | yes | `PcdAnalogAudioPreset`, TRUE on the TaishanPi 3M |
-| SAI1 (analog audio) | `RKCP3004` | no | yes | the same |
-| Touch GT9271 (`\_SB.I2C0.TCH0`) | `RKCP9271` | no | when the screen answers at boot | screen detection |
-| Bluetooth BCM4345C5 (`\_SB.BTH0`) | `RKCP4345` | no | yes | TaishanPi 3M DSDT |
-| RTC HYM8563 | `HYMB0001` | yes | yes | board DSDT |
-| PMIC RK806 (`\_SB.I2C1.PMC0`) | `RKCP0806`, `_CID` `PRP0001` | yes | yes | board DSDT; no Windows driver, the firmware manages it (woa-rk3576 `drivers/null` names it) |
-| Pin controller (`\_SB.PINC`) | `RKCP3005`, `_CID` `PRP0001` | yes | yes | always; no Windows driver, the same |
-| UART2 (`\_SB.UAR2`) | `HISI0031` | yes | no | CM5-IO DSDT; left out on the TaishanPi 3M, where no pin option of it reaches a connector |
-| Thermal zones (TSADC read-out) | | yes | yes | always; a reading that cannot be trusted shows as 100.0 C |
-| Fan (`PNP0C0B`, `Fan.asl`) | | yes | yes | setup "Fan Control by ACPI Thermal Zone", off by default |
-| CPU idle states (SSDT `RKLPI`) | | yes | yes | setup "CPU Idle States", off by default |
-| NPU (`Npu.asl`) | `RKCP3576` | no | yes | setup "NPU (experimental)", off by default; offered only on a board that names its RK806's I2C bus (`PcdRk806I2cBase`), which on 2026-11-24 is the TaishanPi 3M |
-| 40-pin UARTs (SSDT `RKUART40`, `Uart40.asl`) | `RKCP3006`, `_CID` `PRP0001` | no | yes | setup "40-pin UART (experimental)", off by default; offered on a board that sets `PcdPin40Supported` (TaishanPi 3M on `main`). `SerCx-FriendlyName` makes them COM-port interfaces for woa-rk3576 rk3xuart |
-| RhProxy (SSDT `RKRHPX`, `\_SB.RHPX`, `RhProxy.asl`) | `MSFT8000` | no | yes | setup "40-pin GPIO/I2C/SPI for apps (experimental)", off by default; the same boards. The header's GPIO pins, I2C and SPI buses for Windows.Devices.Gpio, .I2c and .Spi |
-| Hardware watchdog (WDAT, `Wdat.aslc`) | | yes | yes | setup "Hardware watchdog (experimental)", off by default. See below |
-| Power button (SSDT `RKPWRKEY`, `\_SB.I2C1.PWRK`, `PwrKey.asl`) | `RKCP806B` | no | yes | setup "Power button (RK806, experimental)", off by default; offered on a board with a button on the RK806's PWRON pin (`PcdAcpiPwrKeySupported`: ROCK 4D SW1, CM5-IO SW4; not the TaishanPi 3M, which has none) that also sets `PcdRk806I2cBase`. For woa-rk3576 rk806pwrkey |
-| LEDs (SSDT `RKLED`, `\_SB.LEDS`, board `Leds.asl`) | `RKCP1ED0` | no | yes | setup "Board LEDs for the OS (experimental)", off by default; offered on a board that sets `PcdAcpiLedsSupported`. For woa-rk3576 rkled |
-| SARADC and its keys (SSDT `RKSARADC`, `\_SB.ADC0`, body `Saradc.asl`, board `RecoveryKey.asl`) | `RKCP0ADC` | no | yes | setup "ADC keys for the OS (experimental)"; offered on a board that sets `PcdAcpiSaradcSupported` (the TaishanPi 3M, where it is on by default). Off, the firmware does not set the SARADC clock either. On the TaishanPi 3M the Recovery key carries HID usage System Power Down (`0x00010081`) and is Windows' power button. For woa-rk3576 rk3xsaradc |
+C = CM5-IO, T = TaishanPi 3M. "Option" means a setup option, off by default
+unless noted.
 
-The EDID of the monitor is published as `\_SB.GPU0.EDID` for the Windows
-display driver, and on the GOP handle.
+| Device | `_HID` | On | Decided by |
+|---|---|---|---|
+| eMMC | `RKCP0D40` | C T | always |
+| SD card | `RKCPFE2C` | C T | always |
+| GPIO, 5 banks | `RKCP3002` | C T | always |
+| I2C | `RKCP3001` | C T | always |
+| SPI | `RKCP3003` | C T | always |
+| DMA (PL330), 3 | `ARMH0330` | C T | always |
+| Ethernet (GMAC0) | `RKCP6543` | C T | always |
+| USB-C (XHC0, DRD0) | `PNP0D10` | C T | always; on T, VBUS only for a sink attached at boot |
+| USB-A (XHC1, DRD1) | `PNP0D10` | C T | always |
+| XHC2, SATA | | C | CM5-IO only |
+| PCIe | | C T | on T, hidden when the mini-PCIe link does not train in UEFI (usual with a USB modem) |
+| GPU (Mali-G52) | `RKCP7402` | C T | always; firmware powers `PD_GPU` |
+| Display (VOP2) | `RKCP7403` | C T | always; monitor EDID in `\_SB.GPU0.EDID` and on the GOP handle |
+| HDMI audio (SAI6) | `RKCP3004` | C T | `PcdHdmiAudioPreset` (TRUE on both) |
+| ES8388 codec, SAI1 | `RKCP8388`, `RKCP3004` | T | `PcdAnalogAudioPreset` |
+| Touch GT9271 (`\_SB.I2C0.TCH0`) | `RKCP9271` | T | when the screen answers at boot |
+| Bluetooth BCM4345C5 (`\_SB.BTH0`) | `RKCP4345` | T | board DSDT |
+| RTC HYM8563 | `HYMB0001` | C T | board DSDT |
+| PMIC RK806 (`\_SB.I2C1.PMC0`) | `RKCP0806`, `_CID` `PRP0001` | C T | board DSDT; no Windows driver (woa-rk3576 `drivers/null` names it) |
+| Pin controller (`\_SB.PINC`) | `RKCP3005`, `_CID` `PRP0001` | C T | always; no Windows driver |
+| UART2 (`\_SB.UAR2`) | `HISI0031` | C | CM5-IO DSDT (no T pin option reaches a connector) |
+| Thermal zones (TSADC) | | C T | always; an untrusted reading shows as 100.0 C |
+| Fan (`PNP0C0B`, `Fan.asl`) | | C T | option "Fan Control by ACPI Thermal Zone" |
+| CPU idle states (SSDT `RKLPI`) | | C T | option "CPU Idle States" |
+| NPU (`Npu.asl`) | `RKCP3576` | T | option "NPU (experimental)"; needs `PcdRk806I2cBase` |
+| 40-pin UARTs (SSDT `RKUART40`) | `RKCP3006`, `_CID` `PRP0001` | T | option "40-pin UART (experimental)" with `PcdPin40Supported`; `SerCx-FriendlyName` gives COM ports for rk3xuart |
+| RhProxy (SSDT `RKRHPX`, `\_SB.RHPX`) | `MSFT8000` | T | option "40-pin GPIO/I2C/SPI for apps (experimental)", same boards |
+| Hardware watchdog (WDAT) | | C T | option "Hardware watchdog (experimental)", see below |
+| Power button (SSDT `RKPWRKEY`, `\_SB.I2C1.PWRK`) | `RKCP806B` | none yet | option "Power button (RK806, experimental)"; needs `PcdAcpiPwrKeySupported` (ROCK 4D SW1, CM5-IO SW4) and `PcdRk806I2cBase`, which no board sets both of on `main`. For rk806pwrkey |
+| LEDs (SSDT `RKLED`, `\_SB.LEDS`) | `RKCP1ED0` | T | option "Board LEDs for the OS (experimental)" with `PcdAcpiLedsSupported`; for rkled |
+| SARADC and keys (SSDT `RKSARADC`, `\_SB.ADC0`) | `RKCP0ADC` | T | option "ADC keys for the OS (experimental)" with `PcdAcpiSaradcSupported` (on by default on T). Off, the SARADC clock is not set either. T's Recovery key reports HID System Power Down (`0x00010081`), Windows' power button. For rk3xsaradc |
 
-An optional SSDT may refer (`External`) only to objects in the DSDT, never
-to a device another optional SSDT declares. The SSDTs are installed in FV
-order, so such a reference names an object that does not exist yet when
-Windows loads the table. When one table has to know whether another is
-installed, RK3576AcpiPlatformDxe patches a `Name` in it at install time, as
-it does for `\_SB.RHPX.UAON` (1 when the 40-pin UART SSDT is installed too).
-The first RhProxy table looked for `\_SB.URT4` with `External` and
-`CondRefOf` instead, and Windows did not boot with both 40-pin options on.
+Rule for optional SSDTs: refer (`External`) only to objects in the DSDT,
+never to a device in another optional SSDT. SSDTs are installed in FV order,
+so such an object may not exist yet when Windows loads the table (Windows did
+not boot with an RhProxy SSDT that did this). When one table must know
+whether another is installed, RK3576AcpiPlatformDxe patches a `Name` in it at
+install time, as with `\_SB.RHPX.UAON`.
 
 ## Hardware watchdog
 
-The WDAT describes WDT_NS (0x2ACE0000), the DesignWare watchdog that TF-A
-leaves to the normal world (it uses WDT_S itself). Windows' in-box watchdog
-driver reads it. The block cannot count as long as Windows asks (it sets
-5 minutes and needs a maximum above 4), so the table declares 1 s counts
-up to 600 and the firmware always programs the longest hardware period:
-2^31 cycles of 24 MHz, twice (interrupt, then reset), about 179 s. The board
-resets when Windows has not restarted the watchdog for about 179 s.
-`Wdat.aslc` and `RK3576AcpiPlatformDxe/Watchdog.c` have the register-level
-details and sources; the serial log says at every boot whether the last
-reset was the watchdog's.
+The WDAT describes WDT_NS (`0x2ACE0000`), the DesignWare watchdog TF-A leaves
+to the normal world. Windows asks for 5 minutes, longer than the block can
+count, so the table declares 1 s counts up to 600 and the firmware always
+programs the longest period: 2^31 cycles of 24 MHz, twice (interrupt, then
+reset), about 179 s. Register details: `Wdat.aslc` and
+`RK3576AcpiPlatformDxe/Watchdog.c`. The serial log says at each boot whether
+the last reset came from the watchdog.
 
-Test on a board, in this order:
+Board test:
 
-1. Option on, boot Windows, leave it idle and then loaded for an hour: no
-   reset. This is what shows that Windows restarts the counter more often
-   than every 179 s; nothing else can.
-2. Stop Windows from restarting it (woa-rk3576 `tools/wdthang`, which holds
-   every CPU at high IRQL): the board resets within about 3 minutes, and the
-   next boot's log says "last reset WAS the watchdog".
-3. Option off, the same hang: the board stays hung.
+1. Option on, Windows idle and then loaded for an hour: no reset.
+2. Hang Windows with woa-rk3576 `tools/wdthang`: reset within about
+   3 minutes, next boot logs "last reset WAS the watchdog".
+3. Option off, same hang: the board stays hung.
 
 ## Variables for OS drivers
 
 | Variable | Set by | Read by |
 |---|---|---|
-| `GpuRail` (volatile) | `GpuRail.c`: BUCK5 voltage, GPU OTP bytes | wddm-mali-g52, to decide whether 702 MHz is allowed |
-| `AcpiNpu` | the setup option; can also be set from the UEFI Shell: `setvar AcpiNpu -guid 8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c -bs -rt -nv =01` | the firmware at the next boot |
+| `GpuRail` (volatile) | `GpuRail.c`: BUCK5 voltage, GPU OTP bytes | wddm-mali-g52, to allow 702 MHz |
+| `AcpiNpu` | the setup option, or `setvar AcpiNpu -guid 8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c -bs -rt -nv =01` in the UEFI Shell | the firmware at the next boot |
 
 ## Where to look
 
 - DSDTs: `Platform/<vendor>/<board>/AcpiTables/Dsdt.asl`.
 - SoC devices: `Silicon/Rockchip/RK3576/AcpiTables/*.asl`.
-- Setup options and their defaults: `Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/`
+- Setup options and defaults: `Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/`
   (`RK3576DxeHii.vfr`, `ConfigTable.c`) and `Silicon/Rockchip/RK3576/RK3576.dec`.
 - `acpiview` in the UEFI Shell dumps and checks the installed tables.
