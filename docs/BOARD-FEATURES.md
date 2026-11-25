@@ -69,7 +69,7 @@ TaishanPi 3M v1.4) and the vendor kernel tree; the ROCK 4D's are cited in
 | TSADC read-out and TSHUT at 120 C | yes | yes | yes |
 | Fan started at 100% | yes (CN2, PWM2 ch3) | yes (CN32, PWM2 ch6, polarity disputed) | yes, J16, PWM2 ch5, GPIO4_C5, normal polarity (main: no fan) |
 | HDMI audio preset (SAI6, 48 kHz) | yes | yes | yes (main: off) |
-| Analog audio preset (ES8388 on SAI1 + I2C3) | yes, with amplifier and jack detect | not on main | yes: headphone jack and its microphone, no amplifier (none fitted), no jack detect (it is a SARADC input) (main: missing) |
+| Analog audio preset (ES8388 on SAI1 + I2C3) | yes, with amplifier and jack detect | not on main | yes: headphone jack and its microphone, no amplifier (none fitted), jack detect on SARADC channel 3 through rk3xsaradc (branch, not run) (main: missing) |
 | "Armbian (U-Boot)" one-shot | yes (request on the eMMC) | missing (its SPL is not rebuilt by `build-spl.sh`) | yes: request on the SD card, Armbian on the SD card only; needs the new SPL this branch builds (main: missing) |
 | SPL built from pinned sources (`build-spl.sh`) | yes | no (prebuilt `idblock_cm5io.bin`) | yes, U-Boot v2026.10 (main: prebuilt 2026.04) |
 | MIPI DSI screen | yes | n/a | missing: connector exists, no panel |
@@ -101,7 +101,8 @@ TaishanPi 3M v1.4) and the vendor kernel tree; the ROCK 4D's are cited in
 | Thermal zones TZ00..TZ02, `_CRT` 115 C | (ThermalZone) | yes | yes | yes |
 | Fan SSDT (RKFAN, 3 x PNP0C0B) | PNP0C0B | yes | yes | yes, all levels 100% |
 | HDMI audio SAI6 | RKCP3004 | yes | yes | yes |
-| SAI1 + ES8388 | RKCP3004, RKCP8388 | yes | not on main | yes, no jack detect |
+| SAI1 + ES8388 | RKCP3004, RKCP8388 | yes | not on main | yes; jack state from the SARADC (`rockchip,hp-det-saradc`) |
+| SARADC (Saradc.asl, ADC keys and ADC jack) | RKCP0ADC | branch `saradc-acpi`: Recovery key, channel 1 | Maskrom key, channel 0 | Maskrom key, channel 0; jack, channel 3 |
 | NPU (RKNPU SSDT) | RKCP3576 | yes | built, never installed (option hidden) | yes |
 | Video decoder (RKVDEC SSDT) | RKCP0383 | yes | yes | yes |
 | SATA | RKCP0161 | n/a | stub only | n/a |
@@ -119,7 +120,8 @@ wiring take it from ACPI (`_CRS`, `_DSD`).
 | rk3xi2c, rk3xgpio, rk3xspi, pl330dma (woa-rk3576) | RKCP3001, RKCP3002, RKCP3003, ARMH0330 | yes | yes | yes |
 | dwcsdhc (eMMC), dwcmshc (SD) | RKCP0D40, RKCPFE2C | yes | yes | SD only |
 | dwc_eqos (Ethernet) | RKCP6543 | yes | yes | yes |
-| rk3xi2sbus, csaudiork3x (HDMI, headphones) | RKCP3004 | yes | HDMI | HDMI and headphones (no jack detect) |
+| rk3xi2sbus, csaudiork3x (HDMI, headphones) | RKCP3004 | yes | HDMI | HDMI and headphones (jack detect through rk3xsaradc) |
+| rk3xsaradc, tools/adctest (woa-rk3576 branch `rk3xsaradc`) | RKCP0ADC | Recovery key as a vendor HID button | Maskrom key as a vendor HID button | Maskrom key; headphone jack state to es8323. CI only, not run |
 | es8323 (ES8388) | RKCP8388 | yes | n/a on main | yes; needs woa-rk3576 `es83-optional-irq` or later (an older es8323 creates an interrupt this `_CRS` does not have); `_DSD` `rockchip,output-route` 1, `rockchip,input-select` 1 (OUT1 to J18, LIN1 headset microphone) |
 | rk3576-null (PMIC, RTC, pin controller, UART2) | RKCP0806, HYMB0001, RKCP3005, HISI0031 | yes | yes | yes, now that the PMIC is RKCP0806 |
 | bcm4345bt | RKCP4345 | yes | n/a | n/a |
@@ -141,8 +143,11 @@ wiring take it from ACPI (`_CRS`, `_DSD`).
   option is turned on and the board test below has passed.
 * **Wi-Fi and Bluetooth under Windows.** USB AIC8800D80; no driver that runs
   on 23H2. Recorded, not ported.
-* **Headphone jack detect.** A SARADC input; Windows has no ADC driver
-  here. The headphone endpoint stays "plugged".
+* **Headphone jack detect.** A SARADC input (channel 3, the J18
+  microphone contact). Written, not run: \_SB.ADC0 with thresholds computed
+  from the schematic (plugged below 1.45 V, unplugged above 1.52 V), the
+  woa-rk3576 rk3xsaradc driver, and es8323 following it. Without the
+  driver the headphone endpoint stays "plugged".
 * **UFS, the DSI connector, the EEPROM, the LEDs.** No Windows driver, no
   panel, nothing to drive.
 * **Armbian on USB or NVMe through "Armbian (U-Boot)".** The SPL boots only

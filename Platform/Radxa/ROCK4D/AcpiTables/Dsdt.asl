@@ -240,6 +240,39 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // enabled in setup.
     include ("Thermal.asl")
 
+    // SARADC (adc@2ae00000; vref vcca_1v8_s0 = 1.8 V, vendor tree &saradc),
+    // for the woa-rk3576 rk3xsaradc driver.  The mainline tree has no
+    // adc-keys and no &saradc for this board; the wiring is the
+    // schematic's (V1.12 page 11 "RK3576-SARADC", page 16 "Audio-CODEC"):
+    //
+    //   channel 0  SARADC_VIN0_BOOT: R6 10K to VCCA1V8_PLDO2_S0, R45 6.8K to
+    //              ground (729 mV, raw 1658, the "FSPI0->UFS->USB" boot
+    //              strap), and the MASKROM key S1/S2 to ground.  Declared as
+    //              an adc-keys button: pressed ~0 V, key-up 729 mV, code
+    //              KEY_VENDOR (0x168), reported as vendor-page button 1.
+    //              The BootROM samples this pin only at reset.
+    //   channel 1  SARADC_VIN1_KEY/RECOVERY: R52 10K pull-up to test point
+    //              TP20 only, no button.  Not declared.
+    //   channel 3  SARADC_VIN3_HP_HOOK: J18's microphone contact
+    //              (MIC_INP_PHONE), biased from VCCA3V3_CODEC through R293
+    //              100R + R291 2.2K, divided by R294/R296 100K/100K.  With
+    //              nothing plugged ~1.63 V; a 3-pole plug shorts the contact
+    //              to the sleeve, ~0 V; a headset's capsule pulls it to about
+    //              0.5-1.2 V; its button to ~0 V.  Plugged below 1.45 V,
+    //              unplugged above 1.52 V, 150 ms (computed, not measured:
+    //              the first values to check with adctest).
+    //
+    // RK3576Dxe sets the converter clock (PcdRk3576SaradcClockInit in
+    // ROCK4D.dsc).
+#define BOARD_SARADC_KEYS_CHANNEL     0
+#define BOARD_SARADC_KEYS_KEYUP_UV    729000
+#define BOARD_SARADC_KEYS_PRESS_UV    0
+#define BOARD_SARADC_KEYS_CODE        0x168
+#define BOARD_SARADC_JACK_CHANNEL     3
+#define BOARD_SARADC_JACK_BELOW_UV    1450000
+#define BOARD_SARADC_JACK_ABOVE_UV    1520000
+    include ("Saradc.asl")
+
 #if FixedPcdGetBool (PcdHdmiAudioPreset)
     // SAI6, the HDMI audio interface (hdmi_sound and sai6, dts:307-309,
     // 773-775).  Only with the firmware's HDMI audio preset, which sets its
@@ -261,12 +294,14 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     //
     // No amplifier enable: LOUT1/ROUT1 drive the jack without one, and the
     // speaker amplifiers on LOUT2/ROUT2 are not fitted ("Audio SPK" page).
-    // No jack detect: it is SARADC_VIN3_HP_HOOK, an analog input (vendor
-    // tree io-channels = <&saradc 3>), which Windows has no driver for, so
-    // BOARD_CODEC_NO_HPDET: no detect line in _CRS and no hp-det _DSD, and
-    // the driver keeps the headphone endpoint plugged.  es8323 creates its
-    // interrupt only when _CRS has a GpioInt (woa-rk3576
-    // es83-optional-irq, 111de2c).
+    // No detect line: the jack is read on SARADC_VIN3_HP_HOOK, an analog
+    // input (vendor tree io-channels = <&saradc 3>), by the woa-rk3576
+    // rk3xsaradc driver (\_SB.ADC0 above).  So BOARD_CODEC_NO_HPDET (no
+    // detect line in _CRS; es8323 creates its interrupt only when _CRS has
+    // a GpioInt, woa-rk3576 es83-optional-irq, 111de2c) together with
+    // BOARD_CODEC_HPDET_SARADC: _DSD says rockchip,hp-det-saradc = 1 and
+    // es8323 follows the SARADC driver's jack state.  Without that driver
+    // the headphone endpoint stays plugged, as before.
     //
     // Routing (schematic V1.12 page 16): LOUT1/ROUT1 -> HPOUT_L/R -> J18;
     // LOUT2/ROUT2 (AUD_LINEOUT_L/R) only reach the speaker amplifier on
@@ -288,6 +323,7 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
 #define BOARD_CODEC_I2C           "\\_SB.I2C3"
 #define BOARD_CODEC_I2C_ADDR      0x10
 #define BOARD_CODEC_NO_HPDET
+#define BOARD_CODEC_HPDET_SARADC
 #define BOARD_CODEC_OUTPUT_ROUTE  1
 #define BOARD_CODEC_INPUT_SELECT  1
     Scope (I2C3) {

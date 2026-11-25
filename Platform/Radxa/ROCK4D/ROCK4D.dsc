@@ -176,6 +176,10 @@
   # driver had no over-temperature protection at all before this.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
+  # SARADC converter clock (1 MHz from xin24m) for the DSDT's \_SB.ADC0:
+  # the Maskrom key and the headphone jack (Saradc.asl).  Clocks only.
+  gRK3576TokenSpaceGuid.PcdRk3576SaradcClockInit|TRUE
+
   #
   # I2C.  The base file lists only the RTC; this board's are:
   #   I2C1 0x23  the RK806 PMIC (&i2c1 pmic@23 in rk3576-rock-4d.dts).
