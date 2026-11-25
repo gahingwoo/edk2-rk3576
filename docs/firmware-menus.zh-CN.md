@@ -86,7 +86,7 @@ ACPI / Device Tree 页的 "Force UEFI GOP Display" 决定 Linux 沿用固件的�
 ## 关机
 
 首页的 "Shut Down"、UEFI Shell 里的 `reset -s`，以及在 Windows 里关机，都会让板子断电。在泰山派 3M
-上，固件自己通过 I2C1 关掉 RK806 电源芯片，并为 Windows 发出的 PSCI 调用做好准备。
+和 CM5-IO 上，固件自己通过 I2C1 关掉 RK806 电源芯片，并为 Windows 发出的 PSCI 调用做好准备。
 
 ## 给操作系统用的选项
 
@@ -100,5 +100,5 @@ ACPI / Device Tree 页的 "Force UEFI GOP Display" 决定 Linux 沿用固件的�
 | CPU Idle States | 把核心的空闲状态告诉操作系统；关闭时只用 WFI |
 | Fan | 开（默认）：板载风扇从上电起全速运行，进系统后也一直开着；关：风扇保持停止。没有调速：部分转速要用 PWM 脉冲，脉冲会让风扇啸叫。泰山派 3M 和 CM5-IO 有这个选项，ROCK 4D 没有固件能驱动的风扇。如果打开了 Fan Control by ACPI Thermal Zone，操作系统仍然可以把风扇打开 |
 | Fan Control by ACPI Thermal Zone | 让 Windows 按大核温度控制风扇；关闭时风扇保持固件设定的转速 |
-| NPU (experimental) | 给 NPU 上电并在 ACPI 里声明，供 [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) 使用；仅泰山派 3M |
+| NPU (experimental) | 给 NPU 上电并在 ACPI 里声明，供 [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) 使用；泰山派 3M 和 CM5-IO |
 | Save OS Variable Changes to eMMC | 见上文 |

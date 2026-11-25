@@ -149,7 +149,7 @@ device, so a damaged Armbian FIT on the SD card ends in the firmware.
 ## The EDK2 side
 
 `Silicon/Rockchip/Applications/ArmbianOnce` is built into boards that set
-`RK_ARMBIAN_ONCE_ENABLE` (the TaishanPi 3M only, for now).
+`RK_ARMBIAN_ONCE_ENABLE` (the TaishanPi 3M and, on branch `cm5io-parity`, the CM5-IO).
 `PlatformBootManagerLib` lists it as `Armbian (U-Boot)` only while it has
 something to boot. On every boot, after the disks are connected and before the
 boot manager reads its options, it connects the SD controller (in case the boot

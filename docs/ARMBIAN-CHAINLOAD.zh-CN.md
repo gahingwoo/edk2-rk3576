@@ -137,7 +137,7 @@ Armbian FIT 最终会启动本固件。
 ## EDK2 这边
 
 `Silicon/Rockchip/Applications/ArmbianOnce` 会编进设置了
-`RK_ARMBIAN_ONCE_ENABLE` 的板子（目前只有泰山派 3M）。
+`RK_ARMBIAN_ONCE_ENABLE` 的板子（泰山派 3M，以及 `cm5io-parity` 分支上的 CM5-IO）。
 `PlatformBootManagerLib` 只在有东西可启动时才把它列为 `Armbian (U-Boot)`。
 每次启动时，在磁盘连接好之后、启动管理器读取启动项之前，它会连接 SD 控制器
 （以防启动设备发现策略没有连接），并调用 `ArmbianOnceProbe()`（在 `ArmbianOnceLib` 里，

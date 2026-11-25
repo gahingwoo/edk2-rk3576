@@ -118,9 +118,9 @@ where touches land.
 ## Power off
 
 "Shut Down" on the front page, `reset -s` in the UEFI Shell and a shutdown
-from Windows power the board off. On the TaishanPi 3M the firmware switches
-the RK806 PMIC off over I2C1 itself, and arms it for the PSCI call Windows
-makes.
+from Windows power the board off. On the TaishanPi 3M and the CM5-IO the firmware
+switches the RK806 PMIC off over I2C1 itself, and arms it for the PSCI call
+Windows makes.
 
 ## Options for operating systems
 
@@ -135,5 +135,5 @@ Except Config Table Mode, CPU Maximum Frequency and the TaishanPi 3M's GPU volta
 | CPU Idle States | tells the OS about the cores' idle states; off means WFI only |
 | Fan | on (default): the board fan runs at full speed from power-on into the OS; off: held off. No speed setting, because a partial speed is pulsed and the pulsing makes the fan whine. TaishanPi 3M and CM5-IO; the ROCK 4D has no fan the firmware drives. With Fan Control by ACPI Thermal Zone on, the OS can still start the fan |
 | Fan Control by ACPI Thermal Zone | lets Windows run the fan from the big-core temperature; off means the fan stays at the speed the firmware set |
-| NPU (experimental) | powers the NPU and declares it in ACPI, for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu); TaishanPi 3M only |
+| NPU (experimental) | powers the NPU and declares it in ACPI, for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu); TaishanPi 3M and CM5-IO |
 | Save OS Variable Changes to eMMC | see above |
