@@ -39,8 +39,9 @@
  *      PcdHdmiAudioPreset is TRUE.  LCKFB's vendor tree adds an ES8388 on
  *      I2C3 and SAI1 (as Armbian's board patch carries it); SAI1 and the
  *      codec are declared only when PcdAnalogAudioPreset is TRUE.
- *    - The LED (GPIO0_A0, dts:47-52), the ADC key (dts:30-42) and HDMI: not
- *      declared on the CM5-IO either.
+ *    - The LED (GPIO0_A0, dts:47-52) and the ADC key (dts:30-42): in their
+ *      own SSDTs, Leds.asl and RecoveryKey.asl, each behind a setup option.
+ *    - HDMI: not declared on the CM5-IO either.
  *
  *  GPIO0_B6 is the USB-C VBUS switch on this board, not SDMMC0_PWREN
  *  (dts:825).  Nothing in this table, including the shared Sdhc.asl,

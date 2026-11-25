@@ -49,8 +49,9 @@ SoC 级的表（MADT、GTDT、PPTT、MCFG、SPCR、DBG2、FADT）是共用的，
 | 40 针 UART（SSDT `RKUART40`，`Uart40.asl`） | `RKCP3006`，`_CID` `PRP0001` | 无 | 有 | 设置项 "40-pin UART (experimental)"，默认关闭；只在设置了 `PcdPin40Supported` 的板子上提供（`main` 上是泰山派 3M）。`SerCx-FriendlyName` 让它们成为 COM 口接口，供 woa-rk3576 的 rk3xuart 使用 |
 | RhProxy（SSDT `RKRHPX`，`\_SB.RHPX`，`RhProxy.asl`） | `MSFT8000` | 无 | 有 | 设置项 "40-pin GPIO/I2C/SPI for apps (experimental)"，默认关闭；板子同上。把排针上的 GPIO、I2C 和 SPI 交给 Windows.Devices.Gpio、.I2c、.Spi |
 | 硬件看门狗（WDAT，`Wdat.aslc`） | | 有 | 有 | 设置项 "Hardware watchdog (experimental)"（硬件看门狗），默认关闭。见下文 |
-| 电源键（SSDT `RKPWRKEY`，`\_SB.I2C1.PWRK`，`PwrKey.asl`） | `RKCP806B` | 无 | 有 | 设置项 "Power button (RK806, experimental)"（电源键），默认关闭；只在设置了 `PcdRk806I2cBase` 的板子上提供。供 woa-rk3576 的 rk806pwrkey 使用 |
+| 电源键（SSDT `RKPWRKEY`，`\_SB.I2C1.PWRK`，`PwrKey.asl`） | `RKCP806B` | 无 | 有 | 设置项 "Power button (RK806, experimental)"（电源键），默认关闭；只在 RK806 的 PWRON 脚上有按键（`PcdAcpiPwrKeySupported`：ROCK 4D 的 SW1、CM5-IO 的 SW4；泰山派 3M 没有）且设置了 `PcdRk806I2cBase` 的板子上提供。供 woa-rk3576 的 rk806pwrkey 使用 |
 | 指示灯（SSDT `RKLED`，`\_SB.LEDS`，板级 `Leds.asl`） | `RKCP1ED0` | 无 | 有 | 设置项 "Board LEDs for the OS (experimental)"（板载指示灯），默认关闭；只在设置了 `PcdAcpiLedsSupported` 的板子上提供。供 woa-rk3576 的 rkled 使用 |
+| SARADC 和它上面的按键（SSDT `RKSARADC`，`\_SB.ADC0`，主体 `Saradc.asl`，板级 `RecoveryKey.asl`） | `RKCP0ADC` | 无 | 有 | 设置项 "ADC keys for the OS (experimental)"（ADC 按键交给操作系统）；只在设置了 `PcdAcpiSaradcSupported` 的板子上提供（泰山派 3M，默认打开）。关闭时固件也不设置 SARADC 时钟。泰山派 3M 上 Recovery 键带 HID 用途 System Power Down（`0x00010081`），是 Windows 的电源按钮。供 woa-rk3576 的 rk3xsaradc 使用 |
 
 显示器的 EDID 以 `\_SB.GPU0.EDID` 的形式提供给 Windows 显示驱动，同时也挂在 GOP 句柄上。
 

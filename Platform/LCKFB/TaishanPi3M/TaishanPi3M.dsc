@@ -271,6 +271,16 @@
   # The LED for an ACPI OS (AcpiTables/Leds.asl, woa-rk3576 rkled): the setup
   # option exists on this board and is off by default.
   gRK3576TokenSpaceGuid.PcdAcpiLedsSupported|TRUE
+  # The board's buttons are RECOVERY and RESET; its PWRON net has no key
+  # fitted, so there is no "Power button (RK806)" option and no PwrKey SSDT
+  # (PcdAcpiPwrKeySupported stays FALSE).  Instead the Recovery key, on
+  # SARADC channel 1, is the OS's power button: the SARADC SSDT
+  # (AcpiTables/RecoveryKey.asl, woa-rk3576 rk3xsaradc) behind the setup
+  # option "ADC keys for the OS", on by default, and the converter clock
+  # (1 MHz from xin24m) set only when that option is on.
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault|1
+  gRK3576TokenSpaceGuid.PcdRk3576SaradcClockInit|TRUE
 
 ################################################################################
 [Components.common]

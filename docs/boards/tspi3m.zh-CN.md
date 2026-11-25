@@ -76,6 +76,22 @@ Windows 下的触摸、蓝牙、音频和 USB-C 要用 [`ci` 构建](../flash.zh
 固件让 CN2 上的风扇全速运转并保持不变。Windows 下，在设置里打开
 "Fan Control by ACPI Thermal Zone"（默认关）后按温度调速。Linux 下保持全速。
 
+## 按键
+
+板子上有两个按键：RECOVERY 和 RESET。电源管理芯片的开机（PWRON）线上没有焊按键，
+所以没有真正的电源键，接上电源就开机。
+
+| 按键 | 进入操作系统之前 | Windows 下（ACPI） | Linux 下（设备树） |
+|---|---|---|---|
+| RECOVERY | 无作用（固件不读它） | 电源按钮：短按执行 Windows 电源选项里"按电源按钮时"设定的动作（关机、睡眠等） | 按设备树，`KEY_VENDOR` |
+| RESET | 复位开发板 | 复位开发板 | 复位开发板 |
+
+RECOVERY 作为电源按钮，需要安装 woa-rk3576 的 rk3xsaradc 驱动，并打开设置项
+"ADC keys for the OS"（这块板子上默认打开）。开机后要先看到按键松开，按键才生效，
+所以开机时按住 RECOVERY 不会有任何动作。如果 Windows 在这个 ADC 设备上出了问题，
+关掉这个设置项即可：固件就完全不描述、也不碰 ADC。这块板子上没有
+"Power button (RK806)" 设置项，因为那条线上没有按键。
+
 ## 硬件细节
 
 PHY、GPIO、I2C 地址、GPU 供电等：见[硬件](../dev/hardware.zh-CN.md#立创泰山派-3m)。
