@@ -7,6 +7,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Arithmetic that can be checked without a board: the USB PD and
+  # DisplayPort Alt Mode messages of Rk3576Fusb302Lib (UsbPdDp.h).
+  host-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: USB PD / DP Alt Mode messages (UsbPdDp.h)
+        run: make -C scripts/tests/usbpd-host run
+
   firmware:
     # aarch64: scripts/build.sh uses the native toolchain there, so there is no
     # cross toolchain to keep in step with the host one.

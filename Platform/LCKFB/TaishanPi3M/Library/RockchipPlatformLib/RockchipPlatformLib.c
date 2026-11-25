@@ -427,8 +427,19 @@ I2cIomux (
 STATIC CONST RK3576_FUSB302_BUS  mTspiFusb302Bus = {
   // clk_i2c2 is CRU CLKSEL_CON57 bits 3:2, 3 = xin24m (clk-rk3576.c,
   // mux_200m_100m_50m_24m_p); I2cIomux (2) opens its gates and pins.
-  I2C2_BASE, CRU_CLKSEL_CON (57), 2, 3, "TSPI-3M I2C2"
+  I2C2_BASE, CRU_CLKSEL_CON (57), 2, 3, "TSPI-3M I2C2",
+  // DP alt mode only: 900 mA in the 5 V PDO (USB 3 default power; the
+  // SY6280 switch's limit is above it), VCONN from VCCA_3V3_S0 (U40 pins
+  // 12/13, schematic v1.4).
+  900, TRUE
 };
+
+//
+// The last CC measurement (Tspi3mTypeCProbeAndPower), for
+// UsbTypeCDpAltModeEnter, which runs right after it at ExitBootServices.
+//
+STATIC RK3576_FUSB302_STATE  mTspiTypeCState;
+STATIC BOOLEAN               mTspiTypeCStateValid;
 
 STATIC
 VOID
@@ -473,6 +484,9 @@ Tspi3mTypeCProbeAndPower (
 
   I2cIomux (2);
   Rk3576Fusb302Probe (&mTspiFusb302Bus, &State);
+
+  mTspiTypeCState      = State;
+  mTspiTypeCStateValid = TRUE;
 
   On = (State.Partner == Rk3576Fusb302Sink) && State.RpPresented;
   Tspi3mTypeCVbusSet (On);
@@ -571,6 +585,75 @@ UsbTypeCGetOrientation (
   }
 
   return Tspi3mTypeCProbeAndPower ("ExitBootServices");
+}
+
+STATIC
+VOID
+EFIAPI
+Tspi3mTypeCVbusSetCb (
+  IN BOOLEAN  On
+  )
+{
+  Tspi3mTypeCVbusSet (On);
+}
+
+/*
+ * UsbTypeCDpAltModeEnter -- DisplayPort Alt Mode on the USB-C port.
+ *
+ * Schematic v1.4: the USBDP PHY's DP_TX_AUXP/N go to the receptacle's
+ * SBU1/SBU2 through AC coupling, and two SoC pads bias them, net
+ * TYPEC_DPTX_AUX_PUPDCTL1 on ball AL3 GPIO4_C4 and TYPEC_DPTX_AUX_PUPDCTL2
+ * on ball AK1 GPIO4_C5 (the same pins as the CM5-IO's sbu1/sbu2-dc-gpios).
+ * Mainline phy-rockchip-usbdp.c drives them by orientation: normal
+ * sbu1 = 0, sbu2 = 1; flipped the other way round.  The board's VBUS
+ * switch is already on when a sink was found (UsbTypeCGetOrientation).
+ */
+EFI_STATUS
+EFIAPI
+UsbTypeCDpAltModeEnter (
+  IN  UINT32              Port,
+  OUT USB_TYPEC_DP_STATE  *State
+  )
+{
+  RK3576_FUSB302_DP  Dp;
+  BOOLEAN            Flip;
+
+  State->Active        = FALSE;
+  State->Hpd           = FALSE;
+  State->PinAssignment = '-';
+  State->Orientation   = UsbTypeCOrientationUnknown;
+  if ((Port != 0) || !mTspiTypeCStateValid) {
+    return EFI_SUCCESS;
+  }
+
+  State->Orientation = mTspiTypeCState.Orientation;
+  if ((mTspiTypeCState.Partner != Rk3576Fusb302Sink) || !mTspiTypeCState.RpPresented) {
+    return EFI_SUCCESS;
+  }
+
+  Flip = mTspiTypeCState.Orientation == UsbTypeCOrientationReverse;
+  GpioPinWrite (4, GPIO_PIN_PC4, Flip);
+  GpioPinWrite (4, GPIO_PIN_PC5, !Flip);
+  GpioPinSetDirection (4, GPIO_PIN_PC4, GPIO_PIN_OUTPUT);
+  GpioPinSetDirection (4, GPIO_PIN_PC5, GPIO_PIN_OUTPUT);
+  GpioPinSetFunction (4, GPIO_PIN_PC4, 0);
+  GpioPinSetFunction (4, GPIO_PIN_PC5, 0);
+
+  I2cIomux (2);
+  Rk3576Fusb302DpAltMode (&mTspiFusb302Bus, &mTspiTypeCState, Tspi3mTypeCVbusSetCb, &Dp);
+  State->Active        = Dp.Configured;
+  State->Hpd           = Dp.Hpd;
+  State->PinAssignment = Dp.PinName;
+  DEBUG ((
+    DEBUG_INFO,
+    "TSPI-3M USB-C DP: %a, pin %c, HPD %u, SBU GPIO4_C4 %u GPIO4_C5 %u\n",
+    Dp.Configured ? "alt mode entered" : "not entered",
+    Dp.PinName,
+    Dp.Hpd,
+    Flip,
+    !Flip
+    ));
+  return EFI_SUCCESS;
 }
 
 /*

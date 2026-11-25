@@ -495,6 +495,23 @@ UsbTypeCGetOrientation (
   return UsbTypeCOrientationUnknown;
 }
 
+/*
+ * The ROCK 4D's USB-C port is power only: no DisplayPort.
+ */
+EFI_STATUS
+EFIAPI
+UsbTypeCDpAltModeEnter (
+  IN  UINT32              Port,
+  OUT USB_TYPEC_DP_STATE  *State
+  )
+{
+  State->Active        = FALSE;
+  State->Hpd           = FALSE;
+  State->PinAssignment = '-';
+  State->Orientation   = UsbTypeCOrientationUnknown;
+  return EFI_UNSUPPORTED;
+}
+
 VOID
 EFIAPI
 Usb2PhyResume (

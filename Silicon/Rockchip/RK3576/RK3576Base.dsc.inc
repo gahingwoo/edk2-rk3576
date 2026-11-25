@@ -504,6 +504,11 @@
   # installs the decoder SSDT (Vdec.asl).
   #
   gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|1
+  #
+  # USB-C DisplayPort Alt Mode (setup option, backs PcdUsbcDp below): off.
+  # Shown only where a board sets PcdUsbcDpSupported (docs/usbc-dp.md).
+  #
+  gRK3576TokenSpaceGuid.PcdUsbcDpDefault|0
   # SDIO Wi-Fi for an ACPI OS (setup option, backs PcdAcpiSdioWifi below):
   # off.  Shown only where a board sets PcdAcpiSdioWifiSupported.
   #
@@ -632,6 +637,10 @@
   # Video decoder
   #
   gRK3576TokenSpaceGuid.PcdAcpiVdec|L"AcpiVdec"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiVdecDefault
+  #
+  # USB-C DisplayPort Alt Mode
+  #
+  gRK3576TokenSpaceGuid.PcdUsbcDp|L"UsbcDp"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdUsbcDpDefault
   # SDIO Wi-Fi
   #
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|L"AcpiSdioWifi"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault

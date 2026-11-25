@@ -109,6 +109,8 @@
   gRK3576TokenSpaceGuid.PcdTsadcTshutTemp
   gRK3576TokenSpaceGuid.PcdAcpiNpuDefault
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported
+  gRK3576TokenSpaceGuid.PcdUsbcDpSupported
+  gRK3576TokenSpaceGuid.PcdUsbcDpDefault
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault
   gRK3576TokenSpaceGuid.PcdPin40Supported
   gRK3576TokenSpaceGuid.PcdPin40UartDefault
@@ -164,6 +166,7 @@
   gRK3576TokenSpaceGuid.PcdGpuRail775
   gRK3576TokenSpaceGuid.PcdAcpiNpu
   gRK3576TokenSpaceGuid.PcdAcpiVdec
+  gRK3576TokenSpaceGuid.PcdUsbcDp
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi
   gRK3576TokenSpaceGuid.PcdPin40Uart
   gRK3576TokenSpaceGuid.PcdPin40RhProxy

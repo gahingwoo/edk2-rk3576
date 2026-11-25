@@ -237,6 +237,34 @@ SetupConfigTableVariables (
   }
 
   //
+  // UsbcDp: DisplayPort Alt Mode on the USB-C port (UsbHcd, the board's
+  // UsbTypeCDpAltModeEnter).  Shown only on a board that does it
+  // (UsbcDpSupported).
+  //
+  Var8   = FixedPcdGetBool (PcdUsbcDpSupported) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"UsbcDpSupported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"UsbcDp",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdUsbcDp, FixedPcdGet8 (PcdUsbcDpDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
   // Pin40Uart / Pin40RhProxy: the 40-pin header's UARTs, and its GPIO, I2C
   // and SPI for applications.  Shown only on a board whose library and
   // AcpiTables describe its header (Pin40Supported).
