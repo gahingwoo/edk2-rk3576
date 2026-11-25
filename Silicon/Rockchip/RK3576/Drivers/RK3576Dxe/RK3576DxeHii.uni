@@ -89,6 +89,13 @@
 #string STR_ACPI_SDIO_WIFI_HELP                            #language en-US "Disabled - the Wi-Fi module stays off and the OS is not told about its SDIO controller.\n\n"
                                                                            "Enabled - the firmware sets up the SDIO pins and clocks, powers the Wi-Fi module (WL_REG_ON), checks that it answers on SDIO and logs what it found on the serial console, then describes the SDIO controller in an ACPI SSDT for the Windows drivers (woa-rk3576 docs/WIFI.md). Only in ACPI mode. Adds about half a second to boot. Linux with a device tree is not affected."
 
+#string STR_PIN40_UART_PROMPT                              #language en-US "40-pin UART (experimental)"
+#string STR_PIN40_UART_HELP                                #language en-US "Disabled - the 40-pin header's UART pins stay GPIOs and the OS is not told about those UARTs.\n\n"
+                                                                           "Enabled - the firmware switches the header's UART pins (TX and RX) to their UARTs, clocks the UARTs at 24 MHz and describes them in an ACPI SSDT for the Windows driver (rk3xuart in woa-rk3576), which makes them COM ports. The debug console UART is never one of them. Only in ACPI mode. Linux with a device tree is not affected."
+#string STR_PIN40_RHPROXY_PROMPT                           #language en-US "40-pin GPIO/I2C/SPI for apps (experimental)"
+#string STR_PIN40_RHPROXY_HELP                             #language en-US "Disabled - Windows applications cannot reach the 40-pin header.\n\n"
+                                                                           "Enabled - the firmware switches the header's I2C and SPI pins to those buses and publishes an ACPI RhProxy device, so applications can use the header's GPIO pins, I2C bus and SPI bus through Windows.Devices.Gpio, .I2c and .Spi (woa-rk3576 docs/pin40.md). Needs the woa-rk3576 GPIO, I2C and SPI drivers. Only in ACPI mode. Linux with a device tree is not affected."
+
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language en-US "Auto"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language en-US "Single Device"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_NXPMX6              #language en-US "NXPMX6"
@@ -344,6 +351,13 @@
 #string STR_ACPI_SDIO_WIFI_PROMPT                          #language zh-Hans "SDIO Wi-Fi\wide（实验性）\narrow"
 #string STR_ACPI_SDIO_WIFI_HELP                            #language zh-Hans "\wide禁用\narrow - Wi-Fi \wide模块保持断电，操作系统看不到它的\narrow SDIO \wide控制器。\narrow\n\n"
                                                                              "\wide启用\narrow - \wide固件设置\narrow SDIO \wide引脚和时钟，给\narrow Wi-Fi \wide模块上电（\narrowWL_REG_ON\wide），检查它在\narrow SDIO \wide上是否应答并把结果写到串口日志，然后通过\narrow ACPI SSDT \wide把\narrow SDIO \wide控制器提供给\narrow Windows \wide驱动（\narrowwoa-rk3576 docs/WIFI.md\wide）。仅在\narrow ACPI \wide模式下生效。启动多花约半秒。使用设备树的\narrow Linux \wide不受影响。\narrow"
+
+#string STR_PIN40_UART_PROMPT                              #language zh-Hans "40\wide针\narrow UART\wide（实验性）\narrow"
+#string STR_PIN40_UART_HELP                                #language zh-Hans "\wide禁用\narrow - 40\wide针排针上的\narrow UART \wide引脚保持为\narrow GPIO\wide，操作系统看不到这些\narrow UART\wide。\narrow\n\n"
+                                                                             "\wide启用\narrow - \wide固件把排针上的\narrow UART \wide引脚（\narrowTX \wide和\narrow RX\wide）切到\narrow UART\wide，以\narrow 24 MHz \wide为\narrow UART \wide提供时钟，并通过\narrow ACPI SSDT \wide提供给\narrow Windows \wide驱动（\narrowwoa-rk3576 \wide的\narrow rk3xuart\wide），使它们成为\narrow COM \wide口。调试串口永远不在其中。仅在\narrow ACPI \wide模式下生效。使用设备树的\narrow Linux \wide不受影响。\narrow"
+#string STR_PIN40_RHPROXY_PROMPT                           #language zh-Hans "40\wide针\narrow GPIO/I2C/SPI \wide供应用使用（实验性）\narrow"
+#string STR_PIN40_RHPROXY_HELP                             #language zh-Hans "\wide禁用\narrow - Windows \wide应用无法访问\narrow 40\wide针排针。\narrow\n\n"
+                                                                             "\wide启用\narrow - \wide固件把排针上的\narrow I2C \wide和\narrow SPI \wide引脚切到这些总线，并发布\narrow ACPI RhProxy \wide设备，应用可以通过\narrow Windows.Devices.Gpio\wide、\narrow.I2c \wide和\narrow .Spi \wide使用排针上的\narrow GPIO\wide、\narrowI2C \wide和\narrow SPI\wide（\narrowwoa-rk3576 docs/pin40.zh-CN.md\wide）。需要\narrow woa-rk3576 \wide的\narrow GPIO\wide、\narrowI2C \wide和\narrow SPI \wide驱动。仅在\narrow ACPI \wide模式下生效。使用设备树的\narrow Linux \wide不受影响。\narrow"
 
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language zh-Hans "\wide自动\narrow"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language zh-Hans "\wide单设备\narrow"

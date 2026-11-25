@@ -137,4 +137,6 @@ Except Config Table Mode, CPU Maximum Frequency and the TaishanPi 3M's GPU volta
 | Fan | on (default): the board fan runs at full speed from power-on into the OS; off: held off. No speed setting, because a partial speed is pulsed and the pulsing makes the fan whine. TaishanPi 3M, CM5-IO, and the ROCK 4D on branch `rock4d-parity` (J16). With Fan Control by ACPI Thermal Zone on, the OS can still start the fan |
 | Fan Control by ACPI Thermal Zone | lets Windows run the fan from the big-core temperature; off means the fan stays at the speed the firmware set |
 | NPU (experimental) | powers the NPU and declares it in ACPI, for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu); TaishanPi 3M, and the ROCK 4D on branch `rock4d-parity` |
+| 40-pin UART (experimental) | switches the header's UART pins to their UARTs and declares the UARTs in ACPI as COM ports, for the woa-rk3576 rk3xuart driver; never the debug console UART. TaishanPi 3M; the CM5-IO and ROCK 4D on their board branches |
+| 40-pin GPIO/I2C/SPI for apps (experimental) | switches the header's I2C and SPI pins to those buses and declares an ACPI RhProxy device, so Windows applications can use the header's GPIO, I2C and SPI (Windows.Devices.Gpio, .I2c, .Spi). Same boards |
 | Save OS Variable Changes to eMMC | see above |

@@ -42,6 +42,10 @@
   # Wi-Fi SDIO controller SSDT, installed only when "SDIO Wi-Fi" is enabled
   # in setup (PcdAcpiSdioWifi).
   Wifi.asl
+  # 40-pin header SSDTs, each installed only with its setup option on:
+  # the UARTs (PcdPin40Uart) and RhProxy for GPIO/I2C/SPI (PcdPin40RhProxy).
+  Pin40Uart.asl
+  Pin40RhProxy.asl
   $(RK_COMMON_ACPI_DIR)/Madt.aslc
   $(RK_COMMON_ACPI_DIR)/Fadt.aslc
   $(RK_COMMON_ACPI_DIR)/Gtdt.aslc

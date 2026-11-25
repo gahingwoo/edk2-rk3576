@@ -28,6 +28,7 @@
   Npu.c
   Vdec.c
   Saradc.c
+  Pin40.c
   RK3576DxeHii.vfr
   RK3576DxeHii.uni
 
@@ -110,6 +111,9 @@
   gRK3576TokenSpaceGuid.PcdAcpiNpuDefault
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault
+  gRK3576TokenSpaceGuid.PcdPin40Supported
+  gRK3576TokenSpaceGuid.PcdPin40UartDefault
+  gRK3576TokenSpaceGuid.PcdPin40RhProxyDefault
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress
   gRK3576TokenSpaceGuid.PcdAcpiVdecDefault
@@ -156,6 +160,8 @@
   gRK3576TokenSpaceGuid.PcdAcpiNpu
   gRK3576TokenSpaceGuid.PcdAcpiVdec
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi
+  gRK3576TokenSpaceGuid.PcdPin40Uart
+  gRK3576TokenSpaceGuid.PcdPin40RhProxy
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath
