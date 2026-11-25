@@ -64,6 +64,11 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // Serial: UART2 @ 0x2AD50000 (ttyS2 userspace UART; UART0 is SPCR debug console)
     include ("Uart.asl")
 
+    // Bluetooth: the CM5 module's BCM43752 (BCM4362A2 core) on UART4, with
+    // BT_REG_ON and BT_WAKE as GPIOs.  The device claims the UART itself;
+    // Bluetooth.asl says why.
+    include ("Bluetooth.asl")
+
     // I2C buses (SoC-level; CM5-IO carrier has no I2C5 devices)
     include ("I2c.asl")
 

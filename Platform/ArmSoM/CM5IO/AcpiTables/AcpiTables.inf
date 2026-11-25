@@ -37,6 +37,9 @@
 [Sources]
   Dsdt.asl
   Fan.asl
+  # Wi-Fi SDIO controller SSDT, installed only when "SDIO Wi-Fi" is enabled
+  # in setup (PcdAcpiSdioWifi).
+  Wifi.asl
   $(RK_COMMON_ACPI_DIR)/Madt.aslc
   $(RK_COMMON_ACPI_DIR)/Fadt.aslc
   $(RK_COMMON_ACPI_DIR)/Gtdt.aslc

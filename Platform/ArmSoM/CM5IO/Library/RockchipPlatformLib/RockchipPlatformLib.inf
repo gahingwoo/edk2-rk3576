@@ -24,6 +24,8 @@
 [Sources]
   RockchipPlatformLib.c
   Cm5ioAudio.c
+  Cm5ioBluetooth.c
+  Cm5ioWifi.c
 
 [Packages]
   MdePkg/MdePkg.dec

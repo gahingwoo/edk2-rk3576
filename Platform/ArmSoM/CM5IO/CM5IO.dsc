@@ -11,8 +11,9 @@
 #  SoC:    RK3576 (4xA72 + 4xA53, same silicon as Radxa ROCK 4D)
 #  PMIC:   RK806 @ I2C1 0x23 (interrupt GPIO0 PA6)
 #  RTC:    HYM8563 @ I2C2 0x51 (interrupt GPIO0 PA0)
-#  WiFi:   SYN43752 (reported as rtl8852bs) via SDIO (sdio/sdmmc1)
-#  BT:     SYN43752 via UART4
+#  WiFi:   BW3752-50B1 (Synaptics/Broadcom BCM43752) via SDIO (sdio/sdmmc1);
+#          ArmSoM's vendor DTS still says rtl8852bs, the CM5 V1.0 module
+#  BT:     the same module's BCM4362A2 core via UART4 M1
 #  Debug:  UART0 @ 0x2AD40000, 1.5 Mbaud
 #
 #  Key differences vs Radxa ROCK 4D (same RK3576):
@@ -236,6 +237,13 @@
   # behaviour at partial duty have been seen on the board.
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
+
+  # SDIO Wi-Fi (the CM5 module's BW3752-50B1, BCM43752) for an ACPI OS: the
+  # setup option exists on this board and is off by default.  When on,
+  # Cm5ioWifi.c sets the pins and clock, cycles WL_REG_ON and probes the
+  # card, and the Wi-Fi SSDT (AcpiTables/Wifi.asl) is installed.  See
+  # woa-rk3576 docs/dev/wifi.md.  Not run on hardware.
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|TRUE
 
   # Default display mode.
   #

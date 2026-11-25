@@ -862,6 +862,11 @@ Cm5ioAnalogAudioInit (
   VOID
   );
 
+VOID
+Cm5ioBluetoothIoInit (
+  VOID
+  );
+
 /*
  * PlatformEarlyInit — Early board initialization
  * Called before driver dispatch.
@@ -872,11 +877,17 @@ Cm5ioAnalogAudioInit (
  *   reset-gpios = GPIO1 PC6 (active-low)  → assert = drive LOW = module held in reset
  *   To power ON wifi: deassert reset → drive GPIO1 PC6 HIGH
  *
- *   BT enable: GPIO1 PC7 (active-high, from bluedroid in DTS)
- *   (rk3576-armsom-cm5.dtsi: bt-uart4 BT_DEV_WAKE / BT_WAKE_HOST via GPIO0 PA2/PA6,
- *    BT reset via GPIO1 PC7 active-high)
+ *   BT enable: GPIO1 PC7 (active-high, BT_REG_ON_H; vendor rk3576-armsom-cm5.dtsi
+ *   wireless-bluetooth BT,power_gpio).  BT_WAKE is GPIO1 PD4 (HOST_WAKE_BT_H),
+ *   the module's wake line to the host GPIO0 PB1 (BT_WAKE_HOST_H), both from
+ *   the ArmSoM-CM5-1V1 schematic page 17.
  *
  * WiFi wake IRQ (GPIO0 PB0) is an INPUT only; we configure it as input here.
+ *
+ * The Bluetooth UART (UART4 M1) gets its pins and its 24 MHz clock from
+ * Cm5ioBluetoothIoInit, for the Windows driver that binds \_SB.BTH0.  The
+ * "SDIO Wi-Fi" setup option (off by default) adds PlatformSdioWifiInit
+ * (Cm5ioWifi.c), called later by RK3576Dxe.
  */
 VOID
 EFIAPI
@@ -902,6 +913,9 @@ PlatformEarlyInit (
 
   /* WiFi wake IRQ: GPIO0 PB0 configured as input (interrupt source for OS) */
   GpioPinSetDirection (0, GPIO_PIN_PB0, GPIO_PIN_INPUT);
+
+  /* Bluetooth UART4 pins and clock, BT_WAKE and HOST_WAKE (Cm5ioBluetooth.c). */
+  Cm5ioBluetoothIoInit ();
 
   DEBUG ((DEBUG_INFO, "CM5-IO PlatformEarlyInit: WiFi reset deasserted (GPIO1 PC6), "
     "BT enabled (GPIO1 PC7)\n"));
@@ -942,15 +956,5 @@ PlatformGetDtbFileGuid (
 }
 
 /*
- * PlatformSdioWifiInit -- this board does not set PcdAcpiSdioWifiSupported,
- * so RK3576Dxe never calls this.  The firmware has no SDIO Wi-Fi bring-up
- * for it.
+ * PlatformSdioWifiInit is in Cm5ioWifi.c.
  */
-EFI_STATUS
-EFIAPI
-PlatformSdioWifiInit (
-  VOID
-  )
-{
-  return EFI_UNSUPPORTED;
-}
