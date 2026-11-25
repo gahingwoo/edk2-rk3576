@@ -1,0 +1,195 @@
+/** @file
+*  Watchdog Action Table (WDAT) for the RK3576 non-secure watchdog, WDT_NS.
+*
+*  Installed only when "Hardware watchdog" is enabled in setup
+*  (PcdHwWatchdog, default off): RK3576AcpiPlatformDxe drops the table
+*  otherwise, prepares the block, and patches the three scratch words below
+*  (WDAT_SCRATCH) to a page of its own before the table is installed
+*  (Watchdog.c).
+*
+*  WDAT is Microsoft's "Hardware Watchdog Timers Design Specification"
+*  (2006, hardwarewdtspec.doc): the table that the in-box "Microsoft Hardware
+*  Watchdog Timer" driver of Windows Vista / Server 2008 and later drives,
+*  and that Linux's wdat_wdt.c reads too.  The older WDRT (Server 2003) needs
+*  a fixed control/count register layout that this block does not have, so
+*  WDAT is the only table Windows can use here.  RK3576 has no SBSA generic
+*  watchdog for the GTDT.
+*
+*  The block (RK3576 TRM V1.2 Part 1, chapter 15; rk3576.dtsi
+*  watchdog@2ace0000, "snps,dw-wdt"):
+*    WDT_CR   0x00  [4:2] reset pulse length, [1] RMOD, [0] EN.  EN cannot
+*                   be cleared by software, only by a reset.
+*    WDT_TORR 0x04  [3:0] TOP: the counter reloads with 0xFFFF << TOP | 0xFFFF
+*                   (2^(16+TOP) - 1), taken at the next restart.
+*    WDT_CCVR 0x08  current count.
+*    WDT_CRR  0x0C  write 0x76 to restart the counter (also clears the
+*                   interrupt of RMOD=1).
+*  The counter runs from tclk_wdt0 = xin24m (mainline clk-rk3576.c
+*  TCLK_WDT0, a gate with no mux), so the longest period is TOP = 15:
+*  2^31 / 24 MHz = 89.5 s.  With RMOD = 1 the first expiry only raises the
+*  interrupt (GIC SPI 40, which no OS driver enables here) and a second one
+*  in a row resets the chip: 179 s without a restart.
+*
+*  Windows wants a long countdown.  QEMU's WDAT work (2026, tested with
+*  Windows Server 2025 and Windows 11) found that Windows sets the countdown
+*  to 5 minutes before it starts the timer and will not start it at all when
+*  Max Count x Timer Period is under 4 minutes; the specification
+*  recommends 5 minutes.  The hardware cannot count that long, and its
+*  period is a power of two, not a count.  So:
+*    - the table declares 1 s counts, 60..600, which Windows accepts;
+*    - SET_COUNTDOWN_PERIOD only records the count Windows chose in a
+*      scratch word (QUERY_COUNTDOWN_PERIOD reads it back), and
+*    - SET_RUNNING_STATE always programs TOP = 15, RMOD = 1: 179 s.
+*  The board resets when Windows has not restarted the counter for about
+*  179 s, not after the 300 s it asked for.  That is safe as long as Windows
+*  restarts it at least every 179 s; whether it does is the first thing the
+*  board test checks (docs/dev/acpi.md, "Hardware watchdog").
+*
+*  Stopping: EN cannot be cleared, so SET_STOPPED_STATE pulses the block's
+*  two resets (CRU SOFTRST_CON16 bits 7 and 8, SRST_P_WDT0 and SRST_T_WDT0
+*  in mainline rst-rk3576.c), which leaves WDT_CR at its reset value, EN = 0.
+*  That is what mainline dw_wdt.c does to stop it (reset assert, deassert).
+*  The assert is written four times only to hold it a little longer.
+*
+*  Boot status: the CRU records a WDT_NS reset in CRU_GLBRST_ST_NCLR bit 12
+*  ("not cleared by reset").  TF-A clears CRU_GLBRST_ST at boot, and NCLR is
+*  sticky, so the firmware reads NCLR, clears the bit, and keeps the answer
+*  for this boot in a scratch word that QUERY/SET_WATCHDOG_STATUS use.
+*
+*  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
+*
+*  SPDX-License-Identifier: BSD-2-Clause-Patent
+*
+**/
+
+#include <IndustryStandard/Acpi.h>
+#include <IndustryStandard/WatchdogActionTable.h>
+#include <Library/AcpiLib.h>
+
+#include "AcpiTables.h"
+#include "RK3576Wdat.h"
+
+#define WDAT_ENTRY_COUNT  17
+
+#pragma pack(push, 1)
+
+typedef struct {
+  EFI_ACPI_WATCHDOG_ACTION_1_0_TABLE                                Header;
+  EFI_ACPI_WATCHDOG_ACTION_1_0_WATCHDOG_ACTION_INSTRUCTION_ENTRY    Entry[WDAT_ENTRY_COUNT];
+} RK3576_WDAT;
+
+#define WDAT_INSTR(Action, Flags, Address, Value, Mask) \
+  { (Action), (Flags), { 0, 0 }, ARM_GAS32 (Address), (Value), (Mask) }
+
+#define WDT_REG(Offset)      (RK3576_WDT_NS_BASE + (Offset))
+#define SCRATCH_REG(Offset)  (RK3576_WDAT_SCRATCH_TAG + (Offset))
+
+STATIC RK3576_WDAT  Wdat = {
+  {
+    ACPI_HEADER (
+      EFI_ACPI_3_0_WATCHDOG_ACTION_TABLE_SIGNATURE,
+      RK3576_WDAT,
+      EFI_ACPI_WATCHDOG_ACTION_1_0_TABLE_REVISION
+      ),
+    sizeof (EFI_ACPI_WATCHDOG_ACTION_1_0_TABLE) - sizeof (EFI_ACPI_DESCRIPTION_HEADER),
+    0xFF,                                       // PCISegment: not PCI (0xFF, as the spec and Linux acpi_watchdog.c want)
+    0xFF,                                       // PCIBusNumber
+    0xFF,                                       // PCIDeviceNumber
+    0xFF,                                       // PCIFunctionNumber
+    { EFI_ACPI_RESERVED_BYTE, EFI_ACPI_RESERVED_BYTE, EFI_ACPI_RESERVED_BYTE },
+    RK3576_WDAT_TIMER_PERIOD_MS,                // TimerPeriod (ms per count)
+    RK3576_WDAT_MAX_COUNT,                      // MaxCount
+    RK3576_WDAT_MIN_COUNT,                      // MinCount
+    EFI_ACPI_WDAT_1_0_WATCHDOG_ENABLED,         // not stopped in sleep: it is not
+    { EFI_ACPI_RESERVED_BYTE, EFI_ACPI_RESERVED_BYTE, EFI_ACPI_RESERVED_BYTE },
+    WDAT_ENTRY_COUNT
+  },
+  {
+    //
+    // RESET: restart the counter.
+    //
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_RESET,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                WDT_REG (RK3576_WDT_CRR), RK3576_WDT_CRR_RESTART, 0xFF),
+
+    //
+    // QUERY_RUNNING_STATE / QUERY_STOPPED_STATE: WDT_CR.EN.
+    //
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_QUERY_RUNNING_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_READ_VALUE,
+                WDT_REG (RK3576_WDT_CR), 1, RK3576_WDT_CR_EN),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_QUERY_STOPPED_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_READ_VALUE,
+                WDT_REG (RK3576_WDT_CR), 0, RK3576_WDT_CR_EN),
+
+    //
+    // SET_RUNNING_STATE: longest period, interrupt-then-reset, enable, and
+    // a restart so that the new period is taken.
+    //
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_RUNNING_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                WDT_REG (RK3576_WDT_TORR), RK3576_WDT_TOP, 0xF),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_RUNNING_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                WDT_REG (RK3576_WDT_CR), RK3576_WDT_CR_RUN, 0x1F),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_RUNNING_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                WDT_REG (RK3576_WDT_CRR), RK3576_WDT_CRR_RESTART, 0xFF),
+
+    //
+    // SET_STOPPED_STATE: reset the block (EN = 0 again).
+    //
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_STOPPED_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                RK3576_CRU_SOFTRST_CON16, RK3576_WDT0_SRST_ASSERT, 0xFFFFFFFF),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_STOPPED_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                RK3576_CRU_SOFTRST_CON16, RK3576_WDT0_SRST_ASSERT, 0xFFFFFFFF),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_STOPPED_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                RK3576_CRU_SOFTRST_CON16, RK3576_WDT0_SRST_ASSERT, 0xFFFFFFFF),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_STOPPED_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                RK3576_CRU_SOFTRST_CON16, RK3576_WDT0_SRST_ASSERT, 0xFFFFFFFF),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_STOPPED_STATE,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                RK3576_CRU_SOFTRST_CON16, RK3576_WDT0_SRST_DEASSERT, 0xFFFFFFFF),
+
+    //
+    // SET/QUERY_COUNTDOWN_PERIOD: kept, not used (see above).
+    //
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_COUNTDOWN_PERIOD,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_COUNTDOWN,
+                SCRATCH_REG (RK3576_WDAT_SCRATCH_COUNTDOWN), 0, 0xFFFFFFFF),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_QUERY_COUNTDOWN_PERIOD,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_READ_COUNTDOWN,
+                SCRATCH_REG (RK3576_WDAT_SCRATCH_COUNTDOWN), 0, 0xFFFFFFFF),
+
+    //
+    // QUERY/SET_REBOOT: an expiry always resets the chip.
+    //
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_QUERY_REBOOT,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_READ_VALUE,
+                SCRATCH_REG (RK3576_WDAT_SCRATCH_REBOOT), 1, 0x1),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_REBOOT,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE,
+                SCRATCH_REG (RK3576_WDAT_SCRATCH_REBOOT), 1, 0x1),
+
+    //
+    // QUERY/SET_WATCHDOG_STATUS: was this boot caused by the watchdog.
+    //
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_QUERY_WATCHDOG_STATUS,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_READ_VALUE,
+                SCRATCH_REG (RK3576_WDAT_SCRATCH_STATUS), 1, 0x1),
+    WDAT_INSTR (EFI_ACPI_WDAT_1_0_WATCHDOG_ACTION_SET_WATCHDOG_STATUS,
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_WRITE_VALUE |
+                EFI_ACPI_WDAT_1_0_WATCHDOG_INSTRUCTION_PRESERVE_REGISTER,
+                SCRATCH_REG (RK3576_WDAT_SCRATCH_STATUS), 0, 0x1),
+  }
+};
+
+#pragma pack(pop)
+
+// Reference the table being generated to prevent the optimizer from removing
+// the data structure from the executable
+VOID *CONST  ReferenceAcpiTable = &Wdat;

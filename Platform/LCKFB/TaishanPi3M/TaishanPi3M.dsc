@@ -268,6 +268,9 @@
   # The 40-pin header: Tspi3mPin40.c describes it, AcpiTables has its UART
   # and RhProxy SSDTs.  Both setup options stay off by default.
   gRK3576TokenSpaceGuid.PcdPin40Supported|TRUE
+  # The LED for an ACPI OS (AcpiTables/Leds.asl, woa-rk3576 rkled): the setup
+  # option exists on this board and is off by default.
+  gRK3576TokenSpaceGuid.PcdAcpiLedsSupported|TRUE
 
 ################################################################################
 [Components.common]

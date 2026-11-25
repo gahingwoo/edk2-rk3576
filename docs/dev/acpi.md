@@ -56,9 +56,35 @@ and puts the board values next to the device tree line they come from.
 | NPU (`Npu.asl`) | `RKCP3576` | no | yes | setup "NPU (experimental)", off by default; offered only on a board that names its RK806's I2C bus (`PcdRk806I2cBase`), which on 2026-11-24 is the TaishanPi 3M |
 | 40-pin UARTs (SSDT `RKUART40`, `Uart40.asl`) | `RKCP3006`, `_CID` `PRP0001` | no | yes | setup "40-pin UART (experimental)", off by default; offered on a board that sets `PcdPin40Supported` (TaishanPi 3M on `main`). `SerCx-FriendlyName` makes them COM-port interfaces for woa-rk3576 rk3xuart |
 | RhProxy (SSDT `RKRHPX`, `\_SB.RHPX`, `RhProxy.asl`) | `MSFT8000` | no | yes | setup "40-pin GPIO/I2C/SPI for apps (experimental)", off by default; the same boards. The header's GPIO pins, I2C and SPI buses for Windows.Devices.Gpio, .I2c and .Spi |
+| Hardware watchdog (WDAT, `Wdat.aslc`) | | yes | yes | setup "Hardware watchdog (experimental)", off by default. See below |
+| Power button (SSDT `RKPWRKEY`, `\_SB.I2C1.PWRK`, `PwrKey.asl`) | `RKCP806B` | no | yes | setup "Power button (RK806, experimental)", off by default; offered on a board that sets `PcdRk806I2cBase`. For woa-rk3576 rk806pwrkey |
+| LEDs (SSDT `RKLED`, `\_SB.LEDS`, board `Leds.asl`) | `RKCP1ED0` | no | yes | setup "Board LEDs for the OS (experimental)", off by default; offered on a board that sets `PcdAcpiLedsSupported`. For woa-rk3576 rkled |
 
 The EDID of the monitor is published as `\_SB.GPU0.EDID` for the Windows
 display driver, and on the GOP handle.
+
+## Hardware watchdog
+
+The WDAT describes WDT_NS (0x2ACE0000), the DesignWare watchdog that TF-A
+leaves to the normal world (it uses WDT_S itself). Windows' in-box watchdog
+driver reads it. The block cannot count as long as Windows asks (it sets
+5 minutes and needs a maximum above 4), so the table declares 1 s counts
+up to 600 and the firmware always programs the longest hardware period:
+2^31 cycles of 24 MHz, twice (interrupt, then reset), about 179 s. The board
+resets when Windows has not restarted the watchdog for about 179 s.
+`Wdat.aslc` and `RK3576AcpiPlatformDxe/Watchdog.c` have the register-level
+details and sources; the serial log says at every boot whether the last
+reset was the watchdog's.
+
+Test on a board, in this order:
+
+1. Option on, boot Windows, leave it idle and then loaded for an hour: no
+   reset. This is what shows that Windows restarts the counter more often
+   than every 179 s; nothing else can.
+2. Stop Windows from restarting it (woa-rk3576 `tools/wdthang`, which holds
+   every CPU at high IRQL): the board resets within about 3 minutes, and the
+   next boot's log says "last reset WAS the watchdog".
+3. Option off, the same hang: the board stays hung.
 
 ## Variables for OS drivers
 

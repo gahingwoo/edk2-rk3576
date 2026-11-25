@@ -50,8 +50,21 @@ SoC 级的表（MADT、GTDT、PPTT、MCFG、SPCR、DBG2、FADT）是共用的，
 | NPU（`Npu.asl`） | `RKCP3576` | 无 | 有 | 设置项 "NPU (experimental)"（实验性），默认关闭；只在指明了 RK806 所在 I2C 总线（`PcdRk806I2cBase`）的板子上提供，截至 2026-11-24 只有泰山派 3M |
 | 40 针 UART（SSDT `RKUART40`，`Uart40.asl`） | `RKCP3006`，`_CID` `PRP0001` | 无 | 有 | 设置项 "40-pin UART (experimental)"，默认关闭；只在设置了 `PcdPin40Supported` 的板子上提供（`main` 上是泰山派 3M）。`SerCx-FriendlyName` 让它们成为 COM 口接口，供 woa-rk3576 的 rk3xuart 使用 |
 | RhProxy（SSDT `RKRHPX`，`\_SB.RHPX`，`RhProxy.asl`） | `MSFT8000` | 无 | 有 | 设置项 "40-pin GPIO/I2C/SPI for apps (experimental)"，默认关闭；板子同上。把排针上的 GPIO、I2C 和 SPI 交给 Windows.Devices.Gpio、.I2c、.Spi |
+| 硬件看门狗（WDAT，`Wdat.aslc`） | | 有 | 有 | 设置项 "Hardware watchdog (experimental)"（硬件看门狗），默认关闭。见下文 |
+| 电源键（SSDT `RKPWRKEY`，`\_SB.I2C1.PWRK`，`PwrKey.asl`） | `RKCP806B` | 无 | 有 | 设置项 "Power button (RK806, experimental)"（电源键），默认关闭；只在设置了 `PcdRk806I2cBase` 的板子上提供。供 woa-rk3576 的 rk806pwrkey 使用 |
+| 指示灯（SSDT `RKLED`，`\_SB.LEDS`，板级 `Leds.asl`） | `RKCP1ED0` | 无 | 有 | 设置项 "Board LEDs for the OS (experimental)"（板载指示灯），默认关闭；只在设置了 `PcdAcpiLedsSupported` 的板子上提供。供 woa-rk3576 的 rkled 使用 |
 
 显示器的 EDID 以 `\_SB.GPU0.EDID` 的形式提供给 Windows 显示驱动，同时也挂在 GOP 句柄上。
+
+## 硬件看门狗
+
+WDAT 描述的是 WDT_NS（0x2ACE0000），TF-A 留给非安全世界的 DesignWare 看门狗（TF-A 自己用 WDT_S）。Windows 自带的看门狗驱动读取这张表。这个模块数不了 Windows 要求的那么久（Windows 设 5 分钟，并要求上限超过 4 分钟），所以表里声明以 1 秒为单位、最多 600，而固件总是设置硬件最长的周期：24 MHz 下 2^31 个周期，两次（先中断，再复位），约 179 秒。Windows 约 179 秒没有喂狗时开发板复位。寄存器细节和出处见 `Wdat.aslc` 和 `RK3576AcpiPlatformDxe/Watchdog.c`；每次启动的串口日志都会写明上一次复位是不是看门狗造成的。
+
+在板子上按顺序测试：
+
+1. 打开选项，启动 Windows，先空闲、再加负载，放一个小时：不应复位。只有这一步能证明 Windows 喂狗的间隔短于 179 秒。
+2. 让 Windows 无法喂狗（woa-rk3576 的 `tools/wdthang`，让所有 CPU 停在高 IRQL）：约 3 分钟内开发板复位，下一次启动的日志写 "last reset WAS the watchdog"。
+3. 关闭选项，同样的卡死：开发板一直卡住。
 
 ## 给操作系统驱动用的变量
 

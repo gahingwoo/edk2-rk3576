@@ -21,6 +21,8 @@
 
 [Sources]
   RK3576AcpiPlatformDxe.c
+  Watchdog.c
+  Watchdog.h
 
 [Packages]
   EmbeddedPkg/EmbeddedPkg.dec
@@ -35,6 +37,7 @@
   BaseMemoryLib
   DebugLib
   DevicePathLib
+  IoLib
   MemoryAllocationLib
   PcdLib
   Rk3576TsadcLib
@@ -61,6 +64,7 @@
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported
   gRK3576TokenSpaceGuid.PcdPin40Supported
+  gRK3576TokenSpaceGuid.PcdAcpiLedsSupported
 
 [Pcd]
   gRK3576TokenSpaceGuid.PcdConfigTableMode
@@ -72,6 +76,9 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi
   gRK3576TokenSpaceGuid.PcdPin40Uart
   gRK3576TokenSpaceGuid.PcdPin40RhProxy
+  gRK3576TokenSpaceGuid.PcdHwWatchdog
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKey
+  gRK3576TokenSpaceGuid.PcdAcpiLeds
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode
   gRK3576TokenSpaceGuid.PcdComboPhy1Mode
   gRK3576TokenSpaceGuid.PcdPcieEcamCompliantSegmentsMask
