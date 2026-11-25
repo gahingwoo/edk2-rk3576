@@ -528,6 +528,12 @@
   gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault|0
   gRK3576TokenSpaceGuid.PcdAcpiLedsDefault|0
   #
+  # The SARADC and its keys for an ACPI OS (setup option, backs
+  # PcdAcpiSaradc below): off unless a board that has the SSDT says
+  # otherwise.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault|0
+  #
   # MIPI DSI screen brightness in percent (setup option, backs
   # PcdDisplayBrightness below), read only on a board with a DSI panel.
   #
@@ -649,6 +655,7 @@
   gRK3576TokenSpaceGuid.PcdHwWatchdog|L"HwWatchdog"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdHwWatchdogDefault
   gRK3576TokenSpaceGuid.PcdAcpiPwrKey|L"AcpiPwrKey"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault
   gRK3576TokenSpaceGuid.PcdAcpiLeds|L"AcpiLeds"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiLedsDefault
+  gRK3576TokenSpaceGuid.PcdAcpiSaradc|L"AcpiSaradc"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault

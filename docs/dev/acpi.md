@@ -55,8 +55,9 @@ and puts the board values next to the device tree line they come from.
 | 40-pin UARTs (SSDT `RKUART40`, `Uart40.asl`) | `RKCP3006`, `_CID` `PRP0001` | no | yes | setup "40-pin UART (experimental)", off by default; offered on a board that sets `PcdPin40Supported` (TaishanPi 3M on `main`). `SerCx-FriendlyName` makes them COM-port interfaces for woa-rk3576 rk3xuart |
 | RhProxy (SSDT `RKRHPX`, `\_SB.RHPX`, `RhProxy.asl`) | `MSFT8000` | no | yes | setup "40-pin GPIO/I2C/SPI for apps (experimental)", off by default; the same boards. The header's GPIO pins, I2C and SPI buses for Windows.Devices.Gpio, .I2c and .Spi |
 | Hardware watchdog (WDAT, `Wdat.aslc`) | | yes | yes | setup "Hardware watchdog (experimental)", off by default. See below |
-| Power button (SSDT `RKPWRKEY`, `\_SB.I2C1.PWRK`, `PwrKey.asl`) | `RKCP806B` | no | yes | setup "Power button (RK806, experimental)", off by default; offered on a board that sets `PcdRk806I2cBase`. For woa-rk3576 rk806pwrkey |
+| Power button (SSDT `RKPWRKEY`, `\_SB.I2C1.PWRK`, `PwrKey.asl`) | `RKCP806B` | no | yes | setup "Power button (RK806, experimental)", off by default; offered on a board with a button on the RK806's PWRON pin (`PcdAcpiPwrKeySupported`: ROCK 4D SW1, CM5-IO SW4; not the TaishanPi 3M, which has none) that also sets `PcdRk806I2cBase`. For woa-rk3576 rk806pwrkey |
 | LEDs (SSDT `RKLED`, `\_SB.LEDS`, board `Leds.asl`) | `RKCP1ED0` | no | yes | setup "Board LEDs for the OS (experimental)", off by default; offered on a board that sets `PcdAcpiLedsSupported`. For woa-rk3576 rkled |
+| SARADC and its keys (SSDT `RKSARADC`, `\_SB.ADC0`, body `Saradc.asl`, board `RecoveryKey.asl`) | `RKCP0ADC` | no | yes | setup "ADC keys for the OS (experimental)"; offered on a board that sets `PcdAcpiSaradcSupported` (the TaishanPi 3M, where it is on by default). Off, the firmware does not set the SARADC clock either. On the TaishanPi 3M the Recovery key carries HID usage System Power Down (`0x00010081`) and is Windows' power button. For woa-rk3576 rk3xsaradc |
 
 The EDID of the monitor is published as `\_SB.GPU0.EDID` for the Windows
 display driver, and on the GOP handle.

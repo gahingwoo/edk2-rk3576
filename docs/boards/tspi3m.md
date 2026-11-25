@@ -94,6 +94,25 @@ The firmware starts the fan on CN2 at full speed and leaves it running.
 Under Windows, "Fan Control by ACPI Thermal Zone" in setup (off by default)
 lets the temperature set it. Under Linux it stays at full speed.
 
+## Buttons
+
+The board has two buttons, RECOVERY and RESET. Nothing is fitted on the
+PMIC's power-on (PWRON) line, so there is no power button as such; the board
+powers on when power is applied.
+
+| Button | Before the OS | Under Windows (ACPI) | Under Linux (device tree) |
+|---|---|---|---|
+| RECOVERY | nothing (the firmware does not read it) | the power button: a short press does what "When I press the power button" says in Windows' Power Options (shut down, sleep, ...) | `KEY_VENDOR`, as the device tree says |
+| RESET | resets the board | resets the board | resets the board |
+
+RECOVERY as the power button needs the woa-rk3576 driver rk3xsaradc
+installed, and the setup option "ADC keys for the OS" on (the default on
+this board). A key only counts once it has been seen released after boot, so
+holding RECOVERY while the board starts does nothing. If Windows ever has
+trouble with the ADC device, turn that option off: the firmware then does not
+describe or touch the ADC at all. There is no "Power button (RK806)" option
+on this board, since there is no key on that line.
+
 ## Board facts
 
 PHY, GPIOs, I2C addresses, the GPU supply and the rest:
