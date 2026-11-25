@@ -2,6 +2,8 @@
 
 [English](ARMBIAN-CHAINLOAD.md) | 简体中文
 
+只是想用、不需要构建？请看用户指南：[Armbian (U-Boot)](armbian-boot.zh-CN.md)。
+
 启动管理器里 **Armbian (U-Boot)** 启动项的开发说明。已在泰山派 3M 上板测（插着卡的正常启动、一次性启动 Armbian、
 重启和断电后回到 UEFI）；"只在找到 U-Boot 时才列出启动项"还没有在板子上跑过。ROCK 4D：在 `rock4d-parity`
 分支上构建，没有上板。CM5-IO：没有编译进去。

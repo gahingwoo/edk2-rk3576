@@ -35,7 +35,7 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
    或 `main` 的 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)。
 2. 写入（见[刷写固件](docs/flash.zh-CN.md)）：用 [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)、
    [flash.gahingwoo.com](https://flash.gahingwoo.com/)（Chrome 或 Edge）或 `rkdeveloptool`。
-3. 装系统：[Windows](docs/windows.zh-CN.md)（只能用 23H2，RK3576 是 ARMv8.0）或 [Linux](docs/linux.zh-CN.md)。
+3. 装系统：[Windows](docs/windows.zh-CN.md)（只能用 23H2，RK3576 是 ARMv8.0）或 [Linux](docs/linux.zh-CN.md)。用 Armbian 自己的 U-Boot、从启动管理器启动一次：[Armbian (U-Boot)](docs/armbian-boot.zh-CN.md)。
 4. 遇到问题：[故障排查](docs/troubleshooting.zh-CN.md)、[已知问题](docs/known-issues.zh-CN.md)。
 
 固件功能（中文菜单、截图、调试报告、恢复全部设置、NTP 校时、屏幕键盘）见[固件菜单](docs/firmware-menus.zh-CN.md)。

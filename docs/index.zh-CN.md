@@ -13,7 +13,7 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 1. 先看你的板子：[Radxa ROCK 4D](boards/rock4d.zh-CN.md)、[ArmSoM CM5-IO](boards/cm5io.zh-CN.md)、[立创泰山派 3M](boards/tspi3m.zh-CN.md)。
 2. 写入固件：见[刷写固件](flash.zh-CN.md)。最简单的是 [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio) 和 [flash.gahingwoo.com](https://flash.gahingwoo.com/)。
 3. Windows 11 23H2（CM5-IO、泰山派 3M）：见 [Windows](windows.zh-CN.md)。
-4. Linux：见 [Linux](linux.zh-CN.md)。
+4. Linux：见 [Linux](linux.zh-CN.md)。用 Armbian 自己的 U-Boot、从启动管理器启动一次：[Armbian (U-Boot)](armbian-boot.zh-CN.md)。
 5. 遇到问题：[故障排查](troubleshooting.zh-CN.md)、[已知问题](known-issues.zh-CN.md)。
 
 ## 下载
