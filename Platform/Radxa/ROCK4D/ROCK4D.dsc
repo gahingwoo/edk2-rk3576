@@ -248,6 +248,9 @@
   # The 40-pin header: Rock4dPin40.c describes it, AcpiTables has its UART
   # and RhProxy SSDTs.  Both setup options stay off by default.
   gRK3576TokenSpaceGuid.PcdPin40Supported|TRUE
+  # The LEDs for an ACPI OS (AcpiTables/Leds.asl, woa-rk3576 rkled): the
+  # setup option exists on this board and is off by default.
+  gRK3576TokenSpaceGuid.PcdAcpiLedsSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
 
   #
