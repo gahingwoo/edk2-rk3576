@@ -95,7 +95,7 @@ ACPI / Device Tree 页的 "Force UEFI GOP Display" 决定 Linux 沿用固件的�
 | 选项 | 作用 |
 |---|---|
 | Config Table Mode | ACPI + 设备树（CM5-IO 和泰山派 3M 的默认值）、只用 ACPI，或只用设备树 |
-| CPU Maximum Frequency | 两组核心都是 1608 MHz（默认），或 Max（2208 / 2016 MHz） |
+| CPU Maximum Frequency | 两组核心都是 1608 MHz（默认），或 Max（2208 / 2016 MHz）。第一次接着屏幕开机时固件会问一次用哪个（英文界面；10 秒不选就保持当前设置，没在设置里选过 Max 就是 1608 MHz；上下键或拖动移动，回车或轻点选择），答案改变了设置就重启一次；问过的记录在变量 `CpuMaxFreqAsked` 里，没有屏幕时不问。仅泰山派 3M |
 | CPU Idle States | 把核心的空闲状态告诉操作系统；关闭时只用 WFI |
 | Fan | 开（默认）：板载风扇从上电起全速运行，进系统后也一直开着；关：风扇保持停止。没有调速：部分转速要用 PWM 脉冲，脉冲会让风扇啸叫。泰山派 3M 和 CM5-IO 有这个选项，ROCK 4D 没有固件能驱动的风扇。如果打开了 Fan Control by ACPI Thermal Zone，操作系统仍然可以把风扇打开 |
 | Fan Control by ACPI Thermal Zone | 让 Windows 按大核温度控制风扇；关闭时风扇保持固件设定的转速 |

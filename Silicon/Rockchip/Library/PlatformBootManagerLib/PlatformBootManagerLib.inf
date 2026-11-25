@@ -26,6 +26,7 @@
 #
 
 [Sources]
+  CpuMaxFreqAsk.c
   PlatformBm.c
   PlatformBm.h
   PlatformBmStrings.uni
@@ -36,6 +37,7 @@
   MdePkg/MdePkg.dec
   ShellPkg/ShellPkg.dec
   Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
 
 [LibraryClasses]
   ArmbianOnceLib
@@ -61,6 +63,8 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvModeEnable
   gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString
   gEfiMdePkgTokenSpaceGuid.PcdDefaultTerminalType
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqSupported
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault
 
 [Pcd]
   gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut
@@ -89,6 +93,7 @@
   gRockchipMaskromResetFileGuid
   gRockchipFullResetFileGuid
   gRockchipArmbianOnceFileGuid
+  gRK3576DxeFormSetGuid
 
 [Protocols]
   gEdkiiNonDiscoverableDeviceProtocolGuid
@@ -101,6 +106,7 @@
   gEfiSimpleFileSystemProtocolGuid
   gEfiAbsolutePointerProtocolGuid
   gEfiSimpleTextInProtocolGuid
+  gEfiSimpleTextOutProtocolGuid
   gEsrtManagementProtocolGuid
   gEfiSmbiosProtocolGuid
   gPlatformBootManagerProtocolGuid

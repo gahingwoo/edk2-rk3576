@@ -130,7 +130,7 @@ Except Config Table Mode and CPU Maximum Frequency, all are off by default.
 | Option | What it does |
 |---|---|
 | Config Table Mode | ACPI + device tree (default on CM5-IO and TaishanPi 3M), ACPI only, or device tree only |
-| CPU Maximum Frequency | 1608 MHz on both clusters (default), or Max (2208 / 2016 MHz) |
+| CPU Maximum Frequency | 1608 MHz on both clusters (default), or Max (2208 / 2016 MHz). On the first boot with a screen, the firmware asks once which one to use (10 s, then the current setting, 1608 MHz unless Max was chosen in Setup before; Up/Down or a drag moves, Enter or a tap chooses) and restarts if the answer changes it; the answer is kept in the variable `CpuMaxFreqAsked`, and without a screen nothing is asked. TaishanPi 3M only |
 | CPU Idle States | tells the OS about the cores' idle states; off means WFI only |
 | Fan | on (default): the board fan runs at full speed from power-on into the OS; off: held off. No speed setting, because a partial speed is pulsed and the pulsing makes the fan whine. TaishanPi 3M and CM5-IO; the ROCK 4D has no fan the firmware drives. With Fan Control by ACPI Thermal Zone on, the OS can still start the fan |
 | Fan Control by ACPI Thermal Zone | lets Windows run the fan from the big-core temperature; off means the fan stays at the speed the firmware set |

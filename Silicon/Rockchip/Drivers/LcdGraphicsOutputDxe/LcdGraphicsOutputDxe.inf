@@ -31,6 +31,7 @@
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
   Silicon/Rockchip/RockchipPkg.dec
+  Silicon/Rockchip/RK3576/RK3576.dec
 
 [LibraryClasses]
   BaseLib
@@ -39,6 +40,7 @@
   UefiBootServicesTableLib
   UefiDriverEntryPoint
   UefiLib
+  UefiRuntimeServicesTableLib
   RockchipDisplayLib
 
 [Protocols]
@@ -56,6 +58,7 @@
 [Guids]
   gEfiEndOfDxeEventGroupGuid
   gEfiEventReadyToBootGuid
+  gRK3576DxeFormSetGuid
 
 [Pcd]
   gRK3588TokenSpaceGuid.PcdDisplayModePreset

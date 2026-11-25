@@ -1558,6 +1558,13 @@ PlatformBootManagerAfterConsole (
   FirmwareVerLength = StrLen (PcdGetPtr (PcdFirmwareVersionString));
 
   //
+  // First boot with a screen, on a board that offers Max: ask once which
+  // CPU maximum frequency to use (CpuMaxFreqAsk.c).  Before the logo, which
+  // the question would draw over.
+  //
+  PlatformAskCpuMaxFreqOnce ();
+
+  //
   // Show the splash screen.
   //
   Status = BootLogoEnableLogo ();

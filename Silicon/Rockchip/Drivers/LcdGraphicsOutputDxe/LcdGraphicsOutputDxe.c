@@ -754,6 +754,24 @@ LcdGraphicsOutputInit (
     goto Exit;
   }
 
+  //
+  // Whether a sink answered, or the output is only forced (GOP with no
+  // screen): the boot manager asks questions only on a screen
+  // (PlatformBootManagerLib CpuMaxFreqAsk.c).  Volatile.
+  //
+  {
+    UINT8  Detected;
+
+    Detected = (PrimaryDisplayState != NULL) ? 1 : 0;
+    gRT->SetVariable (
+           L"DisplayDetected",
+           &gRK3576DxeFormSetGuid,
+           EFI_VARIABLE_BOOTSERVICE_ACCESS,
+           sizeof (Detected),
+           &Detected
+           );
+  }
+
   DisplayState = NULL;
 
   if (PrimaryDisplayState != NULL) {
