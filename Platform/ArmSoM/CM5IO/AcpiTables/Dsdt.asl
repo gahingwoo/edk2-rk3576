@@ -161,12 +161,23 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     //     so lane 0 goes out on SDO0.  Written as the identity route
     //     <0 1 2 3> (0x0123) rather than 0, so the driver programs
     //     SAI_PATH_SEL instead of trusting whatever an earlier OS left there.
-    //   LOUT1/ROUT1 -> the 3-pin header CN3 (HPR, HPL, HP_GND), LOUT2/ROUT2
-    //     -> the 40-pin header (AUD_LINEOUT_L/R).  No amplifier.
+    //   LOUT1/ROUT1 -> the 3-pin header CN3 (HPR, HPL, HP_GND).  LOUT2/ROUT2
+    //     (AUD_LINEOUT_L/R) go only to the test pads T36/T37, not to the
+    //     40-pin header.  No amplifier.
+    //   Microphone: MIC2P/MIC2N on the test pads T34/T35, biased through
+    //     R56/R57/R58 from VCCA3V3_CODEC, into LIN2/RIN2 ("Differential
+    //     routing" on the schematic).  LIN1/RIN1 are not connected.
     //
-    // CN3 has no detect contact and the vendor sound card has no
-    // hp-det-gpios, so BOARD_CODEC_NO_HPDET: no jack detection, and Windows
-    // keeps the headphone endpoint plugged.
+    // CN3 has no detect contact (HP_DET_L is held low by R411) and the
+    // vendor sound card has no hp-det-gpios, so BOARD_CODEC_NO_HPDET: no
+    // jack detection, and Windows keeps the headphone endpoint plugged.
+    // es8323 creates its interrupt only when _CRS has a GpioInt
+    // (woa-rk3576 es83-optional-irq, 111de2c).
+    //
+    // BOARD_CODEC_OUTPUT_ROUTE 3: LOUT1/ROUT1 and LOUT2/ROUT2 on (ES8388
+    // reg 0x04 = 0x3C, reg 0x30/0x31 = 0 dB), so the pads carry line out
+    // too.  BOARD_CODEC_INPUT_SELECT 4: LIN2 - RIN2 differential (reg 0x0A
+    // = 0xF0, reg 0x0B = 0x82).
     //
     // The board library (Cm5ioAnalogAudioInit) powers PD_AUDIO, sets
     // mclk_sai1 and the MCLK output, muxes the SAI1 and I2C0 pins and
@@ -178,6 +189,8 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
 #define BOARD_CODEC_I2C           "\\_SB.I2C0"
 #define BOARD_CODEC_I2C_ADDR      0x10
 #define BOARD_CODEC_NO_HPDET
+#define BOARD_CODEC_OUTPUT_ROUTE  3
+#define BOARD_CODEC_INPUT_SELECT  4
     Scope (I2C0) {
       include ("Es8388.asl")
     }

@@ -69,7 +69,7 @@ V1.1 schematics). Built, and nothing in this section has run on the board.
 | NPU setup option | **added** | appears once the firmware can reach the RK806 (vdd_npu_s0 = BUCK2) |
 | CPU Maximum Frequency | **added**, default 1608 MHz | BUCK1/BUCK3 as on the TaishanPi 3M; the OTP SoC-variant check still applies |
 | GPU rail report (`GpuRail` variable) | **added**, reads only | no 775 mV raise: the GPU stays at 594 MHz on this board |
-| Analog audio (ES8388) | **added** | I2C0 0x10, SAI1 M0 (SDO0), output on the 3-pin header CN3 and the 40-pin header; no jack detect (CN3 has no detect contact), no amplifier |
+| Analog audio (ES8388) | **added** | I2C0 0x10, SAI1 M0 (SDO0), output on the 3-pin header CN3 (OUT1; OUT2 only reaches test pads T36/T37), microphone pads T34/T35 into LIN2/RIN2 differential; `_DSD` `rockchip,output-route` 3, `rockchip,input-select` 4; no jack detect (CN3 has no detect contact), no amplifier |
 | "Armbian (U-Boot)" one-shot | **added** | SPL rebuilt from mainline U-Boot v2026.10 with Armbian's CM5-IO files and the one-shot patch; it now tries the SD card first, like the TaishanPi 3M's |
 | Fan on/off switch ("Fan", default on) | already there (main, `fan-onoff`) | polarity still not settled, see `PwmFanSetSpeed` in this board's RockchipPlatformLib.c: "on" holds the pin low, which is full speed only if the inverted reading is right |
 | CPU frequency asked once at first boot | **added** with CPU Maximum Frequency | `cpu-ask-once` (main) asks on every board that offers Max |
@@ -95,10 +95,12 @@ What to check on the board, firmware first:
   it is not, remove `SPL_DEFCONFIG` from `boards/cm5io.conf` to go back to
   `binaries/idblock_cm5io.bin`.
 - Windows: shutdown powers off; `\_SB.SAI1` and `\_SB.I2C0.ES83` bind
-  csaudiork3x/rk3xi2sbus and es8323 with no yellow mark; sound out of CN3 (the
-  40-pin line out is OUT2, which es8323's RK3576 sequence leaves muted, and
-  its capture reads LINPUT1 while this board's microphone input is
-  LIN2/RIN2, so neither is expected to work without a driver change); NPU (with the option on) binds woa-rk3576-npu; maliwddm
+  csaudiork3x/rk3xi2sbus and es8323 with no yellow mark (needs es8323 from
+  woa-rk3576 `es83-optional-irq` or later: older ones create an interrupt
+  this board's `_CRS` does not have); sound out of CN3 and the T36/T37 pads;
+  a microphone on T34/T35 records (differential LIN2/RIN2); the codec's
+  `Device Parameters` show `ActiveOutputRoute` 3, `ActiveInputSelect` 4,
+  `JackInterrupt` 0; NPU (with the option on) binds woa-rk3576-npu; maliwddm
   reads the GpuRail variable and runs at 594 MHz.
 - Linux: boots as before (audio, NPU and the PMIC are the device tree's
   business there); `poweroff` still powers off.
