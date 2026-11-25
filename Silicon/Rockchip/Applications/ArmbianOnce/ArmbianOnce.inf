@@ -53,3 +53,4 @@
 [FixedPcd]
   gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress
   gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress
+  gRockchipTokenSpaceGuid.PcdArmbianOnceRequestOnSd

@@ -197,6 +197,42 @@ The application:
 
 Every failure stops before the record is written and says why.
 
+## SPI NOR boards (Radxa ROCK 4D)
+
+The ROCK 4D has no eMMC: its SPL and the firmware FIT are in the SPI NOR
+(idblock at 0x8000, FIT at 0x60000), and the SPL's boot order is
+`"same-as-spl"` (the SPI NOR), then the SD card. The SPL cannot write the SPI
+NOR cheaply, and a request has to be erased by the SPL before it loads
+anything, so the request lives on the SD card instead, at the same sector
+0x3FFF, which is in the zero gap of an Armbian SD image too. Two switches,
+both off by default:
+
+* SPL: `CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST`
+  (`uboot/v2026.10/0002-...patch`). The record is read and erased on the SD
+  card, and the only target accepted is 1, the FIT at sector 0x4000 of that
+  card. On a requested boot `spl_spi_get_uboot_offs()` returns 0, where the
+  SPI NOR has its partition table and no FIT; with `SPL_RAW_IMAGE_SUPPORT`
+  off the SPL refuses that payload and goes on to the SD card, where the MMC
+  hook lets it load the card's FIT. Without a request the SPI offset is
+  `CONFIG_SYS_SPI_U_BOOT_OFFS` (0x60000), so a normal boot is the SPL's
+  ordinary SPI boot. If the card holds no U-Boot FIT once the request has
+  been erased, the SPL says so and boots the firmware.
+* EDK2: `PcdArmbianOnceRequestOnSd` (RockchipPkg.dec). The boot option and
+  the application look for the SPL tag in the SPI NOR (read through the NOR
+  flash driver, 0x8000..0x5FFFF), for a U-Boot FIT at sector 0x4000 of the SD
+  card only, and write the request to sector 0x3FFF of the SD card. No slot,
+  no copy from USB, NVMe or a file system: the SPL could not read a slot
+  anywhere but on the card, and on the card sector 0x10000 is inside
+  Armbian's root partition.
+
+For the ROCK 4D, `boards/rock4d.conf` has `build-spl.sh` build U-Boot
+v2026.10's own `rock-4d-rk3576_defconfig` and device tree, unchanged, with
+both patches and `uboot/v2026.10/rock4d/spl.config` (XMC flash support for
+v1.12 boards, `SPL_MMC_WRITE`, the two switches) and the DDR blob v1.09 that
+`binaries/idblock_mainline.bin` (U-Boot 2026.04) carries. That replaces the
+SPL every ROCK 4D image ships with, so it is on branch `rock4d-parity` only,
+until a board has booted it.
+
 ## What can be booted this way
 
 The SPL is mainline U-Boot's; it loads any FIT that `spl_load_simple_fit()`
@@ -240,7 +276,7 @@ stages before it:
 | NVMe | eMMC slot, as for USB | yes, on each use | same code path; the TaishanPi has no M.2, so untested |
 | a partition of the eMMC that also holds the firmware | eMMC slot, copied from `/usr/lib/linux-u-boot-*/u-boot-rockchip.bin` | yes, on each use: every apt upgrade of `linux-u-boot-*` replaces that file | supported. Armbian must never write its bootloader there (see R5) |
 | the same disk as Armbian's FIT at 0x4000 when the firmware is also there | impossible: one sector, one FIT | | |
-| ROCK 4D | | | no: its SPL is on SPI NOR and the request would need an SPI write from the SPL. Not built in |
+| ROCK 4D: SD card, firmware on SPI NOR | SD sector 0x4000, in place | always | built on branch `rock4d-parity`, not run on a board; see [SPI NOR boards](#spi-nor-boards-radxa-rock-4d). Armbian on USB or NVMe is not supported there: there is no eMMC for a slot |
 | CM5-IO | design applies (eMMC SPL) | | not built in: its SPL (2026.07-rc3 with the carrier overlay) is not rebuilt by `build-spl.sh` yet, and it needs the SD-first boot order for the SD case |
 
 Armbian's U-Boot package only writes the bootloader to a disk when

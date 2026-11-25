@@ -111,6 +111,16 @@ ArmbianOnceSplTakesRequests (
   );
 
 /**
+  TRUE if the idbloader in the SPI NOR (at 0x8000, where package.sh writes
+  it) has an SPL that takes requests.  FALSE without a NOR flash driver.
+**/
+BOOLEAN
+EFIAPI
+ArmbianOnceSpiSplTakesRequests (
+  VOID
+  );
+
+/**
   TRUE if the eMMC slot is on the disk and in no partition other than the
   firmware region.  On FALSE because of a partition, its first and last
   sector are returned (both 0 when the disk is too small).
@@ -142,6 +152,10 @@ ArmbianOnceConnectSd (
   - a U-Boot FIT at sector 0x4000 of the SD card, or at sector 0x4000 of
     the eMMC (this firmware then runs from the SD card), or at sector
     0x4000 of another whole disk (USB, NVMe), or already in the eMMC slot.
+
+  With PcdArmbianOnceRequestOnSd (an SPI NOR board without eMMC): an SPL
+  in the SPI NOR that takes requests, and a U-Boot FIT at sector 0x4000 of
+  the SD card, the only place that SPL boots one from.
 
   A U-Boot that only exists as /usr/lib/linux-u-boot-<branch>-<board>/u-boot-rockchip.bin
   in a file system is not looked for here; the application still finds it.

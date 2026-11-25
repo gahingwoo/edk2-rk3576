@@ -171,6 +171,16 @@
   gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreBase|0|UINT64|0x2120000C
   gRockchipTokenSpaceGuid.PcdRkFvbRuntimeStoreSize|0|UINT32|0x2120000D
 
+  #
+  # "Armbian (U-Boot)" (ArmbianOnce): TRUE on a board whose SPL and firmware
+  # are on SPI NOR and that has no eMMC (Radxa ROCK 4D).  The request then
+  # goes to the SD card, the SPL is looked for in the SPI NOR, and the only
+  # U-Boot it can boot is the one at sector 0x4000 of the SD card (the SPL
+  # built with SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST).  FALSE: the eMMC, as
+  # on the TaishanPi 3M.
+  #
+  gRockchipTokenSpaceGuid.PcdArmbianOnceRequestOnSd|FALSE|BOOLEAN|0x00000A00
+
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxBase|0x0010f000|UINT64|0x00001000
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSize|0x100|UINT32|0x00001001
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSmcId|0x82000010|UINT32|0x00010002

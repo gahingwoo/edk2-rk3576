@@ -19,6 +19,7 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/NonDiscoverableDevice.h>
+#include <Protocol/NorFlashProtocol.h>
 #include <Protocol/PartitionInfo.h>
 
 #define SECTOR          ARMBIAN_ONCE_SECTOR
@@ -324,6 +325,45 @@ ArmbianOnceSplTakesRequests (
   return Found;
 }
 
+//
+// Where package.sh puts the idbloader in an SPI NOR image, and how far it
+// may reach: the FIT starts at 0x60000.
+//
+#define SPI_IDB_OFFSET  0x8000
+#define SPI_IDB_SIZE    (0x60000 - SPI_IDB_OFFSET)
+
+BOOLEAN
+EFIAPI
+ArmbianOnceSpiSplTakesRequests (
+  VOID
+  )
+{
+  CONST CHAR8             *Tag    = ARMBIAN_ONCE_SPL_TAG;
+  UINTN                   TagSize = AsciiStrLen (ARMBIAN_ONCE_SPL_TAG);
+  UNI_NOR_FLASH_PROTOCOL  *Nor;
+  UINT8                   *Buffer;
+  UINTN                   Index;
+  BOOLEAN                 Found = FALSE;
+
+  if (EFI_ERROR (gBS->LocateProtocol (&gUniNorFlashProtocolGuid, NULL, (VOID **)&Nor))) {
+    return FALSE;
+  }
+
+  Buffer = AllocatePool (SPI_IDB_SIZE);
+  if (Buffer == NULL) {
+    return FALSE;
+  }
+
+  if (!EFI_ERROR (Nor->Read (Nor, SPI_IDB_OFFSET, Buffer, SPI_IDB_SIZE))) {
+    for (Index = 0; Index + TagSize <= SPI_IDB_SIZE && !Found; Index++) {
+      Found = (Buffer[Index] == Tag[0]) && (CompareMem (Buffer + Index, Tag, TagSize) == 0);
+    }
+  }
+
+  FreePool (Buffer);
+  return Found;
+}
+
 BOOLEAN
 EFIAPI
 ArmbianOnceSlotIsFree (
@@ -465,6 +505,28 @@ ArmbianOnceProbe (
 
   if (Where != NULL) {
     *Where = NULL;
+  }
+
+  //
+  // SPI NOR board: the request goes to the SD card, and the SPL boots only
+  // the U-Boot FIT at sector 0x4000 of that card.
+  //
+  if (FixedPcdGetBool (PcdArmbianOnceRequestOnSd)) {
+    if (  !ArmbianOnceFindMmcDisk (FixedPcdGet32 (PcdRkSdmmcBaseAddress), &Sd)
+       || (ArmbianOnceClassifyFitOnDisk (&Sd, ARMBIAN_ONCE_FIT_LBA, NULL) != ArmbianOnceFitUBoot))
+    {
+      return EFI_NOT_FOUND;
+    }
+
+    if (!ArmbianOnceSpiSplTakesRequests ()) {
+      return EFI_UNSUPPORTED;
+    }
+
+    if (Where != NULL) {
+      *Where = L"the SD card";
+    }
+
+    return EFI_SUCCESS;
   }
 
   //

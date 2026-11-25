@@ -22,6 +22,11 @@
  *           this firmware;
  *    3. writes the request to eMMC sector 0x3FFF and restarts.
  *
+ *  On a board whose SPL and firmware are on SPI NOR and that has no eMMC
+ *  (PcdArmbianOnceRequestOnSd, the Radxa ROCK 4D), the SPL is looked for in
+ *  the SPI NOR, the only U-Boot it can boot is the FIT at sector 0x4000 of
+ *  the SD card, and the request goes to sector 0x3FFF of that card.
+ *
  *  Nothing on the chip survives a reset on these boards (DRAM, the PMU GRF
  *  OS registers and a battery-less RTC all come back cleared), so the
  *  request has to be on a disk.  docs/ARMBIAN-CHAINLOAD.md has the details.
@@ -415,7 +420,8 @@ STATIC
 EFI_STATUS
 WriteRequest (
   IN ARMBIAN_ONCE_DISK  *Emmc,
-  IN UINT32    Target
+  IN UINT32    Target,
+  IN CONST CHAR16  *Name
   )
 {
   ARMBIAN_ONCE_REQUEST  Request;
@@ -425,7 +431,7 @@ WriteRequest (
   if (  !EFI_ERROR (ArmbianOnceDiskRead (Emmc, Offset, sizeof (Old), &Old))
      && (CompareMem (Old.Magic, ARMBIAN_ONCE_MAGIC, sizeof (Old.Magic)) == 0))
   {
-    Print (L"Note: an earlier request was still on the eMMC; the SPL did not take it.\n");
+    Print (L"Note: an earlier request was still on the %s; the SPL did not take it.\n", Name);
   }
 
   ZeroMem (&Request, sizeof (Request));
@@ -452,6 +458,46 @@ UefiMain (
   UINT32      Target;
 
   Print (L"\nArmbian (U-Boot): the next boot runs Armbian's own U-Boot, once.\n\n");
+
+  if (FixedPcdGetBool (PcdArmbianOnceRequestOnSd)) {
+    //
+    // SPI NOR board: the SPL and this firmware are in the SPI NOR, and the
+    // SPL reads the request from the SD card and boots only that card's
+    // U-Boot FIT.
+    //
+    if (!ArmbianOnceFindMmcDisk (FixedPcdGet32 (PcdRkSdmmcBaseAddress), &Sd)) {
+      Print (L"No SD card found. On this board Armbian has to be on the SD card.\n");
+      WaitForKey ();
+      return EFI_NOT_FOUND;
+    }
+
+    if (!ArmbianOnceSpiSplTakesRequests ()) {
+      Print (L"The SPL in the SPI NOR does not take requests (no \"%a\" in it).\n", ARMBIAN_ONCE_SPL_TAG);
+      Print (L"It needs the SPL built with uboot/v2026.10 of this firmware.\n");
+      WaitForKey ();
+      return EFI_UNSUPPORTED;
+    }
+
+    if (ArmbianOnceClassifyFitOnDisk (&Sd, ARMBIAN_ONCE_FIT_LBA, NULL) != ArmbianOnceFitUBoot) {
+      Print (L"No U-Boot FIT at sector 0x4000 of the SD card. On this board the SPL\n");
+      Print (L"can only boot an Armbian U-Boot written to the SD card.\n");
+      WaitForKey ();
+      return EFI_NOT_FOUND;
+    }
+
+    Print (L"Found a U-Boot FIT on the SD card.\n");
+    Status = WriteRequest (&Sd, ARMBIAN_ONCE_TARGET_SD, L"SD card");
+    if (EFI_ERROR (Status)) {
+      Print (L"Writing the request to SD card sector 0x%x failed: %r\n", ARMBIAN_ONCE_REQUEST_LBA, Status);
+      WaitForKey ();
+      return Status;
+    }
+
+    Print (L"Request written. Restarting; the boot after Armbian's is this firmware again.\n");
+    gBS->Stall (1000 * 1000);
+    gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
+    return EFI_SUCCESS;
+  }
 
   if (!ArmbianOnceFindMmcDisk (FixedPcdGet32 (PcdDwcSdhciBaseAddress), &Emmc)) {
     Print (L"No eMMC found. The request for the SPL is kept on the eMMC.\n");
@@ -511,7 +557,7 @@ UefiMain (
     Target = ARMBIAN_ONCE_TARGET_EMMC_SLOT;
   }
 
-  Status = WriteRequest (&Emmc, Target);
+  Status = WriteRequest (&Emmc, Target, L"eMMC");
   if (EFI_ERROR (Status)) {
     Print (L"Writing the request to eMMC sector 0x%x failed: %r\n", ARMBIAN_ONCE_REQUEST_LBA, Status);
     WaitForKey ();

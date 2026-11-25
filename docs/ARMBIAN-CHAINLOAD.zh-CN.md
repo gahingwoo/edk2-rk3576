@@ -175,6 +175,30 @@ Armbian FIT 最终会启动本固件。
 
 任何一步失败都会在写记录之前停下，并说明原因。
 
+## SPI NOR 板子（Radxa ROCK 4D）
+
+ROCK 4D 没有 eMMC：它的 SPL 和固件 FIT 都在 SPI NOR 里（idblock 在 0x8000，FIT 在
+0x60000），SPL 的启动顺序是 `"same-as-spl"`（SPI NOR），然后是 SD 卡。SPL 写 SPI NOR
+代价不小，而请求必须在 SPL 加载任何东西之前由它擦掉，所以请求改放在 SD 卡上，同样是
+0x3FFF 扇区，它在 Armbian SD 映像里也处于全零的空隙中。两个开关，默认都关：
+
+* SPL：`CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST`（`uboot/v2026.10/0002-...patch`）。
+  记录在 SD 卡上读取和擦除，只接受目标 1，即这张卡 0x4000 扇区的 FIT。有请求的那次启动，
+  `spl_spi_get_uboot_offs()` 返回 0，SPI NOR 在那里放的是分区表，没有 FIT；由于
+  `SPL_RAW_IMAGE_SUPPORT` 关闭，SPL 拒绝这个载荷，转向 SD 卡，MMC 钩子在那里让它加载卡上的
+  FIT。没有请求时 SPI 偏移是 `CONFIG_SYS_SPI_U_BOOT_OFFS`（0x60000），所以正常启动就是
+  SPL 普通的 SPI 启动。如果请求擦除后卡上没有 U-Boot FIT，SPL 会打印出来并启动固件。
+* EDK2：`PcdArmbianOnceRequestOnSd`（RockchipPkg.dec）。启动项和应用程序在 SPI NOR 里找
+  SPL 标签（通过 NOR flash 驱动读 0x8000..0x5FFFF），只在 SD 卡 0x4000 扇区找 U-Boot FIT，
+  并把请求写到 SD 卡的 0x3FFF 扇区。没有槽位，也不从 USB、NVMe 或文件系统复制：SPL
+  除了这张卡读不到别处的槽位，而在卡上 0x10000 扇区位于 Armbian 的根分区之内。
+
+对 ROCK 4D，`boards/rock4d.conf` 让 `build-spl.sh` 用 U-Boot v2026.10 自带的
+`rock-4d-rk3576_defconfig` 和设备树（不改动），加上两个补丁和
+`uboot/v2026.10/rock4d/spl.config`（v1.12 板子的 XMC flash 支持、`SPL_MMC_WRITE`、
+上面两个开关），以及 `binaries/idblock_mainline.bin`（U-Boot 2026.04）所带的 DDR blob v1.09。
+这会替换每个 ROCK 4D 映像里的 SPL，所以在有板子启动过它之前，它只在分支 `rock4d-parity` 上。
+
 ## 用这种方法能启动什么
 
 SPL 是主线 U-Boot 的；凡是 `spl_load_simple_fit()` 能加载的 FIT 它都能加载：
@@ -211,7 +235,7 @@ TF-A 作为 `firmware`（`os = "arm-trusted-firmware"`），U-Boot 和可选的 
 | NVMe | eMMC 槽位，同 USB | 是，每次使用时 | 代码路径相同；泰山派没有 M.2，所以未试过 |
 | 和固件在同一块 eMMC 上的某个分区 | eMMC 槽位，从 `/usr/lib/linux-u-boot-*/u-boot-rockchip.bin` 复制 | 是，每次使用时：每次 apt 升级 `linux-u-boot-*` 都会替换这个文件 | 支持。Armbian 绝不能把它的 bootloader 写到那里（见 R5） |
 | 固件也在 0x4000 处时，Armbian 的 FIT 在同一块盘上 | 不可能：一个扇区位置只能放一个 FIT | | |
-| ROCK 4D | | | 不支持：它的 SPL 在 SPI NOR 上，请求需要 SPL 写 SPI。没有编进去 |
+| ROCK 4D：SD 卡，固件在 SPI NOR 上 | SD 卡 0x4000 扇区，原地加载 | 总是 | 在分支 `rock4d-parity` 上已构建，未上板运行；见 [SPI NOR 板子](#spi-nor-板子radxa-rock-4d)。那里不支持 USB 或 NVMe 上的 Armbian：没有 eMMC 可放槽位 |
 | CM5-IO | 设计上适用（eMMC 上的 SPL） | | 没有编进去：它的 SPL（带底板 overlay 的 2026.07-rc3）还没有用 `build-spl.sh` 重新构建，而且 SD 卡场景需要 SD 优先的启动顺序 |
 
 Armbian 的 U-Boot 软件包只有在 `FORCE_UBOOT_UPDATE=yes`（它的 `postinst`）或通过

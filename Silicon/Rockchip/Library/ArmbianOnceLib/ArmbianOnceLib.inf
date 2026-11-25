@@ -39,7 +39,9 @@
   gEfiDiskIoProtocolGuid
   gEdkiiNonDiscoverableDeviceProtocolGuid
   gEfiPartitionInfoProtocolGuid
+  gUniNorFlashProtocolGuid
 
 [FixedPcd]
   gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress
   gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress
+  gRockchipTokenSpaceGuid.PcdArmbianOnceRequestOnSd

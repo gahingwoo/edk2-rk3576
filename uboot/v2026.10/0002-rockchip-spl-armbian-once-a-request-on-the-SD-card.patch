@@ -1,0 +1,167 @@
+From d866ebcef0b44e5ce4525c14229152918e29229a Mon Sep 17 00:00:00 2001
+From: gahingwoo <gahing@gahingwoo.com>
+Date: Wed, 25 Nov 2026 13:55:26 +1300
+Subject: [PATCH] rockchip: spl: armbian-once: a request on the SD card for SPI
+ NOR boards
+
+The first patch keeps the request record on the eMMC, which the Radxa
+ROCK 4D does not have: its SPL and the firmware FIT are on SPI NOR, and
+the only other boot device the SPL reads is the SD card.
+
+SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST reads and erases the record on the
+SD card instead, at the same sector, and accepts only the SD target: the
+U-Boot FIT at the usual sector of that card. The SPI NOR comes first in
+the boot order, so spl_spi_get_uboot_offs() points the SPI load at
+offset 0 on a requested boot. There is no FIT there (the SPI NOR's
+partition table) and SPL_RAW_IMAGE_SUPPORT is off, so the load fails and
+the SPL goes on to the SD card. Without a request the offset is
+SYS_SPI_U_BOOT_OFFS, as before.
+
+Off by default; the eMMC boards build what they built before.
+
+Signed-off-by: gahingwoo <gahing@gahingwoo.com>
+---
+ arch/arm/mach-rockchip/Kconfig            | 11 +++++
+ arch/arm/mach-rockchip/spl-armbian-once.c | 53 ++++++++++++++++++++---
+ 2 files changed, 57 insertions(+), 7 deletions(-)
+
+diff --git a/arch/arm/mach-rockchip/Kconfig b/arch/arm/mach-rockchip/Kconfig
+index 4b44a2d..fb6dd36 100644
+--- a/arch/arm/mach-rockchip/Kconfig
++++ b/arch/arm/mach-rockchip/Kconfig
+@@ -667,6 +667,17 @@ config SPL_ROCKCHIP_ARMBIAN_ONCE_SLOT_SECTOR
+ 	  (Armbian on USB, NVMe, or another partition of the eMMC).  32 MiB
+ 	  into the eMMC, past the end of the firmware FIT.
+ 
++config SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST
++	bool "The firmware is on SPI NOR: look for the request on the SD card"
++	depends on SPL_SPI_LOAD
++	help
++	  For a board whose SPL and firmware FIT are on SPI NOR and that has
++	  no eMMC (Radxa ROCK 4D).  The request record is read from, and
++	  erased on, the SD card at the same sector, and the only target is
++	  the U-Boot FIT at the usual sector of that card.  When there is a
++	  request, the SPI NOR load is made to fail, so the SPL moves on to
++	  the SD card in its boot order; without one, nothing changes.
++
+ config SPL_ROCKCHIP_ARMBIAN_ONCE_BOOTCMD
+ 	string "bootcmd for the other U-Boot, set through /config/bootcmd"
+ 	default "setenv bootmeths script extlinux; bootflow scan -lb"
+diff --git a/arch/arm/mach-rockchip/spl-armbian-once.c b/arch/arm/mach-rockchip/spl-armbian-once.c
+index ca37655..f54bb30 100644
+--- a/arch/arm/mach-rockchip/spl-armbian-once.c
++++ b/arch/arm/mach-rockchip/spl-armbian-once.c
+@@ -26,6 +26,11 @@
+  * The record is the only state, and it lives on the eMMC because nothing
+  * on the chip survives a reset on these boards: TF-A's first global reset
+  * drives the reset output to the PMIC, which power-cycles the SoC.
++ *
++ * With SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST (a board that boots the SPL and
++ * the firmware from SPI NOR and has no eMMC) the record is on the SD card
++ * instead, the only target is the SD card's FIT, and a request makes the
++ * SPI NOR load fail so that the SPL goes on to the SD card.
+  */
+ 
+ #include <blk.h>
+@@ -105,8 +110,10 @@ static enum ao_kind ao_classify(struct blk_desc *bd, lbaint_t sect)
+ 	return AO_NONE;
+ }
+ 
+-static struct mmc *ao_find_emmc(void)
++/* The eMMC, or with SD_REQUEST the SD card: where the request is kept. */
++static struct mmc *ao_find_req_mmc(void)
+ {
++	bool want_sd = IS_ENABLED(CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST);
+ 	int n;
+ 
+ 	/* The SPL knows two MMC boot devices; spl_mmc.c maps them to 0 and 1. */
+@@ -118,7 +125,7 @@ static struct mmc *ao_find_emmc(void)
+ 		mmc = find_mmc_device(n);
+ 		if (!mmc || mmc_init(mmc))
+ 			continue;
+-		if (!IS_SD(mmc))
++		if (!IS_SD(mmc) != want_sd)
+ 			return mmc;
+ 	}
+ 
+@@ -135,6 +142,9 @@ static bool ao_request_valid(const struct ao_request *req)
+ 	if (le32_to_cpu(req->version) != AO_VERSION)
+ 		return false;
+ 
++	if (IS_ENABLED(CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST))
++		return le32_to_cpu(req->target) == AO_TARGET_SD;
++
+ 	switch (le32_to_cpu(req->target)) {
+ 	case AO_TARGET_SD:
+ 	case AO_TARGET_EMMC_FIT:
+@@ -149,6 +159,8 @@ static bool ao_request_valid(const struct ao_request *req)
+ static void ao_init(void)
+ {
+ 	struct ao_request *req = ao_buf(AO_HDR_MAX, sizeof(*req));
++	bool sd_req = IS_ENABLED(CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST);
++	const char *where = sd_req ? "SD card" : "eMMC";
+ 	struct blk_desc *bd;
+ 	struct mmc *emmc;
+ 	u32 target;
+@@ -157,13 +169,14 @@ static void ao_init(void)
+ 		return;
+ 	ao_done = true;
+ 
+-	emmc = ao_find_emmc();
++	emmc = ao_find_req_mmc();
+ 	if (!emmc) {
+-		printf("%s: no eMMC, no request to look for\n", ao_tag);
++		printf("%s: no %s, no request to look for\n", ao_tag, where);
+ 		return;
+ 	}
+ 	bd = mmc_get_blk_desc(emmc);
+-	ao_emmc_fit = ao_classify(bd, CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR);
++	if (!sd_req)
++		ao_emmc_fit = ao_classify(bd, CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR);
+ 
+ 	if (blk_dread(bd, AO_REQ_SECTOR, 1, req) != 1 || !ao_request_valid(req))
+ 		return;
+@@ -178,8 +191,14 @@ static void ao_init(void)
+ 	if (blk_dwrite(bd, AO_REQ_SECTOR, 1, req) != 1 ||
+ 	    blk_dread(bd, AO_REQ_SECTOR, 1, req) != 1 ||
+ 	    memchr_inv(req, 0, sizeof(*req))) {
+-		printf("%s: could not erase the request at eMMC sector %#x, booting the firmware\n",
+-		       ao_tag, AO_REQ_SECTOR);
++		printf("%s: could not erase the request at %s sector %#x, booting the firmware\n",
++		       ao_tag, where, AO_REQ_SECTOR);
++		return;
++	}
++
++	if (sd_req && ao_classify(bd, CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR) != AO_FOREIGN) {
++		printf("%s: request erased, but there is no U-Boot FIT on the SD card, booting the firmware\n",
++		       ao_tag);
+ 		return;
+ 	}
+ 
+@@ -242,6 +261,26 @@ unsigned long board_spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
+ 	return raw_sect;
+ }
+ 
++#if IS_ENABLED(CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST)
++/*
++ * The SPI NOR comes first in the boot order ("same-as-spl").  On a
++ * requested boot, point it at offset 0, where there is no FIT (the SPI
++ * NOR's partition table), so that load fails and the SPL tries the SD card
++ * next.  Without SPL_RAW_IMAGE_SUPPORT a payload with no FIT or legacy
++ * header is refused, never jumped to.
++ */
++unsigned int spl_spi_get_uboot_offs(struct spi_flash *flash)
++{
++	ao_init();
++	if (ao_requested) {
++		printf("%s: not loading the firmware from SPI NOR this time\n", ao_tag);
++		return 0;
++	}
++
++	return CONFIG_SYS_SPI_U_BOOT_OFFS;
++}
++#endif
++
+ void spl_perform_board_fixups(struct spl_image_info *spl_image)
+ {
+ 	const char *cmd = CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_BOOTCMD;
