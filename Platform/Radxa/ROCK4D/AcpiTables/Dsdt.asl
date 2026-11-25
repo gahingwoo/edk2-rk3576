@@ -37,8 +37,6 @@
  *    - XHC2 and ATA0..ATA2.  The CM5-IO includes them as _STA = 0 stubs whose
  *      addresses are RK3588's; a disabled device with a wrong address adds
  *      nothing.  The TaishanPi 3M left them out for the same reason.
- *    - The BL24C16F EEPROM on I2C6 at 0x50 (dts:685-697): no Windows driver,
- *      and the CM5-IO declares no I2C client beyond the PMIC and the RTC.
  *    - WiFi.  It is a USB device on the hub ("USB WIFI" page), powered by
  *      the firmware (vcc_3v3_wifi, GPIO2_C7, and WIFI_CHIP_EN, GPIO2_D1;
  *      dts:40-46, 170-181).  Windows finds it on USB or not at all; it needs
@@ -168,6 +166,50 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
           I2cSerialBusV2 (0x0051, ControllerInitiated, 100000,
                           AddressingMode7Bit, "\\_SB.I2C2",
                           0x00, ResourceConsumer, , Exclusive,)
+        })
+        Method (_STA) { Return (0xf) }
+      }
+    }
+
+    // The BL24C16F EEPROM on I2C6 (dts:685-697: eeprom@50, "belling,bl24c16f",
+    // "atmel,24c16", pagesize 16, read-only; schematic V1.12 "TF Card/EEPROM/
+    // PCIE" page, U15 on I2C6_SCL/SDA_M3, WP from EEPROM_WP = GPIO2_C5 through
+    // Q2).  For woa-rk3576 rkeeprom, which only reads.  A 24C16 is 2 KiB in
+    // eight 256-byte blocks, one I2C address each (0x50..0x57, the block in
+    // the low address bits), so all eight are listed, in order.  100 kHz:
+    // &i2c6 sets no clock-frequency.  I2C6 M3 is also the 40-pin header's
+    // pins 27/28 (the HAT ID EEPROM position); PlatformEarlyInit muxes those
+    // pins to I2C6 at every boot, as the device tree does.
+    Scope (I2C6) {
+      Device (EEP0) {
+        Name (_HID, "RKCP2416")
+        Name (_CID, "PRP0001")
+        Name (_UID, 0)
+        Name (_CRS, ResourceTemplate () {
+          I2cSerialBusV2 (0x0050, ControllerInitiated, 100000, AddressingMode7Bit,
+                          "\\_SB.I2C6", 0x00, ResourceConsumer, , Exclusive,)
+          I2cSerialBusV2 (0x0051, ControllerInitiated, 100000, AddressingMode7Bit,
+                          "\\_SB.I2C6", 0x00, ResourceConsumer, , Exclusive,)
+          I2cSerialBusV2 (0x0052, ControllerInitiated, 100000, AddressingMode7Bit,
+                          "\\_SB.I2C6", 0x00, ResourceConsumer, , Exclusive,)
+          I2cSerialBusV2 (0x0053, ControllerInitiated, 100000, AddressingMode7Bit,
+                          "\\_SB.I2C6", 0x00, ResourceConsumer, , Exclusive,)
+          I2cSerialBusV2 (0x0054, ControllerInitiated, 100000, AddressingMode7Bit,
+                          "\\_SB.I2C6", 0x00, ResourceConsumer, , Exclusive,)
+          I2cSerialBusV2 (0x0055, ControllerInitiated, 100000, AddressingMode7Bit,
+                          "\\_SB.I2C6", 0x00, ResourceConsumer, , Exclusive,)
+          I2cSerialBusV2 (0x0056, ControllerInitiated, 100000, AddressingMode7Bit,
+                          "\\_SB.I2C6", 0x00, ResourceConsumer, , Exclusive,)
+          I2cSerialBusV2 (0x0057, ControllerInitiated, 100000, AddressingMode7Bit,
+                          "\\_SB.I2C6", 0x00, ResourceConsumer, , Exclusive,)
+        })
+        Name (_DSD, Package () {
+          ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+          Package () {
+            Package () { "compatible", Package () { "belling,bl24c16f", "atmel,24c16" } },
+            Package () { "pagesize", 16 },
+            Package () { "read-only", 1 },
+          }
         })
         Method (_STA) { Return (0xf) }
       }

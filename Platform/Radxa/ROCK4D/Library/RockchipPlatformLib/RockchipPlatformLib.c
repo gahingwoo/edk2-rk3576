@@ -1014,6 +1014,24 @@ PlatformEarlyInit (
     Rock4dAnalogAudioInit ();
   }
 
+  /*
+   * I2C6 M3 for the BL24C16F EEPROM (\_SB.I2C6.EEP0), as the device tree
+   * sets it (dts:685-688, i2c6m3_xfer: GPIO4_C6 SCL, GPIO4_C7 SDA, function
+   * 11, pcfg_pull_none_smt).  The pads reset with a pull-down
+   * (RK3576_PULL_GPIO4_CL_OFFSET 0xA148 reads 0x5555), which the DTS turns
+   * off; C6/C7 are bits 13:12 and 15:14 of that register.  The schematic's
+   * pull-ups on the bus do the rest.  PCLK_I2C6 is CRU_GATE_CON12 bit 5 and
+   * CLK_I2C6 CRU_GATE_CON13 bit 1 (clk-rk3576.c), open at reset, opened
+   * again in case a warm reboot from Linux left them gated.  These pins are
+   * also the 40-pin header's 27/28, which the header's RhProxy option uses
+   * as I2C6 as well.
+   */
+  GpioPinSetFunction (4, GPIO_PIN_PC6, 11);   /* i2c6_scl_m3 */
+  GpioPinSetFunction (4, GPIO_PIN_PC7, 11);   /* i2c6_sda_m3 */
+  MmioWrite32 (0x26040000 + 0xA148, 0xFU << (12 + 16));
+  MmioWrite32 (CRU_CLKGATE_CON (12), BIT5 << 16);
+  MmioWrite32 (CRU_CLKGATE_CON (13), BIT1 << 16);
+
   DEBUG ((DEBUG_INFO, "ROCK 4D: PlatformEarlyInit done\n"));
 }
 
