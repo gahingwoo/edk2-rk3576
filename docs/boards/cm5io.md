@@ -71,8 +71,8 @@ V1.1 schematics). Built, and nothing in this section has run on the board.
 | GPU rail report (`GpuRail` variable) | **added**, reads only | no 775 mV raise: the GPU stays at 594 MHz on this board |
 | Analog audio (ES8388) | **added** | I2C0 0x10, SAI1 M0 (SDO0), output on the 3-pin header CN3 and the 40-pin header; no jack detect (CN3 has no detect contact), no amplifier |
 | "Armbian (U-Boot)" one-shot | **added** | SPL rebuilt from mainline U-Boot v2026.10 with Armbian's CM5-IO files and the one-shot patch; it now tries the SD card first, like the TaishanPi 3M's |
-| Fan | already there ("Fan Control by ACPI Thermal Zone", off) | polarity still not settled, see `PwmFanSetSpeed` in this board's RockchipPlatformLib.c; the on/off switch (branch `fan-onoff`) covers this board once merged |
-| CPU frequency asked once at first boot | follows from CPU Maximum Frequency | branch `cpu-ask-once`, not merged |
+| Fan on/off switch ("Fan", default on) | already there (main, `fan-onoff`) | polarity still not settled, see `PwmFanSetSpeed` in this board's RockchipPlatformLib.c: "on" holds the pin low, which is full speed only if the inverted reading is right |
+| CPU frequency asked once at first boot | **added** with CPU Maximum Frequency | `cpu-ask-once` (main) asks on every board that offers Max |
 | Wi-Fi, Bluetooth (SYN43752) | not ported | no Windows driver for this chip; the TaishanPi 3M drivers are for the BCM43456/BCM4345C5 |
 | DSI screen, touch, touch keys | not applicable | the carrier has a DSI connector but no screen was tested; the TaishanPi 3M code is for its own panel |
 | USB-C device wait / USB-A VBUS FDT fixup | not needed | the CM5-IO powers its USB-C port; its USB-A regulator is a PHY supply in the mainline tree |
@@ -82,9 +82,12 @@ What to check on the board, firmware first:
 - Serial log: `Rk806I2cPowerOff` finds the PMIC (`CHIP_NAME 0x80`), `GpuRail`
   prints vdd_gpu_s0, `Cm5ioAudio: mclk_sai1 = ...` and `SAI1 and I2C0 pins
   set`.
+- "Fan" on and off: note which one actually spins the fan on CN32 (this
+  settles the polarity).
 - "Shut Down" on the front page and `reset -s` in the Shell switch the board
   off; a restart still restarts.
-- CPU page: "CPU Maximum Frequency" is offered; Max boots and the log shows
+- First boot after flashing: the one-time CPU frequency prompt appears on
+  HDMI. CPU page: "CPU Maximum Frequency" is offered; Max boots and the log shows
   the raised rails. ACPI page: "NPU" is offered.
 - With an Armbian SD card in and the firmware on the eMMC: a normal boot
   reaches UEFI; "Armbian (U-Boot)" boots Armbian once; the next reboot is

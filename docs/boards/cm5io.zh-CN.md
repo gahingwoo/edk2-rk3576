@@ -60,8 +60,8 @@ CM5-IO V1.1 原理图）。都已编译通过，本节的内容都还没有在�
 | GPU 电压上报（`GpuRail` 变量） | **新增**，只读 | 不升到 775 mV：这块板的 GPU 保持 594 MHz |
 | 模拟音频（ES8388） | **新增** | I2C0 0x10，SAI1 M0（SDO0），输出到 3 针座子 CN3 和 40 针排针；没有耳机插入检测（CN3 没有检测脚），没有功放 |
 | "Armbian (U-Boot)" 单次启动 | **新增** | SPL 改为用主线 U-Boot v2026.10 加 Armbian 的 CM5-IO 板级文件和单次启动补丁编译；现在先试 SD 卡，和泰山派 3M 一样 |
-| 风扇 | 早已具备（"Fan Control by ACPI Thermal Zone"，默认关） | 极性仍未确定，见本板 RockchipPlatformLib.c 里的 `PwmFanSetSpeed`；开关（分支 `fan-onoff`）合并后也覆盖这块板 |
-| 首次启动询问一次 CPU 频率 | 随 CPU Maximum Frequency 生效 | 分支 `cpu-ask-once`，尚未合并 |
+| 风扇开关（"Fan"，默认开） | 早已具备（main，`fan-onoff`） | 极性仍未确定，见本板 RockchipPlatformLib.c 里的 `PwmFanSetSpeed`："开"会把引脚拉低，只有反相的解读正确时才是全速 |
+| 首次启动询问一次 CPU 频率 | 随 CPU Maximum Frequency **新增** | `cpu-ask-once`（已在 main）会在所有提供 Max 的板子上询问 |
 | Wi-Fi、蓝牙（SYN43752） | 没有移植 | 这颗芯片没有 Windows 驱动；泰山派 3M 的驱动是给 BCM43456/BCM4345C5 的 |
 | DSI 屏、触摸、触摸按键 | 不适用 | 底板有 DSI 接口，但没有测过屏；泰山派 3M 的代码针对它自己的屏 |
 | USB-C 设备等待 / USB-A VBUS 设备树修正 | 不需要 | CM5-IO 的 USB-C 口有供电；USB-A 的稳压器在主线设备树里是 PHY 的电源 |
@@ -70,8 +70,9 @@ CM5-IO V1.1 原理图）。都已编译通过，本节的内容都还没有在�
 
 - 串口日志：`Rk806I2cPowerOff` 找到电源芯片（`CHIP_NAME 0x80`），`GpuRail` 打印 vdd_gpu_s0，
   `Cm5ioAudio: mclk_sai1 = ...` 和 `SAI1 and I2C0 pins set`。
+- "Fan" 分别设为开和关：记下哪一个真正让 CN32 上的风扇转起来（这能确定极性）。
 - 首页的 "Shut Down" 和 Shell 里的 `reset -s` 能让板子断电；重启仍然是重启。
-- CPU 页面出现 "CPU Maximum Frequency"；选 Max 能启动，日志显示电压已升高。ACPI 页面出现 "NPU"。
+- 刷写后第一次启动：HDMI 上出现一次性的 CPU 频率询问。CPU 页面出现 "CPU Maximum Frequency"；选 Max 能启动，日志显示电压已升高。ACPI 页面出现 "NPU"。
 - 插着 Armbian SD 卡、固件在 eMMC 上：正常启动进 UEFI；"Armbian (U-Boot)" 启动一次 Armbian；
   下次重启又回到 UEFI。还要确认换了 SPL 以后画面不变；如果变了，把 `boards/cm5io.conf` 里的
   `SPL_DEFCONFIG` 删掉，回到 `binaries/idblock_cm5io.bin`。
