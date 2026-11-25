@@ -264,7 +264,17 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // No jack detect: it is SARADC_VIN3_HP_HOOK, an analog input (vendor
     // tree io-channels = <&saradc 3>), which Windows has no driver for, so
     // BOARD_CODEC_NO_HPDET: no detect line in _CRS and no hp-det _DSD, and
-    // the driver keeps the headphone endpoint plugged.
+    // the driver keeps the headphone endpoint plugged.  es8323 creates its
+    // interrupt only when _CRS has a GpioInt (woa-rk3576
+    // es83-optional-irq, 111de2c).
+    //
+    // Routing (schematic V1.12 page 16): LOUT1/ROUT1 -> HPOUT_L/R -> J18;
+    // LOUT2/ROUT2 (AUD_LINEOUT_L/R) only reach the speaker amplifier on
+    // page 24, which is not fitted.  The headset microphone MIC_INP_PHONE
+    // goes into LIN1, with RIN1 on HP_GND; LIN2/RIN2 are not connected.
+    // So BOARD_CODEC_OUTPUT_ROUTE 1 (OUT1, ES8388 reg 0x04 = 0x30) and
+    // BOARD_CODEC_INPUT_SELECT 1 (LIN1/RIN1, reg 0x0A = 0x00): the
+    // driver's defaults, written out so the wiring is in the table.
     //
     // The board library (Rock4dAnalogAudioInit) powers PD_AUDIO, sets
     // mclk_sai1 and the MCLK output, muxes the SAI1 and I2C3 pins and
@@ -278,6 +288,8 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
 #define BOARD_CODEC_I2C           "\\_SB.I2C3"
 #define BOARD_CODEC_I2C_ADDR      0x10
 #define BOARD_CODEC_NO_HPDET
+#define BOARD_CODEC_OUTPUT_ROUTE  1
+#define BOARD_CODEC_INPUT_SELECT  1
     Scope (I2C3) {
       include ("Es8388.asl")
     }

@@ -113,7 +113,7 @@ CM5-IO 1V1、立创泰山派 3M v1.4）和厂商内核设备树；ROCK 4D 的出
 | dwcsdhc（eMMC）、dwcmshc（SD） | RKCP0D40、RKCPFE2C | yes | yes | 只有 SD |
 | dwc_eqos（以太网） | RKCP6543 | yes | yes | yes |
 | rk3xi2sbus、csaudiork3x（HDMI、耳机） | RKCP3004 | yes | HDMI | HDMI 和耳机（无插孔检测） |
-| es8323（ES8388） | RKCP8388 | yes | main 上 n/a | yes；没有插孔 GpioInt 的情况未测试（见测试清单） |
+| es8323（ES8388） | RKCP8388 | yes | main 上 n/a | yes；需要 woa-rk3576 `es83-optional-irq` 或更新（旧版 es8323 会创建一个这里 `_CRS` 没有的中断）；`_DSD` `rockchip,output-route` 1、`rockchip,input-select` 1（OUT1 接 J18，LIN1 耳机麦克风） |
 | rk3576-null（PMIC、RTC、引脚控制器、UART2） | RKCP0806、HYMB0001、RKCP3005、HISI0031 | yes | yes | yes，PMIC 现在是 RKCP0806 |
 | bcm4345bt | RKCP4345 | yes | n/a | n/a |
 | gt9271 | RKCP9271 | yes | n/a | n/a |
