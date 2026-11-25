@@ -166,6 +166,79 @@
   # driver had no over-temperature protection at all before this.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
+  #
+  # I2C.  The base file lists only the RTC; this board's are:
+  #   I2C1 0x23  the RK806 PMIC (&i2c1 pmic@23 in rk3576-rock-4d.dts).
+  #              Listed so that I2cDxe sets that bus up (pins, clock
+  #              divider) and maps it for runtime; Rk806I2cPowerOffDxe
+  #              switches the PMIC off through it when an OS asks for a
+  #              shutdown, and RK3576Dxe reads the CPU, NPU and GPU rails
+  #              through it.
+  #   I2C2 0x51  the TCS8563 RTC (&i2c2 rtc@51), for
+  #              Hym8563RealTimeClockLib; mapped for runtime because Windows
+  #              gets its time from it.
+  # The ES8388 on I2C3 is not listed: nothing in the firmware talks to it,
+  # and Rock4dAudio.c sets up its pins and clocks for the OS.
+  #
+  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x23, 0x51 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x1, 0x2 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ TRUE, TRUE }
+
+  # The RK806 on I2C1 at 0x23, as on the TaishanPi 3M: same part, bus,
+  # address and rails (rk3576-rock-4d.dts pmic@23: vdd_cpu_big_s0 dcdc-reg1,
+  # vdd_npu_s0 dcdc-reg2, vdd_cpu_lit_s0 dcdc-reg3, vdd_gpu_s0 dcdc-reg5),
+  # and the same PWR_CTRL1 wiring (GPIO0_A3 net PMIC_PWR_CTRL1 to the RK806
+  # PWRCTRL1 pin, schematic V1.12 pages 5 and 25).  PSCI SYSTEM_OFF only
+  # raises PWR_CTRL1, which the RK806 ignores unless told otherwise; see
+  # Rk806I2cPowerOffDxe.  Setting the base also makes the NPU option
+  # available (RK3576Dxe Npu.c sets vdd_npu_s0 through it).  None of it has
+  # run on a ROCK 4D.
+  gRK3576TokenSpaceGuid.PcdRk806I2cBase|0x2AC40000
+  gRK3576TokenSpaceGuid.PcdRk806I2cAddress|0x23
+  gRK3576TokenSpaceGuid.PcdRk806I2cBus|1
+
+  # "CPU Maximum Frequency" (RK3576Dxe CpuMaxFreq.c): offered, as on the
+  # TaishanPi 3M, because the rails are the same BUCK1/BUCK3 of the same
+  # RK806 (above).  Default 1608 MHz: Max has not been run on this board.
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0
+
+  # Log vdd_gpu_s0 (BUCK5) and the GPU OTP bytes at boot, and hand them to
+  # the Windows GPU driver as the GpuRail variable (RK3576Dxe GpuRail.c).
+  # Reads only.  PcdGpuRailRaise775 stays FALSE: raising the rail was
+  # approved for the TaishanPi 3M only.
+  gRK3576TokenSpaceGuid.PcdGpuRailReport|TRUE
+
+  # The fan header J16 (PWM2 ch5, GPIO4_C5; PwmFanIoSetup in this board's
+  # RockchipPlatformLib.c): started at full speed and left running into the
+  # OS, which has no fan driver.  On or off only, never a partial duty: a
+  # pulsed fan whined on the TaishanPi 3M.  60000 ns is the vendor tree's
+  # period (rk3576-rock-4d.dts pwm-fan); at 100% the pin is held high and the
+  # period changes nothing.
+  gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
+  gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|60000
+
+  # Fan control by ACPI thermal zone (AcpiTables/Fan.asl, all levels 100%):
+  # the setup option exists on this board and is off, as on the other two.
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
+
+  #
+  # HDMI audio: at ExitBootServices, mclk_sai6 = 12.288 MHz and the HDMI
+  # controller set up for 48 kHz 2-channel L-PCM (DwHdmiQpAudio.c), and
+  # \_SB.SAI6 published for the woa-rk3576 audio drivers (Sai.asl), as on
+  # the other two boards.  Not run on this board.
+  #
+  gRK3588TokenSpaceGuid.PcdHdmiAudioPreset|TRUE
+
+  #
+  # Analog audio: the ES8388 on I2C3 and SAI1 (the headphone jack J18 and
+  # its microphone).  Rock4dAudio.c powers PD_AUDIO, sets mclk_sai1 =
+  # 12.288 MHz and the pins; the DSDT publishes \_SB.SAI1 and \_SB.I2C3.ES83
+  # for the woa-rk3576 audio drivers.  Not run on this board.
+  #
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset|TRUE
+
   # Default display mode.  0x80000000 = NATIVE: follow the sink's EDID.
   #
   # This was 0x13, the predefined 2560x1440@60 entry, fixed regardless of what
@@ -195,6 +268,9 @@
 
   # Splash screen logo
   $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
+
+  # Powers the board off through the RK806 at a shutdown (PcdRk806I2c* above)
+  Silicon/Rockchip/RK3576/Drivers/Rk806I2cPowerOffDxe/Rk806I2cPowerOffDxe.inf
 
   # Patches the DSDT and MCFG at boot: PCI0/PCI1 _STA from the ComboPHY mode
   # and the root bridges UEFI produced, ECAM layout per OS, SD removability.

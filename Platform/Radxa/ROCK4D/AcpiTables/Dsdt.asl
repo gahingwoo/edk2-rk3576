@@ -19,6 +19,7 @@
  *  not change it: CPUs, PCIe root complexes, SD, GPIO, DMA, UART2,
  *  I2C0..I2C9, SPI0..SPI4 (SFC0 declared disabled), both USB controllers,
  *  GMAC0, the display and the Mali-G52, the RK806 PMIC and the HYM8563 RTC.
+ *  Added for parity with the TaishanPi 3M: thermal zones and the ES8388.
  *
  *  Left out, on purpose:
  *
@@ -42,19 +43,16 @@
  *      the firmware (vcc_3v3_wifi, GPIO2_C7, and WIFI_CHIP_EN, GPIO2_D1;
  *      dts:40-46, 170-181).  Windows finds it on USB or not at all; it needs
  *      no ACPI device.
- *    - Analog audio (ES8388, "Audio-CODEC" page): not in the mainline tree,
- *      and the CM5-IO does not include Es8388.asl or I2s.asl either.  SAI6
- *      for HDMI is declared, but only when PcdHdmiAudioPreset is TRUE.
- *    - The fan.  The schematic has a 2-pin fan header switched by an
- *      AO3416A from FAN-PWM, GPIO4_C5 ("40PIN/FAN/LED/KEY" page).  The
- *      mainline tree does not describe it, and this board's
- *      RockchipPlatformLib leaves the fan functions empty, so there is no
- *      fan SSDT and no setup option for one.
+ *    - The speaker amplifiers ("Audio SPK" page): not fitted.  The ES8388
+ *      headphone codec is declared (below), only when PcdAnalogAudioPreset
+ *      is TRUE, without a jack-detect line: the jack's detect is an analog
+ *      SARADC input here, not a GPIO.
  *    - The LEDs (dts:48-66) and HDMI itself: not declared on the CM5-IO
  *      either.
- *    - Thermal zones.  Thermal.asl needs the firmware to start the TSADC
- *      (PcdTsadcEnable), which only the TaishanPi 3M does; the CM5-IO does
- *      not include it either.
+ *
+ *  The fan header (J16, "40PIN/FAN/LED/KEY" page) is in Fan.asl, a separate
+ *  SSDT installed only when fan control by thermal zone is enabled in
+ *  setup.
  *
  *  Copyright (c) 2020, Pete Batard <pete@akeo.ie>
  *  Copyright (c) 2018-2020, Andrey Warkentin <andrey.warkentin@gmail.com>
@@ -134,7 +132,13 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // which is the Linux default.
     Scope (I2C1) {
       Device (PMC0) {
-        Name (_HID, "PRP0001")
+        // RKCP0806 so that a Windows INF can name this device (woa-rk3576
+        // drivers/null/rk3576-null.inf: the firmware manages the PMIC and
+        // Windows has no driver for it), as on the other two boards.
+        // PRP0001 as the _CID keeps the "compatible" match for an ACPI
+        // Linux.
+        Name (_HID, "RKCP0806")
+        Name (_CID, "PRP0001")
         Name (_UID, 0)
         Name (_CRS, ResourceTemplate () {
           I2cSerialBusV2 (0x0023, ControllerInitiated, 100000,
@@ -229,11 +233,54 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     include ("Display.asl")
     include ("Gpu.asl")
 
+    // SoC temperature: TSADC channels 0-2 as thermal zones TZ00..TZ02, with
+    // a 115 C _CRT below the 120 C hardware TSHUT the firmware arms
+    // (PcdTsadcEnable in ROCK4D.dsc).  The fan and its trip points on TZ01
+    // are in Fan.asl, a separate SSDT installed only when fan control is
+    // enabled in setup.
+    include ("Thermal.asl")
+
 #if FixedPcdGetBool (PcdHdmiAudioPreset)
     // SAI6, the HDMI audio interface (hdmi_sound and sai6, dts:307-309,
     // 773-775).  Only with the firmware's HDMI audio preset, which sets its
     // clocks and the HDMI controller's audio path; see Sai.asl.
     include ("Sai.asl")
+#endif
+
+#if FixedPcdGetBool (PcdAnalogAudioPreset)
+    // The ES8388 headphone codec.  Not in the mainline device tree; the
+    // wiring is the schematic's (V1.12 page 16 "Audio-CODEC") and the vendor
+    // kernel tree's (rk3576-rock-4d.dts):
+    //
+    //   es8388: es8388@10 on &i2c3 (i2c3m0), MCLK from mclkout_sai1 at
+    //     12.288 MHz on sai1m0_mclk (:519-535).
+    //   &sai1: sai1m0_lrck, _sclk, _sdi0, _sdo0 (:457-464), no
+    //     rockchip,sai-tx-route: lane 0 out on SDO0, in on SDI0.
+    //   es8388_sound: mclk-fs 256, cpu sai1 (:157-184); LOUT1/ROUT1 to the
+    //     headphone jack J18 directly, LINPUT1 the headset microphone.
+    //
+    // No amplifier enable: LOUT1/ROUT1 drive the jack without one, and the
+    // speaker amplifiers on LOUT2/ROUT2 are not fitted ("Audio SPK" page).
+    // No jack detect: it is SARADC_VIN3_HP_HOOK, an analog input (vendor
+    // tree io-channels = <&saradc 3>), which Windows has no driver for, so
+    // BOARD_CODEC_NO_HPDET: no detect line in _CRS and no hp-det _DSD, and
+    // the driver keeps the headphone endpoint plugged.
+    //
+    // The board library (Rock4dAnalogAudioInit) powers PD_AUDIO, sets
+    // mclk_sai1 and the MCLK output, muxes the SAI1 and I2C3 pins and
+    // ungates the I2C3 clocks.  The route is written out as identity
+    // (<0 1 2 3>, lane 0 in bits 15:12) rather than left at 0, which would
+    // keep whatever SAI_PATH_SEL holds.
+#define BOARD_SAI1_TX_ROUTE       0x0123
+#define BOARD_SAI1_RX_ROUTE       0x0123
+    include ("Sai1.asl")
+
+#define BOARD_CODEC_I2C           "\\_SB.I2C3"
+#define BOARD_CODEC_I2C_ADDR      0x10
+#define BOARD_CODEC_NO_HPDET
+    Scope (I2C3) {
+      include ("Es8388.asl")
+    }
 #endif
   }
 }
