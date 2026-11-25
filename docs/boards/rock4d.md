@@ -3,8 +3,15 @@
 English | [简体中文](rock4d.zh-CN.md)
 
 The firmware lives on the ROCK 4D's 16 MB SPI NOR and boots Fedora from
-NVMe. This board builds without ACPI tables, so Windows does not start on
-it.
+NVMe. The image now carries ACPI tables next to the device tree, as on the
+other two boards; Windows has not been started on this board yet.
+
+What the TaishanPi 3M has and this board has the hardware for is on branch
+`rock4d-parity`, built and not run on a ROCK 4D: thermal zones, the fan on
+J16 at full speed (and "Fan Control by ACPI Thermal Zone"), power-off
+through the RK806, "CPU Maximum Frequency", the NPU option, the GPU rail
+report, HDMI audio, the ES8388 headphone jack and "Armbian (U-Boot)" for an
+Armbian SD card. The full list, per board: [board features](../BOARD-FEATURES.md).
 
 ## What works
 
@@ -16,7 +23,7 @@ it.
 | Ethernet | works | works |
 | SD card | not recorded | not recorded |
 | UFS | not tried | not tried |
-| Windows | not available (no ACPI tables) | |
+| Windows | not tried (ACPI tables built, not run) | |
 
 The board was run again after release 0.2.1; which version was not
 recorded. 0.2.1 itself was run on a v1.12 board (XMC SPI flash) by a user:

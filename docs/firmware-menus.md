@@ -118,7 +118,8 @@ where touches land.
 ## Power off
 
 "Shut Down" on the front page, `reset -s` in the UEFI Shell and a shutdown
-from Windows power the board off. On the TaishanPi 3M the firmware switches
+from Windows power the board off. On the TaishanPi 3M (and the ROCK 4D on
+branch `rock4d-parity`, not run there) the firmware switches
 the RK806 PMIC off over I2C1 itself, and arms it for the PSCI call Windows
 makes.
 
@@ -129,11 +130,11 @@ Except Config Table Mode, CPU Maximum Frequency and the TaishanPi 3M's GPU volta
 
 | Option | What it does |
 |---|---|
-| Config Table Mode | ACPI + device tree (default on CM5-IO and TaishanPi 3M), ACPI only, or device tree only |
-| CPU Maximum Frequency | 1608 MHz on both clusters (default), or Max (2208 / 2016 MHz). On the first boot with a screen, the firmware asks once which one to use (10 s, then the current setting, 1608 MHz unless Max was chosen in Setup before; Up/Down or a drag moves, Enter or a tap chooses) and restarts if the answer changes it; the answer is kept in the variable `CpuMaxFreqAsked`, and without a screen nothing is asked. TaishanPi 3M only |
+| Config Table Mode | ACPI + device tree (default on CM5-IO, TaishanPi 3M, and the ROCK 4D on branch `rock4d-parity`), ACPI only, or device tree only |
+| CPU Maximum Frequency | 1608 MHz on both clusters (default), or Max (2208 / 2016 MHz). On the first boot with a screen, the firmware asks once which one to use (10 s, then the current setting, 1608 MHz unless Max was chosen in Setup before; Up/Down or a drag moves, Enter or a tap chooses) and restarts if the answer changes it; the answer is kept in the variable `CpuMaxFreqAsked`, and without a screen nothing is asked. TaishanPi 3M, and the ROCK 4D on branch `rock4d-parity` |
 | GPU voltage for 702 MHz (775 mV) | on: before the OS starts, the firmware raises the GPU supply (RK806 BUCK5) from 750 to 775 mV in 6.25 mV steps, each read back, only on a plain RK3576 with the thermal shutdown armed, and never higher; the Windows GPU driver then runs 702 MHz instead of 594 MHz. Off: 750 mV, and a rail an earlier boot raised is put back. More heat, so keep a fan running. On by default on the TaishanPi 3M; shown only on boards that offer it |
 | CPU Idle States | tells the OS about the cores' idle states; off means WFI only |
-| Fan | on (default): the board fan runs at full speed from power-on into the OS; off: held off. No speed setting, because a partial speed is pulsed and the pulsing makes the fan whine. TaishanPi 3M and CM5-IO; the ROCK 4D has no fan the firmware drives. With Fan Control by ACPI Thermal Zone on, the OS can still start the fan |
+| Fan | on (default): the board fan runs at full speed from power-on into the OS; off: held off. No speed setting, because a partial speed is pulsed and the pulsing makes the fan whine. TaishanPi 3M, CM5-IO, and the ROCK 4D on branch `rock4d-parity` (J16). With Fan Control by ACPI Thermal Zone on, the OS can still start the fan |
 | Fan Control by ACPI Thermal Zone | lets Windows run the fan from the big-core temperature; off means the fan stays at the speed the firmware set |
-| NPU (experimental) | powers the NPU and declares it in ACPI, for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu); TaishanPi 3M only |
+| NPU (experimental) | powers the NPU and declares it in ACPI, for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu); TaishanPi 3M, and the ROCK 4D on branch `rock4d-parity` |
 | Save OS Variable Changes to eMMC | see above |
