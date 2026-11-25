@@ -27,6 +27,7 @@
   GpuRail.c
   Npu.c
   Vdec.c
+  Saradc.c
   RK3576DxeHii.vfr
   RK3576DxeHii.uni
 
@@ -112,6 +113,7 @@
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress
   gRK3576TokenSpaceGuid.PcdAcpiVdecDefault
+  gRK3576TokenSpaceGuid.PcdRk3576SaradcClockInit
   # Display connector list is set in ROCK4D.dsc using the RK3588 tokenspace
   # (same TokenSpace the DwHdmiQpLib / Vop2Dxe library set reads from).
   gRK3588TokenSpaceGuid.PcdDisplayConnectors

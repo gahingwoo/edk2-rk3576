@@ -137,6 +137,14 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|FALSE|BOOLEAN|0x00010307
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault|0|UINT8|0x00010308
   #
+  # SARADC for an ACPI OS: TRUE on a board whose DSDT includes Saradc.asl
+  # (\_SB.ADC0, RKCP0ADC, for the woa-rk3576 rk3xsaradc driver).  RK3576Dxe
+  # then sets CLK_SARADC to xin24m / 24 = 1 MHz, the rate Linux sets, and
+  # makes sure both SARADC clock gates are open (their reset state).  It
+  # never touches the SARADC resets; Saradc.asl says why.
+  #
+  gRK3576TokenSpaceGuid.PcdRk3576SaradcClockInit|FALSE|BOOLEAN|0x00010360
+  #
   # Analog audio preset: the board library sets up the SAI that carries its
   # codec (power domain, mclk, pins) and the DSDT publishes that SAI and the
   # codec for the woa-rk3576 audio drivers.  Only boards that implement it

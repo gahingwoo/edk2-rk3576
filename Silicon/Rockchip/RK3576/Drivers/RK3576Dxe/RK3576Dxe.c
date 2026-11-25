@@ -39,6 +39,7 @@
 #include "GpuRail.h"
 #include "Npu.h"
 #include "Vdec.h"
+#include "Saradc.h"
 #include "CpuPerf.h"
 #include "Display.h"
 #include "ComboPhy.h"
@@ -517,6 +518,12 @@ RK3576EntryPoint (
    * the fan, so the log shows the temperature the fan starts at.
    */
   Rk3576TsadcInit ();
+
+  /*
+   * SARADC converter clock at 1 MHz, for the OS driver of \_SB.ADC0, on a
+   * board that declares it (PcdRk3576SaradcClockInit).  Clocks only.
+   */
+  RK3576SaradcClockInit ();
 
   /*
    * vdd_gpu_s0 and the GPU OTP bytes (PcdGpuRailReport), and where a
