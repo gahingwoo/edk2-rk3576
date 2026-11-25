@@ -64,7 +64,7 @@ Google 地址。它在后台运行，不会拖慢启动；拿到地址后 10 秒
 
 ## 关机
 
-首页的 "Shut Down"、UEFI Shell 的 `reset -s`，或在 Windows 里关机。在泰山派 3M 上，固件通过 I2C1
+首页的 "Shut Down"、UEFI Shell 的 `reset -s`，或在 Windows 里关机。在泰山派 3M 和 ROCK 4D 上，固件通过 I2C1
 关掉 RK806 电源管理芯片，并为 Windows 发出的 PSCI 调用做好准备。
 
 ## 给操作系统用的选项
@@ -73,12 +73,12 @@ Google 地址。它在后台运行，不会拖慢启动；拿到地址后 10 秒
 
 | 选项 | 作用 |
 |---|---|
-| Config Table Mode | ACPI + 设备树（CM5-IO 和泰山派 3M 的默认值）、只用 ACPI，或只用设备树 |
-| CPU Maximum Frequency | 两个簇都 1608 MHz（默认），或 Max（2208 / 2016 MHz）。第一次带屏幕启动时固件会问一次（10 秒超时，记在变量 `CpuMaxFreqAsked` 里），答案改变设置时会重启。仅泰山派 3M |
+| Config Table Mode | ACPI + 设备树（CM5-IO、泰山派 3M 和 ROCK 4D 的默认值）、只用 ACPI，或只用设备树 |
+| CPU Maximum Frequency | 两个簇都 1608 MHz（默认），或 Max（2208 / 2016 MHz）。第一次带屏幕启动时固件会问一次（10 秒超时，记在变量 `CpuMaxFreqAsked` 里），答案改变设置时会重启。泰山派 3M 和 ROCK 4D |
 | GPU voltage for 702 MHz (775 mV) | 在操作系统启动前把 GPU 供电（RK806 BUCK5）从 750 mV 升到 775 mV，Windows GPU 驱动就能跑 702 MHz 而不是 594 MHz。只用于普通 RK3576 且已启用过热关机。关闭时把升过的电压恢复到 750 mV。要开着风扇。泰山派 3M 默认打开 |
 | CPU Idle States | 把核心的空闲状态告诉操作系统；关闭时只有 WFI |
 | Fan Mode（风扇模式） | 常开（默认，上电即全速，不会停）；性能 / 均衡 / 静音：Windows 按大核温度开关风扇，50 / 60 / 70 C 开，低 10 C 关 |
-| NPU (experimental) | 给 NPU 上电并在 ACPI 里声明，供 [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) 使用。仅泰山派 3M |
+| NPU (experimental) | 给 NPU 上电并在 ACPI 里声明，供 [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) 使用。泰山派 3M 和 ROCK 4D |
 | 40-pin UART (experimental) | 把排针上的 UART 作为 COM 口，给 woa-rk3576 的 rk3xuart 驱动用（不包括调试串口）。泰山派 3M；CM5-IO 和 ROCK 4D 在各自的板级分支上 |
 | 40-pin GPIO/I2C/SPI for apps (experimental) | 排针上的 GPIO、I2C、SPI 给 Windows.Devices.Gpio、.I2c、.Spi 用（ACPI RhProxy）。板子同上 |
 | Save OS Variable Changes to eMMC | 见[上文](#操作系统写入的启动项) |

@@ -31,6 +31,8 @@ Because the SoC is ARMv8.0, Windows 11 24H2 and later cannot run on it.
 | PCIe | pcie0 on combphy0, to a 16-pin FPC connector; an NVMe drive needs an M.2 adapter on it. PERST# GPIO2_B4, 3.3 V switch GPIO2_D3. |
 | USB | The USB-C connector is power input only. DRD0 is the upper USB 3.0 port (USBDP PHY lanes 0 and 1), DRD1 an FE1.1s hub for the other three USB-A ports and the USB WiFi, plus the lower port's SuperSpeed through combphy1. |
 | Ethernet PHY | Realtek RTL8211F-CG at MDIO address 1, 25 MHz from the SoC, `rgmii-id`. The firmware writes only its LED register. |
+| Fan | 2-pin header J16, low-side AO3416A whose gate is FAN-PWM = GPIO4_C5 (PWM2 ch5, function 14); high turns the fan on (schematic page 28, vendor tree pwm-fan). |
+| Audio | ES8388 at 0x10 on I2C3 and SAI1 M0; LOUT1/ROUT1 drive the headphone jack J18 directly. The speaker amplifiers are not fitted; the jack detect is SARADC_VIN3_HP_HOOK, a SARADC input. |
 | Tested SKU | 12 GB LPDDR5 |
 
 ACPI: the image installs ACPI tables next to the device tree, as the CM5-IO
@@ -41,7 +43,9 @@ is the CM5-IO's minus the eMMC (this board has none; its pins are the SPI
 NOR's) and the disabled XHC2 and SATA stubs; UFS is not described, having no
 Windows driver. Its comments give the device tree line or schematic page for
 each board value. The PCIe root complex is hidden from ACPI when its link does
-not train in UEFI. **None of it has been run on a ROCK 4D**, with or without
+not train in UEFI. Branch `rock4d-parity` adds the thermal zones, the fan
+SSDT, the ES8388 and the RK806 power-off
+([board features](../BOARD-FEATURES.md)). **None of it has been run on a ROCK 4D**, with or without
 an operating system; it compiles, which is all that is known.
 
 ## ArmSoM CM5-IO
