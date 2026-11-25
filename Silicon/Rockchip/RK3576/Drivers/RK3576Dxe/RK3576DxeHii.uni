@@ -104,6 +104,9 @@
 #string STR_ACPI_LEDS_PROMPT                               #language en-US "Board LEDs for the OS (experimental)"
 #string STR_ACPI_LEDS_HELP                                 #language en-US "Disabled - the OS is not told about the board's LEDs; they stay as the firmware left them.\n\n"
                                                                            "Enabled - the firmware describes the board's LEDs in an ACPI SSDT for the Windows driver (rkled in woa-rk3576), which blinks a heartbeat, shows disk activity or keeps an LED on, as its settings say. Only in ACPI mode. Linux with a device tree is not affected."
+#string STR_ACPI_SARADC_PROMPT                             #language en-US "ADC keys for the OS (experimental)"
+#string STR_ACPI_SARADC_HELP                               #language en-US "Disabled - the OS is not told about the SoC's ADC (SARADC) or the board's keys on it, and the firmware does not set up the ADC.\n\n"
+                                                                           "Enabled - the firmware describes the ADC and the board's keys on it in an ACPI SSDT for the Windows driver (rk3xsaradc in woa-rk3576). On the TaishanPi 3M the Recovery key is then the Windows power button: what a short press does is set in Windows' power options. Only in ACPI mode. Linux with a device tree is not affected."
 
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language en-US "Auto"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language en-US "Single Device"
@@ -376,6 +379,9 @@
 #string STR_ACPI_LEDS_PROMPT                               #language zh-Hans "\wide板载指示灯交给操作系统（实验性）\narrow"
 #string STR_ACPI_LEDS_HELP                                 #language zh-Hans "\wide禁用\narrow - \wide操作系统看不到板载指示灯，它们保持固件留下的状态。\narrow\n\n"
                                                                              "\wide启用\narrow - \wide固件通过\narrow ACPI SSDT \wide描述板载指示灯，交给\narrow Windows \wide驱动（\narrowwoa-rk3576 \wide的\narrow rkled\wide），按其设置闪烁心跳、显示磁盘活动或常亮。仅在\narrow ACPI \wide模式下生效。使用设备树的\narrow Linux \wide不受影响。\narrow"
+#string STR_ACPI_SARADC_PROMPT                             #language zh-Hans "ADC \wide按键交给操作系统（实验性）\narrow"
+#string STR_ACPI_SARADC_HELP                               #language zh-Hans "\wide禁用\narrow - \wide操作系统看不到芯片的\narrow ADC\wide（\narrowSARADC\wide）和板上接在它上面的按键，固件也不会设置\narrow ADC\wide。\narrow\n\n"
+                                                                             "\wide启用\narrow - \wide固件通过\narrow ACPI SSDT \wide描述\narrow ADC \wide和板上接在它上面的按键，交给\narrow Windows \wide驱动（\narrowwoa-rk3576 \wide的\narrow rk3xsaradc\wide）。\narrowTaishanPi 3M \wide上的\narrow Recovery \wide键即为\narrow Windows \wide的电源按钮，短按的动作在\narrow Windows \wide电源选项里设置。仅在\narrow ACPI \wide模式下生效。使用设备树的\narrow Linux \wide不受影响。\narrow"
 
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_AUTO                #language zh-Hans "\wide自动\narrow"
 #string STR_ACPI_PCIE_ECAM_COMPAT_MODE_SINGLE_DEV          #language zh-Hans "\wide单设备\narrow"

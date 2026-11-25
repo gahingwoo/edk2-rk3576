@@ -64,6 +64,15 @@ RK3576SaradcClockInit (
     return;
   }
 
+  //
+  // On a board whose SARADC is an optional SSDT, the clock follows the
+  // setup option: off, the firmware does not touch the SARADC at all.
+  //
+  if (FixedPcdGetBool (PcdAcpiSaradcSupported) && (PcdGet8 (PcdAcpiSaradc) == 0)) {
+    DEBUG ((DEBUG_INFO, "RK3576Dxe: ADC keys off in setup, SARADC clock left alone\n"));
+    return;
+  }
+
   Gate = MmioRead32 (CRU_CLKGATE_CON (SARADC_CLKGATE_CON));
   if ((Gate & SARADC_GATE_BITS) != 0) {
     MmioWrite32 (CRU_CLKGATE_CON (SARADC_CLKGATE_CON), SARADC_GATE_BITS << 16);

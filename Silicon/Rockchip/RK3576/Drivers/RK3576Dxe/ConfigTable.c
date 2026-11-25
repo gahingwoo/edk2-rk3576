@@ -295,9 +295,10 @@ SetupConfigTableVariables (
 
   //
   // AcpiPwrKey: the RK806 power key as the OS's power button.  Shown only on
-  // a board whose RK806 the firmware reaches (AcpiPwrKeySupported).
+  // a board with a button on the RK806's PWRON pin whose RK806 the firmware
+  // reaches (AcpiPwrKeySupported).
   //
-  Var8   = (FixedPcdGet32 (PcdRk806I2cBase) != 0) ? 1 : 0;
+  Var8   = (FixedPcdGetBool (PcdAcpiPwrKeySupported) && (FixedPcdGet32 (PcdRk806I2cBase) != 0)) ? 1 : 0;
   Status = gRT->SetVariable (
                   L"AcpiPwrKeySupported",
                   &gRK3576DxeFormSetGuid,
@@ -344,6 +345,34 @@ SetupConfigTableVariables (
                   );
   if (EFI_ERROR (Status)) {
     Status = PcdSet8S (PcdAcpiLeds, FixedPcdGet8 (PcdAcpiLedsDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
+  // AcpiSaradc: the SARADC and the board's keys on it for the OS.  Shown
+  // only on a board whose AcpiTables carry a SARADC SSDT
+  // (AcpiSaradcSupported).
+  //
+  Var8   = FixedPcdGetBool (PcdAcpiSaradcSupported) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"AcpiSaradcSupported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"AcpiSaradc",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdAcpiSaradc, FixedPcdGet8 (PcdAcpiSaradcDefault));
     ASSERT_EFI_ERROR (Status);
   }
 

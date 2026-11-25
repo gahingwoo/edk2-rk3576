@@ -137,8 +137,9 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|FALSE|BOOLEAN|0x00010307
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault|0|UINT8|0x00010308
   #
-  # SARADC for an ACPI OS: TRUE on a board whose DSDT includes Saradc.asl
-  # (\_SB.ADC0, RKCP0ADC, for the woa-rk3576 rk3xsaradc driver).  RK3576Dxe
+  # SARADC for an ACPI OS: TRUE on a board whose DSDT, or SARADC SSDT
+  # (PcdAcpiSaradcSupported), includes Saradc.asl (\_SB.ADC0, RKCP0ADC, for
+  # the woa-rk3576 rk3xsaradc driver).  RK3576Dxe
   # then sets CLK_SARADC to xin24m / 24 = 1 MHz, the rate Linux sets, and
   # makes sure both SARADC clock gates are open (their reset state).  It
   # never touches the SARADC resets; Saradc.asl says why.
@@ -174,14 +175,29 @@
   #
   # RK806 power key as the ACPI OS's power button (setup option
   # PcdAcpiPwrKey, default PcdAcpiPwrKeyDefault, off; shown only on a board
-  # that sets PcdRk806I2cBase): RK3576AcpiPlatformDxe installs the PwrKey
+  # that sets PcdAcpiPwrKeySupported, which is for a board with a button
+  # fitted on the RK806's PWRON pin and a PcdRk806I2cBase: ROCK 4D SW1 and
+  # CM5-IO SW4 are; the TaishanPi 3M has no PWRON key fitted, only Recovery
+  # and Reset): RK3576AcpiPlatformDxe installs the PwrKey
   # SSDT (OEM table ID "RKPWRKEY", \_SB.I2C1.PWRK, RKCP806B for woa-rk3576
   # rk806pwrkey), and Rk806I2cPowerOffDxe makes GPIO0_A6 (the RK806 INT
   # line on every RK3576 board here) a pulled-up GPIO input and, at
   # ExitBootServices, sets the RK806 interrupt active low with only
   # PWRON_FALL and PWRON_RISE unmasked.
   #
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported|FALSE|BOOLEAN|0x00010A10
   gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault|0|UINT8|0x00010A01
+  #
+  # The SARADC and the board's keys on it for an ACPI OS (setup option
+  # PcdAcpiSaradc, default PcdAcpiSaradcDefault; shown only where
+  # PcdAcpiSaradcSupported is TRUE, a board whose AcpiTables carry a SARADC
+  # SSDT, OEM table ID "RKSARADC", \_SB.ADC0, RKCP0ADC for woa-rk3576
+  # rk3xsaradc, built from Saradc.asl).  Off, the SSDT is not installed and
+  # RK3576Dxe leaves the SARADC clock alone even with
+  # PcdRk3576SaradcClockInit.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcSupported|FALSE|BOOLEAN|0x00010A11
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault|0|UINT8|0x00010A12
   #
   # Board LEDs for an ACPI OS (setup option PcdAcpiLeds, default
   # PcdAcpiLedsDefault, off; shown only where PcdAcpiLedsSupported is TRUE,
@@ -307,6 +323,7 @@
   gRK3576TokenSpaceGuid.PcdHwWatchdog|0|UINT8|0x00000A00
   gRK3576TokenSpaceGuid.PcdAcpiPwrKey|0|UINT8|0x00000A01
   gRK3576TokenSpaceGuid.PcdAcpiLeds|0|UINT8|0x00000A02
+  gRK3576TokenSpaceGuid.PcdAcpiSaradc|0|UINT8|0x00000A10
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|60|UINT8|0x00000400
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353

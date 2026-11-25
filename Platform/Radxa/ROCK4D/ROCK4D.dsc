@@ -149,6 +149,11 @@
   # driver had no over-temperature protection at all before this.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
+  # A real button on the RK806's PWRON_L: SW1 (schematic V1.12, Power-DC IN/RTC page, TS_018B).  The
+  # "Power button (RK806)" setup option is offered once the firmware also
+  # reaches the RK806 (PcdRk806I2cBase).
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported|TRUE
+
   # Default display mode.  0x80000000 = NATIVE: follow the sink's EDID.
   #
   # This was 0x13, the predefined 2560x1440@60 entry, fixed regardless of what

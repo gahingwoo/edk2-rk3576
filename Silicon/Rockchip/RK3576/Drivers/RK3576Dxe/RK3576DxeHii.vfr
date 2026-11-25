@@ -225,6 +225,16 @@ formset
       name  = AcpiLedsSupported,
       guid  = RK3576DXE_FORMSET_GUID;
 
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = AcpiSaradc,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      name  = AcpiSaradcSupported,
+      guid  = RK3576DXE_FORMSET_GUID;
+
     //
     // CPU
     //
@@ -561,6 +571,16 @@ formset
               help        = STRING_TOKEN(STR_ACPI_LEDS_HELP),
               flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
               default     = FixedPcdGet8 (PcdAcpiLedsDefault),
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+            endoneof;
+          endif;
+          suppressif ideqval AcpiSaradcSupported == 0;
+            oneof varid = AcpiSaradc,
+              prompt      = STRING_TOKEN(STR_ACPI_SARADC_PROMPT),
+              help        = STRING_TOKEN(STR_ACPI_SARADC_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              default     = FixedPcdGet8 (PcdAcpiSaradcDefault),
               option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
               option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
             endoneof;
