@@ -9,6 +9,12 @@
  *    BOARD_CODEC_I2C_ADDR      7-bit address
  *    BOARD_CODEC_GPIO          GPIO bank of the jack-detect line ("\\_SB.GPIn")
  *    BOARD_CODEC_GPIO_PIN      its pin in that bank
+ *    BOARD_CODEC_NO_HPDET      optional: define it instead of the two above
+ *                              on a board with no jack-detect line (the
+ *                              output goes to a pin header).  _CRS then
+ *                              has no detect GpioIo/GpioInt and there is
+ *                              no _DSD, so the driver reports no jack state
+ *                              and Windows keeps the endpoint plugged.
  *    BOARD_CODEC_AMP_GPIO      optional: GPIO bank of the amplifier enable
  *    BOARD_CODEC_AMP_GPIO_PIN  its pin
  *    BOARD_CODEC_HPDET_ACTIVE_HIGH
@@ -65,14 +71,17 @@
         GpioIo (Exclusive, PullNone, 0, 0, IoRestrictionOutputOnly,
           BOARD_CODEC_AMP_GPIO, 0x00, ResourceConsumer) { BOARD_CODEC_AMP_GPIO_PIN }
 #endif
+#ifndef BOARD_CODEC_NO_HPDET
         GpioIo (Shared, PullUp, 0, 0, IoRestrictionInputOnly,
           BOARD_CODEC_GPIO, 0x00, ResourceConsumer) { BOARD_CODEC_GPIO_PIN }
         GpioInt (Edge, ActiveBoth, Shared, PullUp, 0x0000,
           BOARD_CODEC_GPIO, 0x00, ResourceConsumer) { BOARD_CODEC_GPIO_PIN }
+#endif
       })
       Return (RBUF)
     }
 
+#ifndef BOARD_CODEC_NO_HPDET
     Name (_DSD, Package () {
       ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
@@ -89,6 +98,7 @@
         Package () { "rockchip,hp-det-debounce-ms", 150 },
       }
     })
+#endif
 
     Method (_STA) { Return (0xf) }
   }
