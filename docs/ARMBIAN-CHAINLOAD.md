@@ -2,6 +2,8 @@
 
 English | [简体中文](ARMBIAN-CHAINLOAD.zh-CN.md)
 
+Using it, not building it? Read the user guide: [Armbian (U-Boot)](armbian-boot.md).
+
 Developer notes for the boot manager entry **Armbian (U-Boot)**. Board-tested
 on the TaishanPi 3M (normal boot with the card in, the one-shot Armbian boot,
 return to UEFI after reboot and power cycle); listing the entry only when a

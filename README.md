@@ -41,7 +41,8 @@ have them. Serial console: 1500000 8N1.
    [flash.gahingwoo.com](https://flash.gahingwoo.com/) (Chrome or Edge) or
    `rkdeveloptool`.
 3. Install an OS: [Windows](docs/windows.md) (23H2 only; RK3576 is ARMv8.0)
-   or [Linux](docs/linux.md).
+   or [Linux](docs/linux.md). Armbian with its own U-Boot, once from the boot
+   manager: [Armbian (U-Boot)](docs/armbian-boot.md).
 4. Problems: [troubleshooting](docs/troubleshooting.md),
    [known issues](docs/known-issues.md).
 
