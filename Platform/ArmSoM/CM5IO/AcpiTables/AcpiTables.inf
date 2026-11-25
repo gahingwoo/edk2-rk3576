@@ -73,3 +73,4 @@
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSize
   gRockchipTokenSpaceGuid.PcdRkSdmmcCardDetectBroken
   gRK3588TokenSpaceGuid.PcdHdmiAudioPreset
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset

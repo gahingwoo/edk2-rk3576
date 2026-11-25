@@ -857,6 +857,11 @@ PlatformSetStatusLed (
   GpioPinWrite (2, GPIO_PIN_PD1, FALSE);
 }
 
+VOID
+Cm5ioAnalogAudioInit (
+  VOID
+  );
+
 /*
  * PlatformEarlyInit — Early board initialization
  * Called before driver dispatch.
@@ -900,6 +905,11 @@ PlatformEarlyInit (
 
   DEBUG ((DEBUG_INFO, "CM5-IO PlatformEarlyInit: WiFi reset deasserted (GPIO1 PC6), "
     "BT enabled (GPIO1 PC7)\n"));
+
+  /* The ES8388 codec's SAI1 and I2C0, for Windows (Cm5ioAudio.c). */
+  if (FixedPcdGetBool (PcdAnalogAudioPreset)) {
+    Cm5ioAnalogAudioInit ();
+  }
 }
 
 /*

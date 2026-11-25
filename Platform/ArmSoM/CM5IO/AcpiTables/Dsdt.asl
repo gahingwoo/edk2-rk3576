@@ -20,11 +20,9 @@
  *      PCIe power: GPIO0_PC3; PCIe reset: GPIO2_PB1
  *    - GMAC0 reset: GPIO2_PB3 (same as ROCK 4D)
  *
- *  NOTE: ACPI mode is not the default boot mode for this platform.
- *  The default image uses FDT (Device Tree) for maximum Linux compatibility.
- *  To build with ACPI support, enable the AcpiTables.inf and
- *  RK3576AcpiPlatformDxe.inf entries in CM5IO.dsc and
- *  CM5IO.Modules.fdf.inc, then rebuild.
+ *  The image installs these tables next to the device tree
+ *  (PcdConfigTableModeDefault 0x3 in CM5IO.dsc): Linux keeps the DTB,
+ *  Windows on Arm uses this table.
  *
  *  Copyright (c) 2020, Pete Batard <pete@akeo.ie>
  *  Copyright (c) 2018-2020, Andrey Warkentin <andrey.warkentin@gmail.com>
@@ -149,6 +147,40 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // SAI6, the HDMI audio interface.  Only with the firmware's HDMI audio
     // preset, which sets its clocks; see Sai.asl.
     include ("Sai.asl")
+#endif
+
+#if FixedPcdGetBool (PcdAnalogAudioPreset)
+    // The ES8388 codec on the carrier.  Not in the mainline device tree;
+    // the wiring is ArmSoM's vendor tree (rockchip-kernel
+    // linux-6.1-stan-rkr6.1, rk3576-armsom-cm5-io.dts) and the CM5-IO
+    // schematic (AUDIO CODEC page):
+    //
+    //   es8388@10 on &i2c0 (i2c0m1_xfer, shared with the FUSB302 at 0x22),
+    //     MCLK from mclkout_sai1 at 12.288 MHz on sai1m0_mclk.
+    //   &sai1: sai1m0_lrck, _sclk, _sdi0, _sdo0; no rockchip,sai-tx-route,
+    //     so lane 0 goes out on SDO0.  Written as the identity route
+    //     <0 1 2 3> (0x0123) rather than 0, so the driver programs
+    //     SAI_PATH_SEL instead of trusting whatever an earlier OS left there.
+    //   LOUT1/ROUT1 -> the 3-pin header CN3 (HPR, HPL, HP_GND), LOUT2/ROUT2
+    //     -> the 40-pin header (AUD_LINEOUT_L/R).  No amplifier.
+    //
+    // CN3 has no detect contact and the vendor sound card has no
+    // hp-det-gpios, so BOARD_CODEC_NO_HPDET: no jack detection, and Windows
+    // keeps the headphone endpoint plugged.
+    //
+    // The board library (Cm5ioAnalogAudioInit) powers PD_AUDIO, sets
+    // mclk_sai1 and the MCLK output, muxes the SAI1 and I2C0 pins and
+    // ungates the I2C0 clocks.  NOT RUN WITH ANY OPERATING SYSTEM.
+#define BOARD_SAI1_TX_ROUTE       0x0123
+#define BOARD_SAI1_RX_ROUTE       0
+    include ("Sai1.asl")
+
+#define BOARD_CODEC_I2C           "\\_SB.I2C0"
+#define BOARD_CODEC_I2C_ADDR      0x10
+#define BOARD_CODEC_NO_HPDET
+    Scope (I2C0) {
+      include ("Es8388.asl")
+    }
 #endif
 
     // SoC temperature: TSADC channels 0-2 as thermal zones TZ00..TZ02, with

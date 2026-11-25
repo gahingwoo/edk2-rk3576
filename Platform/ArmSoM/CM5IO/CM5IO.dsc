@@ -272,6 +272,14 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   gRockchipTokenSpaceGuid.PcdRtc8563ClkoutEnable|TRUE
 
   #
+  # Analog audio: the ES8388 on I2C0 (0x10) and SAI1, output on the 3-pin
+  # header CN3 and the 40-pin header.  Cm5ioAudio.c powers PD_AUDIO, sets
+  # mclk_sai1 = 12.288 MHz and the pins; the DSDT publishes \_SB.SAI1 and
+  # \_SB.I2C0.ES83 for the woa-rk3576 audio drivers.  Not run on hardware.
+  #
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset|TRUE
+
+  #
   # I2C.  The base file lists the RTC only; this board's devices are:
   #   I2C1 0x23  the RK806 PMIC (pmic@23 under &i2c1 in
   #              rk3576-armsom-cm5.dtsi, the same bus, address and part as
