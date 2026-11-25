@@ -215,9 +215,19 @@
 
   # Log vdd_gpu_s0 (BUCK5) and the GPU OTP bytes at boot, and hand them to
   # the Windows GPU driver as the GpuRail variable (RK3576Dxe GpuRail.c).
-  # Reads only.  PcdGpuRailRaise775 stays FALSE: raising the rail was
-  # approved for the TaishanPi 3M only.
   gRK3576TokenSpaceGuid.PcdGpuRailReport|TRUE
+
+  # "GPU voltage for 702 MHz (775 mV)" (RK3576Dxe GpuRail.c): offered, off
+  # by default (the user's decision, 2026-11-25).  vdd_gpu_s0 is dcdc-reg5
+  # (BUCK5) under pmic@23 on &i2c1 in rk3576-rock-4d.dts, 550000/900000 uV,
+  # mali-supply of &gpu; schematic V1.12 p25 has the same RK806S-5 as the
+  # TaishanPi 3M with VOUT5/FB5 to VDD_GPU_S0, on I2C1_M0 (GPIO0_B2/B3, p5).
+  # On, the firmware raises it from 750 to 775 mV only if the PMIC reads
+  # 0x80 0x6A, BUCK5 reads exactly 0x28, the chip is a plain RK3576 and
+  # TSHUT is armed; then maliwddm runs 702 MHz.  Off, 594 MHz.  None of it
+  # has run on a ROCK 4D.
+  gRK3576TokenSpaceGuid.PcdGpuRail775Supported|TRUE
+  gRK3576TokenSpaceGuid.PcdGpuRail775Default|0
 
   # The fan header J16 (PWM2 ch5, GPIO4_C5; PwmFanIoSetup in this board's
   # RockchipPlatformLib.c): started at full speed and left running into the

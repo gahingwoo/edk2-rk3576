@@ -34,6 +34,7 @@ CM5-IO 1V1、立创泰山派 3M v1.4）和厂商内核设备树；ROCK 4D 的出
 | SDIO Wi-Fi | `PcdAcpiSdioWifiSupported` | yes（AP6256） | main 上 missing（SDIO 上的 SYN43752；也没有 Windows 驱动） | n/a：Wi-Fi 是 USB 模块（FCU760K，AIC8800D80） |
 | 设备树：兼容模式、Force UEFI GOP、DTB 覆盖、overlay、fixup | DT 开启时 | yes | yes | yes |
 | CPU Maximum Frequency | `PcdCpuMaxFreqSupported` | yes，1608 MHz | missing（RK806 供电轨相同） | yes，1608 MHz（main：missing） |
+| GPU voltage for 702 MHz (775 mV) | `PcdGpuRail775Supported` | yes，开 | main 上 missing（分支 `cm5io-parity`：yes，关） | yes，关（main：missing） |
 | Fan（开/关，CPU 页） | `PcdPwmFanSpeedDefault` != 0 | yes，开 | yes，开 | yes，开（main：隐藏，没有风扇） |
 | 首次启动时询问一次 CPU 频率（接了屏幕时） | `PcdCpuMaxFreqSupported` | yes | 否（不提供该选项） | yes（main：否） |
 | 截图保存位置 | 所有有显示的板子 | yes | yes | yes |
@@ -59,7 +60,7 @@ CM5-IO 1V1、立创泰山派 3M v1.4）和厂商内核设备树；ROCK 4D 的出
 | NV 变量区 | eMMC 上，在固件区域里 | 启动介质上（eMMC 或 SD） | SPI NOR 的 0xFC0000 |
 | 通过 RK806 关机（Shut Down、`reset -s`、Windows） | yes | missing（I2C1 0x23 上有 RK806） | yes（main：missing） |
 | GPU 供电轨报告（`GpuRail` 变量，只读） | yes | missing | yes（main：missing） |
-| 为 702 MHz 把 GPU 供电轨升到 775 mV | yes，只批准了这块板子 | 批准前 n/a | 未移植：只批准了泰山派 3M；Windows 驱动因此默认 594 MHz |
+| 为 702 MHz 把 GPU 供电轨升到 775 mV | yes，设置选项默认开 | 分支 `cm5io-parity` 上是设置选项，默认关 | 设置选项，默认关（main：missing）；开时 Windows 驱动跑 702 MHz，关时 594 MHz |
 | TSADC 读数和 120 C TSHUT | yes | yes | yes |
 | 风扇以 100% 启动 | yes（CN2，PWM2 ch3） | yes（CN32，PWM2 ch6，极性有争议） | yes，J16，PWM2 ch5，GPIO4_C5，正常极性（main：没有风扇） |
 | HDMI 音频预设（SAI6，48 kHz） | yes | yes | yes（main：关） |
@@ -126,13 +127,28 @@ CM5-IO 1V1、立创泰山派 3M v1.4）和厂商内核设备树；ROCK 4D 的出
 
 ## ROCK 4D 还缺什么，为什么
 
-* **GPU 702 MHz。** 需要 vdd_gpu_s0 为 775 mV。升压只批准了泰山派 3M；供电轨报告已经打开，
-  所以 Windows 驱动让 ROCK 4D 跑在 594 MHz（wddm 分支 `gpu702-default`）。
+* **GPU 702 MHz：可选，未在板上跑过。** vdd_gpu_s0 是和泰山派 3M 相同的 RK806S-5 的 BUCK5
+  （原理图 V1.12 第 25 页 VOUT5/FB5 到 VDD_GPU_S0，第 5 页 I2C1_M0 在 GPIO0_B2/B3；
+  `rk3576-rock-4d.dts` dcdc-reg5，550000 到 900000 uV，`&gpu` 的 mali-supply）。
+  "GPU voltage for 702 MHz (775 mV)" 默认关：在打开这个选项并通过下面的板上测试之前，
+  Windows 驱动跑 594 MHz。
 * **Windows 下的 Wi-Fi 和蓝牙。** USB 的 AIC8800D80；没有能在 23H2 上运行的驱动。已记录，未移植。
 * **耳机插孔检测。** 是 SARADC 输入；这里 Windows 没有 ADC 驱动。耳机端点一直显示"已插入"。
 * **UFS、DSI 接口、EEPROM、LED。** 没有 Windows 驱动，没有屏，没有可驱动的东西。
 * **通过 "Armbian (U-Boot)" 启动 USB 或 NVMe 上的 Armbian。** SPL 只能启动 SD 卡上的 FIT；
   其他板子用的 eMMC 槽位在这里不存在。
+
+## 板上测试：702 MHz 用的 GPU 电压
+
+风扇开着：
+
+1. 把 "GPU voltage for 702 MHz (775 mV)" 设为开并重启。串口日志显示
+   `GpuRail: raised BUCK5 0x28 -> 0x2C, read back 775000 uV`。如果显示的是
+   `not raising BUCK5: ...`，记下原因（这块板的 RK806 还没读过）；这时什么都没写。
+2. Windows 下，没有存 `GpuClk`、没设 `GpuClkHigh` 时：`m5test clk`（或 GPU 时钟性能计数器）显示 702 MHz。
+3. FurMark 跑 60 秒：没有 TDR；记下分数和 GPU、CPU 最高温度。
+4. 把选项设为关并重启：日志显示 `lowered BUCK5 0x2C -> 0x28, read back 750000 uV`，
+   Windows 跑 594 MHz。
 
 ## 任何板子的 main 上都没有的
 

@@ -9,7 +9,8 @@ other two boards; Windows has not been started on this board yet.
 What the TaishanPi 3M has and this board has the hardware for is on branch
 `rock4d-parity`, built and not run on a ROCK 4D: thermal zones, the fan on
 J16 at full speed (and "Fan Control by ACPI Thermal Zone"), power-off
-through the RK806, "CPU Maximum Frequency", the NPU option, the GPU rail
+through the RK806, "CPU Maximum Frequency", the NPU option, "GPU voltage for
+702 MHz (775 mV)" (off by default), the GPU rail
 report, HDMI audio, the ES8388 headphone jack and "Armbian (U-Boot)" for an
 Armbian SD card. The full list, per board: [board features](../BOARD-FEATURES.md).
 
