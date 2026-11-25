@@ -46,6 +46,8 @@ SoC 级的表（MADT、GTDT、PPTT、MCFG、SPCR、DBG2、FADT）是共用的，
 | 风扇（`PNP0C0B`，`Fan.asl`） | | 有 | 有 | 设置项 "Fan Control by ACPI Thermal Zone"（由 ACPI 温度区控制风扇），默认关闭 |
 | CPU 空闲状态（SSDT `RKLPI`） | | 有 | 有 | 设置项 "CPU Idle States"，默认关闭 |
 | NPU（`Npu.asl`） | `RKCP3576` | 无 | 有 | 设置项 "NPU (experimental)"（实验性），默认关闭；只在指明了 RK806 所在 I2C 总线（`PcdRk806I2cBase`）的板子上提供，截至 2026-11-24 只有泰山派 3M |
+| 40 针 UART（SSDT `RKUART40`，`Uart40.asl`） | `RKCP3006`，`_CID` `PRP0001` | 无 | 有 | 设置项 "40-pin UART (experimental)"，默认关闭；只在设置了 `PcdPin40Supported` 的板子上提供（`main` 上是泰山派 3M）。`SerCx-FriendlyName` 让它们成为 COM 口接口，供 woa-rk3576 的 rk3xuart 使用 |
+| RhProxy（SSDT `RKRHPX`，`\_SB.RHPX`，`RhProxy.asl`） | `MSFT8000` | 无 | 有 | 设置项 "40-pin GPIO/I2C/SPI for apps (experimental)"，默认关闭；板子同上。把排针上的 GPIO、I2C 和 SPI 交给 Windows.Devices.Gpio、.I2c、.Spi |
 
 显示器的 EDID 以 `\_SB.GPU0.EDID` 的形式提供给 Windows 显示驱动，同时也挂在 GOP 句柄上。
 
