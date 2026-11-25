@@ -2,43 +2,14 @@
 
 English | [简体中文](FLASHING.zh-CN.md)
 
-This page moved to [flash](flash.md) on 2026-11-24. The sections that were
-here:
-
-## The rolling ci build
-
-[The rolling ci build](flash.md#the-rolling-ci-build).
-
-## From the browser
-
-[From the browser](flash.md#from-the-browser).
-
-## rkdeveloptool
-
-[rkdeveloptool](flash.md#rkdeveloptool).
-
-### ROCK 4D
-
-[Radxa ROCK 4D](flash.md#radxa-rock-4d).
-
-### CM5-IO, empty eMMC
-
-[Writing the whole image](flash.md#writing-the-whole-image).
-
-### CM5-IO, eMMC that already holds Windows or other partitions
-
-[Updating the firmware and keeping everything else](flash.md#updating-the-firmware-and-keeping-everything-else).
-The commands that used to be here reset the UEFI settings; use the ones on
-the new page.
-
-## CM5-IO: SD card
-
-[ArmSoM CM5-IO](flash.md#armsom-cm5-io).
-
-## Recovery
-
-[Recovery](flash.md#recovery).
-
-## LCKFB TaishanPi 3M
-
-[LCKFB TaishanPi 3M](flash.md#lckfb-taishanpi-3m).
+This page moved to [flash](flash.md). Its old sections are now:
+[the rolling ci build](flash.md#the-rolling-ci-build),
+[from the browser](flash.md#from-the-browser),
+[rkdeveloptool](flash.md#rkdeveloptool),
+[ROCK 4D](flash.md#radxa-rock-4d),
+[CM5-IO, empty eMMC](flash.md#writing-the-whole-image),
+[CM5-IO, eMMC with Windows or other partitions](flash.md#updating-the-firmware-and-keeping-everything-else)
+(the commands that were here reset the UEFI settings; use the new ones),
+[CM5-IO SD card](flash.md#armsom-cm5-io),
+[recovery](flash.md#recovery),
+[TaishanPi 3M](flash.md#lckfb-taishanpi-3m).

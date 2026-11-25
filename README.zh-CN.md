@@ -2,86 +2,44 @@
 
 [English](README.md) | 简体中文
 
-Rockchip RK3576 开发板的 UEFI 固件（EDK2 / TianoCore），支持 Radxa ROCK 4D、ArmSoM CM5-IO
-和立创泰山派 3M。它能像 PC 一样启动 Linux，在 CM5-IO 和泰山派 3M 上还能启动 Windows 11 23H2。
+[![SoC](https://img.shields.io/badge/SoC-RK3576-blue)]()
+[![License](https://img.shields.io/badge/license-BSD--2--Clause--Patent-lightgrey)](LICENSE)
+[![Flash](https://img.shields.io/badge/flash-WebUSB%20browser%20tool-informational)](https://flash.gahingwoo.com/)
+[![Docs](https://img.shields.io/badge/docs-edk2.gahingwoo.com-informational)](https://edk2.gahingwoo.com/)
+
+Rockchip RK3576 开发板的 UEFI 固件（EDK2 / TianoCore）。它像 PC 一样启动 Linux，在 CM5-IO 和泰山派 3M
+上还能启动 Windows 11 23H2。
 
 ```
 BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 ```
 
-下面列出的所有 RK3576 项目都从这个仓库开始。
-
 | 泰山派 3M 上的 Windows 11 | CM5-IO 上的 Fedora |
 |---|---|
 | ![泰山派 3M 上的 Windows 11 23H2](docs/imgs/tspi3m-win11-desktop.jpg) | ![CM5-IO 上的 Fedora GNOME](docs/imgs/cm5io-desktop.png) |
 
-更多图片：[图片](docs/gallery.zh-CN.md)。
-
-## 从一块新板子到 Windows 或 Linux
-
-1. 先看你的板子：[Radxa ROCK 4D](docs/boards/rock4d.zh-CN.md)、
-   [ArmSoM CM5-IO](docs/boards/cm5io.zh-CN.md)、[立创泰山派 3M](docs/boards/tspi3m.zh-CN.md)。
-2. 写入固件（见[刷写固件](docs/flash.zh-CN.md)），三种方法任选：
-   - [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)，桌面程序；
-   - [flash.gahingwoo.com](https://flash.gahingwoo.com/)，用 Chrome 或 Edge 打开；
-   - `rkdeveloptool`。
-3. 装 Windows 11 23H2（CM5-IO、泰山派 3M）：按
-   [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.zh-CN.md)操作，
-   或者用 Maskrom Studio 在电脑上直接装，不用 U 盘。概览见 [Windows](docs/windows.zh-CN.md)。
-4. 在 Windows 下按需加装驱动：GPU 和显示驱动
-   [wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52)，NPU 驱动
-   [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu)。
-5. 装 Linux：见 [Linux](docs/linux.zh-CN.md)。
-6. 遇到问题：[故障排查](docs/troubleshooting.zh-CN.md)、[已知问题](docs/known-issues.zh-CN.md)。
-
-映像：[最新正式版](https://github.com/gahingwoo/edk2-rk3576/releases/latest)（0.4.1，2026-11-17），
-或 `main` 的 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)，包含之后合并的全部改动。
-
 ## 板子
 
-2026-11-24 的状态。"ci" 表示要用 `main` 的 `ci` 构建，0.4.1 正式版里没有。
-
-| | Radxa ROCK 4D | ArmSoM CM5-IO | 立创泰山派 3M |
+| 板子 | 固件放在 | 状态 | 最近一次上板 |
 |---|---|---|---|
-| 固件放在 | SPI NOR | eMMC 或 SD 卡 | eMMC（或 SPL 在 eMMC、其余在 SD 卡） |
-| HDMI | 可用 | 可用 | 可用 |
-| DSI 屏和触摸 | 未试过 | 未试过 | 可用（立创 800x1280） |
-| eMMC | 没有 eMMC（UFS，未试过） | 可用 | 可用 |
-| NVMe | 可用 | 可用 | 没有 M.2 插槽 |
-| USB-A | 可用 | 可用 | 可用 |
-| USB-C | USB 2.0 | USB 2.0 | 上电时插着的设备可用（ci） |
-| 以太网 | 可用 | 可用 | 可用 |
-| 通过 UEFI 启动 Linux | 从 NVMe 启动 Fedora | 从 NVMe 启动 Fedora | 从 eMMC 启动 Armbian edge，[有限制](docs/linux.zh-CN.md#立创泰山派-3m) |
-| Windows 11 23H2 | 不支持（没有 ACPI） | 能进桌面 | 能进桌面 |
-| Windows：GPU 绘制桌面 | | 未试过 | 配合 wddm-mali-g52 可用 |
-| Windows：音频 | | 未试过 | 耳机、麦克风、HDMI（ci） |
-| Windows：蓝牙、WiFi | | 不能用 | 蓝牙可用（ci），WiFi 不能用 |
-| Windows：NPU | | 不支持 | 配合 woa-rk3576-npu 可用（ci） |
+| [Radxa ROCK 4D](docs/boards/rock4d.zh-CN.md) | SPI NOR | Linux（从 NVMe 启动 Fedora）。不支持 Windows：编译时不带 ACPI。 | 0.2.1 之后 |
+| [ArmSoM CM5-IO](docs/boards/cm5io.zh-CN.md) | eMMC 或 SD 卡 | Linux（从 NVMe 启动 Fedora），从 eMMC 启动 Windows 11 23H2 能进桌面。 | 0.4.x |
+| [立创泰山派 3M](docs/boards/tspi3m.zh-CN.md) | eMMC | Windows 11 23H2：GPU、DSI 触摸屏、音频、蓝牙、NPU；Armbian edge [有限制](docs/linux.zh-CN.md#立创泰山派-3m)。 | `main`，2026-11-24 |
 
-每块板的结果都来自同一块实物。每块板最后一次测试的时间和版本见[测试](docs/dev/testing.zh-CN.md)。串口：1500000 8N1。
+每块板的结果都来自同一块实物（见[测试](docs/dev/testing.zh-CN.md)）。泰山派 3M 在 Windows 下的触摸、蓝牙、
+音频和 USB-C 需要 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)，0.4.1 正式版没有。串口：1500000 8N1。
 
-固件本身的功能：简体中文菜单、截图、调试报告、恢复全部设置、网络校时、屏幕键盘。见[固件菜单](docs/firmware-menus.zh-CN.md)。
+## 上手
 
-## Windows
+1. 下载映像：[最新正式版](https://github.com/gahingwoo/edk2-rk3576/releases/latest)（0.4.1），
+   或 `main` 的 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)。
+2. 写入（见[刷写固件](docs/flash.zh-CN.md)）：用 [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)、
+   [flash.gahingwoo.com](https://flash.gahingwoo.com/)（Chrome 或 Edge）或 `rkdeveloptool`。
+3. 装系统：[Windows](docs/windows.zh-CN.md)（只能用 23H2，RK3576 是 ARMv8.0）或 [Linux](docs/linux.zh-CN.md)。
+4. 遇到问题：[故障排查](docs/troubleshooting.zh-CN.md)、[已知问题](docs/known-issues.zh-CN.md)。
 
-Windows 11 23H2 可以从 CM5-IO 和泰山派 3M 的 eMMC 启动。Windows 11 24H2 及以后的版本跑不了：RK3576 是
-ARMv8.0。Windows 安装程序在这些板子上用不了，所以要用 WinPE U 盘里的 DISM 写入系统映像，或者用 Maskrom Studio。
-步骤见 [woa-rk3576 的安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.zh-CN.md)。
-各项功能需要哪个固件：见 [Windows](docs/windows.zh-CN.md)。
-
-### 泰山派 3M 上的 Linux
-
-Armbian edge 和 Windows 一起装在 eMMC 上，经 GRUB 用固件的设备树启动：DSI 屏、触摸、耳机、背光、USB-A、
-以太网和 EC20 模块都能用。目前 GPU 是关的。详情和限制见 [Linux](docs/linux.zh-CN.md#立创泰山派-3m)。
-
-## 已知问题
-
-主要的几条，完整列表见[已知问题](docs/known-issues.zh-CN.md)：
-
-- Windows 11 24H2 及以后的版本跑不了（ARMv8.0）。
-- 泰山派 3M 的 USB-C 口只给上电时就插着的设备供电。
-- ROCK 4D 和 CM5-IO 的 USB-C 在 Linux 以外只有 USB 2.0。
-- 泰山派 3M 的 RTC 每次断电都丢时间；时间要靠 NTP 或操作系统。
+固件功能（中文菜单、截图、调试报告、恢复全部设置、NTP 校时、屏幕键盘）见[固件菜单](docs/firmware-menus.zh-CN.md)。
+图片见[图片展示](docs/gallery.zh-CN.md)。
 
 ## 相关项目
 
@@ -107,7 +65,7 @@ scripts/package.sh cm5io      # 输出到 out/CM5IO/
 
 ## 致谢
 
-感谢[嘉立创](https://jlc.com/)（JLC）赞助本项目使用的立创泰山派 3M、MIPI DSI 屏、风扇和 EC20 4G 模块，
+感谢[嘉立创](https://jlc.com/)（JLC）赞助立创泰山派 3M、MIPI DSI 屏、风扇和 EC20 4G 模块，
 感谢 [ArmSoM](https://www.armsom.org/) 赞助 CM5 核心板和 CM5-IO 底板。
 
 ## 许可证
