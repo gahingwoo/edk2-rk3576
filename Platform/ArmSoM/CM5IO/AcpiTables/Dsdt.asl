@@ -207,5 +207,29 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // TZ01 are in Fan.asl, a separate SSDT installed only when fan control is
     // enabled in setup.
     include ("Thermal.asl")
+
+    // SARADC (adc@2ae00000; vref vcca_1v8_s0 = 1.8 V, rk3576-armsom-cm5.dtsi
+    // &saradc), for the woa-rk3576 rk3xsaradc driver.  No adc-keys node in
+    // either device tree; the wiring is the schematics':
+    //
+    //   channel 0  SARADC_VIN0_BOOT.  On the CM5 (CM5 schematic, "BOOT MODE
+    //              CONFIG"): R1103 100K up to VCCA_1V8_S0, R1102 11.3K down,
+    //              Config2, ADC value 416 = 183 mV.  On the carrier
+    //              (CM5-IO V1.1, "MASKROM_Key"): SW3 to ground through R3
+    //              100R, ~2 mV pressed.  Declared as an adc-keys button:
+    //              key-up 183 mV, pressed 0, code KEY_VENDOR (0x168),
+    //              reported as vendor-page button 1.  The BootROM samples
+    //              this pin only at reset.
+    //   channel 1  SARADC_VIN1_KEY/RECOVERY stays on the module (pull-up
+    //              only); the carrier has no recovery key.  Not declared.
+    //
+    // No jack: the ES8388 output is the CN3 header with HP_DET_L tied low.
+    // RK3576Dxe sets the converter clock (PcdRk3576SaradcClockInit in
+    // CM5IO.dsc).
+#define BOARD_SARADC_KEYS_CHANNEL     0
+#define BOARD_SARADC_KEYS_KEYUP_UV    183000
+#define BOARD_SARADC_KEYS_PRESS_UV    0
+#define BOARD_SARADC_KEYS_CODE        0x168
+    include ("Saradc.asl")
   }
 }
