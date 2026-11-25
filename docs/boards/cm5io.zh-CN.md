@@ -77,7 +77,7 @@ CM5-IO V1.1 原理图）。都已编译通过，本节的内容都还没有在�
   下次重启又回到 UEFI。还要确认换了 SPL 以后画面不变；如果变了，把 `boards/cm5io.conf` 里的
   `SPL_DEFCONFIG` 删掉，回到 `binaries/idblock_cm5io.bin`。
 - Windows：关机能断电；`\_SB.SAI1` 和 `\_SB.I2C0.ES83` 绑定 csaudiork3x/rk3xi2sbus 和 es8323，
-  没有黄色感叹号；CN3 和 40 针的线路输出有声音；打开 NPU 选项后 woa-rk3576-npu 能绑定；maliwddm
+  没有黄色感叹号；CN3 有声音（40 针的线路输出是 OUT2，es8323 的 RK3576 初始化序列让它保持静音；它的录音读 LINPUT1，而这块板的麦克风输入在 LIN2/RIN2，所以这两项不改驱动预计都不能用）；打开 NPU 选项后 woa-rk3576-npu 能绑定；maliwddm
   读到 GpuRail 变量并运行在 594 MHz。
 - Linux：和以前一样启动（音频、NPU 和电源芯片在 Linux 下归设备树管）；`poweroff` 仍能断电。
 

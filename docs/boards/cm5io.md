@@ -95,8 +95,10 @@ What to check on the board, firmware first:
   it is not, remove `SPL_DEFCONFIG` from `boards/cm5io.conf` to go back to
   `binaries/idblock_cm5io.bin`.
 - Windows: shutdown powers off; `\_SB.SAI1` and `\_SB.I2C0.ES83` bind
-  csaudiork3x/rk3xi2sbus and es8323 with no yellow mark; sound out of CN3 and
-  the 40-pin line out; NPU (with the option on) binds woa-rk3576-npu; maliwddm
+  csaudiork3x/rk3xi2sbus and es8323 with no yellow mark; sound out of CN3 (the
+  40-pin line out is OUT2, which es8323's RK3576 sequence leaves muted, and
+  its capture reads LINPUT1 while this board's microphone input is
+  LIN2/RIN2, so neither is expected to work without a driver change); NPU (with the option on) binds woa-rk3576-npu; maliwddm
   reads the GpuRail variable and runs at 594 MHz.
 - Linux: boots as before (audio, NPU and the PMIC are the device tree's
   business there); `poweroff` still powers off.
