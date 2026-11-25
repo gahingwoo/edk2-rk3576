@@ -119,7 +119,7 @@ wiring take it from ACPI (`_CRS`, `_DSD`).
 | dwcsdhc (eMMC), dwcmshc (SD) | RKCP0D40, RKCPFE2C | yes | yes | SD only |
 | dwc_eqos (Ethernet) | RKCP6543 | yes | yes | yes |
 | rk3xi2sbus, csaudiork3x (HDMI, headphones) | RKCP3004 | yes | HDMI | HDMI and headphones (no jack detect) |
-| es8323 (ES8388) | RKCP8388 | yes | n/a on main | yes; untested without a jack GpioInt (see the test list) |
+| es8323 (ES8388) | RKCP8388 | yes | n/a on main | yes; needs woa-rk3576 `es83-optional-irq` or later (an older es8323 creates an interrupt this `_CRS` does not have); `_DSD` `rockchip,output-route` 1, `rockchip,input-select` 1 (OUT1 to J18, LIN1 headset microphone) |
 | rk3576-null (PMIC, RTC, pin controller, UART2) | RKCP0806, HYMB0001, RKCP3005, HISI0031 | yes | yes | yes, now that the PMIC is RKCP0806 |
 | bcm4345bt | RKCP4345 | yes | n/a | n/a |
 | gt9271 | RKCP9271 | yes | n/a | n/a |
