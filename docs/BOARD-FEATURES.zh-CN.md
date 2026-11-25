@@ -64,7 +64,7 @@ CM5-IO 1V1、立创泰山派 3M v1.4）和厂商内核设备树；ROCK 4D 的出
 | TSADC 读数和 120 C TSHUT | yes | yes | yes |
 | 风扇以 100% 启动 | yes（CN2，PWM2 ch3） | yes（CN32，PWM2 ch6，极性有争议） | yes，J16，PWM2 ch5，GPIO4_C5，正常极性（main：没有风扇） |
 | HDMI 音频预设（SAI6，48 kHz） | yes | yes | yes（main：关） |
-| 模拟音频预设（SAI1 + I2C3 上的 ES8388） | yes，带功放和插孔检测 | main 上没有 | yes：耳机插孔和它的麦克风，没有功放（未贴片），没有插孔检测（那是 SARADC 输入）（main：missing） |
+| 模拟音频预设（SAI1 + I2C3 上的 ES8388） | yes，带功放和插孔检测 | main 上没有 | yes：耳机插孔和它的麦克风，没有功放（未贴片），插孔检测走 SARADC 通道 3，由 rk3xsaradc 读取（分支，未运行）（main：missing） |
 | "Armbian (U-Boot)" 一次性启动 | yes（请求放在 eMMC） | missing（它的 SPL 没有用 `build-spl.sh` 重新构建） | yes：请求放在 SD 卡，Armbian 只能在 SD 卡上；需要本分支构建的新 SPL（main：missing） |
 | 从固定版本的源码构建 SPL（`build-spl.sh`） | yes | 否（预编译的 `idblock_cm5io.bin`） | yes，U-Boot v2026.10（main：预编译的 2026.04） |
 | MIPI DSI 屏 | yes | n/a | missing：有接口，没有屏 |
@@ -133,7 +133,7 @@ CM5-IO 1V1、立创泰山派 3M v1.4）和厂商内核设备树；ROCK 4D 的出
   "GPU voltage for 702 MHz (775 mV)" 默认关：在打开这个选项并通过下面的板上测试之前，
   Windows 驱动跑 594 MHz。
 * **Windows 下的 Wi-Fi 和蓝牙。** USB 的 AIC8800D80；没有能在 23H2 上运行的驱动。已记录，未移植。
-* **耳机插孔检测。** 是 SARADC 输入；这里 Windows 没有 ADC 驱动。耳机端点一直显示"已插入"。
+* **耳机插孔检测。** 是 SARADC 输入（通道 3，J18 的麦克风触点）。已写好、未运行：\_SB.ADC0 带有按原理图计算的阈值（低于 1.45 V 为插入，高于 1.52 V 为拔出）、woa-rk3576 的 rk3xsaradc 驱动，以及跟随它的 es8323。没有该驱动时耳机端点一直显示"已插入"。
 * **UFS、DSI 接口、EEPROM、LED。** 没有 Windows 驱动，没有屏，没有可驱动的东西。
 * **通过 "Armbian (U-Boot)" 启动 USB 或 NVMe 上的 Armbian。** SPL 只能启动 SD 卡上的 FIT；
   其他板子用的 eMMC 槽位在这里不存在。
