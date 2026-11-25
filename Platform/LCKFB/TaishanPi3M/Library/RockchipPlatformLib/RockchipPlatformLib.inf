@@ -27,6 +27,7 @@
   Tspi3mAudio.c
   Tspi3mBluetooth.c
   Tspi3mWifi.c
+  Tspi3mPin40.c
 
 [Packages]
   MdePkg/MdePkg.dec

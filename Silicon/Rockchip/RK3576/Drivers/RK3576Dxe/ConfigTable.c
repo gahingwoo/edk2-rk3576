@@ -236,6 +236,47 @@ SetupConfigTableVariables (
   }
 
   //
+  // Pin40Uart / Pin40RhProxy: the 40-pin header's UARTs, and its GPIO, I2C
+  // and SPI for applications.  Shown only on a board whose library and
+  // AcpiTables describe its header (Pin40Supported).
+  //
+  Var8   = FixedPcdGetBool (PcdPin40Supported) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"Pin40Supported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"Pin40Uart",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdPin40Uart, FixedPcdGet8 (PcdPin40UartDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"Pin40RhProxy",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdPin40RhProxy, FixedPcdGet8 (PcdPin40RhProxyDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
   // Publish which FDT compat modes are actually supported (have an embedded DTB).
   // The HII form grays out the selector when only one mode is available.
   //

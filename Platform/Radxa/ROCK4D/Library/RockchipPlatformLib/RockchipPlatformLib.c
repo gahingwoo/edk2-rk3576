@@ -995,3 +995,16 @@ PlatformSdioWifiInit (
 {
   return EFI_UNSUPPORTED;
 }
+
+/*
+ * PlatformGetPin40Config -- this board does not set PcdPin40Supported, so
+ * RK3576Dxe never asks.
+ */
+CONST PIN40_CONFIG *
+EFIAPI
+PlatformGetPin40Config (
+  VOID
+  )
+{
+  return NULL;
+}

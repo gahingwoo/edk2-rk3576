@@ -101,4 +101,6 @@ ACPI / Device Tree 页的 "Force UEFI GOP Display" 决定 Linux 沿用固件的�
 | Fan | 开（默认）：板载风扇从上电起全速运行，进系统后也一直开着；关：风扇保持停止。没有调速：部分转速要用 PWM 脉冲，脉冲会让风扇啸叫。泰山派 3M 和 CM5-IO 有这个选项，ROCK 4D 没有固件能驱动的风扇。如果打开了 Fan Control by ACPI Thermal Zone，操作系统仍然可以把风扇打开 |
 | Fan Control by ACPI Thermal Zone | 让 Windows 按大核温度控制风扇；关闭时风扇保持固件设定的转速 |
 | NPU (experimental) | 给 NPU 上电并在 ACPI 里声明，供 [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) 使用；泰山派 3M 和 CM5-IO |
+| 40-pin UART (experimental) | 把排针上的 UART 引脚切到 UART，并在 ACPI 里把这些 UART 声明为 COM 口，供 woa-rk3576 的 rk3xuart 驱动使用；调试串口永远不在其中。泰山派 3M；CM5-IO 和 ROCK 4D 在各自的板子分支上 |
+| 40-pin GPIO/I2C/SPI for apps (experimental) | 把排针上的 I2C 和 SPI 引脚切到这些总线，并声明 ACPI RhProxy 设备，让 Windows 应用通过 Windows.Devices.Gpio、.I2c、.Spi 使用排针上的 GPIO、I2C 和 SPI。板子同上 |
 | Save OS Variable Changes to eMMC | 见上文 |
