@@ -61,8 +61,11 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // DMA controllers (DMA0 @ 0x2ab90000, DMA1 @ 0x2abb0000, DMA2 @ 0x2abd0000)
     include ("Dma.asl")
 
-    // Serial: UART2 @ 0x2AD50000 (ttyS2 userspace UART; UART0 is SPCR debug console)
-    include ("Uart.asl")
+    // UART2 (header pins 3/5) is not declared here.  It used to be, as
+    // Uart.asl's HISI0031, a device no Windows driver binds; it is now the
+    // 40-pin UART SSDT's URT2 (Pin40Uart.asl, RKCP3006 for woa-rk3576
+    // rk3xuart), installed only with "40-pin UART" on in setup, when the
+    // firmware also muxes its pins.  UART0 is the SPCR/DBG2 console.
 
     // Bluetooth: the CM5 module's BCM43752 (BCM4362A2 core) on UART4, with
     // BT_REG_ON and BT_WAKE as GPIOs.  The device claims the UART itself;

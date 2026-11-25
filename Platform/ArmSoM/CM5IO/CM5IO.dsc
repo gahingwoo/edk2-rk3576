@@ -248,6 +248,9 @@
   # card, and the Wi-Fi SSDT (AcpiTables/Wifi.asl) is installed.  See
   # woa-rk3576 docs/dev/wifi.md.  Not run on hardware.
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|TRUE
+  # The 40-pin header (J4): Cm5ioPin40.c describes it, AcpiTables has its
+  # UART and RhProxy SSDTs.  Both setup options stay off by default.
+  gRK3576TokenSpaceGuid.PcdPin40Supported|TRUE
 
   # Default display mode.
   #

@@ -26,6 +26,7 @@
   Cm5ioAudio.c
   Cm5ioBluetooth.c
   Cm5ioWifi.c
+  Cm5ioPin40.c
 
 [Packages]
   MdePkg/MdePkg.dec
