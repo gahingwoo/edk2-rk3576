@@ -68,7 +68,8 @@ V1.1 schematics). Built, and nothing in this section has run on the board.
 | RK806 power-off at shutdown | **added** | same PMIC wiring as the TaishanPi 3M: RK806 at 0x23 on I2C1, GPIO0_A3 = PMIC_PWR_CTRL1 |
 | NPU setup option | **added** | appears once the firmware can reach the RK806 (vdd_npu_s0 = BUCK2) |
 | CPU Maximum Frequency | **added**, default 1608 MHz | BUCK1/BUCK3 as on the TaishanPi 3M; the OTP SoC-variant check still applies |
-| GPU rail report (`GpuRail` variable) | **added**, reads only | no 775 mV raise: the GPU stays at 594 MHz on this board |
+| GPU rail report (`GpuRail` variable) | **added** | read on every boot and handed to the Windows GPU driver |
+| GPU voltage for 702 MHz (775 mV) | **added**, default off | vdd_gpu_s0 is RK806S-5 BUCK5 on I2C1 0x23 (CM5 schematic p2, p13; `rk3576-armsom-cm5.dtsi` dcdc-reg5, 550000 to 900000 uV), as on the TaishanPi 3M. On: raised from 750 to 775 mV in 6.25 mV steps, each read back, only with TSHUT armed, and maliwddm runs 702 MHz; off: 750 mV and 594 MHz |
 | Analog audio (ES8388) | **added** | I2C0 0x10, SAI1 M0 (SDO0), output on the 3-pin header CN3 (OUT1; OUT2 only reaches test pads T36/T37), microphone pads T34/T35 into LIN2/RIN2 differential; `_DSD` `rockchip,output-route` 3, `rockchip,input-select` 4; no jack detect (CN3 has no detect contact), no amplifier |
 | "Armbian (U-Boot)" one-shot | **added** | SPL rebuilt from mainline U-Boot v2026.10 with Armbian's CM5-IO files and the one-shot patch; it now tries the SD card first, like the TaishanPi 3M's |
 | Fan on/off switch ("Fan", default on) | already there (main, `fan-onoff`) | polarity still not settled, see `PwmFanSetSpeed` in this board's RockchipPlatformLib.c: "on" holds the pin low, which is full speed only if the inverted reading is right |
@@ -102,6 +103,15 @@ What to check on the board, firmware first:
   `Device Parameters` show `ActiveOutputRoute` 3, `ActiveInputSelect` 4,
   `JackInterrupt` 0; NPU (with the option on) binds woa-rk3576-npu; maliwddm
   reads the GpuRail variable and runs at 594 MHz.
+- GPU voltage, with the fan on: set "GPU voltage for 702 MHz (775 mV)" to On
+  and restart. Serial log: `GpuRail: raised BUCK5 0x28 -> 0x2C, read back
+  775000 uV` (if it says `not raising BUCK5: ...` instead, note the reason:
+  this board's RK806 has not been read yet). Windows: `m5test clk` (or the
+  GPU clock perf counter) shows 702 MHz, with no `GpuClk` stored and
+  `GpuClkHigh` not set; FurMark 60 s runs without a TDR; note the score and
+  the peak GPU and CPU temperatures. Then set the option to Off and restart:
+  the log shows `lowered BUCK5 0x2C -> 0x28, read back 750000 uV` and
+  Windows runs 594 MHz.
 - Linux: boots as before (audio, NPU and the PMIC are the device tree's
   business there); `poweroff` still powers off.
 

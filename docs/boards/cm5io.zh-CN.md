@@ -57,7 +57,8 @@ CM5-IO V1.1 原理图）。都已编译通过，本节的内容都还没有在�
 | 关机时通过 RK806 断电 | **新增** | 电源芯片接法和泰山派 3M 相同：RK806 在 I2C1 的 0x23，GPIO0_A3 = PMIC_PWR_CTRL1 |
 | NPU 设置项 | **新增** | 固件能访问 RK806 后出现（vdd_npu_s0 = BUCK2） |
 | CPU Maximum Frequency | **新增**，默认 1608 MHz | BUCK1/BUCK3 与泰山派 3M 相同；仍会检查 OTP 里的 SoC 型号 |
-| GPU 电压上报（`GpuRail` 变量） | **新增**，只读 | 不升到 775 mV：这块板的 GPU 保持 594 MHz |
+| GPU 电压上报（`GpuRail` 变量） | **新增** | 每次启动读取并交给 Windows GPU 驱动 |
+| GPU voltage for 702 MHz (775 mV) | **新增**，默认关 | vdd_gpu_s0 是 I2C1 0x23 上 RK806S-5 的 BUCK5（CM5 原理图第 2、13 页；`rk3576-armsom-cm5.dtsi` dcdc-reg5，550000 到 900000 uV），和泰山派 3M 相同。开：在过热关机已启用时从 750 mV 以 6.25 mV 一步升到 775 mV，每步读回，maliwddm 运行 702 MHz；关：750 mV、594 MHz |
 | 模拟音频（ES8388） | **新增** | I2C0 0x10，SAI1 M0（SDO0），输出到 3 针座子 CN3（OUT1；OUT2 只到测试点 T36/T37），麦克风焊盘 T34/T35 接 LIN2/RIN2 差分；`_DSD` `rockchip,output-route` 3、`rockchip,input-select` 4；没有耳机插入检测（CN3 没有检测脚），没有功放 |
 | "Armbian (U-Boot)" 单次启动 | **新增** | SPL 改为用主线 U-Boot v2026.10 加 Armbian 的 CM5-IO 板级文件和单次启动补丁编译；现在先试 SD 卡，和泰山派 3M 一样 |
 | 风扇开关（"Fan"，默认开） | 早已具备（main，`fan-onoff`） | 极性仍未确定，见本板 RockchipPlatformLib.c 里的 `PwmFanSetSpeed`："开"会把引脚拉低，只有反相的解读正确时才是全速 |
@@ -79,6 +80,12 @@ CM5-IO V1.1 原理图）。都已编译通过，本节的内容都还没有在�
 - Windows：关机能断电；`\_SB.SAI1` 和 `\_SB.I2C0.ES83` 绑定 csaudiork3x/rk3xi2sbus 和 es8323，
   没有黄色感叹号（es8323 需要 woa-rk3576 `es83-optional-irq` 或更新：旧版会创建一个这块板 `_CRS` 里没有的中断）；CN3 和 T36/T37 测试点有声音；T34/T35 上接的麦克风能录音（LIN2/RIN2 差分）；codec 的 `Device Parameters` 里 `ActiveOutputRoute` 为 3、`ActiveInputSelect` 为 4、`JackInterrupt` 为 0；打开 NPU 选项后 woa-rk3576-npu 能绑定；maliwddm
   读到 GpuRail 变量并运行在 594 MHz。
+- GPU 电压（风扇开着）：把 "GPU voltage for 702 MHz (775 mV)" 设为开并重启。串口日志：
+  `GpuRail: raised BUCK5 0x28 -> 0x2C, read back 775000 uV`（如果出现的是 `not raising BUCK5: ...`，
+  记下原因：这块板的 RK806 还没读过）。Windows：没有存 `GpuClk`、没设 `GpuClkHigh` 时，
+  `m5test clk`（或 GPU 时钟性能计数器）显示 702 MHz；FurMark 跑 60 秒没有 TDR；记下分数和 GPU、CPU
+  最高温度。然后把选项设为关并重启：日志显示 `lowered BUCK5 0x2C -> 0x28, read back 750000 uV`，
+  Windows 运行 594 MHz。
 - Linux：和以前一样启动（音频、NPU 和电源芯片在 Linux 下归设备树管）；`poweroff` 仍能断电。
 
 ## 硬件细节
