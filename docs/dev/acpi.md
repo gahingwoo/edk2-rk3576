@@ -61,6 +61,15 @@ and puts the board values next to the device tree line they come from.
 The EDID of the monitor is published as `\_SB.GPU0.EDID` for the Windows
 display driver, and on the GOP handle.
 
+An optional SSDT may refer (`External`) only to objects in the DSDT, never
+to a device another optional SSDT declares. The SSDTs are installed in FV
+order, so such a reference names an object that does not exist yet when
+Windows loads the table. When one table has to know whether another is
+installed, RK3576AcpiPlatformDxe patches a `Name` in it at install time, as
+it does for `\_SB.RHPX.UAON` (1 when the 40-pin UART SSDT is installed too).
+The first RhProxy table looked for `\_SB.URT4` with `External` and
+`CondRefOf` instead, and Windows did not boot with both 40-pin options on.
+
 ## Hardware watchdog
 
 The WDAT describes WDT_NS (0x2ACE0000), the DesignWare watchdog that TF-A
