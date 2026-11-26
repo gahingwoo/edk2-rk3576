@@ -1,0 +1,142 @@
+diff --git a/MdeModulePkg/Library/BootManagerUiLib/BootManager.c b/MdeModulePkg/Library/BootManagerUiLib/BootManager.c
+--- a/MdeModulePkg/Library/BootManagerUiLib/BootManager.c
++++ b/MdeModulePkg/Library/BootManagerUiLib/BootManager.c
+@@ -466,6 +466,64 @@
+   return ToText;
+ }
+ 
++//
++// patches/0021: the platform registers some of its firmware applications as
++// boot options with a fixed English description.  A Boot#### variable holds
++// one description for every language, so the menu shows these few in the
++// menu language instead.  Only an option whose file path ends in a firmware
++// volume file (FvFile) and whose description matches exactly is shown this
++// way; the variable is not changed.
++//
++typedef struct {
++  CONST CHAR16     *Description;
++  EFI_STRING_ID    Token;
++} BM_FV_OPTION_NAME;
++
++STATIC CONST BM_FV_OPTION_NAME  mBmFvOptionNames[] = {
++  { L"Reset to MaskROM",   STRING_TOKEN (STR_BM_RESET_TO_MASKROM)   },
++  { L"Reset All Settings", STRING_TOKEN (STR_BM_RESET_ALL_SETTINGS) },
++};
++
++/**
++  The string to show for a boot option in the menu.
++
++  @param HiiHandle  The Boot Manager's HII handle.
++  @param Option     The boot option.
++
++  @return  A string of the Boot Manager's package: a translated one for the
++           firmware applications in mBmFvOptionNames, else a new string
++           holding the option's description.
++**/
++STATIC
++EFI_STRING_ID
++BmBootOptionToken (
++  IN EFI_HII_HANDLE                HiiHandle,
++  IN EFI_BOOT_MANAGER_LOAD_OPTION  *Option
++  )
++{
++  EFI_DEVICE_PATH_PROTOCOL  *Node;
++  EFI_DEVICE_PATH_PROTOCOL  *Last;
++  UINTN                     Index;
++
++  Last = NULL;
++  for (Node = Option->FilePath; !IsDevicePathEnd (Node); Node = NextDevicePathNode (Node)) {
++    Last = Node;
++  }
++
++  if ((Last != NULL) &&
++      (DevicePathType (Last) == MEDIA_DEVICE_PATH) &&
++      (DevicePathSubType (Last) == MEDIA_PIWG_FW_FILE_DP))
++  {
++    for (Index = 0; Index < ARRAY_SIZE (mBmFvOptionNames); Index++) {
++      if (StrCmp (Option->Description, mBmFvOptionNames[Index].Description) == 0) {
++        return mBmFvOptionNames[Index].Token;
++      }
++    }
++  }
++
++  return HiiSetString (HiiHandle, 0, Option->Description, NULL);
++}
++
+ /**
+   This function invokes Boot Manager. It then enumerate all boot options. If
+   a boot option from the Boot Manager page is selected, Boot Manager will boot
+@@ -497,6 +555,7 @@
+   EFI_STATUS                    Status;
+   EFI_LOADED_IMAGE_PROTOCOL     *LoadedImage;
+   EFI_DEVICE_PATH_PROTOCOL      *DevicePath;
++  CHAR16                        *PathLabel;
+ 
+   DeviceType = (UINT16)-1;
+ 
+@@ -518,6 +577,15 @@
+   HiiHandle = gBootManagerPrivate.HiiHandle;
+ 
+   //
++  // patches/0021: "Device Path : " in the menu language.
++  //
++  PathLabel = HiiGetString (HiiHandle, STRING_TOKEN (STR_BM_DEVICE_PATH), NULL);
++  if (PathLabel == NULL) {
++    PathLabel = AllocateCopyPool (sizeof (L"Device Path : "), L"Device Path : ");
++    ASSERT (PathLabel != NULL);
++  }
++
++  //
+   // Allocate space for creation of UpdateData Buffer
+   //
+   StartOpCodeHandle = HiiAllocateOpCodeHandle ();
+@@ -613,14 +681,14 @@
+ 
+     ASSERT (BootOption[Index].Description != NULL);
+ 
+-    Token = HiiSetString (HiiHandle, 0, BootOption[Index].Description, NULL);
++    Token = BmBootOptionToken (HiiHandle, &BootOption[Index]);
+ 
+     TempStr    = BmDevicePathToStr (BootOption[Index].FilePath);
+     TempSize   = StrSize (TempStr);
+-    HelpString = AllocateZeroPool (TempSize + StrSize (L"Device Path : "));
+-    MaxLen     = (TempSize + StrSize (L"Device Path : "))/sizeof (CHAR16);
++    HelpString = AllocateZeroPool (TempSize + StrSize (PathLabel));
++    MaxLen     = (TempSize + StrSize (PathLabel))/sizeof (CHAR16);
+     ASSERT (HelpString != NULL);
+-    StrCatS (HelpString, MaxLen, L"Device Path : ");
++    StrCatS (HelpString, MaxLen, PathLabel);
+     StrCatS (HelpString, MaxLen, TempStr);
+ 
+     HelpToken = HiiSetString (HiiHandle, 0, HelpString, NULL);
+@@ -651,6 +719,7 @@
+   HiiFreeOpCodeHandle (EndOpCodeHandle);
+ 
+   EfiBootManagerFreeLoadOptions (BootOption, BootOptionCount);
++  FreePool (PathLabel);
+ }
+ 
+ /**
+diff --git a/MdeModulePkg/Library/BootManagerUiLib/BootManagerStrings.uni b/MdeModulePkg/Library/BootManagerUiLib/BootManagerStrings.uni
+--- a/MdeModulePkg/Library/BootManagerUiLib/BootManagerStrings.uni
++++ b/MdeModulePkg/Library/BootManagerUiLib/BootManagerStrings.uni
+@@ -26,6 +26,19 @@
+                                        #language fr-FR  "This selection will take you to the Boot Manager"
+ #string STR_HELP_FOOTER                #language en-US  "Use the <↑> and <↓> keys to choose a boot option, the <Enter> key to select a boot option, and the <Esc> key to exit the Boot Manager Menu."
+                                        #language fr-FR  "<↑> pour <↓> changer l'option, <ENTRER> choisir une option, <ESC> pour sortir"
++//
++// patches/0021: the label of the device path in the help, and the names
++// shown for the platform's firmware applications (see BootManager.c).
++//
++#string STR_BM_DEVICE_PATH             #language en-US  "Device Path : "
++                                       #language fr-FR  "Device Path : "
++                                       #language zh-Hans "\wide设备路径：\narrow"
++#string STR_BM_RESET_TO_MASKROM        #language en-US  "Reset to MaskROM"
++                                       #language fr-FR  "Reset to MaskROM"
++                                       #language zh-Hans "\wide重启到\narrow MaskROM"
++#string STR_BM_RESET_ALL_SETTINGS      #language en-US  "Reset All Settings"
++                                       #language fr-FR  "Reset All Settings"
++                                       #language zh-Hans "\wide重置所有设置\narrow"
+ #string STR_AND                        #language en-US  " and "
+                                        #language fr-FR  " et "
+ #string STR_BOOT_OPTION_BANNER         #language en-US  "Boot Manager Menu"

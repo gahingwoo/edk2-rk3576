@@ -193,6 +193,20 @@ Secure Boot 密钥。现在它们打开时高亮在 No 上；Y、N、方向键�
 要在 0013 和 0018 之上打。以前所有 HII 弹窗不论样式都用同一种弹窗颜色。现在警告和错误弹窗是红底白字，
 让 Reset All Settings 这类无法撤销的问题更醒目；普通的提示弹窗保持原来的颜色。高亮的按钮保持高亮颜色。
 
+### `0020-UiApp-round-the-CPU-frequency-and-plain-language-help.patch`
+
+和其他补丁互不依赖。首页横幅上的 CPU 频率以前把 10 MHz 以下直接截掉，2208 MHz 显示成 2.20 GHz；
+现在四舍五入到 10 MHz（2.21 GHz）。"Select Language" 的英文说明原来是 "This is the option one adjusts
+to change the language for the current system"，现在是 "Changes the language the system uses."，
+与 0006 的中文说明一致。
+
+### `0021-BootManagerUiLib-firmware-boot-options-in-the-menu-language.patch`
+
+和其他补丁互不依赖。平台把 "Reset to MaskROM" 和 "Reset All Settings" 注册为启动项。Boot#### 变量里
+只有一份不分语言的描述，所以中文的启动管理器里它们还是英文，而首页已经是"重置所有设置"。现在启动项的
+文件路径以固件卷文件结尾、且描述完全相同时，启动管理器按菜单语言显示这两项；变量本身不变，启动维护管理器
+里的页面仍显示存储的描述。帮助里的 "Device Path : " 也有了中文。
+
 ## 可选的补丁（`--with-debug`）
 
 ### `0003-DEBUG-PeilessSec-UART-checkpoints.patch`

@@ -265,6 +265,25 @@ a question that cannot be undone, such as Reset All Settings, stands out; an
 informational popup keeps the normal colour. The highlighted button keeps
 the highlight colour.
 
+### `0020-UiApp-round-the-CPU-frequency-and-plain-language-help.patch`
+
+Independent of the others. The front page banner cut the CPU frequency off
+at 10 MHz, so 2208 MHz showed as 2.20 GHz; it now rounds to the nearest
+10 MHz (2.21 GHz). The English help of "Select Language" was "This is the
+option one adjusts to change the language for the current system"; it is now
+"Changes the language the system uses.", like the zh-Hans text of 0006.
+
+### `0021-BootManagerUiLib-firmware-boot-options-in-the-menu-language.patch`
+
+Independent of the others. The platform registers "Reset to MaskROM" and
+"Reset All Settings" as boot options. A Boot#### variable holds one
+description for every language, so they stayed English in the Chinese Boot
+Manager while the front page said "重置所有设置". The Boot Manager now shows
+those two in the menu language when the option's file path ends in a
+firmware volume file and the description matches exactly; the variables are
+not changed, and the Boot Maintenance Manager pages still show the stored
+description. The "Device Path : " label of the help is translated too.
+
 ## Optional (`--with-debug`)
 
 ### `0003-DEBUG-PeilessSec-UART-checkpoints.patch`
