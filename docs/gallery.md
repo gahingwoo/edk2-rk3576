@@ -20,9 +20,8 @@ English | [简体中文](gallery.zh-CN.md)
 |---|---|
 | ![UEFI front page on the ROCK 4D](imgs/monitor-4d.png) | Front page on the ROCK 4D, 2560x1440 over HDMI. |
 | ![UEFI front page on the CM5-IO](imgs/monitor-cm5io.jpeg) | Front page on the CM5-IO, 2560x1440 over HDMI. |
-| ![Front page](imgs/tspi3m-uefi-front-page.png) | TaishanPi 3M front page, with Shut Down and About, saved by the firmware itself. The menus are drawn in landscape on the portrait panel. |
-| ![Front page in Simplified Chinese](imgs/tspi3m-uefi-front-page-zh.png) | The same front page in Simplified Chinese. |
-| ![About](imgs/tspi3m-uefi-about.png) | About: firmware build, board, clocks, what was found at boot. |
-| ![Boot Manager](imgs/tspi3m-uefi-boot-manager.png) | Boot Manager: eMMC, Touch Test, UEFI Shell, MaskROM, network, a USB stick. |
-| ![Platform configuration](imgs/tspi3m-uefi-platform.png) | Platform configuration. |
-| ![Display settings](imgs/tspi3m-uefi-display.png) | Display settings. |
+| ![Front page](imgs/rock4d-uefi-front-page.png) | ROCK 4D front page, saved by the firmware itself (F12). Platform configuration is the first entry. |
+| ![Platform configuration](imgs/rock4d-uefi-platform.png) | Platform configuration: About, Display, ComboPHY, ACPI / Device Tree, CPU clock, GPU voltage, screenshots, network time. |
+| ![Display settings](imgs/rock4d-uefi-display.png) | Display settings. |
+| ![Boot Manager](imgs/rock4d-uefi-boot-manager.png) | Boot Manager: Windows, UEFI Shell, MaskROM, Reset All Settings, NVMe, Armbian (U-Boot), SD card, network. |
+| ![About](imgs/rock4d-uefi-about.png) | About: firmware build, board, clocks, what was found at boot. |
