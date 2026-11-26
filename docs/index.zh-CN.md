@@ -25,7 +25,8 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 ## 其他页面
 
 - [固件菜单和功能](firmware-menus.zh-CN.md)：语言、截图、调试报告、恢复全部设置、时钟、显示、触摸、给操作系统用的选项
-- [板子功能对照](BOARD-FEATURES.zh-CN.md)：每块板子有什么，逐个选项、逐个设备列出
+- [板子功能对照](BOARD-FEATURES.zh-CN.md)：每块板子的构建里有什么（根据构建生成）
+- [设置项参考](settings.zh-CN.md)：每个设置项、它的 UEFI 变量和各板子的默认值（自动生成）
 - [图片](gallery.zh-CN.md)
 - 开发文档：[编译](dev/building.zh-CN.md)、[架构](dev/architecture.zh-CN.md)、[映像布局](dev/image-layout.zh-CN.md)、[硬件](dev/hardware.zh-CN.md)、[ACPI](dev/acpi.zh-CN.md)、[测试](dev/testing.zh-CN.md)、[发布](dev/releasing.zh-CN.md)
 

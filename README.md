@@ -20,13 +20,25 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
 
 ## Boards
 
-| Board | Firmware on | Status | Last run on the board |
-|---|---|---|---|
-| [Radxa ROCK 4D](docs/boards/rock4d.md) | SPI NOR | Linux (Fedora from NVMe), Windows 11 23H2 from NVMe with GPU, Ethernet, audio, NPU. | `main`, 2026-11-26 (Windows) |
-| [ArmSoM CM5-IO](docs/boards/cm5io.md) | eMMC or SD card | Linux (Fedora from NVMe), Windows 11 23H2 desktop from the eMMC. | 0.4.x |
-| [LCKFB TaishanPi 3M](docs/boards/tspi3m.md) | eMMC | Windows 11 23H2 with GPU, DSI touch screen, audio, Bluetooth, NPU; Armbian edge [with limits](docs/linux.md#lckfb-taishanpi-3m). | `main`, 2026-11-24 |
+<!-- generated:boards -->
 
-Each result comes from one unit of each board ([testing](docs/dev/testing.md)).
+| Board | Build | Firmware on | Images |
+|---|---|---|---|
+| [ArmSoM CM5-IO](docs/boards/cm5io.md) | `cm5io` | eMMC or SD card | `CM5IO-emmc-edk2-<ver>.img`, `CM5IO-sdcard-edk2-<ver>.img` |
+| [Radxa ROCK 4D](docs/boards/rock4d.md) | `rock4d` | SPI NOR | `ROCK4D-spi-edk2-<ver>.img` |
+| [LCKFB TaishanPi 3M](docs/boards/tspi3m.md) | `tspi3m` | eMMC or SD card | `TaishanPi3M-emmc-edk2-<ver>.img`, `TaishanPi3M-sdcard-edk2-<ver>.img` |
+
+<!-- /generated -->
+
+What has run, on one unit of each board ([testing](docs/dev/testing.md)):
+
+- ROCK 4D: Linux (Fedora from NVMe), Windows 11 23H2 from NVMe with GPU,
+  Ethernet, audio, NPU.
+- CM5-IO: Linux (Fedora from NVMe), Windows 11 23H2 desktop from the eMMC.
+- TaishanPi 3M: Windows 11 23H2 with GPU, DSI touch screen, audio,
+  Bluetooth, NPU; Armbian edge [with limits](docs/linux.md#lckfb-taishanpi-3m).
+
+What each build contains: [board features](docs/BOARD-FEATURES.md).
 Windows touch, Bluetooth, audio and USB-C on the TaishanPi 3M, and Windows
 on the ROCK 4D, need the [`ci` build](docs/flash.md#the-rolling-ci-build);
 release 0.4.1 does not have them. Serial console: 1500000 8N1.

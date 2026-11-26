@@ -1,0 +1,711 @@
+#!/usr/bin/env python3
+"""Fill the generated sections of the docs from the source tree.
+
+A generated section is a marker pair in a Markdown file:
+
+    <!-- generated:NAME -->
+    ...filled in by this script...
+    <!-- /generated -->
+
+or the same pair inline, for one value inside a sentence.  Everything
+between the markers is replaced; everything outside them is left alone.  A
+.zh-CN.md page gets the same section with Chinese headers.
+
+    scripts/gen-docs                      rewrite the sections in place
+    scripts/gen-docs --check              fail if a committed page differs
+    scripts/gen-docs --features DIR       also the sections made from the
+                                          features.json files under DIR
+    scripts/gen-docs --value NAME         print one value (nvdata-offset, ...)
+
+Sources (the code is the truth; the docs follow it):
+    boards/*.conf, Platform/*/*/*.dsc     board list, image names
+    scripts/package.sh                    where the SPL and the FIT go
+    Silicon/Rockchip/RK3576/RK3576.fdf    NV store offsets and sizes
+    scripts/lib/gen_fit_its.py, mkimage   where "nvdata" lands in the FIT
+    features.json (scripts/features.py)   feature matrix, settings reference
+
+The sector of the UEFI settings on eMMC and SD images is computed by
+building the FIT the way package.sh does, with an erased stand-in of the
+EDK2 volume of the size RK3576.fdf gives it.  That needs mkimage, dtc and
+pyelftools (scripts/setup-host.sh installs them).
+
+Some numbers may appear only inside generated sections (FIXED_FACTS below):
+a copy typed by hand elsewhere in the docs is an error.
+"""
+
+import argparse
+import difflib
+import glob
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FDF = os.path.join(ROOT, "Silicon/Rockchip/RK3576/RK3576.fdf")
+PACKAGE = os.path.join(ROOT, "scripts/package.sh")
+
+MARK = re.compile(r"<!-- generated:([a-z0-9-]+) -->(.*?)<!-- /generated -->", re.S)
+
+
+class GenError(Exception):
+    pass
+
+
+def need(m, what):
+    if not m:
+        raise GenError(f"could not read {what}; the source changed shape, update scripts/gen-docs")
+    return m
+
+
+# ------------------------------------------------------------------ sources
+
+def read_conf(path):
+    conf, comments = {}, []
+    for line in open(path, encoding="utf-8"):
+        s = line.strip()
+        if s.startswith("#"):
+            comments.append(s.lstrip("# "))
+        m = re.match(r"^([A-Z0-9_]+)=(.*)$", s)
+        if m:
+            conf[m.group(1)] = m.group(2).split("#")[0].strip().strip('"')
+    return conf
+
+
+def boards():
+    out = []
+    for path in sorted(glob.glob(os.path.join(ROOT, "boards", "*.conf"))):
+        key = os.path.basename(path)[:-5]
+        c = read_conf(path)
+        dsc = c["DSC_FILE"]
+        vendor = dsc.split("/")[1]
+        text = open(os.path.join(ROOT, dsc), encoding="utf-8").read()
+        m = need(re.search(r'PcdPlatformName\|"([^"]+)"', text), f"PcdPlatformName in {dsc}")
+        b = {
+            "key": key,
+            "platform": c["PLATFORM_NAME"],
+            "name": f"{vendor} {m.group(1)}",
+            "short": m.group(1),
+            "dsc": dsc,
+            "medium": c.get("BOOT_MEDIUM", "spi"),
+            "emmc_bytes": int(c["EMMC_BYTES"]) if c.get("EMMC_BYTES") else None,
+            "spl": "build-spl.sh, U-Boot " + c["SPL_UBOOT_TAG"] if c.get("SPL_DEFCONFIG")
+                   else (c.get("IDBLOCK_OVERRIDE") or "binaries/idblock_mainline.bin"),
+            "page": f"docs/boards/{key}.md",
+        }
+        out.append(b)
+    return out
+
+
+def images(b):
+    """(file pattern, medium) of the images package.sh writes for a board,
+    named as the releases name them (<Board>-<medium>-edk2-<ver>.img)."""
+    p = b["platform"]
+    if b["medium"] == "sdcard":
+        r = [(f"{p}-sdcard-edk2-<ver>.img", "sdcard")]
+        if b["emmc_bytes"]:
+            r.insert(0, (f"{p}-emmc-edk2-<ver>.img", "emmc"))
+            r.append((f"{p}-emmc.sfdisk", "sfdisk"))
+        return r
+    return [(f"{p}-spi-edk2-<ver>.img", "spi")]
+
+
+def fdf_layout():
+    t = open(FDF, encoding="utf-8").read()
+    base = int(need(re.search(r"^BaseAddress\s*=\s*(0x[0-9A-Fa-f]+)", t, re.M), "BaseAddress in RK3576.fdf").group(1), 16)
+
+    def region(pcd):
+        m = need(re.search(r"^(0x[0-9A-Fa-f]+)\|(0x[0-9A-Fa-f]+)\s*\n[^\n]*" + pcd, t, re.M), f"{pcd} in RK3576.fdf")
+        return int(m.group(1), 16), int(m.group(2), 16)
+
+    return {
+        "base": base,
+        "fv": region("PcdFvBaseAddress"),
+        "var": region("PcdFlashNvStorageVariableBase64"),
+        "ftw": region("PcdFlashNvStorageFtwWorkingBase64"),
+        "spare": region("PcdFlashNvStorageFtwSpareBase64"),
+    }
+
+
+def package_layout():
+    t = open(PACKAGE, encoding="utf-8").read()
+    g = lambda rx, what: need(re.search(rx, t), f"{what} in scripts/package.sh").group(1)
+    return {
+        "mmc_spl": int(g(r'dd if="\$IDBLOCK" of="\$OUT_IMG" bs=512 seek=(\d+)', "the SPL sector")),
+        "mmc_fit": int(g(r'dd if="\$FIT" of="\$OUT_IMG" bs=512 seek=(\d+)', "the FIT sector")),
+        "sd_mb": int(g(r"SD_MB=(\d+)", "SD_MB")),
+        "fw_mb": int(g(r"FW_MB=(\d+)", "FW_MB")),
+        "spi_spl": int(g(r'dd if="\$IDBLOCK" of="\$OUT_IMG" bs=1K seek=(\d+)', "the SPI SPL offset")) * 1024,
+        "spi_fit": int(g(r'dd if="\$FIT" of="\$OUT_IMG" bs=1K seek=(\d+)', "the SPI FIT offset")) * 1024,
+        "spi_mb": int(g(r"bs=1M count=(\d+) of=\"\$OUT_IMG\" status=none\n\n    GPT=", "the SPI image size")),
+        "spi_gpt": g(r'GPT="\$ROOT/([^"]+)"', "the SPI GPT image"),
+        "sfdisk_fw_type": g(r"type=([0-9A-F-]{36}), name=\"firmware\"", "the firmware partition type"),
+    }
+
+
+_fit_cache = {}
+
+
+def fit_layout():
+    """Build the FIT as package.sh does and return where each image's data
+    lands, as {name: (offset in the FIT, size, load address)}."""
+    if _fit_cache:
+        return _fit_cache
+    for tool in ("mkimage", "dtc"):
+        if not shutil.which(tool):
+            raise GenError(f"{tool} not found (scripts/setup-host.sh, or apt install u-boot-tools device-tree-compiler)")
+    f = fdf_layout()
+    nv_size = f["var"][1] + f["ftw"][1] + f["spare"][1]
+    nv_load = f["base"] + f["var"][0]
+    bl31 = next((p for p in ("binaries/bl31.elf", "binaries/rk3576_bl31_vendor.elf")
+                 if os.path.exists(os.path.join(ROOT, p))), None)
+    if not bl31:
+        raise GenError("no BL31 in binaries/")
+    with tempfile.TemporaryDirectory() as w:
+        run = lambda *a: subprocess.run(a, cwd=w, check=True, capture_output=True, text=True).stdout
+        run(sys.executable, os.path.join(ROOT, "scripts/lib/extractbl31.py"), os.path.join(ROOT, bl31))
+        with open(os.path.join(w, "BL33_AP_UEFI.Fv"), "wb") as fh:
+            fh.write(b"\xff" * f["fv"][1])
+        open(os.path.join(w, "bl32.bin"), "wb").close()
+        dtb = open(os.path.join(ROOT, "scripts/lib/rk3576_spl.dtb"), "rb").read()
+        dtb += b"\0" * ((512 - len(dtb) % 512) % 512)
+        open(os.path.join(w, "d.dtb"), "wb").write(dtb)
+        open(os.path.join(w, "nvdata.bin"), "wb").write(b"\xff" * nv_size)
+        from elftools.elf.elffile import ELFFile
+        entry = ELFFile(open(os.path.join(ROOT, bl31), "rb")).header.e_entry
+        run(sys.executable, os.path.join(ROOT, "scripts/lib/gen_fit_its.py"), w, "d", hex(entry), "--nvdata", hex(nv_load))
+        run("mkimage", "-E", "-B", "0x1000", "-f", "d_EFI.its", "d.itb")
+        fit = open(os.path.join(w, "d.itb"), "rb").read()
+        dts = run("dtc", "-I", "dtb", "-O", "dts", "-q", "d.itb")
+        its = open(os.path.join(w, "d_EFI.its"), encoding="utf-8").read()
+    # Load addresses from the ITS: dtc prints a 4-byte cell that happens to
+    # be printable (0x415c0000 is "A\\") as a string.
+    loads = {m.group(1): int(m.group(2), 16) for m in
+             re.finditer(r"\n\t\t([\w-]+) \{[^}]*?load = <(0x[0-9a-f]+)>", its)}
+    total = int.from_bytes(fit[4:8], "big")
+    for m in re.finditer(r"\n\t\t([\w-]+) \{(.*?)\n\t\t\};", dts.split("configurations")[0], re.S):
+        body = m.group(2)
+        size = int(need(re.search(r"data-size = <(0x[0-9a-f]+)>", body), "data-size").group(1), 16)
+        pos = re.search(r"data-position = <(0x[0-9a-f]+)>", body)
+        off = re.search(r"data-offset = <(0x[0-9a-f]+)>", body)
+        start = int(pos.group(1), 16) if pos else ((total + 3) & ~3) + int(off.group(1), 16)
+        _fit_cache[m.group(1)] = (start, size, loads.get(m.group(1)))
+    nv = need(_fit_cache.get("nvdata"), "the nvdata image in the FIT")
+    if nv[0] % 512:
+        raise GenError("nvdata is not sector-aligned in the FIT")
+    return _fit_cache
+
+
+def values():
+    p = package_layout()
+    f = fdf_layout()
+    nv_start, nv_size, _ = fit_layout()["nvdata"]
+    nv_off = p["mmc_fit"] * 512 + nv_start
+    return {
+        "spl-sector": str(p["mmc_spl"]),
+        "fit-sector": str(p["mmc_fit"]),
+        "nvdata-sector": str(nv_off // 512),
+        "nvdata-offset": f"0x{nv_off:X}",
+        "nvdata-size-kib": str(nv_size // 1024),
+        "keep-count": str(nv_off // 512 - p["mmc_spl"]),
+        "keep-last": str(nv_off // 512 - 1),
+        "fit-to-nvdata-count": str(nv_off // 512 - p["mmc_fit"]),
+        "spi-nv-offset": f"0x{f['var'][0]:X}",
+        "nvdata-load": f"0x{f['base'] + f['var'][0]:X}",
+    }
+
+
+# Numbers that may only appear inside generated sections.
+def fixed_facts():
+    v = values()
+    return {v["nvdata-sector"]: "nvdata-sector", v["keep-count"]: "keep-count",
+            v["nvdata-offset"]: "nvdata-offset", v["keep-last"]: "keep-last", v["fit-to-nvdata-count"]: "fit-to-nvdata-count"}
+
+
+# ------------------------------------------------------------------ helpers
+
+ZH = {
+    "Board": "板子", "Build": "构建", "Firmware on": "固件位置", "Images": "映像",
+    "Release file": "发布文件", "Goes on": "写到哪里",
+    "Offset": "偏移", "Content": "内容", "Sector": "扇区", "Byte offset": "字节偏移",
+    "Image": "映像", "Load address": "加载地址", "What": "内容", "Size": "大小",
+    "Feature": "功能", "Setting": "设置项", "Menu": "菜单", "Variable": "变量",
+    "Values": "取值", "Default": "默认值", "Attributes": "属性",
+}
+
+# Board names as the Chinese pages write them.
+ZH_NAMES = {"LCKFB TaishanPi 3M": "立创泰山派 3M", "TaishanPi 3M": "泰山派 3M"}
+
+PHRASES = {
+    "SPI NOR": "SPI NOR",
+    "eMMC or SD card": "eMMC 或 SD 卡",
+    "spi-image": "{mb} MB SPI NOR，从扇区 0 开始",
+    "sdcard-image": "SD 卡（也可写到 eMMC，没有分区表）",
+    "emmc-image": "eMMC，带分区表（p1 固件 {fw} MiB，p2 数据）",
+    "sfdisk": "单独的 eMMC 分区表",
+    "none": "无",
+    "yes": "有", "no": "无", "hidden": "隐藏", "not built": "未构建",
+}
+
+EN_PHRASES = {
+    "spi-image": "{mb} MB SPI NOR, from sector 0",
+    "sdcard-image": "SD card (or eMMC, with no partition table)",
+    "emmc-image": "eMMC, with a partition table (p1 firmware {fw} MiB, p2 data)",
+    "sfdisk": "the eMMC partition table on its own",
+    "none": "none",
+}
+
+
+def tr(lang, s, **kw):
+    if lang == "zh":
+        s2 = ZH.get(s) or PHRASES.get(s)
+        if s2:
+            return s2.format(**kw)
+    return EN_PHRASES.get(s, s).format(**kw)
+
+
+def table(lang, headers, rows):
+    out = ["| " + " | ".join(tr(lang, h) for h in headers) + " |",
+           "|" + "---|" * len(headers)]
+    for r in rows:
+        out.append("| " + " | ".join(str(c).replace("|", "\\|") for c in r) + " |")
+    return "\n".join(out)
+
+
+def rel(ctx, path):
+    return os.path.relpath(os.path.join(ROOT, path), os.path.join(ROOT, ctx["dir"])).replace(os.sep, "/")
+
+
+def page_link(ctx, b):
+    page = b["page"]
+    if ctx["lang"] == "zh":
+        zh = page[:-3] + ".zh-CN.md"
+        if os.path.exists(os.path.join(ROOT, zh)):
+            page = zh
+    if not os.path.exists(os.path.join(ROOT, b["page"])):
+        return b["name"]
+    return f"[{b['name']}]({rel(ctx, page)})"
+
+
+# ------------------------------------------------------------------ sections
+
+def sec_boards(ctx):
+    rows = []
+    for b in boards():
+        where = "SPI NOR" if b["medium"] == "spi" else "eMMC or SD card"
+        imgs = ", ".join(f"`{n}`" for n, k in images(b) if k != "sfdisk")
+        rows.append([page_link(ctx, b), f"`{b['key']}`", tr(ctx["lang"], where), imgs])
+    return table(ctx["lang"], ["Board", "Build", "Firmware on", "Images"], rows)
+
+
+def sec_images(ctx):
+    p = package_layout()
+    rows = []
+    for b in boards():
+        for n, k in images(b):
+            what = {"spi": tr(ctx["lang"], "spi-image", mb=p["spi_mb"]),
+                    "sdcard": tr(ctx["lang"], "sdcard-image"),
+                    "emmc": tr(ctx["lang"], "emmc-image", fw=p["fw_mb"]),
+                    "sfdisk": tr(ctx["lang"], "sfdisk")}[k]
+            rows.append([f"`{n}`", b["name"], what])
+    return table(ctx["lang"], ["Release file", "Board", "Goes on"], rows)
+
+
+def sec_layout_spi(ctx):
+    p, f = package_layout(), fdf_layout()
+    zh = ctx["lang"] == "zh"
+    nv = [("var", "UEFI variable store" if not zh else "UEFI 变量存储"),
+          ("ftw", "FTW working block" if not zh else "FTW 工作块"),
+          ("spare", "FTW spare block" if not zh else "FTW 备用块")]
+    rows = [
+        ["`0x000000`", f"GPT (`{p['spi_gpt']}`)" if not zh else f"GPT（`{p['spi_gpt']}`）"],
+        [f"`0x{p['spi_spl']:06X}`", "idblock: DDR init + U-Boot SPL" if not zh else "idblock：DDR 初始化 + U-Boot SPL"],
+        [f"`0x{p['spi_fit']:06X}`", (f"FIT: BL31, EDK2, DTB, up to `0x{f['var'][0]:06X}`" if not zh
+                                    else f"FIT：BL31、EDK2、DTB，最多到 `0x{f['var'][0]:06X}`")],
+    ]
+    for k, name in nv:
+        rows.append([f"`0x{f[k][0]:06X}`", f"{name}, {f[k][1] // 1024} KB" if not zh else f"{name}，{f[k][1] // 1024} KB"])
+    return table(ctx["lang"], ["Offset", "Content"], rows)
+
+
+def sec_layout_mmc(ctx):
+    p, v = package_layout(), values()
+    zh = ctx["lang"] == "zh"
+    rows = [
+        [str(p["mmc_spl"]), f"`0x{p['mmc_spl'] * 512:06X}`", "idblock: DDR init + U-Boot SPL" if not zh else "idblock：DDR 初始化 + U-Boot SPL"],
+        [str(p["mmc_fit"]), f"`0x{p['mmc_fit'] * 512:06X}`", "FIT: BL31, EDK2, DTB and the UEFI variable store" if not zh else "FIT：BL31、EDK2、DTB 和 UEFI 变量存储"],
+        [v["nvdata-sector"], f"`{v['nvdata-offset']}`",
+         (f"inside the FIT, its last image `nvdata`: the UEFI variable store, {v['nvdata-size-kib']} KB (store, FTW working, FTW spare), erased (all `0xFF`)" if not zh
+          else f"FIT 内部的最后一个映像 `nvdata`：UEFI 变量存储，{v['nvdata-size-kib']} KB（存储区、FTW 工作块、FTW 备用块），擦除状态（全 `0xFF`）")],
+    ]
+    return table(ctx["lang"], ["Sector", "Byte offset", "Content"], rows)
+
+
+def sec_layout_emmc_gpt(ctx):
+    p = package_layout()
+    zh = ctx["lang"] == "zh"
+    data = p["fw_mb"] * 1024 * 1024 // 512
+    rows = [
+        ["0 to 33" if not zh else "0 到 33", "protective MBR and primary GPT" if not zh else "保护性 MBR 和主 GPT"],
+        [f"{p['mmc_spl']} to {data - 1}" if not zh else f"{p['mmc_spl']} 到 {data - 1}",
+         (f"p1 `firmware` ({p['fw_mb']} MiB, no file system, type `{p['sfdisk_fw_type']}`)" if not zh
+          else f"p1 `firmware`（{p['fw_mb']} MiB，没有文件系统，类型 `{p['sfdisk_fw_type']}`）")],
+        [f"{data} to the end" if not zh else f"{data} 到末尾", "p2 `data`, unformatted, the rest of the eMMC" if not zh else "p2 `data`，未格式化，eMMC 的其余部分"],
+    ]
+    return table(ctx["lang"], ["Sector", "Content"], rows)
+
+
+def sec_fit_contents(ctx):
+    zh = ctx["lang"] == "zh"
+    what = {
+        "fdt": ("the DTB the SPL uses", "SPL 用的 DTB"),
+        "edk2": ("EDK2 as BL33; must match TF-A's `BL33_BASE`", "EDK2，作为 BL33；必须和 TF-A 的 `BL33_BASE` 一致"),
+        "nvdata": ("UEFI variable store (SD and eMMC images only)", "UEFI 变量存储（只在 SD 和 eMMC 映像里）"),
+    }
+    rows = []
+    for name, (start, size, load) in fit_layout().items():
+        if name.startswith("atf-"):
+            d = bl31_desc().get(load, "")
+            w = (f"BL31 segment: {d}" if d else "BL31 segment", f"BL31 段：{d}" if d else "BL31 段")
+        else:
+            w = what.get(name, (name, name))
+        rows.append([f"`{name}`", f"`0x{load:08x}`" if load is not None else tr(ctx["lang"], "none"),
+                     f"{(size + 1023) // 1024} KB", w[1] if zh else w[0]])
+    return table(ctx["lang"], ["Image", "Load address", "Size", "What"], rows)
+
+
+def bl31_desc():
+    t = open(os.path.join(ROOT, "scripts/lib/gen_fit_its.py"), encoding="utf-8").read()
+    return {int(a, 16): b for a, b in re.findall(r'(0x[0-9a-f]{8}): "([^"]+)"', t)}
+
+
+def sec_keep_commands(ctx):
+    v = values()
+    return "\n".join([
+        "```bash",
+        f"dd if=<Board>-emmc-edk2-<ver>.img of=firmware.bin bs=512 skip={v['spl-sector']} count={v['keep-count']}",
+        "rkdeveloptool db rk3576_spl_loader.bin",
+        f"rkdeveloptool wl {v['spl-sector']} firmware.bin",
+        "rkdeveloptool rd",
+        "```",
+    ])
+
+
+def sec_keep_dd(ctx):
+    v = values()
+    return "\n".join([
+        "```bash",
+        f"sudo dd if=<Board>-emmc-edk2-<ver>.img of=/dev/mmcblk0 bs=512 skip={v['spl-sector']} seek={v['spl-sector']} count={v['keep-count']} conv=fsync",
+        "```",
+    ])
+
+
+# --- features.json ---------------------------------------------------------
+
+def load_features(d):
+    """features.json files (one per board, as the build writes them) or a
+    release's FEATURES.json, anywhere under d, by PLATFORM_NAME."""
+    docs = {}
+    for p in sorted(glob.glob(os.path.join(d, "**", "*.json"), recursive=True)):
+        name = os.path.basename(p)
+        if name == "features.json":
+            j = json.load(open(p, encoding="utf-8"))
+            docs[j["board"]] = j
+        elif name == "FEATURES.json":
+            for plat, j in json.load(open(p, encoding="utf-8"))["boards"].items():
+                docs.setdefault(plat, j)
+    bl = boards()
+    missing = [b["platform"] for b in bl if b["platform"] not in docs]
+    if missing:
+        raise GenError(f"no features.json for {', '.join(missing)} under {d}")
+    return [docs[b["platform"]] for b in bl]
+
+
+def feature_labels():
+    """The labels scripts/features.py gives its features."""
+    p = os.path.join(ROOT, "scripts/features.py")
+    if not os.path.exists(p):
+        return {}
+    m = re.search(r"^FEATURES = \[(.*?)^\]", open(p, encoding="utf-8").read(), re.S | re.M)
+    return dict(re.findall(r"\('(\w+)', '([^']*)'\)", m.group(1))) if m else {}
+
+
+FEATURE_ZH = {
+    "windows": "Windows（ACPI 表）", "armbianOnce": "Armbian (U-Boot) 一次启动", "hdmi": "HDMI 输出",
+    "dsi": "MIPI DSI 屏", "usbcDp": "USB-C DisplayPort", "cpuIdle": "CPU 空闲状态",
+    "fanControl": "风扇控制", "networkBoot": "网络启动（PXE）", "httpBoot": "HTTP 启动",
+    "secureBoot": "安全启动",
+}
+
+
+def prompt(s, lang):
+    p = s["prompt"]
+    t = p.get("zh-Hans") if lang == "zh" and p.get("zh-Hans") else p.get("en-US", s["id"])
+    return t.strip()
+
+
+def value_label(s, val, lang):
+    for o in s.get("values", []):
+        if o["value"] == val:
+            lab = o["label"]
+            return (lab.get("zh-Hans") if lang == "zh" and lab.get("zh-Hans") else lab.get("en-US", str(val))).strip()
+    return str(val)
+
+
+def default_text(s, lang):
+    if s is None:
+        return "-"
+    if s.get("boardSupport") and s["boardSupport"]["value"] is False:
+        return tr(lang, "hidden")
+    if s["type"] == "string":
+        return '""'
+    if s["type"] == "orderedlist":
+        return "-"
+    return value_label(s, s["default"], lang) if s.get("values") else str(s["default"])
+
+
+def sec_feature_matrix(ctx):
+    docs, lang = ctx["features"], ctx["lang"]
+    bl = boards()
+    labels = feature_labels()
+    rows = []
+    for key in docs[0]["features"]:
+        label = FEATURE_ZH.get(key, labels.get(key, key)) if lang == "zh" else labels.get(key, key)
+        cells = []
+        for d in docs:
+            f = d["features"].get(key)
+            if not f or not f.get("built"):
+                cells.append(tr(lang, "no"))
+            else:
+                dflt = f.get("default")
+                if dflt and lang == "zh":
+                    dflt = {"on": "开", "off": "关", "always-on": "常开"}.get(dflt, dflt)
+                cells.append(tr(lang, "yes") + (("，" if lang == "zh" else ", ") + dflt if dflt else ""))
+        rows.append([label] + cells)
+    # Setup options a board can hide (Pcd<X>Supported).
+    seen = {}
+    for i, d in enumerate(docs):
+        for s in d["settings"]["options"]:
+            if s.get("boardSupport"):
+                seen.setdefault(s["id"], [None] * len(docs))[i] = s
+    for sid, per in seen.items():
+        first = next(x for x in per if x)
+        bs = first["boardSupport"]
+        probed = bs["pcd"] is None
+        cells = []
+        for x in per:
+            if not x:
+                cells.append(tr(lang, "not built"))
+            elif x["boardSupport"]["value"] is False:
+                cells.append(tr(lang, "hidden"))
+            else:
+                cells.append(default_text(x, lang) + (" *" if probed else ""))
+        rows.append([f"{prompt(first, lang)} (`{bs['pcd'] or bs['variable']}`)"] + cells)
+    out = table(lang, ["Feature"] + [b["short"] for b in bl], rows)
+    if any(s and s["boardSupport"]["pcd"] is None for per in seen.values() for s in per):
+        out += ("\n\n\\* shown only when RK3576Dxe sets the variable at boot (a probe, not a build setting)" if lang != "zh"
+                else "\n\n\\* 只有 RK3576Dxe 在启动时设置了这个变量才显示（启动时探测，不是构建设置）")
+    return out
+
+
+def sec_settings(ctx):
+    docs, lang = ctx["features"], ctx["lang"]
+    bl = boards()
+    order, per = [], {}
+    for i, d in enumerate(docs):
+        for s in d["settings"]["options"]:
+            k = (tuple(s["menu"]), s["id"])
+            if k not in per:
+                per[k] = [None] * len(docs)
+                order.append(k)
+            per[k][i] = s
+    rows = []
+    for k in order:
+        ss = per[k]
+        s = next(x for x in ss if x)
+        menu = " > ".join(s["menu"])
+        var = f"`{s['variable']['name']}`" + ("" if s["standalone"] else f" @{s['offset']}")
+        if s["type"] == "numeric":
+            vals = f"{s['min']} to {s['max']}" if lang != "zh" else f"{s['min']} 到 {s['max']}"
+        elif s["type"] == "string":
+            vals = f"{s['maxChars']} chars" if lang != "zh" else f"最多 {s['maxChars']} 个字符"
+        else:
+            labels = [value_label(s, o["value"], lang) for o in s.get("values", [])]
+            if len(labels) > 6:
+                more = f"{len(labels)} choices" if lang != "zh" else f"共 {len(labels)} 项"
+                labels = labels[:3] + [f"... ({more})"]
+            vals = ", ".join(labels)
+        rows.append([menu, prompt(s, lang), var, vals] + [default_text(x, lang) for x in ss])
+    return table(lang, ["Menu", "Setting", "Variable", "Values"] + [b["short"] for b in bl], rows)
+
+
+def sec_settings_variables(ctx):
+    docs, lang = ctx["features"], ctx["lang"]
+    seen = {}
+    for d in docs:
+        for s in d["settings"]["options"]:
+            v = s["variable"]
+            seen.setdefault(v["name"], v)
+    rows = [[f"`{n}`", f"`{v['guid']}`", ", ".join(v["attributeNames"]), str(v["size"])]
+            for n, v in seen.items()]
+    return table(lang, ["Variable", "GUID", "Attributes", "Size"], rows)
+
+
+SECTIONS = {
+    "settings-variables": sec_settings_variables,
+    "boards": sec_boards,
+    "images": sec_images,
+    "layout-spi": sec_layout_spi,
+    "layout-mmc": sec_layout_mmc,
+    "layout-emmc-gpt": sec_layout_emmc_gpt,
+    "fit-contents": sec_fit_contents,
+    "keep-commands": sec_keep_commands,
+    "keep-dd": sec_keep_dd,
+    "feature-matrix": sec_feature_matrix,
+    "settings": sec_settings,
+}
+NEEDS_FEATURES = {"feature-matrix", "settings", "settings-variables"}
+
+
+# ------------------------------------------------------------------ driver
+
+def md_files():
+    out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "*.md"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    return [f for f in out.split() if os.path.exists(os.path.join(ROOT, f))]
+
+
+def render(name, ctx, inline):
+    if name in SECTIONS:
+        body = SECTIONS[name](ctx)
+    else:
+        v = values()
+        if name not in v:
+            raise GenError(f"{ctx['file']}: unknown generated section '{name}'")
+        body = v[name]
+    if ctx["lang"] == "zh":
+        body = body.replace("<Board>", "<板子>").replace("<ver>", "<版本>")
+        for en, zh in ZH_NAMES.items():
+            body = body.replace(en, zh)
+    if inline:
+        return body
+    return "\n\n" + body + "\n\n"
+
+
+def process(path, features, skipped):
+    text = open(os.path.join(ROOT, path), encoding="utf-8").read()
+    ctx = {"file": path, "dir": os.path.dirname(path),
+           "lang": "zh" if path.endswith(".zh-CN.md") else "en", "features": features}
+
+    def sub(m):
+        name, old = m.group(1), m.group(2)
+        if name in NEEDS_FEATURES and features is None:
+            skipped.add(path)
+            return m.group(0)
+        inline = "\n" not in old
+        return f"<!-- generated:{name} -->{render(name, ctx, inline)}<!-- /generated -->"
+
+    return text, MARK.sub(sub, text)
+
+
+def stray_facts(path, text, facts):
+    """Fixed numbers typed by hand outside the generated sections."""
+    if path.startswith("docs/history/"):
+        return []
+    outside = MARK.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    found = []
+    for n, line in enumerate(outside.split("\n"), 1):
+        for val, name in facts.items():
+            if re.search(r"(?<![0-9A-Fa-fx])" + re.escape(val) + r"(?![0-9A-Fa-f])", line):
+                found.append(f"{path}:{n}: {val} typed by hand; use <!-- generated:{name} --><!-- /generated -->")
+    return found
+
+
+def verify_images(d):
+    """The nvdata offset in every built SD/eMMC image under d must be the
+    one the docs give: catches a FIT whose layout no longer follows from the
+    stand-in that values() builds."""
+    want = int(values()["nvdata-offset"], 16)
+    fit_off = package_layout()["mmc_fit"] * 512
+    bad, n = [], 0
+    for p in sorted(glob.glob(os.path.join(d, "**", "*-sdcard.img"), recursive=True)
+                    + glob.glob(os.path.join(d, "**", "*-emmc.img"), recursive=True)):
+        with open(p, "rb") as fh:
+            fh.seek(fit_off)
+            head = fh.read(8)
+            total = int.from_bytes(head[4:8], "big")
+            fh.seek(fit_off)
+            hdr = fh.read(total)
+        with tempfile.NamedTemporaryFile(suffix=".dtb") as t:
+            t.write(hdr)
+            t.flush()
+            dts = subprocess.run(["dtc", "-I", "dtb", "-O", "dts", "-q", t.name],
+                                 capture_output=True, text=True, check=True).stdout
+        m = re.search(r"nvdata \{(.*?)\n\t\t\};", dts, re.S)
+        if not m:
+            bad.append(f"{p}: no nvdata image in the FIT")
+            continue
+        off = re.search(r"data-offset = <(0x[0-9a-f]+)>", m.group(1))
+        got = fit_off + ((total + 3) & ~3) + int(off.group(1), 16)
+        n += 1
+        if got != want:
+            bad.append(f"{p}: nvdata at 0x{got:X}, the docs say 0x{want:X}")
+    if not n and not bad:
+        raise GenError(f"no SD or eMMC image under {d}")
+    return n, bad
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--features", metavar="DIR")
+    ap.add_argument("--value", metavar="NAME")
+    ap.add_argument("--images", metavar="DIR",
+                    help="also check the nvdata offset of the SD/eMMC images under DIR")
+    a = ap.parse_args()
+    try:
+        if a.images:
+            n, bad = verify_images(a.images)
+            for b in bad:
+                print(b)
+            print(f"gen-docs: nvdata offset checked in {n} image(s)")
+            if bad:
+                return 1
+        if a.value:
+            print(values()[a.value])
+            return 0
+        features = load_features(a.features) if a.features else None
+        facts = fixed_facts()
+        changed, problems, skipped = [], [], set()
+        for f in md_files():
+            old, new = process(f, features, skipped)
+            problems += stray_facts(f, new, facts)
+            if new != old:
+                changed.append(f)
+                if a.check:
+                    sys.stdout.writelines(difflib.unified_diff(
+                        old.splitlines(True), new.splitlines(True), f"a/{f}", f"b/{f}"))
+                else:
+                    open(os.path.join(ROOT, f), "w", encoding="utf-8").write(new)
+    except GenError as e:
+        print(f"gen-docs: {e}", file=sys.stderr)
+        return 2
+    for p in problems:
+        print(p)
+    if skipped:
+        print(f"gen-docs: feature sections left as they are (no --features): {', '.join(sorted(skipped))}")
+    if a.check and changed:
+        print(f"gen-docs: {len(changed)} page(s) out of date: {', '.join(changed)}")
+        print("run scripts/gen-docs to update" + (" (with --features)" if features else ""))
+        return 1
+    if not a.check:
+        print(f"gen-docs: {len(changed)} page(s) updated")
+    elif not problems:
+        print("gen-docs: generated sections are up to date")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
