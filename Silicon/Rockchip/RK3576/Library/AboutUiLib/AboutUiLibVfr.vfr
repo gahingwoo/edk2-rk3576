@@ -4,6 +4,11 @@
  *  draws it across the prompt and option columns.  AboutUiLib.c fills in the
  *  values per language; see there for where each comes from.
  *
+ *  The one question is hidden: a text with a callback exists only so that the
+ *  browser calls AboutUiLib.c with EFI_BROWSER_ACTION_FORM_OPEN each time the
+ *  page is opened, which refreshes the clock line.  The browser makes that
+ *  call for suppressed questions too (only disableif stops it).
+ *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -21,6 +26,14 @@ formset
   form formid = RK3576_ABOUT_FORM_ID,
     title = STRING_TOKEN(STR_ABOUT_FORM_TITLE);
 
+    suppressif TRUE;
+      text
+        help  = STRING_TOKEN(STR_NULL_STRING),
+        text  = STRING_TOKEN(STR_NULL_STRING),
+        flags = INTERACTIVE,
+        key   = RK3576_ABOUT_KEY_CLOCK;
+    endif;
+
     subtitle text = STRING_TOKEN(STR_ABOUT_SUBTITLE_FIRMWARE);
     text
       help = STRING_TOKEN(STR_NULL_STRING),
@@ -28,6 +41,9 @@ formset
     text
       help = STRING_TOKEN(STR_NULL_STRING),
       text = STRING_TOKEN(STR_ABOUT_BUILD);
+    text
+      help = STRING_TOKEN(STR_NULL_STRING),
+      text = STRING_TOKEN(STR_ABOUT_CLOCK);
     text
       help = STRING_TOKEN(STR_NULL_STRING),
       text = STRING_TOKEN(STR_ABOUT_LICENSE);

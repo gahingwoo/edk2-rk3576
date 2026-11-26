@@ -17,6 +17,14 @@
  *  the VOP2 CRTC protocol and the GOP, the touch screen from the same test as
  *  PlatformBm.c.
  *
+ *  The clock line is the one value that moves: it is filled in again each
+ *  time the page is opened (the FORM_OPEN callback of the hidden question in
+ *  AboutUiLibVfr.vfr), from gRT->GetTime(), with where the time came from
+ *  when the firmware knows (the L"TimeSource" variable, Guid/TimeSource.h).
+ *  It does not tick while the page is open: a refresh interval would make
+ *  the browser repaint the whole page every second, on the serial console
+ *  too.
+ *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -26,16 +34,20 @@
 #include <Uefi.h>
 #include <IndustryStandard/SmBios.h>
 #include <Library/BaseLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/HiiLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
+#include <Guid/TimeSource.h>
 #include <Protocol/AbsolutePointer.h>
 #include <Protocol/ArmScmiClock2Protocol.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/GraphicsOutput.h>
+#include <Protocol/HiiConfigAccess.h>
 #include <Protocol/RockchipCrtcProtocol.h>
 #include <Library/DrmModes.h>
 #include <Protocol/SimpleTextIn.h>
@@ -53,8 +65,8 @@ STATIC EFI_HII_HANDLE  mAboutHiiHandle;
 
 /**
   Set LineId, in every language of the package list, to LabelId in that
-  language followed by a value: Value if given, else ValueId in that
-  language.
+  language followed by a value: Value if given, then ValueId in that
+  language if given (not 0).
 **/
 STATIC
 VOID
@@ -91,12 +103,19 @@ AboutSetLine (
     }
 
     Translated = NULL;
-    if (Value == NULL) {
+    if (ValueId != 0) {
       Translated = HiiGetString (mAboutHiiHandle, ValueId, Lang);
     }
 
     if ((Value != NULL) || (Translated != NULL)) {
-      UnicodeSPrint (Text, sizeof (Text), L"%s%s", Label, (Value != NULL) ? Value : Translated);
+      UnicodeSPrint (
+        Text,
+        sizeof (Text),
+        L"%s%s%s",
+        Label,
+        (Value != NULL) ? Value : L"",
+        (Translated != NULL) ? Translated : L""
+        );
       HiiSetString (mAboutHiiHandle, LineId, Text, Lang);
     }
 
@@ -288,6 +307,114 @@ AboutCpuClusterRates (
 }
 
 /**
+  The year this file was compiled, from __DATE__ ("Mmm dd yyyy").
+**/
+STATIC
+UINT16
+AboutBuildYear (
+  VOID
+  )
+{
+  CONST CHAR8  *Date;
+  UINT16       Year;
+  UINTN        Index;
+
+  Date = __DATE__;
+  Year = 0;
+  for (Index = 7; Index < 11; Index++) {
+    Year = (UINT16)(Year * 10 + (Date[Index] - '0'));
+  }
+
+  return Year;
+}
+
+/**
+  Fill in the clock line: the time gRT->GetTime() gives now, and where it
+  came from when the firmware knows.
+
+  "not set" when GetTime() fails, when the year is 2000 or before (an 8563
+  RTC that was never set reads 2000, an epoch of 0 reads 1970) or before
+  the year this was built, and when the RTC chip lost power and nothing has
+  set the clock since; the virtual clock that answers then is only the last
+  time stored plus the uptime.
+**/
+STATIC
+VOID
+AboutFillClock (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  EFI_TIME    Time;
+  CHAR16      Value[ABOUT_TEXT_LENGTH];
+  UINT8       Source;
+  UINTN       Size;
+  INT16       Zone;
+
+  Size   = sizeof (Source);
+  Status = gRT->GetVariable (
+                  ROCKCHIP_TIME_SOURCE_NAME,
+                  &gRockchipTimeSourceGuid,
+                  NULL,
+                  &Size,
+                  &Source
+                  );
+  if (EFI_ERROR (Status) || (Size != sizeof (Source))) {
+    Source = 0;
+  }
+
+  ZeroMem (&Time, sizeof (Time));
+  Status = gRT->GetTime (&Time, NULL);
+  if (EFI_ERROR (Status) || (Time.Year <= 2000) || (Time.Year < AboutBuildYear ())) {
+    AboutSetLine (STRING_TOKEN (STR_ABOUT_CLOCK), STRING_TOKEN (STR_ABOUT_CLOCK_LABEL), NULL, STRING_TOKEN (STR_ABOUT_CLOCK_NOT_SET));
+    return;
+  }
+
+  if (Source == ROCKCHIP_TIME_SOURCE_RTC_LOST) {
+    AboutSetLine (STRING_TOKEN (STR_ABOUT_CLOCK), STRING_TOKEN (STR_ABOUT_CLOCK_LABEL), NULL, STRING_TOKEN (STR_ABOUT_CLOCK_RTC_LOST));
+    return;
+  }
+
+  UnicodeSPrint (
+    Value,
+    sizeof (Value),
+    L"%04u-%02u-%02u %02u:%02u:%02u",
+    Time.Year,
+    Time.Month,
+    Time.Day,
+    Time.Hour,
+    Time.Minute,
+    Time.Second
+    );
+
+  //
+  // NetworkTimeSyncDxe sets UTC with no time zone.  A time zone, if anyone
+  // set one, is minutes to add to local time to get UTC.
+  //
+  if (Time.TimeZone != EFI_UNSPECIFIED_TIMEZONE) {
+    Zone = (INT16)-Time.TimeZone;
+    UnicodeSPrint (
+      Value + StrLen (Value),
+      sizeof (Value) - StrSize (Value) + sizeof (CHAR16),
+      L" UTC%c%02u:%02u",
+      (Zone < 0) ? L'-' : L'+',
+      (UINT32)((Zone < 0) ? -Zone : Zone) / 60,
+      (UINT32)((Zone < 0) ? -Zone : Zone) % 60
+      );
+  } else if (Source == ROCKCHIP_TIME_SOURCE_NETWORK) {
+    StrCatS (Value, ARRAY_SIZE (Value), L" UTC");
+  }
+
+  AboutSetLine (
+    STRING_TOKEN (STR_ABOUT_CLOCK),
+    STRING_TOKEN (STR_ABOUT_CLOCK_LABEL),
+    Value,
+    (Source == ROCKCHIP_TIME_SOURCE_NETWORK) ? STRING_TOKEN (STR_ABOUT_CLOCK_FROM_NETWORK) :
+    (Source == ROCKCHIP_TIME_SOURCE_RTC) ? STRING_TOKEN (STR_ABOUT_CLOCK_FROM_RTC) : 0
+    );
+}
+
+/**
   Fill in every value line.
 **/
 STATIC
@@ -314,6 +441,8 @@ AboutFillValues (
   //
   UnicodeSPrint (Value, sizeof (Value), L"%a %a", __DATE__, __TIME__);
   AboutSetLine (STRING_TOKEN (STR_ABOUT_BUILD), STRING_TOKEN (STR_ABOUT_BUILD_LABEL), Value, 0);
+
+  AboutFillClock ();
 
   UnicodeSPrint (Value, sizeof (Value), L"%a", (CHAR8 *)PcdGetPtr (PcdPlatformName));
   AboutSetLine (STRING_TOKEN (STR_ABOUT_BOARD), STRING_TOKEN (STR_ABOUT_BOARD_LABEL), Value, 0);
@@ -377,6 +506,72 @@ STATIC ABOUT_VENDOR_DEVICE_PATH  mAboutDevicePath = {
 STATIC EFI_GUID    mAboutFormSetGuid = RK3576_ABOUT_FORMSET_GUID;
 STATIC EFI_HANDLE  mAboutDriverHandle;
 
+//
+// The page has no storage: the browser calls ExtractConfig and RouteConfig
+// only for a formset with a varstore, and Callback only for the hidden clock
+// question.
+//
+STATIC
+EFI_STATUS
+EFIAPI
+AboutExtractConfig (
+  IN  CONST EFI_HII_CONFIG_ACCESS_PROTOCOL  *This,
+  IN  CONST EFI_STRING                      Request,
+  OUT EFI_STRING                            *Progress,
+  OUT EFI_STRING                            *Results
+  )
+{
+  if ((Progress == NULL) || (Results == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  *Progress = Request;
+  return EFI_NOT_FOUND;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+AboutRouteConfig (
+  IN  CONST EFI_HII_CONFIG_ACCESS_PROTOCOL  *This,
+  IN  CONST EFI_STRING                      Configuration,
+  OUT EFI_STRING                            *Progress
+  )
+{
+  if ((Configuration == NULL) || (Progress == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  *Progress = Configuration;
+  return EFI_NOT_FOUND;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+AboutCallback (
+  IN  CONST EFI_HII_CONFIG_ACCESS_PROTOCOL  *This,
+  IN  EFI_BROWSER_ACTION                    Action,
+  IN  EFI_QUESTION_ID                       QuestionId,
+  IN  UINT8                                 Type,
+  IN  EFI_IFR_TYPE_VALUE                    *Value,
+  OUT EFI_BROWSER_ACTION_REQUEST            *ActionRequest
+  )
+{
+  if ((Action == EFI_BROWSER_ACTION_FORM_OPEN) && (QuestionId == RK3576_ABOUT_KEY_CLOCK)) {
+    AboutFillClock ();
+    return EFI_SUCCESS;
+  }
+
+  return EFI_UNSUPPORTED;
+}
+
+STATIC EFI_HII_CONFIG_ACCESS_PROTOCOL  mAboutConfigAccess = {
+  AboutExtractConfig,
+  AboutRouteConfig,
+  AboutCallback
+};
+
 EFI_STATUS
 EFIAPI
 AboutUiLibConstructor (
@@ -391,6 +586,8 @@ AboutUiLibConstructor (
                               &mAboutDriverHandle,
                               &gEfiDevicePathProtocolGuid,
                               &mAboutDevicePath,
+                              &gEfiHiiConfigAccessProtocolGuid,
+                              &mAboutConfigAccess,
                               NULL
                               );
   if (EFI_ERROR (Status)) {
@@ -431,6 +628,8 @@ AboutUiLibDestructor (
            mAboutDriverHandle,
            &gEfiDevicePathProtocolGuid,
            &mAboutDevicePath,
+           &gEfiHiiConfigAccessProtocolGuid,
+           &mAboutConfigAccess,
            NULL
            );
     mAboutDriverHandle = NULL;

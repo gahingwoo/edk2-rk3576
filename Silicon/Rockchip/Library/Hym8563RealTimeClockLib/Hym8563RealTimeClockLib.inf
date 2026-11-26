@@ -37,6 +37,7 @@
 
 [Guids]
   gEfiEventVirtualAddressChangeGuid
+  gRockchipTimeSourceGuid                   ## SOMETIMES_PRODUCES ## Variable:L"TimeSource"
 
 [Protocols]
   gEfiI2cMasterProtocolGuid                 ## CONSUMES

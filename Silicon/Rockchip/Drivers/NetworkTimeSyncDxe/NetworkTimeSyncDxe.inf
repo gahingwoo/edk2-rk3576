@@ -46,6 +46,7 @@
 [Guids]
   gRockchipEventPlatformBmDevicesConnectedGuid  ## CONSUMES ## Event
   gEfiEventExitBootServicesGuid                 ## CONSUMES ## Event
+  gRockchipTimeSourceGuid                       ## SOMETIMES_PRODUCES ## Variable:L"TimeSource"
 
 [Protocols]
   gEfiDhcp4ProtocolGuid                         ## SOMETIMES_CONSUMES
