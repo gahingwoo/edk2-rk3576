@@ -953,7 +953,7 @@ AcpiFixupPcieEcam (
     //
     //   AcpiPlatform:   seg1 [0] base=0x23000000 bus 1..15
     //
-    // 0x23000000 is not PCIe config space on this SoC -- it is the first DWC3
+    // 0x23000000 is not PCIe config space on this SoC; it is the first DWC3
     // USB controller, which XHC0 claims in the DSDT.  MCFG reserving it as
     // ECAM is why `ACPI\PNP0D10\0` came up CM_PROB_FAILED_START with no
     // resources granted at all, while XHC1 next to it started fine.
@@ -1004,7 +1004,7 @@ AcpiFixupPcieEcam (
     //   pcie1: reg = <...>, <...>, <0x0 0x21000000 0x0 0x00100000>;
     //
     // 1 MB is one bus.  Everything past the first bus is not config space at
-    // all -- for segment 0, bus+1 lands on PCIE0_IO_BASE (0x20100000) and the
+    // all. For segment 0, bus+1 lands on PCIE0_IO_BASE (0x20100000) and the
     // buses after it on PCIE0_MEM32_BASE (0x20200000), which are the very
     // windows _CRS hands the root bridge.  An OS is entitled to treat an MCFG
     // range as reserved, so advertising 15 buses here claimed 0x20000000..

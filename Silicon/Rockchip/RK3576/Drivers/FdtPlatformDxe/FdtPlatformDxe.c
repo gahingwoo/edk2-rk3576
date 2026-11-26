@@ -202,7 +202,7 @@ FdtFixupChosen (
   // either `earlycon` or `console=ttyS0,...` on the cmdline.
   //
   // Inject a default `bootargs` that enables earlycon on UART0 (RK3576
-  // serial0 alias = uart0 @ 0x2ad40000, 1500000 baud) -- ONLY if chosen
+  // serial0 alias = uart0 @ 0x2ad40000, 1500000 baud), but ONLY if chosen
   // doesn't already carry one.  This makes "OS booted but silent" much
   // less likely without ever overriding a user-supplied cmdline.
   //
@@ -277,7 +277,7 @@ FdtFixupVopDevices (
     "/soc/vop@27d00000",
     "/soc/iommu@27d07e00",
     "/soc/hdmi@27da0000",
-    "/soc/hdmiphy@2b000000",   // Samsung HDPTX PHY — disable to prevent probe hang
+    "/soc/hdmiphy@2b000000",   // Samsung HDPTX PHY: disable to prevent probe hang
     "/display-subsystem",
     //
     // HDMI audio: its codec is the HDMI controller disabled above, so the
@@ -1381,7 +1381,7 @@ FdtPlatformProcessFileSystem (
       return Status;
     }
 
-    // Not found - use the platform FDT instead.
+    // Not found: use the platform FDT instead.
     Fdt = mPlatformFdt;
   }
 

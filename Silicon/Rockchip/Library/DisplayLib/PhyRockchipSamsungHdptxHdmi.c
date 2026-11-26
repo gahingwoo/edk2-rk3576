@@ -33,7 +33,7 @@
 // it still looks right, but it did not fix the intermittent no-signal, and the
 // boot that was tested with it enabled produced no picture either. Until there
 // is a baseline that reliably shows a picture, carrying an unproven change
-// makes every later result harder to read. Flip to 1 to A/B it -- the log line
+// makes every later result harder to read. Flip to 1 to A/B it; the log line
 // it emits says whether it ran.
 //
 #ifndef RK_HDPTX_QUIESCE_BEFORE_POWERDOWN
@@ -74,7 +74,7 @@
 //
 // Now that the resets go to the registers they name, a retry would genuinely
 // assert INIT|CMN or LANE and release them again *without* re-running the
-// register programming those blocks hold -- and whether a CMN or lane block
+// register programming those blocks hold, and whether a CMN or lane block
 // survives its own reset with its register bank intact is not documented in
 // either kernel.  Mainline never retries.  Neither do we, until there is a
 // reason to and a way to test it.
@@ -860,7 +860,7 @@ GrfRead (
 
 /* Pmu1CruWrite: HIWORD write to PMU1CRU (0x27220000).
  *
- * The HDPTX PHY's own resets live here, not in the main CRU -- see the long
+ * The HDPTX PHY's own resets live here, not in the main CRU; see the long
  * note on the reset encoding in DwHdmiQpLib.h.  Two CRUs, two accessors, so
  * a call site cannot silently mean the wrong one. */
 STATIC
@@ -889,15 +889,15 @@ HdptxPrePowerUp (
   /*
    * Quiesce the lanes and sideband before anything else.
    *
-   * Cold power-on drives a picture; a warm reboot produces no output at all --
+   * Cold power-on drives a picture; a warm reboot produces no output at all:
    * the sink does not even see a device when the cable is re-plugged, so the
    * lanes really are dead rather than the monitor failing to re-acquire.  Yet
    * every VOP2, HDMI-TX and HDPTX status register reads BYTE-IDENTICAL between
    * the boot that works and the boot that does not.  Whatever differs is not
    * exposed in the status registers, which points at the analog side.
    *
-   * Mainline has a teardown path we never ran.  rk_hdptx_phy_disable() --
-   * reached from atomic_disable -> phy power_off -> consumer_put -- does this
+   * Mainline has a teardown path we never ran.  rk_hdptx_phy_disable(),
+   * reached from atomic_disable -> phy power_off -> consumer_put, does this
    * BEFORE it asserts the resets and drops the bias:
    *
    *   LNTOP_REG(0207) = 0x00     disable all four lanes
@@ -913,8 +913,8 @@ HdptxPrePowerUp (
    * the previous firmware run, and it does not come back.
    *
    * Linux never hits this because the previous Linux instance ran
-   * atomic_disable on the way out.  Nothing disables this PHY between our runs
-   * -- DwHdmiQpConnectorDisable is a `// Todo` stub that returns SUCCESS, and
+   * atomic_disable on the way out.  Nothing disables this PHY between our runs:
+   * DwHdmiQpConnectorDisable is a `// Todo` stub that returns SUCCESS, and
    * LcdGraphicsOutputDxe never calls it anyway.
    *
    * Ordering follows mainline exactly: quiesce first, then reset, then bias
@@ -938,13 +938,13 @@ HdptxPrePowerUp (
    * SRST_P_HDPTX_APB: PMU1CRU SOFTRST_CON00 bit 1 (rst-rk3576.c:572). */
   PHY_TRACE ("PrePowerUp: APB reset assert  (PMU1CRU+0xA00 bit1)\n");
   Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON00, RK3576_HDPTX_APB_RST, RK3576_HDPTX_APB_RST);
-  NanoSecondDelay (20000);  /* 20 us — matches kernel usleep_range(20,25) */
+  NanoSecondDelay (20000);  /* 20 us, matches kernel usleep_range(20,25) */
   PHY_TRACE ("PrePowerUp: APB reset deassert (PMU1CRU+0xA00 bit1)\n");
   Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON00, RK3576_HDPTX_APB_RST, 0);
 
   /* Assert lane/cmn/init.  Mainline holds all three across the whole ROPLL,
    * LNTOP and lane programming and releases them one at a time, interleaved
-   * with the GRF enables -- that release edge is what makes each block latch
+   * with the GRF enables; that release edge is what makes each block latch
    * what was written to it (phy-rockchip-samsung-hdptx.c:947).
    * PMU1CRU SOFTRST_CON01 bits 9/10/11 (rst-rk3576.c:596). */
   PHY_TRACE ("PrePowerUp: assert ALL_RST (init|cmn|lane) -> PMU1CRU+0xA04 mask=0x%x\n",
@@ -970,13 +970,13 @@ HdptxPostEnablePll (
   //
   // Retry the whole enable + lock sequence a few times.  A single marginal
   // lock used to abort the entire HDMI bring-up (return EFI_TIMEOUT with no
-  // second try), leaving the output dark until the next cold boot — the
+  // second try), leaving the output dark until the next cold boot: the
   // "sometimes signal, sometimes not" symptom.  Between attempts we re-assert
   // the INIT+CMN resets so the PLL and its GRF status latch restart clean.
   //
   for (Attempt = 0; Attempt < HDPTX_LOCK_RETRIES; Attempt++) {
     if (Attempt > 0) {
-      PHY_TRACE ("PostEnablePll: retry %u — re-assert INIT+CMN reset\n", Attempt);
+      PHY_TRACE ("PostEnablePll: retry %u: re-assert INIT+CMN reset\n", Attempt);
       Pmu1CruWrite (
         RK3576_PMU1CRU_SOFTRST_CON01,
         RK3576_HDPTX_INIT_RST | RK3576_HDPTX_CMN_RST,
@@ -1001,7 +1001,7 @@ HdptxPostEnablePll (
     Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_CMN_RST, 0);
 
     /*
-     * Settling delay before status polling — avoids reading stale GRF status
+     * Settling delay before status polling avoids reading stale GRF status
      * bits left over from a previous PLL configuration (e.g. when a previous
      * Linux session locked the PLL at a different rate and the status latch
      * still reports ready before our new lock has actually completed).
@@ -1018,7 +1018,7 @@ HdptxPostEnablePll (
       // HDPTX_O_PHY_CLK_RDY).  The old code accepted PHY_CLK_RDY alone, which
       // could latch a stale "ready" left by a previous configuration and let
       // us proceed on an unlocked PLL.  PLL_LOCK_DONE is known to assert on
-      // this silicon — the lane stage below already waits on it.
+      // this silicon; the lane stage below already waits on it.
       //
       if ((Val & HDPTX_O_PHY_CLK_RDY) && (Val & HDPTX_O_PLL_LOCK_DONE)) {
         break;
@@ -1410,14 +1410,14 @@ HdptxRopllCmnConfig (
   // programmed 10/8 higher and CLK_SEL divides it back down
   // (phy-rockchip-samsung-hdptx-hdmi.c:1172, :1325).
   //
-  // This path is 8bpc from end to end -- VOP2 emits RGB888, VO0_GRF_SOC_CON8
+  // This path is 8bpc from end to end: VOP2 emits RGB888, VO0_GRF_SOC_CON8
   // carries the 8bpc code, the AVI InfoFrame says 8bpc, and the ROPLL is
   // programmed from the 1485000 table entry, which is the 8bpc character
   // rate.  So the field is 0.
   //
   // It was 1 because a devmem dump from a working Linux session showed
   // CMN_REG0086 = 0x13.  That session was 2560x1440, and the Rockchip glue
-  // sets plat_data.max_bpc = 10, so Linux had negotiated 10bpc -- where 1 is
+  // sets plat_data.max_bpc = 10, so Linux had negotiated 10bpc, where 1 is
   // the right answer.  This is the same misreading of the same dump that
   // 586af04 corrected for VO0_GRF_SOC_CON8; two registers were calibrated
   // against that session and only one was fixed.
@@ -1474,7 +1474,7 @@ HdptxPostEnableLane (
   for (Attempt = 0; Attempt < HDPTX_LOCK_RETRIES; Attempt++) {
     /* (re-)deassert lane reset */
     if (Attempt > 0) {
-      PHY_TRACE ("PostEnableLane: retry %u — re-assert LANE_RST\n", Attempt);
+      PHY_TRACE ("PostEnableLane: retry %u: re-assert LANE_RST\n", Attempt);
       Pmu1CruWrite (RK3576_PMU1CRU_SOFTRST_CON01, RK3576_HDPTX_LANE_RST, RK3576_HDPTX_LANE_RST);
       NanoSecondDelay (20000);
     }

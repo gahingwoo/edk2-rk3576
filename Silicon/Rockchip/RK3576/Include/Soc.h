@@ -77,38 +77,38 @@ extern "C" {
  *  All addresses from rk3576.dtsi (verified)
  * ============================================================ */
 
-/* Debug UART — stdout-path = "serial0:1500000n8" in board DTS */
+/* Debug UART: stdout-path = "serial0:1500000n8" in board DTS */
 #define UART0_BASE    0x2AD40000UL
 #define UART2_BASE    0x2AD50000UL
 #define UART_CLOCK    24000000UL      /* 24 MHz OSC */
 #define UART_BAUD     1500000UL
 
-/* eMMC — sdhci: mmc@2a330000 */
+/* eMMC (sdhci: mmc@2a330000) */
 #define EMMC_BASE     0x2A330000UL
 
-/* SD card — sdmmc: mmc@2a310000 */
+/* SD card (sdmmc: mmc@2a310000) */
 #define SDMMC_BASE    0x2A310000UL
 
-/* SPI NOR Flash Controller — sfc0: spi@2a340000 */
+/* SPI NOR Flash Controller (sfc0: spi@2a340000) */
 #define SFC0_BASE     0x2A340000UL
 #define SFC1_BASE     0x2A300000UL
 
-/* Alias used by RK3588.h's `FSPI` instance macro — point it at
+/* Alias used by RK3588.h's `FSPI` instance macro; point it at
  * RK3576's SFC0 so the shared FspiLib HAL works unmodified. */
 #define FSPI_BASE     SFC0_BASE
 
-/* PCIe — pcie0: pcie@22000000 (M.2 on ROCK 4D) */
+/* PCIe (pcie0: pcie@22000000, M.2 on ROCK 4D) */
 #define PCIE0_BASE    0x22000000UL
 #define PCIE1_BASE    0x22400000UL
 
-/* GPIO — gpio0..4 */
+/* GPIO: gpio0..4 */
 #define GPIO0_BASE    0x27320000UL
 #define GPIO1_BASE    0x2AE10000UL
 #define GPIO2_BASE    0x2AE20000UL
 #define GPIO3_BASE    0x2AE30000UL
 #define GPIO4_BASE    0x2AE40000UL
 
-/* I2C — i2c0..9 */
+/* I2C: i2c0..9 */
 #define I2C0_BASE     0x27300000UL   /* PMU domain */
 #define I2C1_BASE     0x2AC40000UL   /* PMIC RK806 */
 #define I2C2_BASE     0x2AC50000UL   /* HYM8563 RTC */
@@ -124,7 +124,7 @@ extern "C" {
                        (id <= 8) ? (I2C1_BASE + ((id - 1) * 0x10000)) : \
                        0)
 
-/* CRU — cru: clock-controller@27200000 */
+/* CRU (cru: clock-controller@27200000) */
 #define CRU_BASE      0x27200000UL
 
 /*
@@ -141,7 +141,7 @@ extern "C" {
 #define CRU_CLKSEL_CON(n)   (CRU_BASE + 0x300 + (n) * 4)
 #define CRU_SOFTRST_CON(n)  (CRU_BASE + 0xA00 + (n) * 4)
 
-/* PHP CRU domain (PCIe/SATA combo PHY clocks) — offset 0x8000 from CRU_BASE */
+/* PHP CRU domain (PCIe/SATA combo PHY clocks), offset 0x8000 from CRU_BASE */
 #define PHP_CRU_BASE             (CRU_BASE + 0x8000)
 #define PHP_CRU_CLKGATE_CON(n)   (PHP_CRU_BASE + 0x800 + (n) * 4)
 #define PHP_CRU_CLKSEL_CON(n)   (PHP_CRU_BASE + 0x300 + (n) * 4)
@@ -176,11 +176,11 @@ extern "C" {
 #define PMU0_GRF_BASE 0x26024000UL
 #define PMU1_GRF_BASE 0x26026000UL
 
-/* USB DWC3 — usb_drd0: usb@23000000, usb_drd1: usb@23400000 */
+/* USB DWC3: usb_drd0: usb@23000000, usb_drd1: usb@23400000 */
 #define USB_DRD0_BASE 0x23000000UL
 #define USB_DRD1_BASE 0x23400000UL
 
-/* USB2 PHY — accessed via usb2phy_grf syscon, NOT standalone MMIO!
+/* USB2 PHY: accessed via usb2phy_grf syscon, NOT standalone MMIO!
  * Per mainline rk3576.dtsi:
  *   usb2phy_grf: syscon@2602e000 { reg = <0x2602e000 0x4000>; }
  *   u2phy0: usb2-phy@0    { reg = <0x0    0x10>; }  (offset within grf)
@@ -194,23 +194,23 @@ extern "C" {
 #define USB2PHY0_BASE     (USB2PHY_GRF_BASE + USB2PHY0_OFFSET)
 #define USB2PHY1_BASE     (USB2PHY_GRF_BASE + USB2PHY1_OFFSET)
 
-/* GMAC — gmac0: ethernet@2a220000 (per mainline rk3576.dtsi)
+/* GMAC (gmac0: ethernet@2a220000, per mainline rk3576.dtsi)
  * WARNING: Previous value 0x2BD40000 was WRONG.
  */
 #define GMAC0_BASE    0x2A220000UL
 
-/* VOP2 — display controller (Video Output Processor v2)
+/* VOP2: display controller (Video Output Processor v2)
  * vop@27d00000, compatible = "rockchip,rk3576-vop"
  * 3 Video Ports (VP0, VP1, VP2), 4 Cluster + 4 Esmart layers
  */
 #define VOP_BASE      0x27D00000UL
 
-/* HDMI TX — DW-HDMI QP (same IP as RK3588!)
+/* HDMI TX: DW-HDMI QP (same IP as RK3588!)
  * hdmi@27da0000, compatible = "rockchip,rk3576-dw-hdmi-qp"
  */
 #define HDMI_BASE     0x27DA0000UL
 
-/* HDPTX PHY — Samsung HDPTX (compatible with RK3588)
+/* HDPTX PHY: Samsung HDPTX (compatible with RK3588)
  * hdmiphy@2b000000, compatible = "rockchip,rk3576-hdptx-phy", "rockchip,rk3588-hdptx-phy"
  *
  * NOTE: 0x2B000000 was previously INCORRECTLY used as USB2PHY0_BASE.
@@ -218,12 +218,12 @@ extern "C" {
  */
 #define HDPTX_PHY_BASE     0x2B000000UL
 
-/* VO0 GRF — Video Output 0 General Register File
+/* VO0 GRF: Video Output 0 General Register File
  * vo0_grf: syscon@2601a000, HDMI output control & sync polarity
  */
 #define VO0_GRF_BASE       0x2601A000UL
 
-/* HDPTX PHY GRF — configuration registers for HDPTX PHY
+/* HDPTX PHY GRF: configuration registers for HDPTX PHY
  * hdptxphy_grf: syscon@26032000
  */
 #define HDPTXPHY_GRF_BASE  0x26032000UL
@@ -275,12 +275,12 @@ extern "C" {
  *
  * WARNING: these are RK3588's, not RK3576's.  They are the indices into
  * the Clocks[]/Resets[] tables in Rk3576CruLib.c, which is itself still
- * RK3588's clock tree -- see the warning at the top of that file.  They
+ * RK3588's clock tree; see the warning at the top of that file.  They
  * live here because <Soc.h> is where CruLib.h expects to find them and
  * RK3576's is now the only Soc.h in the tree.
  *
- * CLK_SARADC and RESET_SRST_P_SARADC have no consumer any more -- SaradcLib
- * was deleted rather than left as a trap -- but the entries stay because the
+ * CLK_SARADC and RESET_SRST_P_SARADC have no consumer any more (SaradcLib
+ * was deleted rather than left as a trap), but the entries stay because the
  * Clocks[]/Resets[] tables in Rk3576CruLib.c are indexed by these enumerators
  * and removing one shifts every index after it.  Replacing this with the real
  * RK3576 clock tree is still open.

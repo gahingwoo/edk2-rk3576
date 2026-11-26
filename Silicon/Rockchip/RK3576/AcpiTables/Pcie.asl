@@ -17,7 +17,7 @@
 // Both identity-mapped, so the translation offsets are zero.
 //
 // The I/O entry used to read PCIE_IO_BUS_BASE, which is 0, so _CRS advertised
-// the I/O window at CPU 0x0 -- not PCIe I/O on this SoC, and below DRAM, which
+// the I/O window at CPU 0x0. That is not PCIe I/O on this SoC, and below DRAM, which
 // starts at 0x40000000.  The mem32 entry used PCIE_MEM32_BUS_BASE, pinned to
 // segment 0, so PCI1 would have advertised PCI0's window.
 //

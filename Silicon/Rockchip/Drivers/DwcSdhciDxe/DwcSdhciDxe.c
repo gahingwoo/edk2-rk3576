@@ -37,7 +37,7 @@ STATIC EFI_EVENT   mExitBootServicesEvent;
   SdMmcPciHcDxe has already programmed CLOCK_CTRL, waited for Internal Clock
   Stable and enabled SDCLK by the time EdkiiSdMmcSwitchClockFreqPost runs.
   The hook then calls DwcSdhciSetClockRate(), which reprograms the CRU mux and
-  divider that actually feed this controller -- so the source clock changes
+  divider that actually feed this controller. So the source clock changes
   underneath a card clock that is already running, and nothing re-runs the
   stable handshake afterwards.  The first command issued after the switch then
   fails: CMD7 comes back with a Command Timeout and the CMD8 that follows with
@@ -145,7 +145,7 @@ EmmcSdMmcCapability (
   if (EMMC_FORCE_DEFAULT_SPEED) {
     //
     // eMMC HighSpeed (~50 MHz, non-DLL RX sampling) is marginal on this board
-    // when the controller is brought up cold — i.e. booting from SD or SPI, so
+    // when the controller is brought up cold (booting from SD or SPI), so
     // no earlier stage (SPL/TF-A from-eMMC boot) tuned the controller phase.
     // The command line still works (CMD7/CMD9 responses are fine), but 8-bit
     // data reads (EXT_CSD, blocks) return CRC errors and enumeration stalls.
@@ -364,7 +364,7 @@ EmmcSdMmcNotifyPhase (
   Stop the controller signalling interrupts before the OS takes over.
 
   SdMmcPciHcDxe enables the SDHCI interrupt *signal* registers, and nothing
-  turns them off again -- this driver registers the only ExitBootServices
+  turns them off again: this driver registers the only ExitBootServices
   callback anywhere near this controller.  An interrupt still asserted on a
   level-triggered GSIV that the incoming OS has no handler for is never
   cleared, and the line stays up.
@@ -372,7 +372,7 @@ EmmcSdMmcNotifyPhase (
   The sibling defect on the SD controller is the one with evidence behind it:
   with a card in the slot, every Windows boot on this board either crawled or
   bugchecked, and with the slot empty six boots in a row were clean.  Nothing
-  here is claimed to be a second cause -- the eMMC controller is initialised on
+  here is claimed to be a second cause. The eMMC controller is initialised on
   every boot, card or no card, so it cannot explain a fault that tracks the SD
   card.  It is the same class of defect on the sibling device, and cheap.
 
@@ -388,7 +388,7 @@ DwcSdhciNotifyExitBootServices (
   )
 {
   //
-  // Signal enables first -- that is what reaches the GIC -- then acknowledge
+  // Signal enables first (that is what reaches the GIC), then acknowledge
   // whatever is latched.  Both status registers are write-1-to-clear.
   //
   MmioWrite16 ((UINT32)SD_MMC_HC_NOR_INT_SIG, 0);
@@ -416,7 +416,7 @@ DwcSdhciDxeInitialize (
   DEBUG ((DEBUG_BLKIO, "%a\n", __FUNCTION__));
 
   /* Identification clock: 375 kHz (xin_24m / 64).
-   * On RK3576, SDHCI CLOCK_CONTROL frequency-select bits are NOT functional —
+   * On RK3576, SDHCI CLOCK_CONTROL frequency-select bits are NOT functional;
    * the actual eMMC clock is fully controlled by the CRU (DwcSdhciSetClockRate).
    * Matches dwcmshc_rk3568_set_clock(): "clock <= 400000 → use 375000". */
   DwcSdhciSetClockRate (375000UL);

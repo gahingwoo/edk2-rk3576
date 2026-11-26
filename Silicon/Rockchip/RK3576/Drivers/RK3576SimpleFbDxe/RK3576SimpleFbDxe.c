@@ -29,7 +29,7 @@
 /* -------------------------------------------------------------------------
  * RK3576 VOP2 register addresses
  *
- * Primary set — from the Linux-kernel DRM driver for RK3576.
+ * Primary set, from the Linux-kernel DRM driver for RK3576.
  * These are what U-Boot proper writes when it initialises HDMI via the
  * upstream DRM/KMS stack.
  *
@@ -41,7 +41,7 @@
  *   Format: bits[15:0]  = horizontal active width  - 1
  *           bits[31:16] = vertical active height - 1
  *
- * Alternate set — from the edk2-rockchip Vop2Dxe driver (RK3568-compatible
+ * Alternate set, from the edk2-rockchip Vop2Dxe driver (RK3568-compatible
  * register map reused for RK3576).  Checked as fallback when the primary
  * registers read back zero.
  * -------------------------------------------------------------------------
@@ -353,7 +353,7 @@ ReadVop2State (
     }
     DEBUG ((
       DEBUG_WARN,
-      "RK3576SimpleFb: Primary regs gave degenerate dims %ux%u — trying alt\n",
+      "RK3576SimpleFb: Primary regs gave degenerate dims %ux%u, trying alt\n",
       W,
       H
       ));
@@ -415,7 +415,7 @@ RK3576SimpleFbEntryPoint (
 
   DEBUG ((DEBUG_INFO, "RK3576SimpleFb: entry\n"));
 
-  /* Check if GOP is already installed — if so, nothing to do. */
+  /* Check if GOP is already installed; if so, nothing to do. */
   {
     EFI_GRAPHICS_OUTPUT_PROTOCOL  *ExistingGop = NULL;
     Status = gBS->LocateProtocol (
@@ -426,7 +426,7 @@ RK3576SimpleFbEntryPoint (
     if (!EFI_ERROR (Status)) {
       DEBUG ((
         DEBUG_INFO,
-        "RK3576SimpleFb: GOP already installed (%ux%u) — skipping\n",
+        "RK3576SimpleFb: GOP already installed (%ux%u), skipping\n",
         ExistingGop->Mode->Info->HorizontalResolution,
         ExistingGop->Mode->Info->VerticalResolution
         ));
@@ -525,7 +525,7 @@ RK3576SimpleFbEntryPoint (
 
   DEBUG ((
     DEBUG_INFO,
-    "RK3576SimpleFb: GOP installed — %ux%u FB @ 0x%lx stride %u\n",
+    "RK3576SimpleFb: GOP installed: %ux%u FB @ 0x%lx stride %u\n",
     FbWidth,
     FbHeight,
     FbBase,

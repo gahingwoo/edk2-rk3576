@@ -1958,13 +1958,13 @@ FvbConfigureFlashInstance (
     if (EFI_ERROR (Status)) {
       //
       // AllocateAddress failed (address already reserved / not in free DRAM).
-      // Fall back to AllocatePool — VariableRuntimeDxe won't find the FVB by
+      // Fall back to AllocatePool. VariableRuntimeDxe won't find the FVB by
       // address, so variables will not persist, but the system won't crash.
       //
       DEBUG ((
         DEBUG_WARN,
         "%a: AllocatePages(AllocateAddress, %lx, %x) failed (%r),"
-        " falling back to pool — runtime variables will NOT persist\n",
+        " falling back to pool; runtime variables will NOT persist\n",
         __FUNCTION__,
         NvBase,
         FlashInstance->FvbSize,
@@ -2122,7 +2122,7 @@ FvbDiskDumpNvData (
                  );
 
   //
-  // Source is the in-memory NV shadow buffer, not FvbOffset — that is a byte
+  // Source is the in-memory NV shadow buffer, not FvbOffset, which is a byte
   // offset on the medium (see the DataOffset computation just above), so passing
   // it as a pointer wrote from whatever happens to live at address 0x1600000.
   // This path had never executed before: the boot disk was never adopted
@@ -2152,7 +2152,7 @@ FvbDiskNvDumpHandler (
     // Disk fallback path is only used when SPI flash is unavailable (eg.
     // booted from eMMC/SD with no SPI nor preference).  When SPI flash is
     // active, every WriteBlocks/EraseBlocks already commits to SPI in-line,
-    // so the absence of a disk device here is normal and expected — do not
+    // so the absence of a disk device here is normal and expected. Do not
     // spam the log with a misleading warning that NV is "not found".
     //
     if (!mFvbDevice->IsSpiFlashAvailable) {
@@ -2188,7 +2188,7 @@ FvbDiskNvDumpHandler (
     // (project_rk3576_rkfvb_intermittent_cmd25), and with
     // PcdDebugPropertyMask 0x2F an assert is a deadloop.  So a failed NV dump
     // used to leave the board hung with a blank screen, needing a power cycle,
-    // every time -- while the code right here has always treated the failure
+    // every time, while the code right here has always treated the failure
     // as recoverable and simply returned.  The assert was the only thing
     // stopping the boot.
     //
@@ -2549,14 +2549,14 @@ FvbProcessBootDiskDeviceHandle (
     // with the SD/MMC pass-thru packet reporting TransactionStatus Success
     // while DiskIo->WriteDisk returns Device Error.  So the fault is in the
     // block-I/O layer for this medium, not here.  Reads of the same eMMC are
-    // fine -- the firmware boots from it -- and the identical path on SD
+    // fine (the firmware boots from it) and the identical path on SD
     // works.  That board caps eMMC at 26 MHz legacy SDR deliberately
     // (PcdDwcSdhciForceDefaultSpeed) and everything ever verified about this
     // eMMC has been a read.
     //
     DEBUG ((
       DEBUG_WARN,
-      "%a: [%s] Couldn't update NV data (%r) -- variables will not persist\n",
+      "%a: [%s] Couldn't update NV data (%r); variables will not persist\n",
       __FUNCTION__, DevicePathText, Status
       ));
     goto Exit;

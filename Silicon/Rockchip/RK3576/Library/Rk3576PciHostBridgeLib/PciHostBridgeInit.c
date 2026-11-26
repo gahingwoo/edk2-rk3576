@@ -102,7 +102,7 @@
  *
  * Hiword-mask write convention (CLK_GATE_HIWORD_MASK | CLK_GATE_SET_TO_DISABLE):
  *   bit = 1 means gated; bit = 0 means ungated.
- *   To UNGATE bit b: write (1U << (b + 16)) to the register — set mask, clear data.
+ *   To UNGATE bit b: write (1U << (b + 16)) to the register (set mask, clear data).
  */
 #define CRU_CLKGATE_CON(n)       (0x27200000U + 0x800U + (UINT32)(n) * 4U)
 #define CRU_UNGATE(addr, bit)    MmioWrite32 ((addr), (1U << (UINTN)((bit) + 16)))
@@ -231,7 +231,7 @@ PciSetupBars (
 {
   MmioWrite16 (DbiBase + PCI_DEVICE_CLASS, (PCI_CLASS_BRIDGE << 8) | PCI_CLASS_BRIDGE_P2P);
 
-  /* Disable BAR0 + BAR1 of root port — they are unused */
+  /* Disable BAR0 + BAR1 of root port; they are unused */
   MmioWrite32 (DbiBase + PCIE_TYPE0_HDR_DBI2_OFFSET + PCI_BAR0, 0x0);
   MmioWrite32 (DbiBase + PCIE_TYPE0_HDR_DBI2_OFFSET + PCI_BAR1, 0x0);
 }
@@ -346,7 +346,7 @@ PciIsLinkUp (
   //
   // Once L0 is reached the link-up bits stay set while the LTSSM legitimately
   // cycles through Recovery (0x0D RcvrLock / 0x0E RcvrSpeed / 0x0F RcvrCfg) for
-  // clock compensation — the link is still up during those states.  Requiring
+  // clock compensation; the link is still up during those states.  Requiring
   // state == 0x11 made us reject an up-but-recovering link and time out:
   // observed LTSSM_STATUS=0x0003000D (both link-up bits set, state 0x0D), which
   // mainline counts as up.  Accepting it here lets enumeration proceed while the
@@ -445,7 +445,7 @@ PciPhpPowerDomain (
   UINTN   Timeout;
 
   DEBUG ((DEBUG_WARN,
-          "PCIe%u: PHP PMU state — PWR_CON=0x%08X REPAIR_STS=0x%08X IDLE_REQ=0x%08X IDLE_ACK=0x%08X IDLE_STS=0x%08X\n",
+          "PCIe%u: PHP PMU state: PWR_CON=0x%08X REPAIR_STS=0x%08X IDLE_REQ=0x%08X IDLE_ACK=0x%08X IDLE_STS=0x%08X\n",
           (UINT32)Segment,
           MmioRead32 (PHP_PMU_PWR_CON),
           MmioRead32 (PHP_PMU_REPAIR_STATUS),
@@ -510,7 +510,7 @@ PciPhpPowerDomain (
   }
 
   DEBUG ((DEBUG_WARN,
-          "PCIe%u: PHP PMU done — PWR_CON=0x%08X REPAIR_STS=0x%08X IDLE_REQ=0x%08X IDLE_STS=0x%08X\n",
+          "PCIe%u: PHP PMU done: PWR_CON=0x%08X REPAIR_STS=0x%08X IDLE_REQ=0x%08X IDLE_STS=0x%08X\n",
           (UINT32)Segment,
           MmioRead32 (PHP_PMU_PWR_CON),
           MmioRead32 (PHP_PMU_REPAIR_STATUS),
@@ -534,7 +534,7 @@ PciSetupResets (
    *
    * Correct register mapping from drivers/clk/rockchip/rst-rk3576.c
    * (mainline Linux).  The RK3576 CRU driver uses a lookup table, NOT
-   * the simple formula (id / 16, id % 16) — the vendor-BSP IDs differ
+   * the simple formula (id / 16, id % 16); the vendor-BSP IDs differ
    * from the mainline sequential IDs in the header.
    *
    * PCIe0:
@@ -659,7 +659,7 @@ InitializePciHost (
   DEBUG ((DEBUG_WARN, "PCIe%u: Power on done\n", Segment));
 
   /*
-   * Re-assert the AXI/AUX clock gates (idempotent — already set by
+   * Re-assert the AXI/AUX clock gates (idempotent: already set by
    * RK3576Dxe's pre-ungate block, repeated here for safety).
    */
   DEBUG ((DEBUG_WARN, "PCIe%u: PciSetupClocks...\n", Segment));
@@ -713,8 +713,8 @@ InitializePciHost (
   /*
    * RK3576 DWC PCIe has only 2 outbound iATU windows (num-ob-windows=2
    * in vendor DTB).  Use them optimally for a direct-attached NVMe device:
-   *   Window 0: CFG0 — type-0 config TLPs to bus 1 (NVMe device)
-   *   Window 1: MEM32 — 32-bit memory TLPs for NVMe BAR MMIO
+   *   Window 0: CFG0, type-0 config TLPs to bus 1 (NVMe device)
+   *   Window 1: MEM32, 32-bit memory TLPs for NVMe BAR MMIO
    * CFG1 and I/O windows are not needed; there is no PCIe switch on
    * ROCK 4D and NVMe has no I/O BAR.
    * Bus 2+ ECAM reads (above CFG0 window) hit MEM32 ATU → UR (0xFFFF)
@@ -738,7 +738,7 @@ InitializePciHost (
     );
 
   /*
-   * Link training — train directly at Gen2 (5 GT/s), matching mainline
+   * Link training: train directly at Gen2 (5 GT/s), matching mainline
    * (DT max-link-speed = <2>) and, crucially, what actually works on this
    * hardware.  Verified against Linux on this exact CM5-IO + NVMe: the link
    * trains to a stable L0 at Gen2 x1 (LTSSM 0x..0011) and the drive enumerates.
@@ -750,7 +750,7 @@ InitializePciHost (
    *
    * Set the Gen2 target speed AND the DIRECT_SPEED_CHANGE bit BEFORE enabling
    * the LTSSM, so the DWC performs the speed change as part of the normal
-   * training sequence — exactly as the DWC core does for link_gen >= 2.
+   * training sequence, exactly as the DWC core does for link_gen >= 2.
    */
   DEBUG ((DEBUG_WARN, "PCIe%u: Set link speed Gen2 x1...\n", Segment));
   PciSetupLinkSpeed (DbiBase, 2, 1);
@@ -760,22 +760,22 @@ InitializePciHost (
   MmioAnd32 (DbiBase + PL_MISC_CONTROL_1_OFF, ~DBI_RO_WR_EN);
 
   /*
-   * Link training — exact bare-metal sequence from the vendor U-Boot
+   * Link training: exact bare-metal sequence from the vendor U-Boot
    * pcie_dw_rockchip rk_pcie_link_up().  This is the closest analogue to EDK2
    * (no Linux phy framework / power-domain machinery) and it trains this board's
    * NVMe to a stable Gen2 link.  Two things differ from what we were doing, and
    * both matter:
    *
    *   1. Enable the LTSSM *first*, hold PERST# asserted for T_PVPERL, and
-   *      release PERST# last.  This is what mainline does -- see
+   *      release PERST# last.  This is what mainline does; see
    *      rockchip_pcie_start_link() in drivers/pci/controller/dwc/
    *      pcie-dw-rockchip.c, whose comment gives the reason: the reference
    *      clock may be driven by the root complex's own PHY, in which case
    *      enabling the LTSSM is the moment the refclk becomes stable, and
    *      PCIe requires 100 ms of stable refclk before PERST# is released.
    *
-   *      This file previously said the opposite -- "release PERST# before
-   *      enabling the LTSSM (we had it backwards)" -- and that ordering is
+   *      This file previously said the opposite ("release PERST# before
+   *      enabling the LTSSM (we had it backwards)"), and that ordering is
    *      what was actually backwards.  With it, the endpoint left reset with
    *      no refclk running and never trained: measured on CM5-IO 2026-09-17,
    *      attempt 1 ended at LTSSM state 0x03 (POLL.COMPLIANCE) and attempt 2
@@ -784,7 +784,7 @@ InitializePciHost (
    *      space reading 0xFFFFFFFF.  Linux trains the same board and the same
    *      drive on the first try.
    *   2. Once the link-up bits latch, simply wait 1 s ("link maybe in Gen switch
-   *      recovery") and accept it — do NOT require the LTSSM state to read a
+   *      recovery") and accept it. Do NOT require the LTSSM state to read a
    *      stable L0 (0x11), and do NOT power-cycle/retry.
    */
   /*
@@ -797,7 +797,7 @@ InitializePciHost (
   LinkUp = FALSE;
   for (Attempt = 0; (Attempt < PCIE_LINK_TRAIN_RETRIES) && !LinkUp; Attempt++) {
     DEBUG ((DEBUG_WARN,
-            "PCIe%u: train attempt %u/%u — assert PERST#, settle 200ms, release...\n",
+            "PCIe%u: train attempt %u/%u: assert PERST#, settle 200ms, release...\n",
             Segment, (UINT32)(Attempt + 1), (UINT32)PCIE_LINK_TRAIN_RETRIES));
     PciePeReset (Segment, TRUE);    /* hold the endpoint in reset */
 
@@ -824,7 +824,7 @@ InitializePciHost (
   }
 
   if (!LinkUp) {
-    DEBUG ((DEBUG_WARN, "PCIe%u: link up timeout — asserting DWC reset (SOFTRST_CON%u)\n",
+    DEBUG ((DEBUG_WARN, "PCIe%u: link up timeout, asserting DWC reset (SOFTRST_CON%u)\n",
             (UINT32)Segment, (Segment == PCIE_SEGMENT_PCIE0) ? 34U : 36U));
     /*
      * Assert-only (no deassert): leave the DWC controller in reset so it
@@ -849,11 +849,11 @@ InitializePciHost (
 
   /*
    * Link-up bits latched.  The Gen1->Gen2 switch may still be in Recovery, so
-   * give it a full second to finish before enumeration touches the endpoint —
+   * give it a full second to finish before enumeration touches the endpoint,
    * exactly what the vendor U-Boot does here.
    */
   Ltssm = MmioRead32 (ApbBase + PCIE_CLIENT_LTSSM_STATUS);
-  DEBUG ((DEBUG_WARN, "PCIe%u: link up (LTSSM_STATUS=0x%08X) — waiting 1s for Gen switch...\n",
+  DEBUG ((DEBUG_WARN, "PCIe%u: link up (LTSSM_STATUS=0x%08X), waiting 1s for Gen switch...\n",
           Segment, Ltssm));
 
   Ltssm = MmioRead32 (ApbBase + PCIE_CLIENT_LTSSM_STATUS);

@@ -1,5 +1,5 @@
 ## @file
-#  ResetSystem library for RK3576 — PSCI with MaskROM boot mode support.
+#  ResetSystem library for RK3576: PSCI with MaskROM boot mode support.
 #
 #  Boot mode register: PMU0_GRF_OS_REG16 = 0x26024040
 #    (PMU0_GRF_BASE=0x26024000 + OS_REG(16)=0x40)

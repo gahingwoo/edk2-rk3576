@@ -1,7 +1,7 @@
 ## @file
 #
 #  UEFI Platform Description for Radxa ROCK 4D (RK3576)
-#  Ported from ROCK 5B (RK3588) — uses RK3588Platform as base,
+#  Ported from ROCK 5B (RK3588); uses RK3588Platform as base,
 #  overrides SoC-specific PCDs for RK3576.
 #
 #  Board:  Radxa ROCK 4D
@@ -34,7 +34,7 @@
   RK_PLATFORM_FVMAIN_MODULES     = $(PLATFORM_DIRECTORY)/ROCK4D.Modules.fdf.inc
   FIRMWARE_VER                   = "0.1"
 
-  # ROCK4D / RK3576: SD/eMMC temporarily disabled — enabling RK_SD_ENABLE
+  # ROCK4D / RK3576: SD/eMMC temporarily disabled: enabling RK_SD_ENABLE
   # broke boot (no serial). Need to bisect: SD lib init or RkSdmmcDxe binding
   # likely hangs on RK3576 GPIO/CRU mismatch. Re-enable after debug.
   # ROCK4D / RK3576: SD + eMMC re-enabled now that DEBUG_INFO output is
@@ -43,7 +43,7 @@
   #   eMMC : DwcSdhciDxe + SdMmcPciHcDxe → DwcSdhciPlatformLib (RK3576)
   # PHY/IO mux retained from SPL; UEFI only ungates clocks + reads CD GPIO.
   DEFINE RK_SD_ENABLE            = TRUE
-  DEFINE RK_EMMC_ENABLE          = FALSE  # ROCK 4D has no onboard eMMC — avoids 3-min Cmd0 timeout
+  DEFINE RK_EMMC_ENABLE          = FALSE  # ROCK 4D has no onboard eMMC; avoids 3-min Cmd0 timeout
   DEFINE RK_NOR_FLASH_ENABLE     = TRUE
   # FVB / NV-Variable stack enabled.
   # PcdRkAtagsBase=0 prevents the ATAGS bus-fault (BL31 TZASC on RK3576).
@@ -90,16 +90,16 @@
   DEFINE NETWORK_IP6_ENABLE      = TRUE   # Ip6Dxe in FV; runtime toggle via NetworkStackConfigDxe HII
   DEFINE NETWORK_PXE_BOOT_ENABLE = TRUE
   DEFINE NETWORK_HTTP_BOOT_ENABLE = TRUE  # DnsDxe+HttpDxe+HttpUtilitiesDxe+HttpBootDxe in FV
-  DEFINE NETWORK_TLS_ENABLE      = TRUE   # TlsDxe+TlsAuthConfigDxe — required for HTTPS boot
+  DEFINE NETWORK_TLS_ENABLE      = TRUE   # TlsDxe+TlsAuthConfigDxe, required for HTTPS boot
   DEFINE RK_X86_EMULATOR_ENABLE  = FALSE
-  # Static SMBIOS tables (Type 0/1/2/3/4/7/9/11/16/17/19/32) — required so
+  # Static SMBIOS tables (Type 0/1/2/3/4/7/9/11/16/17/19/32), required so
   # UiApp banner shows "<NNNN> MB RAM" and OS sees system info.
   DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
   # USB hosts:
   #   DWC3 DRD0 @ 0x23000000 (USB-C, u2phy0 + Samsung USBDP combo PHY)
   #     UEFI phase: HS-only (UsbDpPhyDxe not ported to RK3576).
   #     Kernel phase: SS+HS (phy-rockchip-usbdp.c in mainline Linux inits USBDP PHY).
-  #   DWC3 DRD1 @ 0x23400000 (USB-A, u2phy1 + combphy1) - SS + HS.
+  #   DWC3 DRD1 @ 0x23400000 (USB-A, u2phy1 + combphy1): SS + HS.
   # PCDs (DwcXhci base addresses) are set further down. RK3576 has no
   # EHCI/OHCI -> set count to 0 below.
   DEFINE RK_USB_ENABLE             = TRUE
@@ -110,15 +110,15 @@
 [LibraryClasses.common]
   # The only library this board overrides.  The RK3576 replacements for
   # SdramLib / RkSdmmcPlatformLib / DwcSdhciPlatformLib / OtpLib /
-  # ResetSystemLib / GpioLib / PCI used to be listed here on both boards --
+  # ResetSystemLib / GpioLib / PCI used to be listed here on both boards;
   # they are the SoC's, not the board's, and now live in RK3576Base.dsc.inc.
   RockchipPlatformLib|$(PLATFORM_DIRECTORY)/Library/RockchipPlatformLib/RockchipPlatformLib.inf
 
 ################################################################################
 [PcdsFixedAtBuild.common]
   #
-  # Everything the SoC decides -- memory map, UART, GIC, CRU, SD/eMMC/FSPI
-  # bases, I2C, ComboPHY, FDT defaults, network defaults -- is in
+  # Everything the SoC decides (memory map, UART, GIC, CRU, SD/eMMC/FSPI
+  # bases, I2C, ComboPHY, FDT defaults, network defaults) is in
   # Silicon/Rockchip/RK3576/RK3576Base.dsc.inc.  What follows is only what
   # actually differs between this board and the ArmSoM CM5-IO.
   #
@@ -140,7 +140,7 @@
   # CM5-IO uses rgmii-rxid with a 0x21 MAC-side TX delay.
   gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0
 
-  # FDT only -- no ACPI tables are built into this image.
+  # FDT only: no ACPI tables are built into this image.
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_FDT)
 
   # TSADC sampling and the hardware thermal shutdown: a CRU (chip) reset at
@@ -164,7 +164,7 @@
   #
   # NATIVE degrades safely.  If the EDID cannot be read, LcdGraphicsOutputDxe
   # finds no usable mode and falls back to predefined mode 0, 640x480, which
-  # every monitor displays -- a worse picture, not a blank one.
+  # every monitor displays: a worse picture, not a blank one.
   #
   # CM5-IO went through the same thing for a different reason and is already
   # NATIVE; see the matching block in CM5IO.dsc.
@@ -172,7 +172,7 @@
 
 ################################################################################
 [Components.common]
-  # ACPI tables — disabled: FDT-only build.
+  # ACPI tables are disabled: FDT-only build.
   # $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
 
   # Board-specific Device Tree (Vendor = pre-compiled DTB)
@@ -185,7 +185,7 @@
   $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
 
   # This board builds FDT-only, so RK3576AcpiPlatformDxe and AcpiTables.inf
-  # are deliberately absent -- CM5-IO declares them, this one does not.
+  # are deliberately absent; CM5-IO declares them, this one does not.
   #
   # RK3576Dxe, FdtPlatformDxe, the PCIe stack and the GMAC stack are common to
   # every RK3576 board and are declared in RK3576Base.dsc.inc.

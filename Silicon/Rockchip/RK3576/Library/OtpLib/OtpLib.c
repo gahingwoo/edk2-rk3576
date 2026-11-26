@@ -28,7 +28,7 @@
 
 #define RK3576_OTP_BASE  0x2A580000UL
 
-/* OTPC registers — same layout as RK3588 */
+/* OTPC registers: same layout as RK3588 */
 #define RK3576_OTPC_AUTO_CTRL  (RK3576_OTP_BASE + 0x0004U)
 #define  RK3576_ADDR_SHIFT     16
 #define  RK3576_BURST_SHIFT    8

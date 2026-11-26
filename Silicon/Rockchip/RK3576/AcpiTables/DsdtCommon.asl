@@ -15,7 +15,7 @@
 // at 0xfec60030 and polling a shared-memory mailbox.  RK3576 does not work
 // that way: rk3576.dtsi declares `compatible = "arm,scmi-smc"` with
 // `arm,smc-id = <0x82000010>` and no mailbox node at all, so the transport is
-// an SMC call -- which ASL cannot issue.  The doorbell address is an RK3588
+// an SMC call, which ASL cannot issue.  The doorbell address is an RK3588
 // one and decodes to nothing here.
 //
 // Nothing referenced the methods either: no other .asl in this tree calls

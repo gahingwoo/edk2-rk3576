@@ -6,14 +6,14 @@
  *  A device of its own, apart from GPU0, because Windows pairs a
  *  display-only driver with a render-only one: the Mali's WDDM driver
  *  (maliwddm) is render-only, and a render-only adapter cannot be the only
- *  graphics device -- with GPU0 alone it failed with code 43 and Windows
+ *  graphics device. With GPU0 alone it failed with code 43 and Windows
  *  had no display at all. malidod drives the framebuffer the firmware left
  *  (GOP) and does not touch the VOP2; the VOP2's registers and its system
  *  interrupt are described here because they are this device's, and a
  *  display driver that programs the VOP2 will need them.
  *
  *  DSP0 comes before GPU0 in the DSDT, and has resources: with neither,
- *  Windows (WinPE 22621) treated GPU0 as the POST device -- the display-only
+ *  Windows (WinPE 22621) treated GPU0 as the POST device, and the display-only
  *  driver on DSP0 got an empty framebuffer from
  *  DxgkCbAcquirePostDisplayOwnership and failed to start, and the
  *  render-only driver on GPU0 was refused as a POST device

@@ -64,7 +64,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
     // how an OS targets an SGI at one core.  It is only required to be zero on
     // GICv3/4, where the interface is addressed by affinity instead.
     //
-    // Every entry here used to be 0, inherited from RK3588 -- which is GICv3,
+    // Every entry here used to be 0, inherited from RK3588, which is GICv3,
     // so zero was right there.  RK3576 is GIC-400, GICv2 (the GICD structure
     // below says so), and eight cores all claiming interface 0 cannot be told
     // apart.
@@ -80,7 +80,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
     //   A53: cpu@0 (0x000), cpu@1 (0x001), cpu@2 (0x002), cpu@3 (0x003)
     //   A72: cpu@100 (0x100), cpu@101 (0x101), cpu@102 (0x102), cpu@103 (0x103)
     //
-    // PmuIrq: RK3576's PMU is wired as per-core SPIs, not a shared PPI —
+    // PmuIrq: RK3576's PMU is wired as per-core SPIs, not a shared PPI:
     // rk3576.dtsi has arm,cortex-a53-pmu on GIC_SPI 0..3 (cpu_l0..l3) and
     // arm,cortex-a72-pmu on GIC_SPI 4..7 (cpu_b0..b3), all LEVEL_HIGH.
     // ACPI GSIV of GIC SPI n is 32 + n, hence 32..39 below (one per core).
@@ -199,7 +199,7 @@ EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE  Madt = {
       1
       ),
   },
-  // GIC Distributor Entry — GICD @ 0x2A701000, GICv2
+  // GIC Distributor Entry: GICD @ 0x2A701000, GICv2
   EFI_ACPI_6_0_GIC_DISTRIBUTOR_INIT (
     0,
     FixedPcdGet64 (PcdGicDistributorBase),

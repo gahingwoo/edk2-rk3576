@@ -108,7 +108,7 @@ LOG="$OUTDIR/build-spl.log"
     make "${MAKE_ARGS[@]}" "$SPL_DEFCONFIG"
     "$SRC/scripts/kconfig/merge_config.sh" -m -O "$WORK/build" "$WORK/build/.config" "$BD/spl.config"
     make "${MAKE_ARGS[@]}" olddefconfig
-} > "$LOG" 2>&1 || die "configuring failed -- see $LOG"
+} > "$LOG" 2>&1 || die "configuring failed, see $LOG"
 
 # merge_config.sh only warns when a value does not survive olddefconfig
 # (an unmet dependency).  Every line of the fragment has to be in .config.
@@ -122,10 +122,10 @@ done < "$BD/spl.config"
 # the FIT this SPL loads is built by package.sh.  idbloader.img has no BL31.
 make "${MAKE_ARGS[@]}" -j"$(nproc)" \
     BL31="$ROOT/binaries/bl31.elf" ROCKCHIP_TPL="$DDR" >> "$LOG" 2>&1 \
-    || die "build failed -- see $LOG"
+    || die "build failed, see $LOG"
 
 IDB="$WORK/build/idbloader.img"
-[ -f "$IDB" ] || die "no idbloader.img -- see $LOG"
+[ -f "$IDB" ] || die "no idbloader.img, see $LOG"
 [ "$(head -c 4 "$IDB")" = "RKNS" ] || die "idbloader.img does not start with RKNS"
 SPL_VER="$(strings -n 20 "$IDB" | grep -o 'U-Boot SPL [0-9][^ ]*' | head -1 || true)"
 if grep -qx 'CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE=y' "$WORK/build/.config"; then

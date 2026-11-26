@@ -172,7 +172,7 @@ PlatformEarlyInit (
   );
 
 /*
- * PlatformSdioWifiInit -- set up the board's SDIO Wi-Fi module for an OS
+ * PlatformSdioWifiInit: set up the board's SDIO Wi-Fi module for an OS
  * that has no pin, clock or power-sequence driver of its own (pins, clocks,
  * WL_REG_ON), and probe the card so the serial log says whether it answers.
  * Called by RK3576Dxe only when the "SDIO Wi-Fi" setup option is on
@@ -217,7 +217,7 @@ typedef struct {
 } PIN40_CONFIG;
 
 /*
- * PlatformGetPin40Config -- the description above, or NULL on a board that
+ * PlatformGetPin40Config: the description above, or NULL on a board that
  * does not set PcdPin40Supported.
  */
 CONST PIN40_CONFIG *

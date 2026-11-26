@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       # CM5-IO is the board most of the current work happens on and it had no
-      # CI at all before the restructure -- only ROCK 4D and a NanoPi target
+      # CI at all before the restructure, only ROCK 4D and a NanoPi target
       # that is no longer in this tree.
       matrix:
         board: [cm5io, rock4d, tspi3m]
@@ -40,7 +40,7 @@ jobs:
         # This used to try github.com/rockchip-linux/rockchip-devicetree first
         # and fall back to a sparse checkout of torvalds/linux.  That repo does
         # not exist (404), and the attempt was silenced with 2>/dev/null, so the
-        # "fallback" was always the only path -- and it looked like a safety net
+        # "fallback" was always the only path, and it looked like a safety net
         # that had never once run.  Only the sparse checkout is left.
         run: |
           set -eux
