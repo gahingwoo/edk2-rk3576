@@ -55,6 +55,9 @@
 *  ("not cleared by reset").  TF-A clears CRU_GLBRST_ST at boot, and NCLR is
 *  sticky, so the firmware reads NCLR, clears the bit, and keeps the answer
 *  for this boot in a scratch word that QUERY/SET_WATCHDOG_STATUS use.
+*  A set bit is a watchdog reset; a clear one proves nothing, because a
+*  PMIC power cycle clears it too, and on the TaishanPi 3M the watchdog
+*  reset is one (Watchdog.c).
 *
 *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
 *

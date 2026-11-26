@@ -63,12 +63,12 @@ Windows 加载这张表时那个对象可能还不存在（这样写的 RhProxy 
 WDAT 描述的是 WDT_NS（`0x2ACE0000`），即 TF-A 留给非安全世界的 DesignWare 看门狗。Windows 要求 5 分钟，
 超过了这个模块能数的范围，所以表里声明 1 秒一计、最多 600，而固件总是设成最长周期：24 MHz 的 2^31 个周期，
 两次（先中断，再复位），约 179 秒。寄存器细节见 `Wdat.aslc` 和 `RK3576AcpiPlatformDxe/Watchdog.c`。
-串口日志在每次启动时会说明上次复位是否来自看门狗。
+CRU 保留了看门狗复位记录时，串口日志显示 "last reset WAS the watchdog"，否则显示 "last reset cause unknown"：PMIC 断电重上电会清掉这个记录，而泰山派 3M 上的看门狗复位就是这样（2026-11-26）。
 
 板上测试：
 
 1. 打开设置项，Windows 空闲再加负载，共一小时：不复位。
-2. 用 woa-rk3576 的 `tools/wdthang` 让 Windows 卡死：约 3 分钟内复位，下次启动日志显示 "last reset WAS the watchdog"。
+2. 用 woa-rk3576 的 `tools/wdthang` 让 Windows 卡死：约 3 分钟内复位，之前日志里没有 ResetSystem。下次启动日志显示 "last reset WAS the watchdog"，或在 PMIC 给芯片断电重上电的板子（泰山派 3M）上显示 "last reset cause unknown"。
 3. 关闭设置项，同样卡死：板子一直卡住。
 
 ## 给操作系统驱动用的变量

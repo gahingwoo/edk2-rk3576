@@ -15,9 +15,20 @@
  *      and CRU_GLB_RST_CON bit 6.  TF-A (system_reset_init) sets both; they
  *      are checked, and set only if found clear;
  *    - a record of whether this boot was a watchdog reset, from
- *      CRU_GLBRST_ST_NCLR bit 12, which no reset clears: it is read, the
- *      bit is written back as 0, and the answer is kept for the OS in the
- *      scratch page.
+ *      CRU_GLBRST_ST_NCLR bit 12, which no reset of the chip clears: it is
+ *      read, the bit is written back as 0, and the answer is kept for the
+ *      OS in the scratch page.
+ *
+ *  That record is only good when it is set.  It lives in the SoC, and
+ *  nothing in the SoC survives a PMIC power cycle.  On the TaishanPi 3M
+ *  (2026-11-26) a watchdog reset was one: wdthang hung Windows, the board
+ *  reset by itself 166 s later with no ResetSystem call, and the next boot
+ *  read GLBRST_ST_NCLR 0.  So a clear bit means "unknown", not "not the
+ *  watchdog", and the log says so.  The RK806 has ON_SOURCE/OFF_SOURCE
+ *  registers (0x74/0x75, mainline rk808.h) that may latch why it cycled,
+ *  but their bits are not documented anywhere we have, so they are not
+ *  used here.  Windows still gets 0 (no watchdog reset) from the WDAT in
+ *  that case: QUERY_WATCHDOG_STATUS has no "unknown".
  *
  *  The UEFI boot-services watchdog (gBS->SetWatchdogTimer) is
  *  MdeModulePkg WatchdogTimerDxe, a timer event that calls ResetSystem; it
@@ -101,10 +112,11 @@ WatchdogPrepareHardware (
 
   DEBUG ((
     DEBUG_ERROR,
-    "AcpiPlatform: watchdog: WDT_NS ready, CR 0x%x; last reset %a the watchdog "
+    "AcpiPlatform: watchdog: WDT_NS ready, CR 0x%x; %a "
     "(GLBRST_ST_NCLR 0x%04x -> 0x%04x); GLB_RST_CON 0x%04x, SYS_GRF_SOC_CON4 0x%04x\n",
     MmioRead32 (RK3576_WDT_NS_BASE + RK3576_WDT_CR),
-    Fired ? "WAS" : "was not",
+    Fired ? "last reset WAS the watchdog"
+          : "last reset cause unknown (no watchdog record; the record does not survive a PMIC power cycle)",
     Nclr & 0xFFFF,
     NclrAfter & 0xFFFF,
     MmioRead32 (RK3576_CRU_GLB_RST_CON) & 0xFFFF,
