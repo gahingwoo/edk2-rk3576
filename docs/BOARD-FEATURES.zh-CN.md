@@ -24,16 +24,16 @@
 | HTTP 启动 | 无 | 有，关 | 无 |
 | 安全启动 | 有 | 有 | 有 |
 | CPU 最高频率 (`PcdCpuMaxFreqSupported`) | 隐藏 | 1608 MHz | 1608 MHz |
-| 702 MHz 用的 GPU 电压（775 mV） (`PcdGpuRail775Supported`) | 隐藏 | 关（750 mV） | 开（775 mV） |
+| GPU 电压 (`PcdGpuRail775Supported`) | 隐藏 | 750 mV（594 MHz） | 775 mV（702 MHz） |
 | 风扇模式 (`PcdAcpiFanControlSupported`) | 常开 | 常开 | 常开 |
 | NPU（实验性） (`AcpiNpuSupported`) | 启用 * | 启用 * | 启用 * |
 | USB-C DisplayPort（实验性） (`PcdUsbcDpSupported`) | 禁用 | 隐藏 | 禁用 |
 | SDIO Wi-Fi（实验性） (`PcdAcpiSdioWifiSupported`) | 隐藏 | 隐藏 | 禁用 |
 | 40针 UART（实验性） (`PcdPin40Supported`) | 隐藏 | 禁用 | 禁用 |
-| 40针 GPIO/I2C/SPI 供应用使用（实验性） (`PcdPin40Supported`) | 隐藏 | 禁用 | 禁用 |
-| 电源键（RK806，实验性） (`PcdAcpiPwrKeySupported`) | 禁用 | 禁用 | 隐藏 |
-| 板载指示灯交给操作系统（实验性） (`PcdAcpiLedsSupported`) | 隐藏 | 禁用 | 禁用 |
-| ADC 按键交给操作系统（实验性） (`PcdAcpiSaradcSupported`) | 隐藏 | 隐藏 | 启用 |
+| 40针 GPIO/I2C/SPI 供应用使用 (`PcdPin40Supported`) | 隐藏 | 禁用 | 禁用 |
+| 电源键（实验性） (`PcdAcpiPwrKeySupported`) | 禁用 | 禁用 | 隐藏 |
+| 板载指示灯（实验性） (`PcdAcpiLedsSupported`) | 隐藏 | 禁用 | 禁用 |
+| ADC 按键（实验性） (`PcdAcpiSaradcSupported`) | 隐藏 | 隐藏 | 启用 |
 
 \* 只有 RK3576Dxe 在启动时设置了这个变量才显示（启动时探测，不是构建设置）
 

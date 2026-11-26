@@ -25,7 +25,7 @@ several.
 | Device Manager > Network Stack Configuration | PXE Boot | `NetworkStackConfigData` @3 | Disabled, Enabled | Enabled | Enabled | Enabled |
 | Device Manager > Network Stack Configuration | HTTP Boot | `NetworkStackConfigData` @4 | Disabled, Enabled | Disabled | Disabled | Disabled |
 | RK3576 Platform Configuration | CPU Maximum Frequency | `CpuMaxFreq` | 1608 MHz, Max (2208 / 2016 MHz) | hidden | 1608 MHz | 1608 MHz |
-| RK3576 Platform Configuration | GPU voltage for 702 MHz (775 mV) | `GpuRail775` | Off (750 mV), On (775 mV) | hidden | Off (750 mV) | On (775 mV) |
+| RK3576 Platform Configuration | GPU voltage | `GpuRail775` | 750 mV (594 MHz), 775 mV (702 MHz) | hidden | 750 mV (594 MHz) | 775 mV (702 MHz) |
 | RK3576 Platform Configuration | Save Screenshots To | `ScreenshotTarget` | Automatic (USB stick first), USB stick only, SD card only, Internal storage only | Automatic (USB stick first) | Automatic (USB stick first) | Automatic (USB stick first) |
 | RK3576 Platform Configuration | Network Time Sync | `NetworkTimeSync` | Disabled, Enabled | Enabled | Enabled | Enabled |
 | RK3576 Platform Configuration | Save OS Variable Changes to eMMC | `RtVarEmmcCommit` | Disabled, Enabled | Disabled | Disabled | Disabled |
@@ -34,15 +34,15 @@ several.
 | RK3576 Platform Configuration > ACPI / Device Tree | Fan Mode | `AcpiFanControl` | Always on, Performance, Balanced, Quiet, Off | Always on | Always on | Always on |
 | RK3576 Platform Configuration > ACPI / Device Tree | CPU Idle States | `AcpiCpuIdleStates` | Disabled, Enabled | Disabled | Disabled | Disabled |
 | RK3576 Platform Configuration > ACPI / Device Tree | NPU (experimental) | `AcpiNpu` | Disabled, Enabled | Enabled | Enabled | Enabled |
-| RK3576 Platform Configuration > ACPI / Device Tree | Video Decoder (VDPU383, experimental) | `AcpiVdec` | Disabled, Enabled | Enabled | Enabled | Enabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Video Decoder (experimental) | `AcpiVdec` | Disabled, Enabled | Enabled | Enabled | Enabled |
 | RK3576 Platform Configuration > ACPI / Device Tree | USB-C DisplayPort (experimental) | `UsbcDp` | Disabled, Enabled | Disabled | hidden | Disabled |
 | RK3576 Platform Configuration > ACPI / Device Tree | SDIO Wi-Fi (experimental) | `AcpiSdioWifi` | Disabled, Enabled | hidden | hidden | Disabled |
 | RK3576 Platform Configuration > ACPI / Device Tree | 40-pin UART (experimental) | `Pin40Uart` | Disabled, Enabled | hidden | Disabled | Disabled |
-| RK3576 Platform Configuration > ACPI / Device Tree | 40-pin GPIO/I2C/SPI for apps (experimental) | `Pin40RhProxy` | Disabled, Enabled | hidden | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | 40-pin GPIO/I2C/SPI for apps | `Pin40RhProxy` | Disabled, Enabled | hidden | Disabled | Disabled |
 | RK3576 Platform Configuration > ACPI / Device Tree | Hardware watchdog (experimental) | `HwWatchdog` | Disabled, Enabled | Disabled | Disabled | Disabled |
-| RK3576 Platform Configuration > ACPI / Device Tree | Power button (RK806, experimental) | `AcpiPwrKey` | Disabled, Enabled | Disabled | Disabled | hidden |
-| RK3576 Platform Configuration > ACPI / Device Tree | Board LEDs for the OS (experimental) | `AcpiLeds` | Disabled, Enabled | hidden | Disabled | Disabled |
-| RK3576 Platform Configuration > ACPI / Device Tree | ADC keys for the OS (experimental) | `AcpiSaradc` | Disabled, Enabled | hidden | hidden | Enabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Power button (experimental) | `AcpiPwrKey` | Disabled, Enabled | Disabled | Disabled | hidden |
+| RK3576 Platform Configuration > ACPI / Device Tree | Board LEDs (experimental) | `AcpiLeds` | Disabled, Enabled | hidden | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | ADC keys (experimental) | `AcpiSaradc` | Disabled, Enabled | hidden | hidden | Enabled |
 | RK3576 Platform Configuration > ACPI / Device Tree | Compatibility Mode | `FdtCompatMode` | Vendor, Mainline | Mainline | Mainline | Mainline |
 | RK3576 Platform Configuration > ACPI / Device Tree | Force UEFI GOP Display | `FdtForceGop` | Disabled, Enabled | Disabled | Disabled | Disabled |
 | RK3576 Platform Configuration > ACPI / Device Tree | Support DTB override & overlays | `FdtSupportOverrides` | Disabled, Enabled | Disabled | Disabled | Disabled |
