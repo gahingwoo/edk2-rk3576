@@ -490,6 +490,33 @@ def dump_flow(exc, modules, opts):
     else:
         rep["notes"].append(f"GetVersion failed ({_st(r)})")
 
+    # --read: memory the user asked for, at the moment of the bugcheck.
+    rep["reads"] = []
+    for spec in opts.reads:
+        try:
+            expr, length = parse_read_spec(spec)
+        except ValueError as e:
+            rep["notes"].append(f"--read {spec!r}: {e}")
+            continue
+        try:
+            va = yield from eval_addr(expr, rep)
+        except ValueError as e:
+            rep["reads"].append((spec, None, b"", str(e)))
+            continue
+        data = bytearray()
+        err = ""
+        while len(data) < length:
+            n = min(opts.chunk, length - len(data))
+            r = yield ("read", va + len(data), n)
+            if not ok(r) or not r["data"]:
+                err = f"read at 0x{va + len(data):016x} failed ({_st(r)})"
+                break
+            data += r["data"]
+            if len(r["data"]) < n:
+                err = f"short read at 0x{va + len(data):016x}"
+                break
+        rep["reads"].append((spec, va, bytes(data), err))
+
     # Which stack values are return addresses: read the instruction before
     # each and keep the ones that follow a call.
     cands = []
@@ -505,6 +532,133 @@ def dump_flow(exc, modules, opts):
         if ok(r) and len(r["data"]) == 4:
             rep["insn"][va] = struct.unpack("<I", r["data"])[0]
     return rep
+
+
+# --------------------------------------------------------------------------
+# --read ADDR:LEN
+#
+# ADDR is a sum of terms joined by + and -. A term is a number (hex with
+# 0x, else decimal), P1..P4 (the bugcheck parameters), PC, LR, SP, FP,
+# X0..X30 (the register context), FPn (the frame pointer of frame n of the
+# frame-pointer chain, as the report numbers it), or [ADDR], the 8-byte
+# value at ADDR (one more read at bugcheck time). LEN is a number.
+
+
+def parse_read_spec(spec):
+    expr, sep, length = spec.rpartition(":")
+    if not sep or not expr:
+        raise ValueError("expected ADDR:LEN")
+    n = int(length, 0)
+    if not 0 < n <= 0x10000:
+        raise ValueError("LEN must be 1..0x10000")
+    return expr.strip(), n
+
+
+def _tokens(expr):
+    out, i = [], 0
+    while i < len(expr):
+        c = expr[i]
+        if c.isspace():
+            i += 1
+        elif c in "+-[]":
+            out.append(c)
+            i += 1
+        else:
+            j = i
+            while j < len(expr) and (expr[j].isalnum() or expr[j] == "_"):
+                j += 1
+            if j == i:
+                raise ValueError(f"unexpected {c!r}")
+            out.append(expr[i:j])
+            i = j
+    return out
+
+
+def _term_value(tok, rep):
+    t = tok.upper()
+    ctx = rep.get("ctx")
+    if t[:2] == "0X" or t.isdigit():
+        return int(tok, 0)
+    if t in ("P1", "P2", "P3", "P4"):
+        bc = rep.get("bugcheck")
+        if not bc:
+            raise ValueError(f"{tok}: no bugcheck parameters")
+        return bc[int(t[1])]
+    if ctx is None and t in ("PC", "LR", "SP", "FP") or (ctx is None and t[:1] == "X"):
+        raise ValueError(f"{tok}: no register context")
+    if t == "PC":
+        return ctx.pc
+    if t == "LR":
+        return ctx.lr
+    if t == "SP":
+        return ctx.sp
+    if t == "FP":
+        return ctx.fp
+    if t[:2] == "FP" and t[2:].isdigit():
+        k = int(t[2:])
+        chain = fp_chain(rep)
+        if not 1 <= k <= len(chain):
+            raise ValueError(f"{tok}: the frame-pointer chain has {len(chain)} frames")
+        return chain[k - 1][0]
+    if t[:1] == "X" and t[1:].isdigit() and int(t[1:]) <= 30:
+        return ctx.x[int(t[1:])]
+    raise ValueError(f"unknown term {tok!r}")
+
+
+def eval_addr(expr, rep):
+    """Generator: yields ("read", va, 8) for each [..]; returns the address."""
+    toks = _tokens(expr)
+    pos = [0]
+
+    def peek():
+        return toks[pos[0]] if pos[0] < len(toks) else None
+
+    def take():
+        pos[0] += 1
+        return toks[pos[0] - 1]
+
+    def term():
+        t = peek()
+        if t is None:
+            raise ValueError("expression ends early")
+        if t == "[":
+            take()
+            va = yield from sum_()
+            if take() != "]":
+                raise ValueError("missing ]")
+            r = yield ("read", va, 8)
+            if not (ok(r) and len(r["data"]) >= 8):
+                raise ValueError(f"[0x{va:016x}] unreadable ({_st(r)})")
+            return struct.unpack_from("<Q", r["data"], 0)[0]
+        if t in "+-]":
+            raise ValueError(f"unexpected {t!r}")
+        return _term_value(take(), rep)
+
+    def sum_():
+        sign = 1
+        if peek() in ("+", "-"):
+            sign = -1 if take() == "-" else 1
+        v = sign * (yield from term())
+        while peek() in ("+", "-"):
+            sign = -1 if take() == "-" else 1
+            v += sign * (yield from term())
+        return v & 0xFFFFFFFFFFFFFFFF
+
+    v = yield from sum_()
+    if peek() is not None:
+        raise ValueError(f"trailing {peek()!r}")
+    return v
+
+
+def hexdump(va, data):
+    out = []
+    for off in range(0, len(data), 16):
+        row = data[off:off + 16]
+        q = " ".join(f"{struct.unpack_from('<Q', row, k)[0]:016x}" if k + 8 <= len(row) else row[k:].hex()
+                     for k in range(0, len(row), 8))
+        asc = "".join(chr(b) if 0x20 <= b < 0x7F else "." for b in row)
+        out.append(f"  0x{va + off:016x}  {q:<33}  {asc}")
+    return out
 
 
 def walk_modules(head, opts):
@@ -648,6 +802,16 @@ def format_report(rep, fatal):
             if s != last:
                 L.append(f"  sp+0x{off:04x}  {s}")
             last = s
+    for spec, va, data, err in rep.get("reads", []):
+        if va is None:
+            L.append(f"read {spec}: {err}")
+            continue
+        L.append(f"read {spec} = 0x{va:016x}, {len(data)} bytes{(': ' + err) if err else ''}")
+        L += hexdump(va, data)
+        for off in range(0, len(data) - 7, 8):
+            v = struct.unpack_from("<Q", data, off)[0]
+            if mods.lookup(v):
+                L.append(f"    +0x{off:x}: {mods.sym(v)}")
     sus = suspect(rep, verified, chain)
     if sus:
         L.append(f"SUSPECT: {sus}")
@@ -691,6 +855,7 @@ class Opts:
     prompt_answer = "i"
     reply_timeout = 5.0
     resend_after = 1.0
+    reads = ()
 
 
 class Log:
@@ -1326,6 +1491,11 @@ def main(argv=None):
     ap.add_argument("--no-walk-modules", action="store_true")
     ap.add_argument("--prompt-answer", default=Opts.prompt_answer,
                     help="answer to DbgPrompt, e.g. an assertion's (b)reak/(i)gnore (default i)")
+    ap.add_argument("--read", action="append", default=[], metavar="ADDR:LEN",
+                    help="at the dump, also read and hex-dump LEN bytes at ADDR; repeatable. ADDR: "
+                         "numbers, P1..P4, PC/LR/SP/FP, X0..X30, FPn (frame n of the chain), "
+                         "[ADDR] (the 8-byte value there), joined by + and -. "
+                         "e.g. --read 'P2-0x40:0x80' --read '[FP3+0x10]+0x6b0:0x40'")
     ap.add_argument("--force", action="store_true", help="start even if another process holds the port")
     args = ap.parse_args(argv)
 
@@ -1338,6 +1508,12 @@ def main(argv=None):
     opts.walk_modules = args.walk_modules
     opts.no_walk_modules = args.no_walk_modules
     opts.prompt_answer = args.prompt_answer
+    opts.reads = tuple(args.read)
+    for spec in opts.reads:
+        try:
+            _tokens(parse_read_spec(spec)[0])
+        except ValueError as e:
+            ap.error(f"--read {spec!r}: {e}")
     if args.offline:
         return run_offline(args, opts)
     return run_live(args, opts)
