@@ -426,12 +426,31 @@ AcpiDsdtFixupStatus (
 }
 
 //
-// The board's fan SSDT (OEM table ID "RKFAN") is installed only when fan
-// control is enabled in setup (PcdAcpiFanControl).  Without it the DSDT's
+// The board's fan SSDT (OEM table ID "RKFAN") is installed only when "Fan
+// Mode" in setup (PcdAcpiFanControl) is Performance, Balanced or Quiet, not
+// Always on or Off.  Without it the DSDT's
 // thermal zones still report the temperature, but have no trip points and no
-// cooling device, so the OS changes nothing.
+// cooling device, so the OS changes nothing.  With it, \_SB.FTON is the
+// mode's on-point in tenths of a kelvin; Fan.asl derives every trip point
+// and its hysteresis from it.
 //
 #define FAN_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'F', 'A', 'N', ' ', ' ', ' ')
+
+STATIC
+UINTN
+FanModeOnPoint (
+  IN UINT8  Mode
+  )
+{
+  switch (Mode) {
+    case ACPI_FAN_MODE_PERFORMANCE:
+      return 2732 + 500;  // 50.0 C
+    case ACPI_FAN_MODE_QUIET:
+      return 2732 + 700;  // 70.0 C
+    default:
+      return 2732 + 600;  // 60.0 C, Balanced
+  }
+}
 
 //
 // Exactly one CPU idle SSDT is installed, chosen by "CPU Idle States" in
@@ -489,8 +508,9 @@ AcpiDsdtFixupStatus (
 //
 // The RK806 power key SSDT (AcpiTables/PwrKey.asl, OEM table ID "RKPWRKEY",
 // \_SB.I2C1.PWRK, RKCP806B for woa-rk3576 rk806pwrkey) is installed only
-// with "Power button (RK806)" on in setup (PcdAcpiPwrKey) on a board whose
-// RK806 the firmware reaches (PcdRk806I2cBase).  Rk806I2cPowerOffDxe sets
+// with "Power button (RK806)" on in setup (PcdAcpiPwrKey) on a board with a
+// button on the RK806's PWRON pin (PcdAcpiPwrKeySupported) whose RK806 the
+// firmware reaches (PcdRk806I2cBase).  Rk806I2cPowerOffDxe sets
 // up the PMIC interrupt pin and the PMIC's interrupt masks under the same
 // condition.
 //
@@ -503,6 +523,51 @@ AcpiDsdtFixupStatus (
 //
 #define LEDS_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'L', 'E', 'D', ' ', ' ', ' ')
 
+//
+// The board's SARADC SSDT (OEM table ID "RKSARADC", \_SB.ADC0, RKCP0ADC
+// for woa-rk3576 rk3xsaradc, the body is AcpiTables/Saradc.asl) is
+// installed only with "ADC keys for the OS" on in setup (PcdAcpiSaradc) on
+// a board that has one (PcdAcpiSaradcSupported).
+//
+#define SARADC_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'S', 'A', 'R', 'A', 'D', 'C')
+
+//
+// UNTESTED EXPERIMENT for the 0x5C bugcheck with CpuIdle.asl ("RKLPI"; see
+// its "Windows: bugcheck 0x5C").  Hypothesis: the HAL refuses an idle state
+// that loses core context because the GTDT names no timer that keeps
+// running through it.  With "CPU Idle States" on, and only then, the
+// per-core timers' Always-On capability flag is set in the GTDT, so the
+// HAL's check (if that is the check) passes.
+//
+// The flag is not true on RK3576: a powered-down core's comparator stops
+// (mainline's local-timer-stop).  So this only tests the hypothesis.  If
+// Windows then boots, expect timers on idle cores to fire late (a slow
+// clock, stalls until some other interrupt), and do not ship it as a fix.
+//
+STATIC
+VOID
+CpuIdleGtdtAlwaysOn (
+  IN EFI_ACPI_DESCRIPTION_HEADER  *AcpiHeader
+  )
+{
+  EFI_ACPI_5_1_GENERIC_TIMER_DESCRIPTION_TABLE  *Gtdt;
+
+  if (AcpiHeader->Length < sizeof (EFI_ACPI_5_1_GENERIC_TIMER_DESCRIPTION_TABLE)) {
+    return;
+  }
+
+  Gtdt                          = (EFI_ACPI_5_1_GENERIC_TIMER_DESCRIPTION_TABLE *)AcpiHeader;
+  Gtdt->NonSecurePL1TimerFlags |= EFI_ACPI_5_1_GTDT_TIMER_FLAG_ALWAYS_ON_CAPABILITY;
+  Gtdt->VirtualTimerFlags      |= EFI_ACPI_5_1_GTDT_TIMER_FLAG_ALWAYS_ON_CAPABILITY;
+  Gtdt->NonSecurePL2TimerFlags |= EFI_ACPI_5_1_GTDT_TIMER_FLAG_ALWAYS_ON_CAPABILITY;
+  Gtdt->SecurePL1TimerFlags    |= EFI_ACPI_5_1_GTDT_TIMER_FLAG_ALWAYS_ON_CAPABILITY;
+
+  DEBUG ((
+    DEBUG_ERROR,
+    "AcpiPlatform: CPU idle states on: GTDT timers marked Always-On (untested 0x5C experiment)\n"
+    ));
+}
+
 STATIC
 BOOLEAN
 EFIAPI
@@ -510,6 +575,10 @@ AcpiTableCheck (
   IN EFI_ACPI_DESCRIPTION_HEADER  *AcpiHeader
   )
 {
+  EFI_STATUS  Status;
+  BOOLEAN     Uart;
+  UINT8       FanMode;
+
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
       (AcpiHeader->OemTableId == CPU_IDLE_SSDT_OEM_TABLE_ID))
   {
@@ -535,12 +604,29 @@ AcpiTableCheck (
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
       (AcpiHeader->OemTableId == FAN_SSDT_OEM_TABLE_ID))
   {
-    if (PcdGet8 (PcdAcpiFanControl) == 0) {
-      DEBUG ((DEBUG_INFO, "AcpiPlatform: fan control off in setup, fan SSDT not installed\n"));
+    FanMode = PcdGet8 (PcdAcpiFanControl);
+    if ((FanMode == ACPI_FAN_MODE_ALWAYS_ON) || (FanMode > ACPI_FAN_MODE_MAX)) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: fan mode Always on, fan SSDT not installed\n"));
       return FALSE;
     }
 
-    DEBUG ((DEBUG_INFO, "AcpiPlatform: fan control on, installing the fan SSDT\n"));
+    if (FanMode == ACPI_FAN_MODE_OFF) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: fan mode Off, fan SSDT not installed\n"));
+      return FALSE;
+    }
+
+    Status = AcpiUpdateSdtNameInteger (AcpiHeader, "FTON", FanModeOnPoint (FanMode));
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "AcpiPlatform: fan SSDT has no FTON to patch (%r), not installed\n", Status));
+      return FALSE;
+    }
+
+    DEBUG ((
+      DEBUG_ERROR,
+      "AcpiPlatform: fan mode %u, installing the fan SSDT (on at %u.0 C)\n",
+      FanMode,
+      (UINT32)(FanModeOnPoint (FanMode) - 2732) / 10
+      ));
   }
 
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
@@ -595,13 +681,31 @@ AcpiTableCheck (
       return FALSE;
     }
 
-    DEBUG ((DEBUG_ERROR, "AcpiPlatform: 40-pin GPIO/I2C/SPI on, installing the RhProxy SSDT (\\_SB.RHPX)\n"));
+    //
+    // \_SB.RHPX.UAON: 1 when the UART SSDT goes in too, so _CRS leaves the
+    // UART pins out.  The table itself must not look for the UART devices
+    // (RhProxy.asl): it is installed before the UART SSDT.
+    //
+    Uart   = (PcdGet8 (PcdPin40Uart) != 0);
+    Status = AcpiUpdateSdtNameInteger (AcpiHeader, "UAON", Uart ? 1 : 0);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "AcpiPlatform: RhProxy SSDT has no UAON to patch (%r), not installed\n", Status));
+      return FALSE;
+    }
+
+    DEBUG ((
+      DEBUG_ERROR,
+      "AcpiPlatform: 40-pin GPIO/I2C/SPI on, installing the RhProxy SSDT (\\_SB.RHPX, UART pins %a)\n",
+      Uart ? "left out" : "listed as GPIOs"
+      ));
   }
 
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
       (AcpiHeader->OemTableId == PWRKEY_SSDT_OEM_TABLE_ID))
   {
-    if ((FixedPcdGet32 (PcdRk806I2cBase) == 0) || (PcdGet8 (PcdAcpiPwrKey) == 0)) {
+    if (!FixedPcdGetBool (PcdAcpiPwrKeySupported) || (FixedPcdGet32 (PcdRk806I2cBase) == 0) ||
+        (PcdGet8 (PcdAcpiPwrKey) == 0))
+    {
       DEBUG ((DEBUG_INFO, "AcpiPlatform: RK806 power button off in setup, PwrKey SSDT not installed\n"));
       return FALSE;
     }
@@ -618,6 +722,23 @@ AcpiTableCheck (
     }
 
     DEBUG ((DEBUG_ERROR, "AcpiPlatform: OS LEDs on, installing the LED SSDT (\\_SB.LEDS)\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
+      (AcpiHeader->OemTableId == SARADC_SSDT_OEM_TABLE_ID))
+  {
+    if (!FixedPcdGetBool (PcdAcpiSaradcSupported) || (PcdGet8 (PcdAcpiSaradc) == 0)) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: ADC keys off in setup, SARADC SSDT not installed\n"));
+      return FALSE;
+    }
+
+    DEBUG ((DEBUG_ERROR, "AcpiPlatform: ADC keys on, installing the SARADC SSDT (\\_SB.ADC0)\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_5_1_GENERIC_TIMER_DESCRIPTION_TABLE_SIGNATURE) &&
+      (PcdGet8 (PcdAcpiCpuIdleStates) != 0))
+  {
+    CpuIdleGtdtAlwaysOn (AcpiHeader);
   }
 
   if (AcpiHeader->Signature == EFI_ACPI_3_0_WATCHDOG_ACTION_TABLE_SIGNATURE) {
@@ -881,7 +1002,7 @@ AcpiFixupPcieEcam (
     //
     //   AcpiPlatform:   seg1 [0] base=0x23000000 bus 1..15
     //
-    // 0x23000000 is not PCIe config space on this SoC -- it is the first DWC3
+    // 0x23000000 is not PCIe config space on this SoC; it is the first DWC3
     // USB controller, which XHC0 claims in the DSDT.  MCFG reserving it as
     // ECAM is why `ACPI\PNP0D10\0` came up CM_PROB_FAILED_START with no
     // resources granted at all, while XHC1 next to it started fine.
@@ -932,7 +1053,7 @@ AcpiFixupPcieEcam (
     //   pcie1: reg = <...>, <...>, <0x0 0x21000000 0x0 0x00100000>;
     //
     // 1 MB is one bus.  Everything past the first bus is not config space at
-    // all -- for segment 0, bus+1 lands on PCIE0_IO_BASE (0x20100000) and the
+    // all. For segment 0, bus+1 lands on PCIE0_IO_BASE (0x20100000) and the
     // buses after it on PCIE0_MEM32_BASE (0x20200000), which are the very
     // windows _CRS hands the root bridge.  An OS is entitled to treat an MCFG
     // range as reserved, so advertising 15 buses here claimed 0x20000000..

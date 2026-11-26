@@ -129,15 +129,15 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // SPI buses (SPI0..SPI2 on RK3576; SFC0 is the separate SPI-NOR boot flash)
     include ("Spi.asl")
 
-    // USB — 2x DWC3 OTG cores, both operated as host
+    // USB: 2x DWC3 OTG cores, both operated as host
     // DRD0 @ 0x23000000: USB-A port via USBDP PHY (HS+SS)
     include ("Usb3Host0.asl")
     // DRD1 @ 0x23400000: USB3 upper port via combphy1 (HS+SS)
     include ("Usb3Host1.asl")
-    // XHC2 stub — disabled; RK3576 only has 2 USB DRD controllers
+    // XHC2 stub, disabled; RK3576 only has 2 USB DRD controllers
     include ("Usb3Host2.asl")
 
-    // SATA — disabled stub; RK3576 has no SATA controller
+    // SATA: disabled stub; RK3576 has no SATA controller
     include ("Sata.asl")
 
     // Network: GMAC0 only (YT8531C GbE, rgmii-id)

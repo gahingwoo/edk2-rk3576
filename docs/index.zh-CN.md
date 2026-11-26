@@ -12,8 +12,8 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 
 1. 先看你的板子：[Radxa ROCK 4D](boards/rock4d.zh-CN.md)、[ArmSoM CM5-IO](boards/cm5io.zh-CN.md)、[立创泰山派 3M](boards/tspi3m.zh-CN.md)。
 2. 写入固件：见[刷写固件](flash.zh-CN.md)。最简单的是 [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio) 和 [flash.gahingwoo.com](https://flash.gahingwoo.com/)。
-3. Windows 11 23H2（CM5-IO、泰山派 3M）：见 [Windows](windows.zh-CN.md)。
-4. Linux：见 [Linux](linux.zh-CN.md)。
+3. Windows 11 23H2（三块板子都可以）：见 [Windows](windows.zh-CN.md)。
+4. Linux：见 [Linux](linux.zh-CN.md)。用 Armbian 自己的 U-Boot、从启动管理器启动一次：[Armbian (U-Boot)](armbian-boot.zh-CN.md)。
 5. 遇到问题：[故障排查](troubleshooting.zh-CN.md)、[已知问题](known-issues.zh-CN.md)。
 
 ## 下载
@@ -25,6 +25,7 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 ## 其他页面
 
 - [固件菜单和功能](firmware-menus.zh-CN.md)：语言、截图、调试报告、恢复全部设置、时钟、显示、触摸、给操作系统用的选项
+- [板子功能对照](BOARD-FEATURES.zh-CN.md)：每块板子有什么，逐个选项、逐个设备列出
 - [图片](gallery.zh-CN.md)
 - 开发文档：[编译](dev/building.zh-CN.md)、[架构](dev/architecture.zh-CN.md)、[映像布局](dev/image-layout.zh-CN.md)、[硬件](dev/hardware.zh-CN.md)、[ACPI](dev/acpi.zh-CN.md)、[测试](dev/testing.zh-CN.md)、[发布](dev/releasing.zh-CN.md)
 

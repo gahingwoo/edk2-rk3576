@@ -194,7 +194,7 @@ GpioPinSetFunction (
 }
 
 /* -----------------------------------------------------------------------
- * Pull / Drive / Schmitt — NOT IMPLEMENTED for RK3576.
+ * Pull / Drive / Schmitt: NOT IMPLEMENTED for RK3576.
  *
  * The RK3588 GpioLib implements these; this one does not. Every caller so far
  * (the ROCK 4D and CM5-IO RockchipPlatformLib) programs IOMUX directly via
@@ -298,7 +298,7 @@ GpioPinSetDrive (
 
   DEBUG ((
     DEBUG_WARN,
-    "GpioPinSetDrive: RK3576 has no drive-strength support -- request for GPIO%d pin %d (drive=%d) SILENTLY DROPPED\n",
+    "GpioPinSetDrive: RK3576 has no drive-strength support; request for GPIO%d pin %d (drive=%d) SILENTLY DROPPED\n",
     Group, Pin, Drive
     ));
 }
@@ -316,7 +316,7 @@ GpioPinSetInput (
 
   DEBUG ((
     DEBUG_WARN,
-    "GpioPinSetInput: RK3576 has no input-enable support -- request for GPIO%d pin %d (ie=%d) SILENTLY DROPPED\n",
+    "GpioPinSetInput: RK3576 has no input-enable support; request for GPIO%d pin %d (ie=%d) SILENTLY DROPPED\n",
     Group, Pin, InputEnable
     ));
 }

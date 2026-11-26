@@ -145,7 +145,7 @@ PciHostBridgeGetRootBridges (
     mPciRootBridges[Loop].Mem.Limit       = mPciRootBridges[Loop].Mem.Base + PCIE_MEM32_SIZE - 1;
     mPciRootBridges[Loop].Mem.Translation = 0;  // identity-mapped
 
-    /* No 64-bit memory window — no ATU coverage above 4 GB on RK3576. */
+    /* No 64-bit memory window: no ATU coverage above 4 GB on RK3576. */
     mPciRootBridges[Loop].MemAbove4G.Base  = MAX_UINT64;
     mPciRootBridges[Loop].MemAbove4G.Limit = 0;
 
@@ -179,7 +179,7 @@ PciHostBridgeFreeRootBridges (
   UINTN            Count
   )
 {
-  // Static array - nothing to free.
+  // Static array, nothing to free.
 }
 
 /**

@@ -25,7 +25,7 @@
  *     6  pin 18  GPIO3_A3      14  pin 38  GPIO3_A2
  *     7  pin 22  GPIO2_D6
  *
- *    and, while "40-pin UART" is off (no \_SB.URT4):
+ *    and, while "40-pin UART" is off:
  *
  *    15  pin 8   GPIO2_D0      17  pin 37  GPIO2_A6
  *    16  pin 10  GPIO2_D1      18  pin 40  GPIO2_A7
@@ -35,7 +35,9 @@
  *  an even BAUDR of 2 to 65534, capped at 50 MHz here.  rk3xspi supports
  *  8-bit frames only.
  *
- *  NOT RUN WITH ANY OPERATING SYSTEM ON THIS BOARD.  It compiles.
+ *  Windows 11 23H2 did not boot with this table and the UART SSDT both
+ *  installed (2026-11-25); see RhProxy.asl for the forward reference that
+ *  was removed.  The fixed table has not been booted yet.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
@@ -53,7 +55,6 @@ DefinitionBlock ("Pin40RhProxy.aml", "SSDT", 2, "RKCP  ", "RKRHPX  ", 1)
   External (\_SB.I2C7, DeviceObj)
   External (\_SB.I2C8, DeviceObj)
   External (\_SB.SPI1, DeviceObj)
-  External (\_SB.URT4, DeviceObj)
 
   Scope (\_SB_)
   {
@@ -89,8 +90,6 @@ DefinitionBlock ("Pin40RhProxy.aml", "SSDT", 2, "RKCP  ", "RKRHPX  ", 1)
     RHPX_GPIO ("\\_SB.GPI2", GPIO_PIN_PD1) \
     RHPX_GPIO ("\\_SB.GPI2", GPIO_PIN_PA6) \
     RHPX_GPIO ("\\_SB.GPI2", GPIO_PIN_PA7)
-
-#define RHPX_BOARD_UART_PROBE  \_SB.URT4
 
 #define RHPX_BOARD_DSD \
       Package (2) { "bus-SPI-SPI1", Package () { 0, 1 } }, \

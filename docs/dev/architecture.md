@@ -45,17 +45,14 @@ GPIOs, PMIC and PHY glue, defaults of setup options, the ACPI DSDT and the
 device tree. Everything the SoC decides is in
 `Silicon/Rockchip/RK3576/RK3576Base.dsc.inc` and `RK3576.fdf`.
 
-Before 2026-08-04 this tree was a copy of edk2-rockchip that built RK3576 on
-top of RK3588's configuration. Values that were right for RK3588 and wrong
-for RK3576 (memory map, I2C addresses, reset IDs) kept turning up, so the
-RK3576 package was made standalone. The old tree is on the `legacy/v0.1`
-branch.
+The RK3576 package is standalone, not layered on RK3588's configuration,
+because inherited RK3588 values (memory map, I2C addresses, reset IDs) were
+wrong for RK3576. The older layered tree is on the `legacy/v0.1` branch.
 
 ## ACPI and device tree
 
-The CM5-IO and the TaishanPi 3M install ACPI tables and a device tree side
-by side, so Windows uses ACPI and Linux the device tree. The ROCK 4D builds
-the device tree only. Details: [ACPI](acpi.md).
+All three boards install ACPI tables and a device tree side by side, so
+Windows uses ACPI and Linux the device tree. Details: [ACPI](acpi.md).
 
 The device tree handed to Linux is the firmware's own, built from
 `devicetree/mainline/`, with fix-ups at boot (`FdtPlatformDxe`): for

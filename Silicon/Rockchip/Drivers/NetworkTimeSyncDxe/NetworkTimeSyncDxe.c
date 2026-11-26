@@ -61,6 +61,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Guid/TimeSource.h>
 #include <Protocol/Dhcp4.h>
 #include <Protocol/Ip4Config2.h>
 #include <Protocol/ServiceBinding.h>
@@ -895,6 +896,7 @@ NtsSetClock (
   EFI_TIME    New;
   INT64       OldUtc;
   INT64       Offset;
+  UINT8       Source8;
 
   ArrivedNs = NtsNowNs ();
   Pivot     = NtsBuildYearUnix ();
@@ -959,6 +961,18 @@ NtsSetClock (
     ));
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "NetworkTimeSync: SetTime: %r\n", Status));
+  } else {
+    //
+    // For the About page (Guid/TimeSource.h).
+    //
+    Source8 = ROCKCHIP_TIME_SOURCE_NETWORK;
+    gRT->SetVariable (
+           ROCKCHIP_TIME_SOURCE_NAME,
+           &gRockchipTimeSourceGuid,
+           ROCKCHIP_TIME_SOURCE_ATTRIBUTES,
+           sizeof (Source8),
+           &Source8
+           );
   }
 
   NtsFinish (NULL);
@@ -1121,8 +1135,8 @@ NtsHandleDatagram (
       ));
     if (Count == 0) {
       //
-      // An answer without an address (NXDOMAIN, or an ID that is not ours
-      // -- then the real answer may still come, so only a valid header
+      // An answer without an address (NXDOMAIN, or an ID that is not ours,
+      // in which case the real answer may still come, so only a valid header
       // counts as final).
       //
       if ((Length >= 2) && (((UINT16)Data[0] << 8 | Data[1]) == mNts.DnsId)) {

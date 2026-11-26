@@ -6,8 +6,8 @@
  *  peripheral IP blocks (CRU, FSPI, UART, I2C, SARADC, ...) are the same
  *  designs across these SoCs, so the register structs and bit-field macros
  *  are shared.  Only the base addresses differ, and each SoC's Soc.h
- *  `#undef`s and re-defines the handful that clash -- see
- *  Silicon/Rockchip/RK3576/Include/Soc.h.
+ *  `#undef`s and re-defines the handful that clash (see
+ *  Silicon/Rockchip/RK3576/Include/Soc.h).
  *
  *  Keeping the old name here meant every module that wanted a register
  *  bit-field had to pull in RK3588.dec, which put RK3588/Include on its

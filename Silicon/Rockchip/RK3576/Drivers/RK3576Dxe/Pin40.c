@@ -1,6 +1,6 @@
 /** @file
  *
- *  Pin40.c -- the 40-pin header for an operating system with no pin or clock
+ *  Pin40.c: the 40-pin header for an operating system with no pin or clock
  *  driver of its own (Windows with the woa-rk3576 rk3xuart, rk3xgpio,
  *  rk3xi2c and rk3xspi drivers).  Runs only when a setup option asks for it
  *  ("40-pin UART", PcdPin40Uart; "40-pin GPIO/I2C/SPI for apps",

@@ -988,7 +988,7 @@
 //   rst-rk3576.c:598  RK3576_PMU1CRU_RESET_OFFSET(SRST_HDPTX_LANE,  1, 11)
 //   rst-rk3576.c:599  RK3576_PMU1CRU_RESET_OFFSET(SRST_HDMITXHDP,   1, 13)
 //
-// The *vendor* binding encodes register and bit into the number instead --
+// The *vendor* binding encodes register and bit into the number instead:
 // (cru_sel << 16) | (reg * 16 + bit), cru_sel 8 meaning PMU1CRU:
 //
 //   SRST_P_HDPTX_APB = 524289 = 0x80001 -> PMU1CRU, reg 0, bit 1
@@ -996,7 +996,7 @@
 //
 // Both sources agree exactly.  What this header used to do was take
 // mainline's index (450, 451, 452) and apply the vendor's ID/16 formula to
-// it, producing main-CRU SOFTRST_CON28 bits 2/3/4 -- which per rst-rk3576.c
+// it, producing main-CRU SOFTRST_CON28 bits 2/3/4, which per rst-rk3576.c
 // is the RKNN0 (NPU) reset register, with those bits unassigned.  The APB
 // reset was aimed at SOFTRST_CON26, the DDR channel-1 controller's reset
 // register.

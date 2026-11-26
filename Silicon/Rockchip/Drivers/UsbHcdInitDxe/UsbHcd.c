@@ -26,6 +26,12 @@
 #include <VarStoreData.h>
 #include "UsbHcd.h"
 
+//
+// The "USB-C DisplayPort" setup option (PcdUsbcDp), read at EndOfDxe when
+// the variable store is up; ExitBootServices uses the cached value.
+//
+STATIC UINT8  mUsbcDp;
+
 STATIC
 VOID
 XhciSetBeatBurstLength (
@@ -212,14 +218,14 @@ XhciCoreInit (
      * placed in P3 and the SS port enters SSDisabled. Useful when USB3 PHY is
      * not connected."  SUSPHY alone achieves this without PHYSOFTRST:
      * adding PHYSOFTRST while SUSPHY is pending creates a deadlock on an
-     * uninitialised PHY — PIPE3 is held in hard reset so P3_ACK never
+     * uninitialised PHY: PIPE3 is held in hard reset so P3_ACK never
      * arrives, the LTSSM stays in Polling and the HS companion port is
      * blocked from enumerating the USB-A device.
      */
     MmioOr32 ((UINTN)&Dwc3Reg->GUsb3PipeCtl[0], DWC3_GUSB3PIPECTL_SUSPHY);
     DEBUG ((DEBUG_WARN,
-      "[USB] DWC3@0x%08x: SUSPHY set pre-HOST (SS→SSDisabled; SS PHY unavailable)"
-      " — HS-only\n", UsbReg));
+      "[USB] DWC3@0x%08x: SUSPHY set pre-HOST (SS->SSDisabled; SS PHY unavailable)"
+      ", HS-only\n", UsbReg));
   }
 
   Dwc3SetMode (Dwc3Reg, DWC3_GCTL_PRTCAP_HOST);
@@ -239,7 +245,7 @@ XhciCoreInit (
    *   XhcDriverBindingStart to fail for this controller.
    *
    *   Setting PORTSC[0].PP=0 (xHCI §4.15.2.1) unconditionally powers off the
-   *   SS port at the xHCI layer — no PHY cooperation needed.  The LTSSM stops
+   *   SS port at the xHCI layer, with no PHY cooperation needed.  The LTSSM stops
    *   immediately and DWC3 asserts HCH within microseconds of RS=0.
    *
    *   Note: XhciDxe's XhcResetHC (HCRST) will reset PORTSC back to defaults
@@ -259,7 +265,7 @@ XhciCoreInit (
                  Ps & ~((UINT32)(1u << 9) | (UINT32)(0x7Fu << 17)));  /* PP=0, RWC=0 */
     DEBUG ((DEBUG_WARN,
       "[USB] DWC3@0x%08x: PORTSC[0] PP cleared pre-XhciDxe (was 0x%08x now 0x%08x)"
-      " — LTSSM stopped; XhcHaltHC will complete cleanly\n",
+      ": LTSSM stopped; XhcHaltHC will complete cleanly\n",
       UsbReg, Ps, MmioRead32 (OpBase + 0x400U)));
     /*
      * 20 ms settle: give the DWC3 internal FSM time to fully acknowledge the
@@ -489,6 +495,11 @@ UsbEndOfDxeCallback (
 
   gBS->CloseEvent (Event);
 
+  mUsbcDp = PcdGet8 (PcdUsbcDp);
+  if (mUsbcDp != 0) {
+    DEBUG ((DEBUG_INFO, "UsbHcd: USB-C DisplayPort Alt Mode is on (setup), entered at ExitBootServices\n"));
+  }
+
   XhciControllerAddrArrayPtr  = PcdGetPtr (PcdDwc3BaseAddresses);
   XhciControllerAddrArraySize = PcdGetSize (PcdDwc3BaseAddresses);
 
@@ -637,7 +648,7 @@ STATIC UINTN  gXhciNotifiedMask = 0;
 #define RK3576_U2PHY1_GRF_STATUS  0x26030080UL
 
 /*
- * EFI_USB2_HC_PROTOCOL notification callback — functional fixup only.
+ * EFI_USB2_HC_PROTOCOL notification callback: functional fixup only.
  *
  * Fires synchronously inside XhcDriverBindingStart (at InstallProtocolInterface),
  * while XhciDxe is already emitting its own startup burst.  This callback must
@@ -700,7 +711,7 @@ UsbHcProtocolNotify (
      * GetCapability() returns NumOfPort = number of USB2 HS ports (= 1 for
      * both DRD0 and DRD1).  HCSPARAMS1[31:24] is total xHCI ports including
      * SS (1 for DRD0 without UsbDpPhy, 2 for DRD1).  They count different
-     * things — comparing them produces an ambiguous or wrong match.
+     * things, so comparing them produces an ambiguous or wrong match.
      *
      * XhciDxe calls InstallProtocolInterface in the same order as
      * RegisterNonDiscoverableMmioDevice was called, which follows
@@ -735,7 +746,7 @@ UsbHcProtocolNotify (
      * we add here competes for the 1.5 Mbaud UART FIFO and causes overflow
      * that swallows the second controller's entire startup sequence.
      *
-     * Functional work only — no diagnostics.  Full register dumps happen in
+     * Functional work only, no diagnostics.  Full register dumps happen in
      * UsbReadyToBootCallback after all XhciDxe/UsbBusDxe activity is done.
      */
 
@@ -755,7 +766,7 @@ UsbHcProtocolNotify (
        * HDD spindle to complete its internal reset and present a stable
        * connection before UsbBusDxe starts enumeration.
        *
-       * No debug output — this callback fires synchronously inside XhciDxe's
+       * No debug output: this callback fires synchronously inside XhciDxe's
        * InstallProtocolInterface and must not flood the 1.5 Mbaud UART FIFO.
        */
 #define USB_CCS_POLL_MS    FixedPcdGet32 (PcdUsbCDeviceWaitMs)   /* max wait for device to appear; 0 on a board that does not power the port */
@@ -765,7 +776,7 @@ UsbHcProtocolNotify (
         UINTN   PollMs;
         for (PollMs = 0; PollMs < USB_CCS_POLL_MS; PollMs++) {
           if ((MmioRead32 (HsPortscAddr) & 0x1U) != 0) {
-            break;  /* device physically present — move to settle phase */
+            break;  /* device physically present, move to settle phase */
           }
           MicroSecondDelay (1000U);  /* 1 ms per iteration */
         }
@@ -839,8 +850,8 @@ UsbReadyToBootCallback (
     HandleBuffer = NULL;
   }
 
-  /* 2. Raw MMIO PORTSC dump - one line per port, always explicit.
-   * Iterate in REVERSE so DRD1 (USB-A, last entry) prints first — the
+  /* 2. Raw MMIO PORTSC dump: one line per port, always explicit.
+   * Iterate in REVERSE so DRD1 (USB-A, last entry) prints first; the
    * UEFI menu can appear within ~6 lines and would otherwise cut DRD1 data.
    */
   DEBUG ((DEBUG_WARN, "[USB-RTB] --- Raw MMIO PORTSC ---\n"));
@@ -894,7 +905,7 @@ UsbReadyToBootCallback (
     }
   }
 
-  /* 3. USB2PHY UTMI line-state — u2phy1 (USB-A) printed first */
+  /* 3. USB2PHY UTMI line-state, u2phy1 (USB-A) printed first */
   Sts = MmioRead32 (RK3576_U2PHY1_GRF_STATUS);
   DEBUG ((DEBUG_WARN,
     "[USB-RTB] u2phy1 GRF[0x80]=0x%08x utmi_ls=%d bvalid=%d avalid=%d\n",
@@ -979,7 +990,11 @@ UsbReadyToBootCallback (
 #define CMN_ANA_LCPLL_LOCK_DONE       BIT7
 #define CMN_ANA_LCPLL_AFC_DONE        BIT6
 
+#define CMN_DP_RSTN_OFFSET            0x038C
+#define CMN_DP_INIT_RSTN              BIT3
+
 #define HIWORD(Mask, Val)             (((UINT32)(Mask) << 16) | (Val))
+
 
 STATIC CONST UINT16  mUdphyInitSequence[][2] = {
   { 0x0104, 0x44 }, { 0x0234, 0xe8 }, { 0x0248, 0x44 }, { 0x028c, 0x18 },
@@ -1032,7 +1047,8 @@ STATIC CONST UINT16  mUdphy24mRefclkCfg[][2] = {
 STATIC
 BOOLEAN
 Rk3576UsbDpPhyUsb3InitOnce (
-  IN BOOLEAN  Flip
+  IN BOOLEAN  Flip,
+  IN BOOLEAN  DpLanes
   )
 {
   UINTN   Index;
@@ -1082,6 +1098,14 @@ Rk3576UsbDpPhyUsb3InitOnce (
     Flip ? (CMN_DP_LANE_MUX_N (0) | CMN_DP_LANE_MUX_N (1))
          : (CMN_DP_LANE_MUX_N (2) | CMN_DP_LANE_MUX_N (3))
     );
+
+  // DisplayPort Alt Mode entered (docs/usbc-dp.md): the DP half's init
+  // reset released with the lanes muxed, as mainline rk_udphy_init does for
+  // UDPHY_MODE_DP_USB.  Its link rate, lane enables and drive levels come
+  // later (Rk3576UsbDpDpEnable, the OS's display driver).
+  if (DpLanes) {
+    MmioOr32 (RK3576_UDPHY_PMA + CMN_DP_RSTN_OFFSET, CMN_DP_INIT_RSTN);
+  }
 
   // Step 4: release init, 200 ns; step 5: release cmn and lane.
   MmioWrite32 (RK3576_PMU1CRU_SOFTRST_CON00, HIWORD (UDPHY_RST_INIT, 0));
@@ -1168,12 +1192,12 @@ Rk3576UsbDpLogLink (
 STATIC
 BOOLEAN
 Rk3576UsbDpPhyUsb3Init (
-  VOID
+  IN USB_TYPEC_ORIENTATION  Orientation,
+  IN BOOLEAN                DpLanes
   )
 {
-  USB_TYPEC_ORIENTATION  Orientation;
-  BOOLEAN                Flip;
-  UINTN                  Attempt;
+  BOOLEAN  Flip;
+  UINTN    Attempt;
 
   //
   // The lane mapping has to match the plug orientation, and it matters to
@@ -1182,10 +1206,10 @@ Rk3576UsbDpPhyUsb3Init (
   // 0x38), while the other way round it locked within 200 us.
   //
   // Ask the board (CM5-IO and TaishanPi 3M read their FUSB302 and leave Rp
-  // on the attached line, or the chip reset). If it cannot say, try the
-  // unflipped mapping and then the flipped one and keep whichever locks.
+  // on the attached line, or the chip reset; the caller asked). If it cannot
+  // say, try the unflipped mapping and then the flipped one and keep
+  // whichever locks.
   //
-  Orientation = UsbTypeCGetOrientation (0);
   for (Attempt = 1; Attempt <= 4; Attempt++) {
     if (Orientation == UsbTypeCOrientationUnknown) {
       Flip = (Attempt % 2) == 0;
@@ -1194,7 +1218,7 @@ Rk3576UsbDpPhyUsb3Init (
       Flip = Orientation == UsbTypeCOrientationReverse;
     }
 
-    if (Rk3576UsbDpPhyUsb3InitOnce (Flip)) {
+    if (Rk3576UsbDpPhyUsb3InitOnce (Flip, DpLanes)) {
       if (Attempt > 1) {
         DEBUG ((DEBUG_INFO, "UsbDpPhy: locked on attempt %u\n", Attempt));
       }
@@ -1210,6 +1234,149 @@ Rk3576UsbDpPhyUsb3Init (
   return FALSE;
 }
 
+/*
+ * The DisplayPort side of DisplayPort Alt Mode, once the PHY is locked:
+ * what mainline's rk_udphy_dp_phy_power_on and the DP controller's clock
+ * and power framework would have done before the display driver starts.
+ * The display driver (wddm-mali-g52, docs/USBC-DP.md) does the rest: link
+ * rate and drive levels on the PHY, AUX, EDID, link training, the video
+ * stream and VOP2 VP1.
+ *
+ *   PD_VO1     the DP controller's power domain (pm-domains.c
+ *              rk3576_pm_domains[RK3576_PD_VO1]: power bit 14, idle
+ *              request bit 12, clock ungate 0x7000), a child of PD_VOP.
+ *              Its handshake needs aclk/hclk/pclk_vo1_root and the HDCP1
+ *              clocks on (rk3576.dtsi power-domain@RK3576_PD_VO1).
+ *   CRU        GATE_CON67 bits 1-3 (aclk/hclk/pclk_vo1_root) and 15
+ *              (clk_aux16mhz_0); GATE_CON68 bits 0, 1 (aclk/pclk_dp0), 2
+ *              (VO1 GRF, TRM) and 4, 5 (aclk/hclk_hdcp1); CLKSEL_CON161
+ *              [7:0] = 73, GPLL 1188 MHz / 74 = 16.05 MHz for the AUX
+ *              clock (its reset value, written to be sure); SRST_DP0
+ *              (SOFTRST_CON68 bit 0) and SRST_DP0_PIXELCLK /
+ *              SRST_PHY_DP0_TX (SOFTRST_CON78 bits 1, 2) released.
+ *   PMA 0x288  the DP lane enables: two lanes, on the two pads muxed to DP
+ *              (dp_lane_sel normal {2, 3}, flipped {0, 1}).
+ *   VO1 GRF    SOC_CON0 [7:0] which DP lane drives each PHY pad, bits 8/9
+ *              AUX polarity (inverted when flipped), bits 10/11 HPD from
+ *              software and its level (mainline rk3576 udphy cfg:
+ *              dp_lane_reg, hpd_trigger).
+ *
+ * HPD is forced high whenever the partner took the configuration, whatever
+ * its HPD_State said: after this nobody hears its Attentions, and an
+ * adapter whose monitor comes up late would otherwise never be seen.  The
+ * display driver trusts AUX, not HPD (docs/usbc-dp.md).
+ */
+#define RK3576_CRU_GATE_CON67         0x2720090CUL
+#define RK3576_CRU_GATE_CON68         0x27200910UL
+#define RK3576_CRU_CLKSEL_CON161      0x27200584UL
+#define RK3576_CRU_SOFTRST_CON68      0x27200B10UL
+#define RK3576_CRU_SOFTRST_CON78      0x27200B38UL
+#define RK3576_VO1_GRF_SOC_CON0       0x26036000UL
+#define RK3576_PMU_BASE_DP            0x27380000UL
+#define PMU_REQ                       0x110
+#define PMU_ACK                       0x120
+#define PMU_IDLE                      0x128
+#define PMU_CLK_UNGATE                0x140
+#define PMU_PWR                       0x210
+#define PMU_REPAIR_STATUS             0x570
+#define PD_VOP_BIT                    BIT11
+#define PD_VO1_PWR                    BIT14
+#define PD_VO1_REQ                    BIT12
+#define PD_VO1_UNGATE                 0x7000U
+
+STATIC
+BOOLEAN
+Rk3576PmuWait (
+  IN UINT32  Offset,
+  IN UINT32  Mask,
+  IN UINT32  Expected
+  )
+{
+  UINTN  Us;
+
+  for (Us = 0; Us < 10000; Us += 10) {
+    if ((MmioRead32 (RK3576_PMU_BASE_DP + Offset) & Mask) == Expected) {
+      return TRUE;
+    }
+
+    MicroSecondDelay (10);
+  }
+
+  return FALSE;
+}
+
+STATIC
+BOOLEAN
+Rk3576Vo1PowerOn (
+  VOID
+  )
+{
+  if ((MmioRead32 (RK3576_PMU_BASE_DP + PMU_REPAIR_STATUS) & PD_VOP_BIT) == 0) {
+    DEBUG ((DEBUG_ERROR, "UsbDpPhy DP: PD_VOP is off, not powering PD_VO1\n"));
+    return FALSE;
+  }
+
+  if ((MmioRead32 (RK3576_PMU_BASE_DP + PMU_REPAIR_STATUS) & PD_VO1_PWR) != 0) {
+    return TRUE;
+  }
+
+  // Vop2Rk3576.c Rk3576PowerDomainOn's steps, with PD_VO1's bits.
+  MmioWrite32 (RK3576_PMU_BASE_DP + PMU_CLK_UNGATE, HIWORD (PD_VO1_UNGATE, PD_VO1_UNGATE));
+  MmioWrite32 (RK3576_PMU_BASE_DP + PMU_PWR, HIWORD (PD_VO1_PWR, 0));
+  if (!Rk3576PmuWait (PMU_REPAIR_STATUS, PD_VO1_PWR, PD_VO1_PWR)) {
+    MmioWrite32 (RK3576_PMU_BASE_DP + PMU_CLK_UNGATE, HIWORD (PD_VO1_UNGATE, 0));
+    DEBUG ((DEBUG_ERROR, "UsbDpPhy DP: PD_VO1 did not power up\n"));
+    return FALSE;
+  }
+
+  MmioWrite32 (RK3576_PMU_BASE_DP + PMU_REQ, HIWORD (PD_VO1_REQ, 0));
+  if (!Rk3576PmuWait (PMU_ACK, PD_VO1_REQ, 0) || !Rk3576PmuWait (PMU_IDLE, PD_VO1_REQ, 0)) {
+    DEBUG ((DEBUG_ERROR, "UsbDpPhy DP: PD_VO1 bus did not leave idle\n"));
+    return FALSE;
+  }
+
+  MmioWrite32 (RK3576_PMU_BASE_DP + PMU_CLK_UNGATE, HIWORD (PD_VO1_UNGATE, 0));
+  return TRUE;
+}
+
+STATIC
+VOID
+Rk3576UsbDpDpEnable (
+  IN BOOLEAN  Flip,
+  IN BOOLEAN  PartnerHpd
+  )
+{
+  UINT32  LaneSel;
+
+  // Clocks first: the domain's power-up handshake runs on them.
+  MmioWrite32 (RK3576_CRU_GATE_CON67, HIWORD (BIT1 | BIT2 | BIT3 | BIT15, 0));
+  MmioWrite32 (RK3576_CRU_GATE_CON68, HIWORD (BIT0 | BIT1 | BIT2 | BIT4 | BIT5, 0));
+  MmioWrite32 (RK3576_CRU_CLKSEL_CON161, HIWORD (0xFF, 73));
+  if (!Rk3576Vo1PowerOn ()) {
+    return;
+  }
+
+  MmioWrite32 (RK3576_CRU_SOFTRST_CON68, HIWORD (BIT0, 0));
+  MmioWrite32 (RK3576_CRU_SOFTRST_CON78, HIWORD (BIT1 | BIT2, 0));
+
+  // Two DP lanes on the DP-muxed pads (dp_lane_sel[0..1]).
+  MmioAndThenOr32 (RK3576_UDPHY_PMA + CMN_LANE_MUX_AND_EN_OFFSET, ~(UINT32)0x0F, Flip ? 0x03 : 0x0C);
+
+  // DP lane k on pad dp_lane_sel[k]: normal lane 0 on pad 2, lane 1 on
+  // pad 3; flipped lane 0 on pad 0, lane 1 on pad 1, AUX inverted.
+  LaneSel = Flip ? ((0U << 0) | (1U << 2) | BIT8 | BIT9) : ((0U << 4) | (1U << 6));
+  MmioWrite32 (RK3576_VO1_GRF_SOC_CON0, HIWORD (0x03FF, LaneSel));
+  MmioWrite32 (RK3576_VO1_GRF_SOC_CON0, HIWORD (BIT10 | BIT11, BIT10 | BIT11));
+
+  DEBUG ((
+    DEBUG_INFO,
+    "UsbDpPhy DP: PD_VO1 on, lanes 0x%02x, VO1_GRF_SOC_CON0 0x%04x, HPD forced high (partner says %a)\n",
+    MmioRead32 (RK3576_UDPHY_PMA + CMN_LANE_MUX_AND_EN_OFFSET) & 0xFF,
+    MmioRead32 (RK3576_VO1_GRF_SOC_CON0) & 0xFFFF,
+    PartnerHpd ? "high" : "low"
+    ));
+}
+
 STATIC
 VOID
 EFIAPI
@@ -1218,8 +1385,10 @@ UsbExitBootServicesCallback (
   IN VOID       *Context
   )
 {
-  UINTN  Index;
-  UINTN  Base;
+  UINTN                  Index;
+  UINTN                  Base;
+  USB_TYPEC_ORIENTATION  Orientation;
+  USB_TYPEC_DP_STATE     Dp;
 
   //
   // The U3 port only with its PHY running: an enabled SS port with nothing
@@ -1227,7 +1396,30 @@ UsbExitBootServicesCallback (
   // the PHY does not come up, leave the port disabled and let Windows fail
   // XHC0 (code 10) rather than bugcheck.
   //
-  if (Rk3576UsbDpPhyUsb3Init ()) {
+  Orientation = UsbTypeCGetOrientation (0);
+
+  //
+  // DisplayPort Alt Mode (setup option, off by default): the board
+  // negotiates it with its Type-C controller now, before the lanes are
+  // muxed.  With it off nothing below differs from before.
+  //
+  Dp.Active = FALSE;
+  Dp.Hpd    = FALSE;
+  if (mUsbcDp != 0) {
+    if (EFI_ERROR (UsbTypeCDpAltModeEnter (0, &Dp))) {
+      Dp.Active = FALSE;
+    }
+
+    if (Dp.Active && (Orientation == UsbTypeCOrientationUnknown)) {
+      Dp.Active = FALSE;
+    }
+  }
+
+  if (Rk3576UsbDpPhyUsb3Init (Orientation, Dp.Active)) {
+    if (Dp.Active) {
+      Rk3576UsbDpDpEnable (Orientation == UsbTypeCOrientationReverse, Dp.Hpd);
+    }
+
     MmioWrite32 (RK3576_USB_GRF_USB3OTG0_CON1,
                  (0xFFFFU << 16) | RK3576_USB3OTG0_U3_PORT_EN);
     //

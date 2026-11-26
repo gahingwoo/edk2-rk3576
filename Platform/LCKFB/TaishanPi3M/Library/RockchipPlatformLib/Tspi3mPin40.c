@@ -1,6 +1,6 @@
 /** @file
  *
- *  Tspi3mPin40.c -- the TaishanPi 3M's 40-pin header, for the "40-pin UART"
+ *  Tspi3mPin40.c: the TaishanPi 3M's 40-pin header, for the "40-pin UART"
  *  and "40-pin GPIO/I2C/SPI for apps" setup options (RK3576Dxe Pin40.c does
  *  the work from this description).  The ACPI side is Pin40Uart.asl and
  *  Pin40RhProxy.asl in this board's AcpiTables; the three must agree.

@@ -20,6 +20,8 @@
 
 [Sources]
   RockchipPlatformLib.c
+  Rock4dAudio.c
+  Rock4dPin40.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -34,5 +36,10 @@
   IoLib
   GpioLib
   RK806
-  PWMLib
+  PcdLib
+  Rk3576PwmLib
   TimerLib
+
+[FixedPcd]
+  gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset

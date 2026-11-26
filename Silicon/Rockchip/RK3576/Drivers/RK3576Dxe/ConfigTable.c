@@ -2,12 +2,12 @@
  *
  *  RK3576 ACPI / Device Tree config table mode management.
  *
- *  SetupConfigTableVariables: called at driver entry — reads HII EFI variables
+ *  SetupConfigTableVariables: called at driver entry. Reads HII EFI variables
  *  and seeds the dynamic PCDs consumed by AcpiPlatformDxe and FdtPlatformDxe.
  *  When no saved variable exists the FixedPcd default is used.
  *
- *  ApplyConfigTableVariables: called after HII variables are applied — nothing
- *  to do here because the PCDs are read directly by the platform drivers.
+ *  ApplyConfigTableVariables: called after HII variables are applied. Nothing
+ *  to do here, because the PCDs are read directly by the platform drivers.
  *
  *  Copyright (c) 2020, Jeremy Linton
  *  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
@@ -68,7 +68,7 @@ ApplyConfigTableVariables (
   VOID
   )
 {
-  /* Nothing to do here — PCDs are read directly by AcpiPlatformDxe / FdtPlatformDxe. */
+  /* Nothing to do here: PCDs are read directly by AcpiPlatformDxe / FdtPlatformDxe. */
 }
 
 VOID
@@ -86,7 +86,7 @@ SetupConfigTableVariables (
   FDT_OVERRIDE_PATH_VARSTORE_DATA  FdtOverridePath;
 
   //
-  // ConfigTableMode — seeds PcdConfigTableMode used by both platform drivers.
+  // ConfigTableMode: seeds PcdConfigTableMode used by both platform drivers.
   //
   Size   = sizeof (UINT32);
   Status = gRT->GetVariable (
@@ -102,7 +102,7 @@ SetupConfigTableVariables (
   }
 
   //
-  // AcpiPcieEcamCompatMode — controls PCIe ECAM quirk in ACPI mode.
+  // AcpiPcieEcamCompatMode: controls PCIe ECAM quirk in ACPI mode.
   //
   Size   = sizeof (UINT32);
   Status = gRT->GetVariable (
@@ -118,8 +118,9 @@ SetupConfigTableVariables (
   }
 
   //
-  // AcpiFanControl: whether the board's fan SSDT is installed.  The option is
-  // only shown on a board that has one (AcpiFanControlSupported).
+  // AcpiFanControl, "Fan Mode": Always on or Off (no fan SSDT; Off holds the
+  // fan at 0%) or the trip points the fan SSDT gets (ACPI_FAN_MODE_*).  The option is only shown on a board
+  // that has one (AcpiFanControlSupported).
   //
   Var8   = FixedPcdGetBool (PcdAcpiFanControlSupported) ? 1 : 0;
   Status = gRT->SetVariable (
@@ -139,7 +140,7 @@ SetupConfigTableVariables (
                   &Size,
                   &Var8
                   );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (Var8 > ACPI_FAN_MODE_MAX)) {
     Status = PcdSet8S (PcdAcpiFanControl, FixedPcdGet8 (PcdAcpiFanControlDefault));
     ASSERT_EFI_ERROR (Status);
   }
@@ -236,6 +237,34 @@ SetupConfigTableVariables (
   }
 
   //
+  // UsbcDp: DisplayPort Alt Mode on the USB-C port (UsbHcd, the board's
+  // UsbTypeCDpAltModeEnter).  Shown only on a board that does it
+  // (UsbcDpSupported).
+  //
+  Var8   = FixedPcdGetBool (PcdUsbcDpSupported) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"UsbcDpSupported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"UsbcDp",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdUsbcDp, FixedPcdGet8 (PcdUsbcDpDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
   // Pin40Uart / Pin40RhProxy: the 40-pin header's UARTs, and its GPIO, I2C
   // and SPI for applications.  Shown only on a board whose library and
   // AcpiTables describe its header (Pin40Supported).
@@ -295,9 +324,10 @@ SetupConfigTableVariables (
 
   //
   // AcpiPwrKey: the RK806 power key as the OS's power button.  Shown only on
-  // a board whose RK806 the firmware reaches (AcpiPwrKeySupported).
+  // a board with a button on the RK806's PWRON pin whose RK806 the firmware
+  // reaches (AcpiPwrKeySupported).
   //
-  Var8   = (FixedPcdGet32 (PcdRk806I2cBase) != 0) ? 1 : 0;
+  Var8   = (FixedPcdGetBool (PcdAcpiPwrKeySupported) && (FixedPcdGet32 (PcdRk806I2cBase) != 0)) ? 1 : 0;
   Status = gRT->SetVariable (
                   L"AcpiPwrKeySupported",
                   &gRK3576DxeFormSetGuid,
@@ -344,6 +374,34 @@ SetupConfigTableVariables (
                   );
   if (EFI_ERROR (Status)) {
     Status = PcdSet8S (PcdAcpiLeds, FixedPcdGet8 (PcdAcpiLedsDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  //
+  // AcpiSaradc: the SARADC and the board's keys on it for the OS.  Shown
+  // only on a board whose AcpiTables carry a SARADC SSDT
+  // (AcpiSaradcSupported).
+  //
+  Var8   = FixedPcdGetBool (PcdAcpiSaradcSupported) ? 1 : 0;
+  Status = gRT->SetVariable (
+                  L"AcpiSaradcSupported",
+                  &gRK3576DxeFormSetGuid,
+                  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                  sizeof (Var8),
+                  &Var8
+                  );
+  ASSERT_EFI_ERROR (Status);
+
+  Size   = sizeof (UINT8);
+  Status = gRT->GetVariable (
+                  L"AcpiSaradc",
+                  &gRK3576DxeFormSetGuid,
+                  NULL,
+                  &Size,
+                  &Var8
+                  );
+  if (EFI_ERROR (Status)) {
+    Status = PcdSet8S (PcdAcpiSaradc, FixedPcdGet8 (PcdAcpiSaradcDefault));
     ASSERT_EFI_ERROR (Status);
   }
 

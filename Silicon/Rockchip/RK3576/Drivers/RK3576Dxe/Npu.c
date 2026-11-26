@@ -3,7 +3,7 @@
  *  Power up the NPU (RKNN, two cores) for an OS driver that has no clock,
  *  regulator or power-domain framework (Windows, woa-rk3576-npu).
  *
- *  Off by default.  Runs only when "NPU (experimental)" is enabled in setup
+ *  On by default.  Runs only when "NPU (experimental)" is enabled in setup
  *  (PcdAcpiNpu), the firmware hands the OS ACPI tables, and the board names
  *  the I2C bus of its RK806 (PcdRk806I2cBase).  With any of those missing
  *  nothing in here touches the hardware, and RK3576AcpiPlatformDxe does not

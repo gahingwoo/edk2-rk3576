@@ -138,7 +138,7 @@ Yt8531PhyInit (
 
   /*
    * rx and ge_tx delay, both at the 1.950 ns default.  FE (10/100) tx delay is
-   * deliberately left alone — mainline notes it generally needs no adjustment.
+   * deliberately left alone; mainline notes it generally needs no adjustment.
    */
   Val = (UINT16)((YT8521_RC1R_RGMII_1_950_NS << YT8521_RC1R_RX_DELAY_SHIFT) |
                  (YT8521_RC1R_RGMII_1_950_NS << YT8521_RC1R_GE_TX_DELAY_SHIFT));

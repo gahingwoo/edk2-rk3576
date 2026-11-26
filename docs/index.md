@@ -18,8 +18,9 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
 2. Write the firmware: [flashing](flash.md). The easiest ways are
    [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio) and
    [flash.gahingwoo.com](https://flash.gahingwoo.com/).
-3. Windows 11 23H2 (CM5-IO, TaishanPi 3M): [Windows](windows.md).
-4. Linux: [Linux](linux.md).
+3. Windows 11 23H2 (all three boards): [Windows](windows.md).
+4. Linux: [Linux](linux.md). Armbian with its own U-Boot, once from the
+   boot manager: [Armbian (U-Boot)](armbian-boot.md).
 5. Something wrong: [troubleshooting](troubleshooting.md),
    [known issues](known-issues.md).
 
@@ -34,6 +35,8 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
 
 - [Firmware menus and features](firmware-menus.md): language, screenshots,
   debug report, Reset All Settings, clock, display, touch, OS options
+- [Board features](BOARD-FEATURES.md): what each board has, option by
+  option and device by device
 - [Gallery](gallery.md)
 - For developers: [building](dev/building.md), [architecture](dev/architecture.md),
   [image layout](dev/image-layout.md), [hardware](dev/hardware.md),

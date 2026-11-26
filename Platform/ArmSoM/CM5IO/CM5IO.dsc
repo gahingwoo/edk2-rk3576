@@ -78,7 +78,7 @@
   # AHCI: RK3576 has no SATA controller
   DEFINE RK_AHCI_ENABLE          = FALSE
 
-  # Display: RK3576 DW HDMI QP (HDMI 2.1) — same IP as ROCK 4D
+  # Display: RK3576 DW HDMI QP (HDMI 2.1), same IP as ROCK 4D
   DEFINE RK_DW_HDMI_QP_ENABLE    = TRUE
   DEFINE RK_DISPLAY_ENABLE       = TRUE
 
@@ -98,7 +98,7 @@
   # HTTP boot + TLS off: FVMAIN was at 95% full, and this board installs from
   # USB/eMMC rather than over the network.  HttpDxe was also one of the two
   # drivers seen requesting ConvertPages at a bogus 0x180000000.  Flip back on
-  # if HTTPS boot is ever wanted -- it costs roughly a third of the remaining
+  # if HTTPS boot is ever wanted; it costs roughly a third of the remaining
   # FV headroom.
   #
   DEFINE NETWORK_HTTP_BOOT_ENABLE = FALSE
@@ -106,7 +106,7 @@
   #
   # No Realtek NIC on CM5-IO: GMAC0 goes to an on-module MotorComm YT8531.
   # (The DT and the EDK2 port both used to claim RTL8211F; the schematic says
-  # otherwise -- U6601 = YT8531C-CA.)
+  # otherwise: U6601 = YT8531C-CA.)
   #
   DEFINE RK_REALTEK_UNDI_ENABLE  = FALSE
   DEFINE RK_X86_EMULATOR_ENABLE  = FALSE
@@ -126,15 +126,20 @@
 
 ################################################################################
 [LibraryClasses.common]
-  # The only library this board overrides.  Everything else -- PCI, SD/eMMC,
-  # OTP, GPIO, reset, CRU, SDRAM -- is the SoC's and lives in RK3576Base.
+  # The only library this board overrides.  Everything else (PCI, SD/eMMC,
+  # OTP, GPIO, reset, CRU, SDRAM) is the SoC's and lives in RK3576Base.
   RockchipPlatformLib|$(PLATFORM_DIRECTORY)/Library/RockchipPlatformLib/RockchipPlatformLib.inf
 
 ################################################################################
 [PcdsFixedAtBuild.common]
+  # USB-C DisplayPort Alt Mode (docs/usbc-dp.md): the option exists on this
+  # board (TYPEC_AUXP/N on SBU1/2, sbu1/2-dc-gpios GPIO4_C4/C5) and is off
+  # by default.
+  gRK3576TokenSpaceGuid.PcdUsbcDpSupported|TRUE
+
   #
-  # Everything the SoC decides -- memory map, UART, GIC, CRU, SD/eMMC/FSPI
-  # bases, I2C, ComboPHY, FDT defaults, network defaults -- is in
+  # Everything the SoC decides (memory map, UART, GIC, CRU, SD/eMMC/FSPI
+  # bases, I2C, ComboPHY, FDT defaults, network defaults) is in
   # Silicon/Rockchip/RK3576/RK3576Base.dsc.inc.  What follows is only what
   # actually differs between this carrier and ROCK 4D.
   #
@@ -153,13 +158,13 @@
   # synchronise correctly, so neither is used.
   #
   # HighSpeed (52 MHz, non-DLL sampling) vs legacy (26 MHz SDR): legacy was
-  # chosen when HighSpeed looked marginal on a cold controller -- booted from
+  # chosen when HighSpeed looked marginal on a cold controller: booted from
   # SD/SPI, with no from-eMMC stage having tuned its phase, the command line
   # worked but 8-bit data reads CRC'd and enumeration stalled.
   #
   # That trade was worse than it looked.  Legacy fixed reads and left *every
   # multi-block write broken*: CMD25 died with an SDHCI Data Timeout and took
-  # the card with it -- 221 error events in a boot -- so UEFI variables never
+  # the card with it (221 error events in a boot), so UEFI variables never
   # persisted.  Measured 2026-09-17, booting from eMMC, with HighSpeed back on:
   #
   #   [NVWR]    512 B ( 1 blk)  W=Success  R=Success  match=YES
@@ -170,7 +175,7 @@
   #   [NVWR] 196608 B           W=Success   -> "Found boot disk for NV storage!"
   #
   # every size written and read back byte-identical, SDHCI errors down from 224
-  # to one (the benign CMD7 deselect), and reads did not regress -- enumeration
+  # to one (the benign CMD7 deselect), and reads did not regress; enumeration
   # reached timing = 8, width = 8, 52 MHz normally.
   #
   # NOT YET TESTED: the cold case the legacy workaround was originally for, ie.
@@ -186,7 +191,7 @@
 
   # FVB / NV variable store.
   #
-  # This carrier's SPI NOR is 64 KB -- too small for the 192 KB NV store, and in
+  # This carrier's SPI NOR is 64 KB, too small for the 192 KB NV store, and in
   # practice not even detected (SPL reports "unrecognized JEDEC id 00 00 00").
   # So NV has to live on the boot medium (SD/eMMC), which means:
   #
@@ -208,14 +213,15 @@
   # GMAC0 goes to an on-module Motorcomm YT8531C in rgmii-id mode, as mainline
   # Linux runs it on this board: no MAC-side delays, both delays in the PHY,
   # which MotorcommPhy.c programs (1.95 ns RX and TX). This used to be 0x21, a
-  # MAC-side TX delay from the vendor's rgmii-rxid setup -- on top of the PHY's
+  # MAC-side TX delay from the vendor's rgmii-rxid setup, on top of the PHY's
   # own TX delay, so TX was delayed twice. Windows' dwc_eqos keeps whatever the
   # firmware leaves here, and got link at 1000 Mbps but no DHCP lease.
   gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0
 
   # FDT + ACPI both installed (0x3).  Linux keeps using the mainline DTS;
   # ACPI-only OSes (Windows on Arm, FreeBSD) get the RK3576 tables.
-  # ROCK 4D is FDT-only.  Switchable at runtime in the front-page menu.
+  # The ROCK 4D and the TaishanPi 3M install both too.  Switchable at
+  # runtime in the front-page menu.
   gRK3576TokenSpaceGuid.PcdConfigTableModeDefault|$(CONFIG_TABLE_MODE_ACPI_FDT)
 
   # TSADC sampling and the hardware thermal shutdown: a CRU (chip) reset at
@@ -227,6 +233,10 @@
   # SARADC converter clock (1 MHz from xin24m) for the DSDT's \_SB.ADC0,
   # which carries the Maskrom key (Saradc.asl).  Clocks only.
   gRK3576TokenSpaceGuid.PcdRk3576SaradcClockInit|TRUE
+  # A real button on the RK806's PWRON_L: SW4 "PWR_KEY" (carrier schematic 1V1, KEY page, TS_1088).  The
+  # "Power button (RK806)" setup option is offered once the firmware also
+  # reaches the RK806 (PcdRk806I2cBase).
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported|TRUE
 
   # The carrier fan on CN32 (PWM2 ch6, GPIO2_D6; PwmFanIoSetup in this
   # board's RockchipPlatformLib.c).  100% with the output inverted holds the
@@ -236,8 +246,8 @@
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|50000
 
-  # Fan control by ACPI thermal zone (AcpiTables/Fan.asl): the setup option
-  # exists on this board, and is off until the fan's polarity and its
+  # Fan Mode (AcpiTables/Fan.asl): the setup option exists on this board, and
+  # defaults to Always on (0, no fan SSDT) until the fan's polarity and its
   # behaviour at partial duty have been seen on the board.
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
@@ -357,11 +367,11 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
 ################################################################################
 [Components.common]
   # ACPI tables (Windows ARM64, FreeBSD, ACPI-capable OS)
-  # Installed alongside the DTB — see PcdConfigTableModeDefault (0x3) above.
+  # Installed alongside the DTB; see PcdConfigTableModeDefault (0x3) above.
   # ConfigTableMode is switchable at runtime in the UEFI front-page menu.
   $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
 
-  # Board-specific Device Tree (Mainline — compiled from DTS at build time)
+  # Board-specific Device Tree (Mainline, compiled from DTS at build time)
   $(PLATFORM_DIRECTORY)/DeviceTree/Mainline.inf
 
   # Vendor Device Tree (pre-compiled DTB from ArmSoM BSP kernel)
@@ -374,9 +384,9 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   # Splash screen logo
   $(VENDOR_DIRECTORY)/Drivers/LogoDxe/LogoDxe.inf
 
-  # RK3576 ACPI platform driver — patches MCFG/IORT and the PCI0/PCI1 _STA
+  # RK3576 ACPI platform driver: patches MCFG/IORT and the PCI0/PCI1 _STA
   # from the live ComboPHY mode; runs only when ConfigTableMode has the ACPI bit.
-  # Board-level because only this carrier enables ACPI.
+  # Board-level because only the boards with ACPI tables carry it.
   Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
 
   # Power the board off through the RK806 at a shutdown (PcdRk806I2cBase).

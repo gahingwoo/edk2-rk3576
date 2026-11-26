@@ -2,7 +2,7 @@
 
 [English](image-layout.md) | 简体中文
 
-这里的偏移就是 [`scripts/package.sh`](https://github.com/gahingwoo/edk2-rk3576/blob/main/scripts/package.sh) 写入的偏移。SD 和 eMMC 的偏移已在 2026-11-24 对照 CM5-IO 和泰山派 3M 的 0.4.1 映像与 `ci`（`4479752`）映像核对过。
+这里的偏移就是 [`scripts/package.sh`](https://github.com/gahingwoo/edk2-rk3576/blob/main/scripts/package.sh) 写入的偏移。
 
 ## ROCK 4D：16 MB SPI NOR
 

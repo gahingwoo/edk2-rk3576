@@ -38,11 +38,11 @@ docs/                        the site at edk2.gahingwoo.com
 
 板级 DSC 只放各板子之间不同的内容：有哪些设备、GPIO、PMIC 和 PHY 的适配代码、设置选项的默认值、ACPI DSDT 和设备树。凡是由 SoC 决定的内容都在 `Silicon/Rockchip/RK3576/RK3576Base.dsc.inc` 和 `RK3576.fdf` 里。
 
-2026-08-04 之前，这个代码树是 edk2-rockchip 的一份拷贝，在 RK3588 的配置之上编译 RK3576。对 RK3588 正确、对 RK3576 错误的取值（内存映射、I2C 地址、复位 ID）不断冒出来，所以 RK3576 的包被改成了独立的。旧代码树在 `legacy/v0.1` 分支上。
+RK3576 的包是独立的，不叠加在 RK3588 的配置上，因为继承来的 RK3588 取值（内存映射、I2C 地址、复位 ID）对 RK3576 是错的。以前叠加式的旧代码树在 `legacy/v0.1` 分支上。
 
 ## ACPI 与设备树
 
-CM5-IO 和泰山派 3M 同时安装 ACPI 表和设备树，Windows 用 ACPI，Linux 用设备树。ROCK 4D 只编译设备树。详见 [ACPI](acpi.zh-CN.md)。
+三块板子都同时安装 ACPI 表和设备树，Windows 用 ACPI，Linux 用设备树。详见 [ACPI](acpi.zh-CN.md)。
 
 交给 Linux 的设备树是固件自己的，由 `devicetree/mainline/` 编译而来，并在启动时做修正（`FdtPlatformDxe`）：例如泰山派 3M 接了屏幕时加上 DSI 面板和背光，"Force UEFI GOP Display" 打开时加上一个 simple-framebuffer 节点，以及把 USB-A 的 VBUS 供电设为常开。
 

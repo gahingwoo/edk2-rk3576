@@ -26,6 +26,11 @@
  *    BOARD_CODEC_INPUT_SELECT  optional: the capture input, 1 LIN1/RIN1
  *                              (driver default), 2 LIN2/RIN2, 3 LIN1-RIN1
  *                              differential, 4 LIN2-RIN2 differential
+ *    BOARD_CODEC_HPDET_SARADC  optional, with BOARD_CODEC_NO_HPDET: the
+ *                              jack is read on a SARADC channel instead
+ *                              (Saradc.asl BOARD_SARADC_JACK_*); _DSD gets
+ *                              rockchip,hp-det-saradc = 1 and es8323 follows
+ *                              the woa-rk3576 rk3xsaradc driver's state
  *
  *  _HID RKCP8388 makes the driver run the RK3576 SAI sequence (24-bit I2S,
  *  codec slave, MCLK = 256 fs from the SoC), not the 16-bit one it runs for
@@ -93,7 +98,7 @@
       Return (RBUF)
     }
 
-#if !defined (BOARD_CODEC_NO_HPDET) || defined (BOARD_CODEC_OUTPUT_ROUTE) || defined (BOARD_CODEC_INPUT_SELECT)
+#if !defined (BOARD_CODEC_NO_HPDET) || defined (BOARD_CODEC_OUTPUT_ROUTE) || defined (BOARD_CODEC_INPUT_SELECT) || defined (BOARD_CODEC_HPDET_SARADC)
     Name (_DSD, Package () {
       ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
       Package () {
@@ -115,6 +120,9 @@
 #endif
 #ifdef BOARD_CODEC_INPUT_SELECT
         Package () { "rockchip,input-select", BOARD_CODEC_INPUT_SELECT },
+#endif
+#if defined (BOARD_CODEC_NO_HPDET) && defined (BOARD_CODEC_HPDET_SARADC)
+        Package () { "rockchip,hp-det-saradc", 1 },
 #endif
       }
     })

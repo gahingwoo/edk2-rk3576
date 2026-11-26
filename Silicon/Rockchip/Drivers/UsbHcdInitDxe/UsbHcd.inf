@@ -51,6 +51,7 @@
 
 [Pcd]
   gRK3576TokenSpaceGuid.PcdComboPhy1Mode
+  gRK3576TokenSpaceGuid.PcdUsbcDp
 
 [Protocols]
   gOhciDeviceProtocolGuid           ## PRODUCES

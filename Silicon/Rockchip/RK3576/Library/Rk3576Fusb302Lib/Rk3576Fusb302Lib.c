@@ -61,6 +61,8 @@
 #include <Library/Rk3576Fusb302Lib.h>
 #include <Library/TimerLib.h>
 
+#include "Fusb302Internal.h"
+
 #define RKI2C_CON               0x000
 #define RKI2C_CLKDIV            0x004
 #define RKI2C_MRXADDR           0x008
@@ -198,6 +200,162 @@ Fusb302Read (
 
   RkI2cStop (Base);
   return Ok;
+}
+
+/*
+ * For Rk3576Fusb302Pd.c (Fusb302Internal.h): the same transfers as above,
+ * a register and up to 30 data bytes in one write (address, register and
+ * data fill the controller's 32-byte TXDATA0..7), and up to 32 bytes in one
+ * read.  FIFOS (0x43) does not auto-increment, so a burst on it pushes or
+ * pops that many FIFO bytes.
+ */
+BOOLEAN
+Fusb302RegWrite (
+  IN UINTN  Base,
+  IN UINT8  Reg,
+  IN UINT8  Val
+  )
+{
+  return Fusb302Write (Base, Reg, Val);
+}
+
+BOOLEAN
+Fusb302RegRead (
+  IN  UINTN  Base,
+  IN  UINT8  Reg,
+  OUT UINT8  *Val
+  )
+{
+  return Fusb302Read (Base, Reg, Val);
+}
+
+BOOLEAN
+Fusb302RegWriteBurst (
+  IN UINTN        Base,
+  IN UINT8        Reg,
+  IN CONST UINT8  *Data,
+  IN UINTN        Len
+  )
+{
+  UINT8    Buf[32];
+  UINTN    N;
+  UINTN    Index;
+  UINTN    Byte;
+  UINT32   Word;
+  BOOLEAN  Ok;
+
+  if ((Len == 0) || (Len > 30)) {
+    return FALSE;
+  }
+
+  Buf[0] = FUSB302_ADDR << 1;
+  Buf[1] = Reg;
+  for (Index = 0; Index < Len; Index++) {
+    Buf[2 + Index] = Data[Index];
+  }
+
+  N = Len + 2;
+  MmioWrite32 (Base + RKI2C_IPD, RKI2C_IPD_ALL);
+  for (Index = 0; Index < N; Index += 4) {
+    Word = 0;
+    for (Byte = 0; (Byte < 4) && (Index + Byte < N); Byte++) {
+      Word |= (UINT32)Buf[Index + Byte] << (8 * Byte);
+    }
+
+    MmioWrite32 (Base + RKI2C_TXDATA0 + Index, Word);
+  }
+
+  MmioWrite32 (Base + RKI2C_CON, RKI2C_CON_EN | RKI2C_CON_MOD_TX | RKI2C_CON_START);
+  Ok = RkI2cWait (Base, RKI2C_IPD_START);
+  if (Ok) {
+    MmioWrite32 (Base + RKI2C_CON, RKI2C_CON_EN | RKI2C_CON_MOD_TX);
+    MmioWrite32 (Base + RKI2C_MTXCNT, (UINT32)N);
+    Ok = RkI2cWait (Base, RKI2C_IPD_MBTF);
+  }
+
+  RkI2cStop (Base);
+  return Ok;
+}
+
+BOOLEAN
+Fusb302RegReadBurst (
+  IN  UINTN  Base,
+  IN  UINT8  Reg,
+  OUT UINT8  *Data,
+  IN  UINTN  Len
+  )
+{
+  UINTN    Index;
+  UINT32   Word;
+  BOOLEAN  Ok;
+
+  if ((Len == 0) || (Len > 32)) {
+    return FALSE;
+  }
+
+  MmioWrite32 (Base + RKI2C_IPD, RKI2C_IPD_ALL);
+  MmioWrite32 (Base + RKI2C_MRXADDR, BIT24 | (FUSB302_ADDR << 1) | 1);
+  MmioWrite32 (Base + RKI2C_MRXRADDR, BIT24 | Reg);
+  MmioWrite32 (
+    Base + RKI2C_CON,
+    RKI2C_CON_EN | RKI2C_CON_MOD_TRX | RKI2C_CON_START | RKI2C_CON_LASTACK
+    );
+  Ok = RkI2cWait (Base, RKI2C_IPD_START);
+  if (Ok) {
+    MmioWrite32 (Base + RKI2C_CON, RKI2C_CON_EN | RKI2C_CON_MOD_TRX | RKI2C_CON_LASTACK);
+    MmioWrite32 (Base + RKI2C_MRXCNT, (UINT32)Len);
+    Ok = RkI2cWait (Base, RKI2C_IPD_MBRF);
+    if (Ok) {
+      Word = 0;
+      for (Index = 0; Index < Len; Index++) {
+        if ((Index % 4) == 0) {
+          Word = MmioRead32 (Base + RKI2C_RXDATA0 + Index);
+        }
+
+        Data[Index] = (UINT8)(Word >> (8 * (Index % 4)));
+      }
+    }
+  }
+
+  RkI2cStop (Base);
+  return Ok;
+}
+
+/*
+ * The bus as Rk3576Fusb302Probe sets it up, at 375 kHz rather than 100 kHz
+ * for the PD exchange (the FUSB302 takes 1 MHz, the TaishanPi 3M's HYM8563
+ * on the same bus 400 kHz): 24 MHz / (8 * (3 + 3 + 2)).  Close puts the
+ * mux, the divider and the interrupt enables back as Open found them.
+ */
+VOID
+Fusb302BusOpen (
+  IN  CONST RK3576_FUSB302_BUS  *Bus,
+  OUT FUSB302_BUS_SAVED         *Saved
+  )
+{
+  UINT32  FieldMask;
+
+  FieldMask       = 3U << Bus->ClkSelShift;
+  Saved->ClkSel   = MmioRead32 (Bus->ClkSelReg) & FieldMask;
+  Saved->ClkDiv   = MmioRead32 (Bus->I2cBase + RKI2C_CLKDIV);
+  MmioWrite32 (Bus->ClkSelReg, (FieldMask << 16) | ((UINT32)Bus->ClkSelXin24m << Bus->ClkSelShift));
+  MmioWrite32 (Bus->I2cBase + RKI2C_CLKDIV, (3U << 16) | 3U);
+  MmioWrite32 (Bus->I2cBase + RKI2C_IEN, RKI2C_IPD_ALL);
+}
+
+VOID
+Fusb302BusClose (
+  IN CONST RK3576_FUSB302_BUS  *Bus,
+  IN CONST FUSB302_BUS_SAVED   *Saved
+  )
+{
+  UINT32  FieldMask;
+
+  FieldMask = 3U << Bus->ClkSelShift;
+  MmioWrite32 (Bus->I2cBase + RKI2C_IEN, 0);
+  MmioWrite32 (Bus->I2cBase + RKI2C_IPD, RKI2C_IPD_ALL);
+  MmioWrite32 (Bus->I2cBase + RKI2C_CLKDIV, Saved->ClkDiv);
+  MmioWrite32 (Bus->ClkSelReg, (FieldMask << 16) | Saved->ClkSel);
 }
 
 /* BC_LVL of one CC line with Rd kept on both: non-zero = the far end shows Rp. */

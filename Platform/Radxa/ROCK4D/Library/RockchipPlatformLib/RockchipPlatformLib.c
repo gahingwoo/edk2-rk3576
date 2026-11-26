@@ -1,6 +1,6 @@
 /** @file
  *
- *  RockchipPlatformLib.c — Board-specific init for Radxa ROCK 4D (RK3576)
+ *  RockchipPlatformLib.c: Board-specific init for Radxa ROCK 4D (RK3576)
  *
  *  Ported from ROCK 5B (RK3588) RockchipPlatformLib.c.
  *  Key differences from RK3588/ROCK5B:
@@ -28,7 +28,8 @@
 #include <Library/IoLib.h>
 #include <Library/GpioLib.h>
 #include <Library/RK806.h>
-#include <Library/PWMLib.h>
+#include <Library/PcdLib.h>
+#include <Library/Rk3576PwmLib.h>
 #include <Library/TimerLib.h>
 #include <Soc.h>
 #include <VarStoreData.h>
@@ -84,14 +85,14 @@ static struct regulator_init_data rk806_init_data[] = {
 };
 
 /*
- * SdmmcIoMux — SD card iomux (sdmmc: mmc@2a310000)
+ * SdmmcIoMux: SD card iomux (sdmmc: mmc@2a310000)
  *
  * From rk3576-pinctrl.dtsi (sdmmc0 groups, all function 1):
  *   sdmmc0_bus4:  GPIO2 PA0-PA3  (D0-D3)
  *   sdmmc0_cmd:   GPIO2 PA4      (CMD)
  *   sdmmc0_clk:   GPIO2 PA5      (CLK)
  *   sdmmc0_pwren: GPIO0 PB6      (power enable)
- *   sdmmc0_det:   GPIO0 PA7      (hardware DETN — function 1)
+ *   sdmmc0_det:   GPIO0 PA7      (hardware DETN, function 1)
  *
  * Card-presence polling (software) uses GPIO0 PA5 (configured separately
  * in RkSdmmcPlatformLib as plain input; not set via GpioPinSetFunction here).
@@ -103,7 +104,7 @@ SdmmcIoMux (
   )
 {
   /*
-   * SDMMC (mmc@2a310000) clock enable — from clk-rk3576.c:
+   * SDMMC (mmc@2a310000) clock enable, from clk-rk3576.c:
    *
    * Parent clock (SDGMAC domain):
    *   HCLK_SDGMAC_ROOT → CLKGATE_CON(42), bit 0
@@ -148,7 +149,7 @@ SdmmcIoMux (
 }
 
 /*
- * SdhciEmmcIoMux — eMMC iomux (sdhci: mmc@2a330000)
+ * SdhciEmmcIoMux: eMMC iomux (sdhci: mmc@2a330000)
  *
  * From rk3576-pinctrl.dtsi (emmc groups, all function 1):
  *   emmc_bus8: GPIO1 PA0-PA7  (D0-D7)
@@ -164,7 +165,7 @@ SdhciEmmcIoMux (
   )
 {
   /*
-   * eMMC (sdhci: mmc@2a330000) clock enable — from clk-rk3576.c:
+   * eMMC (sdhci: mmc@2a330000) clock enable, from clk-rk3576.c:
    *
    * Parent clocks (NVM domain, shared with SFC):
    *   HCLK_NVM_ROOT  → CLKGATE_CON(33), bit 0  (may already be ungated by SFC)
@@ -265,7 +266,7 @@ SetCPULittleVoltage (
 }
 
 /*
- * NorFspiIomux — SPI NOR flash iomux (sfc0: spi@2a340000)
+ * NorFspiIomux: SPI NOR flash iomux (sfc0: spi@2a340000)
  * From rk3576-rock-4d.dts: sfc0 uses fspi0_pins + fspi0_csn0
  *
  * CRU base for RK3576: 0x27200000
@@ -297,7 +298,7 @@ NorFspiEnableClock (
   UINTN  GateCon33 = (UINTN)CruBase + 0x800 + 33 * 4;
 
   /*
-   * SFC0 (spi@2a340000) clock enable — from clk-rk3576.c:
+   * SFC0 (spi@2a340000) clock enable, from clk-rk3576.c:
    *
    * Parent clocks (NVM domain):
    *   HCLK_NVM_ROOT  → CLKGATE_CON(33), bit 0
@@ -326,7 +327,7 @@ NorFspiEnableClock (
 }
 
 /*
- * GmacIomux — GMAC iomux for ROCK 4D
+ * GmacIomux: GMAC iomux for ROCK 4D
  *
  * gmac0 (ROCK 4D): RTL8211F in RGMII-ID mode, eth0 M0 pins, all function 3.
  * Pin mapping from rk3576-pinctrl.dtsi eth0m0_* groups:
@@ -336,7 +337,7 @@ NorFspiEnableClock (
  *   eth0m0_rgmii_clk:  GPIO3_PD1 (RXCLK), GPIO3_PB6 (TXCLK)
  *   eth0m0_rgmii_bus:  GPIO3_PD3 (RXD2), GPIO3_PD2 (RXD3), GPIO3_PC3 (TXD2), GPIO3_PC2 (TXD3)
  *   ethm0_clk0_25m_out: GPIO3_PA4 (25 MHz ref out)
- * gmac1: not connected on ROCK 4D — no iomux needed.
+ * gmac1: not connected on ROCK 4D, no iomux needed.
  */
 VOID
 EFIAPI
@@ -372,12 +373,12 @@ GmacIomux (
   GpioPinSetFunction (3, GPIO_PIN_PC3, 3);  /* eth0_txd2_m0 */
   GpioPinSetFunction (3, GPIO_PIN_PC2, 3);  /* eth0_txd3_m0 */
 
-  /* ethm0_clk0_25m_out — 25 MHz reference clock output to PHY */
+  /* ethm0_clk0_25m_out: 25 MHz reference clock output to PHY */
   GpioPinSetFunction (3, GPIO_PIN_PA4, 3);  /* ethm0_clk0_25m_out */
 }
 
 /*
- * GmacIoPhyReset — Assert / deassert the ETH PHY reset GPIO.
+ * GmacIoPhyReset: Assert / deassert the ETH PHY reset GPIO.
  *
  * gmac0 PHY: GPIO2_PB5, GPIO_ACTIVE_LOW
  *   (from rk3576-rock-4d.dts: reset-gpios = <&gpio2 RK_PB5 GPIO_ACTIVE_LOW>)
@@ -401,7 +402,7 @@ GmacIoPhyReset (
 }
 
 /*
- * I2cIomux — I2C pin configuration
+ * I2cIomux: I2C pin configuration
  * From rk3576.dtsi and rk3576-rock-4d.dts (and rk3576-pinctrl.dtsi m0 groups):
  *   i2c1 @ 0x2AC40000: RK806 PMIC (address 0x23, interrupt GPIO0 pin 6)
  *     i2c1m0_xfer: GPIO0 PB2 (fn 11) = SCL, GPIO0 PB3 (fn 11) = SDA
@@ -416,7 +417,7 @@ I2cIomux (
 {
   switch (id) {
     case 1:
-      /* i2c1m0: RK806 PMIC — GPIO0 PB2/PB3, function 11 */
+      /* i2c1m0: RK806 PMIC, GPIO0 PB2/PB3, function 11 */
       GpioPinSetFunction (0, GPIO_PIN_PB2, 11);  /* i2c1_scl_m0 */
       GpioPinSetFunction (0, GPIO_PIN_PB3, 11);  /* i2c1_sda_m0 */
       DEBUG ((DEBUG_INFO, "I2cIomux: I2C1 (PMIC) GPIO0 PB2/PB3 fn11\n"));
@@ -452,7 +453,7 @@ I2cIomux (
 }
 
 /*
- * UsbPortPowerEnable — USB host power
+ * UsbPortPowerEnable: USB host power
  * From rk3576-rock-4d.dts: vcc_5v0_host enable-gpios = GPIO0 PD3 active-high
  */
 VOID
@@ -468,7 +469,7 @@ UsbPortPowerEnable (
 }
 
 /*
- * Usb2PhyResume — USB2 PHY wakeup + USB clock enable
+ * Usb2PhyResume: USB2 PHY wakeup + USB clock enable
  *
  * Per mainline rk3576.dtsi + Linux rk3576_usb2phy_tuning():
  *   usb2phy_grf: syscon@2602e000  (size 0x4000)
@@ -493,6 +494,23 @@ UsbTypeCGetOrientation (
   )
 {
   return UsbTypeCOrientationUnknown;
+}
+
+/*
+ * The ROCK 4D's USB-C port is power only: no DisplayPort.
+ */
+EFI_STATUS
+EFIAPI
+UsbTypeCDpAltModeEnter (
+  IN  UINT32              Port,
+  OUT USB_TYPEC_DP_STATE  *State
+  )
+{
+  State->Active        = FALSE;
+  State->Hpd           = FALSE;
+  State->PinAssignment = '-';
+  State->Orientation   = UsbTypeCOrientationUnknown;
+  return EFI_UNSUPPORTED;
 }
 
 VOID
@@ -530,7 +548,7 @@ Usb2PhyResume (
   MicroSecondDelay (150);
 
   /*
-   * Step 4: HS signal quality tuning — applied BEFORE phy_sus clear so
+   * Step 4: HS signal quality tuning, applied BEFORE phy_sus clear so
    * the second reset (step 5b) latches the tuning values, matching Linux
    * where rk3576_usb2phy_tuning() runs in probe() before power_on():
    *   GRF+0x000C bits 11:8 = 0x9 → HS DC Voltage Level +5.89%
@@ -581,7 +599,7 @@ Usb2PhyResume (
     (UINT64)USB2PHY0_BASE, (UINT64)USB2PHY1_BASE));
 
   /*
-   * Readback diagnostics — confirm GRF writes landed and check PHY status:
+   * Readback diagnostics: confirm GRF writes landed and check PHY status:
    *   GRF+0x0000 [8:0]  = phy_sus  (should be 0)
    *   GRF+0x0010 [13]   = SIDDQ    (should be 0)
    *   GRF+0x0080 [5:4]  = utmi_ls  (00=SE0/idle, 10=J/FS-device present)
@@ -601,7 +619,7 @@ Usb2PhyResume (
 }
 
 /*
- * PcieIoInit — PCIe GPIO setup
+ * PcieIoInit: PCIe GPIO setup
  * From rk3576-rock-4d.dts:
  *   pcie0: reset = GPIO2 PB4 (active-high in DTS: reset-gpios = GPIO_ACTIVE_HIGH)
  *          power = GPIO2 PD3 (vcc_3v3_pcie enable-gpios, active-high)
@@ -613,7 +631,7 @@ PcieIoInit (
   )
 {
   switch (Segment) {
-    case 0:  /* pcie0 — combphy0_ps, M.2 slot */
+    case 0:  /* pcie0: combphy0_ps, M.2 slot */
       /* PCIe power enable: GPIO2 PD3 (bank 2, PD=24+3=27) */
       GpioPinSetDirection (2, GPIO_PIN_PD3, GPIO_PIN_OUTPUT);
       /* PCIe PERST#: GPIO2 PB4 (bank 2, PB=8+4=12) */
@@ -632,7 +650,7 @@ PciePowerEn (
   )
 {
   switch (Segment) {
-    case 0:  /* GPIO2 PD3 — vcc_3v3_pcie */
+    case 0:  /* GPIO2 PD3: vcc_3v3_pcie */
       GpioPinWrite (2, GPIO_PIN_PD3, Enable);
       break;
     default:
@@ -648,7 +666,7 @@ PciePeReset (
   )
 {
   switch (Segment) {
-    case 0:  /* GPIO2 PB4 — pcie0 reset (active-high in DTS) */
+    case 0:  /* GPIO2 PB4: pcie0 reset (active-high in DTS) */
       //
       // PERST# is active low: the pin is driven LOW to hold the endpoint in
       // reset and HIGH to release it, so Enable ("assert reset") maps to LOW.
@@ -656,13 +674,13 @@ PciePeReset (
       // "assert" released the device and "release" drove it back into reset.
       // Every other reset line in this file already uses !Enable.
       //
-      // Mainline is unambiguous -- pcie-dw-rockchip requests the GPIO as
+      // Mainline is unambiguous: pcie-dw-rockchip requests the GPIO as
       // GPIOD_OUT_HIGH and rockchip_pcie_start_link() writes 0 under the
       // comment "Reset device", then 1 to release.
       //
       // Measured on CM5-IO 2026-09-17: with the inversion the link trained to
       // Recovery (LTSSM 0x0013000D) then collapsed to Polling.Compliance
-      // (0x00000003) within 50 ms -- exactly when the code believed it was
+      // (0x00000003) within 50 ms, exactly when the code believed it was
       // releasing PERST# and was in fact asserting it.  The endpoint's config
       // space read 0xFFFFFFFF at the instant of link-up, so the link was never
       // usable.
@@ -675,7 +693,7 @@ PciePeReset (
 }
 
 /*
- * HdmiTxIomux — HDMI TX pin mux & Clock ungating
+ * HdmiTxIomux: HDMI TX pin mux & Clock ungating
  * ROCK 4D has one HDMI port (hdmi: hdmi@27da0000).
  * This function also handles ungating VOP2 and HDMI clocks
  * because the Display DXE drivers don't know RK3576's CRU layout.
@@ -753,7 +771,7 @@ HdmiTxIomux (
        * The HDCP0 clocks are not here for HDCP.  They are in PD_VO0's
        * devicetree clock list (rk3576.dtsi:1247), and Rockchip's pm-domains
        * driver enables a domain's clocks across the power-up handshake
-       * (pm-domains.c:666) -- the HDCP0 bus interface is inside PD_VO0, and
+       * (pm-domains.c:666). The HDCP0 bus interface is inside PD_VO0, and
        * with its clocks gated the interconnect cannot complete the NIU
        * idle-exit handshake.  The vendor UEFI build that puts a stable
        * picture out on this board writes exactly this value.
@@ -842,7 +860,7 @@ HdmiTxIomux (
        * it.  Those are two incompatible numbering schemes: mainline's IDs are
        * plain array indices into rk3576_register_offset[], and the register
        * and bit come from the table entry.  (The HDPTX PHY resets carried the
-       * same mistake -- see the note in DwHdmiQpLib.h.)
+       * same mistake; see the note in DwHdmiQpLib.h.)
        *
        * Per rst-rk3576.c the addresses being written were SOFTRST_CON22 and
        * CON25, which are DDR controller reset registers, and CON28, which is
@@ -855,7 +873,7 @@ HdmiTxIomux (
        * SRST_HDMITXHDP is the one to watch on this board: it gates the
        * hot-plug-detect block, CLK_HDMITXHDP is ungated above, and the reset
        * was never actually released.  That fits the symptom recorded in
-       * docs/STATUS.md (as of 024e68e~1, removed on 2026-10-01) --
+       * docs/STATUS.md (as of 024e68e~1, removed on 2026-10-01):
        * IOC_HDMI_HPD_STATUS stuck at 0 while DDC, which is
        * a different block on a different pair, works fine.  It is a cheaper
        * thing to rule out than a cable with a broken pin 19.
@@ -878,16 +896,46 @@ HdmiTxIomux (
 }
 
 /*
- * PwmFanIoSetup / PwmFanSetSpeed
- * ROCK 4D has no on-board fan connector exposed in mainline DTS.
- * These are no-ops.
+ * PwmFanIoSetup / PwmFanSetSpeed: the 2-pin fan header J16.
+ *
+ * Wiring, from two sources that agree:
+ *   - The schematic, ROCK 4D V1.12 page 28 "40PIN/FAN/LED/KEY": J16
+ *     (CON1X2) between VCC5V0_SYS_S5 and the drain of Q20, an AO3416A
+ *     N-MOSFET on the low side, with D28 (B5819WS) across the fan.  Q20's
+ *     gate is net FAN-PWM through R264 (1K).  FAN-PWM is GPIO4_C5_d
+ *     (page 14 "RK3576-GPIO VCCIO4/5", function PWM2_CH5_M1).  A high pin
+ *     turns Q20 and the fan on.
+ *   - The vendor kernel tree, rk3576-rock-4d.dts:25-30 and :592-595:
+ *       fan0: pwm-fan { pwms = <&pwm2_8ch_5 0 60000 0>;
+ *                       cooling-levels = <0 64 128 192 255>; }
+ *       &pwm2_8ch_5 { pinctrl-0 = <&pwm2m1_ch5>; }
+ *     pwm2_8ch_5 is pwm@2ade5000 (rk3576.dtsi:6131-6141), polarity flag 0 =
+ *     PWM_POLARITY_NORMAL: the pin is high for the duty part of the period.
+ *   The mainline tree for this board does not describe the fan.
+ *
+ * pwm2m1_ch5 is GPIO4_C5 function 14 (rk3576-pinctrl.dtsi:2860-2864).  The
+ * pin config also asks for a pull-down and drive level 2; the pull-down is
+ * set, GpioLib cannot set drive strength on RK3576, so the pad keeps its
+ * reset drive.  It only feeds Q20's gate through 1K.
+ *
+ * The firmware runs the fan at 100% (PcdPwmFanSpeedDefault), where the pin
+ * is held high and the period does not matter; the period is the vendor
+ * tree's 60000 ns (PcdPwmFanPeriodNs in ROCK4D.dsc).
  */
+#define FAN_PWM_CONTROLLER  2
+#define FAN_PWM_CHANNEL     5
+#define FAN_PWM_PERIOD_NS   FixedPcdGet32 (PcdPwmFanPeriodNs)
+#define FAN_PWM_INVERTED    FALSE
+
 VOID
 EFIAPI
 PwmFanIoSetup (
   VOID
   )
 {
+  /* pwm2m1_ch5: GPIO4 PC5 function 14, pull-down */
+  GpioPinSetPull (4, GPIO_PIN_PC5, GPIO_PIN_PULL_DOWN);
+  GpioPinSetFunction (4, GPIO_PIN_PC5, 14);
 }
 
 VOID
@@ -896,10 +944,29 @@ PwmFanSetSpeed (
   IN UINT32  Percentage
   )
 {
+  EFI_STATUS  Status;
+
+  if (Percentage > 100) {
+    Percentage = 100;
+  }
+
+  Status = Rk3576PwmStart (
+             FAN_PWM_CONTROLLER,
+             FAN_PWM_CHANNEL,
+             FAN_PWM_PERIOD_NS,
+             (UINT32)(((UINT64)FAN_PWM_PERIOD_NS * Percentage) / 100),
+             FAN_PWM_INVERTED
+             );
+  DEBUG ((
+    EFI_ERROR (Status) ? DEBUG_ERROR : DEBUG_INFO,
+    "ROCK 4D PwmFanSetSpeed: %u%% on PWM2 ch5 (GPIO4 PC5): %r\n",
+    Percentage,
+    Status
+    ));
 }
 
 /*
- * PlatformInitLeds — Initialize board LEDs
+ * PlatformInitLeds: Initialize board LEDs
  * From rk3576-rock-4d.dts:
  *   power-led: GPIO0 PB4 (active-high, green, default-state=on)
  *   user-led:  GPIO0 PC4 (active-low,  blue,  heartbeat trigger)
@@ -914,7 +981,7 @@ PlatformInitLeds (
   GpioPinWrite (0, GPIO_PIN_PB4, FALSE);
   GpioPinSetDirection (0, GPIO_PIN_PB4, GPIO_PIN_OUTPUT);
 
-  /* User LED: GPIO0 PC4 = bank 0, pin 20 — keep off initially */
+  /* User LED: GPIO0 PC4 = bank 0, pin 20, kept off initially */
   GpioPinWrite (0, GPIO_PIN_PC4, TRUE);  /* active-low → TRUE = off */
   GpioPinSetDirection (0, GPIO_PIN_PC4, GPIO_PIN_OUTPUT);
 }
@@ -930,12 +997,18 @@ PlatformSetStatusLed (
 }
 
 /*
- * PlatformEarlyInit — Early board initialization
- * Called before driver dispatch. Enable WiFi power for M.2 WiFi module.
+ * PlatformEarlyInit: Early board initialization
+ * Called before driver dispatch. Enable WiFi power for the USB WiFi module,
+ * and set up the ES8388's SAI1 when PcdAnalogAudioPreset is set.
  * From rk3576-rock-4d.dts:
  *   wifi rfkill shutdown-gpios = GPIO2 PD1 (active-high)
  *   vcc_3v3_wifi enable-gpios  = GPIO2 PC7 (active-high)
  */
+VOID
+Rock4dAnalogAudioInit (
+  VOID
+  );
+
 VOID
 EFIAPI
 PlatformEarlyInit (
@@ -950,11 +1023,37 @@ PlatformEarlyInit (
   GpioPinWrite (2, GPIO_PIN_PD1, TRUE);
   GpioPinSetDirection (2, GPIO_PIN_PD1, GPIO_PIN_OUTPUT);
 
+  /*
+   * The ES8388 headphone codec's SAI1, for an OS without clock, power-domain
+   * or pin drivers (Rock4dAudio.c).
+   */
+  if (FixedPcdGetBool (PcdAnalogAudioPreset)) {
+    Rock4dAnalogAudioInit ();
+  }
+
+  /*
+   * I2C6 M3 for the BL24C16F EEPROM (\_SB.I2C6.EEP0), as the device tree
+   * sets it (dts:685-688, i2c6m3_xfer: GPIO4_C6 SCL, GPIO4_C7 SDA, function
+   * 11, pcfg_pull_none_smt).  The pads reset with a pull-down
+   * (RK3576_PULL_GPIO4_CL_OFFSET 0xA148 reads 0x5555), which the DTS turns
+   * off; C6/C7 are bits 13:12 and 15:14 of that register.  The schematic's
+   * pull-ups on the bus do the rest.  PCLK_I2C6 is CRU_GATE_CON12 bit 5 and
+   * CLK_I2C6 CRU_GATE_CON13 bit 1 (clk-rk3576.c), open at reset, opened
+   * again in case a warm reboot from Linux left them gated.  These pins are
+   * also the 40-pin header's 27/28, which the header's RhProxy option uses
+   * as I2C6 as well.
+   */
+  GpioPinSetFunction (4, GPIO_PIN_PC6, 11);   /* i2c6_scl_m3 */
+  GpioPinSetFunction (4, GPIO_PIN_PC7, 11);   /* i2c6_sda_m3 */
+  MmioWrite32 (0x26040000 + 0xA148, 0xFU << (12 + 16));
+  MmioWrite32 (CRU_CLKGATE_CON (12), BIT5 << 16);
+  MmioWrite32 (CRU_CLKGATE_CON (13), BIT1 << 16);
+
   DEBUG ((DEBUG_INFO, "ROCK 4D: PlatformEarlyInit done\n"));
 }
 
 /*
- * PlatformGetDtbFileGuid — Return GUID for embedded DTB based on compat mode
+ * PlatformGetDtbFileGuid: Return GUID for embedded DTB based on compat mode
  * GUIDs match the FILE_GUID in DeviceTree/Vendor.inf and DeviceTree/Mainline.inf
  */
 CONST EFI_GUID *
@@ -983,7 +1082,7 @@ PlatformGetDtbFileGuid (
 }
 
 /*
- * PlatformSdioWifiInit -- this board does not set PcdAcpiSdioWifiSupported,
+ * PlatformSdioWifiInit: this board does not set PcdAcpiSdioWifiSupported,
  * so RK3576Dxe never calls this.  The firmware has no SDIO Wi-Fi bring-up
  * for it.
  */
@@ -994,17 +1093,4 @@ PlatformSdioWifiInit (
   )
 {
   return EFI_UNSUPPORTED;
-}
-
-/*
- * PlatformGetPin40Config -- this board does not set PcdPin40Supported, so
- * RK3576Dxe never asks.
- */
-CONST PIN40_CONFIG *
-EFIAPI
-PlatformGetPin40Config (
-  VOID
-  )
-{
-  return NULL;
 }

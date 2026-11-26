@@ -4,9 +4,46 @@
  *  eight RK3576 cores, entered through PSCI CPU_SUSPEND.
  *
  *  Installed only when "CPU Idle States" is enabled in setup
- *  (PcdAcpiCpuIdleStates): RK3576AcpiPlatformDxe skips any SSDT with OEM
- *  table ID "RKLPI" otherwise and installs CpuIdleWfi.asl ("RKWFI") in its
- *  place, which has state 0 below and nothing else.
+ *  (PcdAcpiCpuIdleStates, off by default): RK3576AcpiPlatformDxe skips any
+ *  SSDT with OEM table ID "RKLPI" otherwise and installs CpuIdleWfi.asl
+ *  ("RKWFI") in its place, which has state 0 below and nothing else.
+ *
+ *  Windows: bugcheck 0x5C
+ *  ----------------------
+ *  With this table Windows 11 23H2 does not boot.  2026-11-26, TaishanPi 3M
+ *  (option set to Enabled by hand) and ROCK 4D (empty variable store, when
+ *  the default was briefly on): HAL_INITIALIZATION_FAILED (0x5C), parameters
+ *  0x113, 0x21, 0xFFFFF79C0001C1F8, 0.  The same boot with CpuIdleWfi.asl
+ *  (state 0 only) works, so it is state 1.
+ *
+ *  Microsoft does not document the 0x5C parameters.  What state 1 has that
+ *  state 0 does not, and what Windows could object to:
+ *
+ *    - Arch Context Lost Flags bit 0 (core context lost).  Windows has to
+ *      assume that the core's generic timer stops in such a state (it does
+ *      here, mainline's local-timer-stop), and then needs a timer that keeps
+ *      running to wake the core.  This firmware's GTDT has none: no platform
+ *      (memory-mapped) GT block, PlatformTimerCount 0, and no Always-On flag
+ *      on the per-core timers.  The HAL selects its timers early, before any
+ *      driver; a state it cannot serve with any timer is a plausible reason
+ *      for a 0x5C.  This is the likeliest cause, not a confirmed one, and
+ *      not something an _LPI value can fix: the timer really stops.
+ *    - The FFH address 0x00010000: the PSCI power_state in the original
+ *      format, power down at level 0, state ID 0, which is what this BL31
+ *      accepts (rockchip_validate_power_state wants state ID 0) and what
+ *      Linux passes.  A format problem would fail the PSCI call, not HAL
+ *      init.
+ *    - Latency and residency are ordinary values, and the missing residency
+ *      and usage counters, the _OSC and the missing processor container
+ *      _LPI are the same in CpuIdleWfi.asl, which boots.
+ *
+ *  The untested experiment that follows from the first point is in
+ *  RK3576AcpiPlatformDxe.c (CpuIdleGtdtAlwaysOn): with this table only,
+ *  mark the per-core timers Always-On in the GTDT.  If 0x5C goes away, that
+ *  was the check; but the flag is then not true, and a core sleeping with a
+ *  pending timer would wake late.  A real fix needs a timer that runs
+ *  through core power-down and that Windows can use; RK3576's Rockchip
+ *  timers (0x2acc0000) are not a GT block.
  *
  *  The states
  *  ----------

@@ -2,9 +2,8 @@
 
 [English](hardware.md) | 简体中文
 
-固件所依赖的板级事实，以 2026-11-24 的 `main` 为准。每块板子上哪些功能可用，见各板子页面：[ROCK 4D](../boards/rock4d.zh-CN.md)、[CM5-IO](../boards/cm5io.zh-CN.md)、[泰山派 3M](../boards/tspi3m.zh-CN.md)。固件打开了哪些 ACPI 设备和设置，见 [ACPI](acpi.zh-CN.md)。
-
-以前放在这一页的移植笔记已移到[历史记录](../history/2026-11-22-hardware-before-rewrite.md)。
+固件所依赖的板级事实。每块板子上什么能用：[ROCK 4D](../boards/rock4d.zh-CN.md)、[CM5-IO](../boards/cm5io.zh-CN.md)、
+[泰山派 3M](../boards/tspi3m.zh-CN.md)。ACPI 设备见 [ACPI](acpi.zh-CN.md)。移植笔记见[历史记录](../history/2026-11-22-hardware-before-rewrite.md)。
 
 ## 所有板子共有
 
@@ -27,7 +26,20 @@
 | 固件存放位置 | 16 MB SPI NOR。v1.12 的板子用 XMC XM25QU128C，更早的板子用 Macronix 的芯片；SPL 从 0.2.1 起两种都支持。 |
 | MaskROM 端口 | 上面那个 USB 3.0 USB-A 口（USB-C 口只供电） |
 | 存储 | UFS、microSD、PCIe 上的 NVMe。没有 eMMC。 |
+| PCIe | combphy0 上的 pcie0，接到一个 16 针 FPC 接口；NVMe 盘需要接一块 M.2 转接板。PERST# 为 GPIO2_B4，3.3 V 开关为 GPIO2_D3。 |
+| USB | USB-C 口只用于供电输入。DRD0 是上面那个 USB 3.0 口（USBDP PHY 的 lane 0 和 1），DRD1 接一颗 FE1.1s hub，带另外三个 USB-A 口和 USB WiFi，下面那个口的 SuperSpeed 则经 combphy1 接到 DRD1。 |
+| 以太网 PHY | Realtek RTL8211F-CG，MDIO 地址 1，25 MHz 时钟来自 SoC，`rgmii-id`。固件设置它的 RGMII TX 和 RX 延时（page 0xD08，和 Linux 一样）以及 LED 寄存器；没有这些延时时，Windows 有链路但收不到单播帧。 |
+| 风扇 | 2 针插座 J16，低边 AO3416A，栅极为 FAN-PWM = GPIO4_C5（PWM2 ch5，功能 14），高电平开风扇（原理图第 28 页，厂商设备树 pwm-fan）。 |
+| 音频 | I2C3 上 0x10 的 ES8388 和 SAI1 M0；LOUT1/ROUT1 直接驱动耳机插孔 J18。扬声器功放未贴片，插孔检测是 SARADC 输入 SARADC_VIN3_HP_HOOK。 |
 | 测试过的型号 | 12 GB LPDDR5 |
+
+ACPI：映像在设备树之外同时安装 ACPI 表，和 CM5-IO 一样（ConfigTableMode ACPI + FDT，
+可在首页菜单切换）。之前 ROCK 4D 只有设备树。SoC 表是另外两块板子共用的那些。DSDT
+（`Platform/Radxa/ROCK4D/AcpiTables/Dsdt.asl`）是 CM5-IO 的去掉 eMMC（这块板子没有，
+它的引脚给了 SPI NOR）和禁用的 XHC2、SATA 空壳；UFS 没有描述，因为没有 Windows 驱动。
+注释里给出了每个板级数值对应的设备树行号或原理图页。PCIe 根复合体在 UEFI 里链路没训练
+起来时会从 ACPI 中隐藏。它还有温区、风扇 SSDT、ES8388、RK806 关机、LED 和 EEPROM。
+2026-11-26 在它上面跑过 Windows 11 23H2；哪些跑过、哪些没跑过见[板子功能对照](../BOARD-FEATURES.zh-CN.md)。
 
 ## ArmSoM CM5-IO
 
@@ -45,23 +57,21 @@
 
 ## 立创泰山派 3M
 
-这里的所有内容都来自同一块板子，第一次启动是 2026-11-12。
-
 | | |
 |---|---|
-| BootROM 启动顺序 | 先 eMMC，再 USB。它不会尝试 SD 卡：SD 卡上放了有效的 idblock，结果没有任何输出（只试过一张卡）。启动顺序由 `SARADC_IN0_BOOT` 上的分压电阻决定。 |
+| BootROM 启动顺序 | 先 eMMC，再 USB，从不试 SD 卡（由 `SARADC_IN0_BOOT` 上的分压电阻决定）。 |
 | 固件存放位置 | SPL 在 eMMC 的 64 扇区。FIT（BL31 + EDK2）在 SD 卡或 eMMC 上；SPL 先试 SD 卡。 |
-| MaskROM | 没有按键。上电时短接标有 `MSK` 的两个焊盘，它们就在 `RK3576` 丝印正下方。下载口是标有 `OTG+DP` 的 USB-C。启动倒计时中按 F4 也会复位进入 MaskROM。 |
+| MaskROM | `RK3576` 丝印下方的 `MSK` 焊盘，USB-C 口 `OTG+DP`，或启动倒计时按 F4。 |
 | 存储 | 58 GiB eMMC（62008590336 字节）、microSD。mini-PCIe 插槽可以走 PCIe、SATA 或 USB 模块。 |
 | 以太网 PHY | Maxio MAE0621A-Q3C，ID `7b74.4412`，MDIO 地址 1，同时也响应地址 0。延迟由 strap 设定：RX 延迟在 PHY 里，TX 延迟 `0x24` 在 MAC 里。固件不往它写任何东西。 |
-| USB-A | 四个口，接在 DRD1 上的板载 hub 后面。固件的设备树把它们的 VBUS 供电标为常开（主线设备树没有让任何东西管它们，结果 Linux 把它们关掉了）。 |
-| USB-C | FUSB302 在 I2C2 上；VBUS 开关 SY6280 由 GPIO0_B6 使能。开机时和 ExitBootServices 时，固件各读一次 CC，只有接的是受电设备（Rd）时才打开 VBUS；接充电器或电脑（Rp）时保持关闭。之后没有操作系统驱动监视这个口，所以开机后才插入的设备得不到 VBUS。没有 VCONN。 |
-| DSI 屏幕 | 立创的 800x1280 屏幕，料号 C41409463：DSI 接口的 ILI9881C 面板，复位接 GPIO2_B4，背光接 PWM2 通道 2（GPIO3_C5），安装方向是横屏时面板左边朝上。由固件点亮；操作系统拿到的是竖屏。屏幕有应答时，固件的设备树会以设置里的亮度启用它的 pwm-backlight，并在 force GOP 关闭时启用 DSI 主机和面板（`rocknix,generic-dsi`，所以要用 Armbian 内核）；见 `FdtFixupDsiPanel`。只能在断电时插拔排线。 |
-| 触摸 | Goodix GT9271，在 I2C0 上，地址 0x5d（GPIO0_C1、GPIO0_C2）。固件读取它来操作菜单，并根据它是否存在来判断屏幕有没有接上。固件从不写入控制器的配置。 |
+| USB-A | 四个口，接在 DRD1 上的板载 hub 后面。固件的设备树把它们的 VBUS 供电标为常开；主线设备树里没人管它们，Linux 会把它们关掉。 |
+| USB-C | FUSB302 在 I2C2 上；VBUS 开关 SY6280 由 GPIO0_B6 使能。开机时和 ExitBootServices 时固件读 CC，只给受电设备（Rd）打开 VBUS，充电器或电脑（Rp）不开。之后没有操作系统驱动监视这个口。没有 VCONN。 |
+| DSI 屏幕 | 立创的 800x1280 屏幕，料号 C41409463：DSI 接口的 ILI9881C 面板，复位接 GPIO2_B4，背光接 PWM2 通道 2（GPIO3_C5），安装方向是横屏时面板左边朝上。由固件点亮；操作系统拿到的是竖屏。屏幕有应答时，固件的设备树会以设置里的亮度启用它的 pwm-backlight，并在 force GOP 关闭时启用 DSI 主机和面板（`rocknix,generic-dsi`，所以要用 Armbian 内核）；见 `FdtFixupDsiPanel`。 |
+| 触摸 | Goodix GT9271，在 I2C0 上，地址 0x5d（GPIO0_C1、GPIO0_C2）。用于菜单操作；它存在即表示屏幕已接上。固件从不写它的配置。 |
 | HDMI | GPIO4_C6 使能电平转换器。HPD 经过两级三极管（Q17、Q16）到达 SoC，所以没有反相：接上显示器时 GPIO4_C1 读到 1。接口的 5 V 来自系统电源轨，经过一个二极管，不受开关控制。 |
 | 音频 | ES8388 在 I2C3 0x11，SAI1（DMA0 请求 2 和 3，lane 0 从 SDO2 输出），耳机功放使能 GPIO4 PB2，耳机插入检测 GPIO4 PB0，mclk_sai1 为 12.288 MHz，来自 clk_audio_frac_1。`PcdAnalogAudioPreset` 为 TRUE 时（这块板子就是）由 `Tspi3mAudio.c` 设置。 |
 | 蓝牙 | AP6256（BCM4345C5），在 UART6 上（uart6m1，GPIO2 PD2 到 PD5），sclk_uart6 为 24 MHz，来自 xin24m；BT_REG_ON 为 GPIO1 PC7，BT_WAKE 为 GPIO1 PD4。32 kHz 睡眠时钟来自 HYM8563 的 CLKOUT，芯片出厂时就是打开的；固件不写它。 |
-| RTC | HYM8563，在 I2C2 0x51。这块板子上每次断电和复位它都会丢失时间（没有电池），所以时间由网络（NTP）或操作系统设置。 |
-| GPU 供电 | `vdd_gpu_s0` = RK806 BUCK5，上电时 750 mV。固件读取它；设置选项“702 MHz 用的 GPU 电压（775 mV）”打开时（`PcdGpuRail775`，这块板默认打开）为了 702 MHz 工作点把它升到 775 mV，并把读数以 `GpuRail` 变量的形式提供给 Windows GPU 驱动。读数达到 775 mV 时驱动运行 702 MHz，否则 594 MHz。 |
-| 风扇 | 2 针接口 CN2，接 PWM2 通道 3（GPIO3_D0），高电平为开，由一个 P-MOSFET 在供电端开关。固件以 100%（`PcdPwmFanSpeedDefault`）、2 kHz 周期（`PcdPwmFanPeriodNs` 500000）启动它；在 60% 时能听到 2 kHz 的开关声。在 Windows 下，除非在设置里启用 "Fan Control by ACPI Thermal Zone"（默认关闭），风扇一直保持 100%。在 Linux 下，固件的设备树描述了 PWM 通道，但没有 `pwm-fan`，所以风扇停在固件留下的状态。 |
+| RTC | HYM8563，在 I2C2 0x51。每次断电和复位都丢时间（没有电池）；由 NTP 或操作系统校时。 |
+| GPU 供电 | `vdd_gpu_s0` = RK806 BUCK5，上电时 750 mV。打开 "GPU voltage for 702 MHz (775 mV)"（`PcdGpuRail775`，这块板默认打开）时升到 775 mV；读数写入 `GpuRail` 变量，Windows GPU 驱动在读数达到 775 mV 时跑 702 MHz，否则 594 MHz。 |
+| 风扇 | 2 针接口 CN2，接 PWM2 通道 3（GPIO3_D0），高电平为开，由一个 P-MOSFET 在供电端开关。以 100%（`PcdPwmFanSpeedDefault`）、2 kHz 周期（`PcdPwmFanPeriodNs` 500000）启动；非全速时能听到开关声。Windows：除非 "Fan Mode" 不是 "Always on"，保持 100%。Linux：设备树里有 PWM 通道但没有 `pwm-fan`，所以保持固件留下的状态。 |
 | 测试过的型号 | 4 GB LPDDR5，64 GB eMMC |

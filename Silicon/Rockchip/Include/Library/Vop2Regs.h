@@ -52,7 +52,7 @@
  *    so enable ACM by default."
  *
  * ACM_CTRL sits at offset 0 of its own window, far outside the
- * RK3568_MAX_REG shadow that Vop2Writel indexes -- write it with MmioWrite32,
+ * RK3568_MAX_REG shadow that Vop2Writel indexes. Write it with MmioWrite32,
  * never through the cached helpers.
  */
 #define RK3576_VOP2_ACM_BASE    0x27D06400UL
@@ -63,7 +63,7 @@
 /*
  * Bit 31 is the top-level auto-gating enable that mainline clears for every
  * VOP2 generation.  Bit 7 is aclk_pre_auto_gating_en, which exists only on
- * RK3528/RK3562/RK3576 -- mainline has no name for it at all.  The vendor BSP
+ * RK3528/RK3562/RK3576; mainline has no name for it at all.  The vendor BSP
  * clears it for exactly those three parts and says why
  * (rockchip_drm_vop2.c:4599, rockchip_vop2_reg.c:4741):
  *
@@ -234,7 +234,7 @@
  * packed at 0x6E0/0x6E4/0x6E8.
  *
  * RK3576 gives each video port its own overlay block at 0x600 + vp * 0x100,
- * and deletes OVL_PORT_SEL entirely -- a window picks its video port from a
+ * and deletes OVL_PORT_SEL entirely: a window picks its video port from a
  * register inside the window (see RK3576_WIN_PORT_SEL_IMD below).  So on this
  * part 0x608 is unmapped, 0x6E0 is inside VP0's mixer area rather than being
  * VP0's BG_MIX_CTRL, and 0x704/0x708 are VP1's OVL_LAYER_SEL/mixers rather
@@ -254,7 +254,7 @@
  *   MIX0 0x620..0x62C, MIX1 0x630..0x63C, MIX2 0x640..0x64C  (+ Vp * 0x100)
  * mainline's rockchip_drm_vop2.h:461-472 names the offsets; vop2_setup_alpha()
  * only programs them from zpos 1 upward, so a single-plane configuration
- * leaves all three at reset -- which is what this driver did.
+ * leaves all three at reset, which is what this driver did.
  */
 #define RK3576_OVL_MIX0_SRC_COLOR_CTRL  0x620   /* + Vp * 0x100 */
 #define RK3576_OVL_MIX_STRIDE           0x010   /* MIX0 -> MIX1 -> MIX2 */
@@ -300,7 +300,7 @@
  * field by the vendor (rockchip_vop2_reg.c:4845).  Neither kernel writes it
  * on the plain-opaque path, but the vendor UEFI build that puts a stable
  * picture out on ROCK 4D writes 0xFFFFFFFF here, and a window whose alpha
- * map resolves to zero composites as fully transparent -- which on a single
+ * map resolves to zero composites as fully transparent, which on a single
  * window over a black background is indistinguishable from "no picture".
  */
 #define RK3576_ESMART0_ALPHA_MAP      0x18D8 /* + WinData->RegOffset */
@@ -897,10 +897,10 @@
  */
 #define RK3576_VOP2_REG_BASE  0x27D00000
 
-/* VOP GRF — on RK3576 the "VOP GRF" role is played by sys_grf (ioc_grf) */
+/* VOP GRF: on RK3576 the "VOP GRF" role is played by sys_grf (ioc_grf) */
 #define RK3576_VOP_GRF_BASE   0x26010000
 
-/* VO0 GRF — HDMI output control and sync polarity (equivalent to RK3588 VO1 GRF) */
+/* VO0 GRF: HDMI output control and sync polarity (equivalent to RK3588 VO1 GRF) */
 #define RK3576_VO0_GRF_BASE   0x2601A000
 
 #endif

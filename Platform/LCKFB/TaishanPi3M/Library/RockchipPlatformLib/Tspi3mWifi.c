@@ -1,6 +1,6 @@
 /** @file
  *
- *  Tspi3mWifi.c -- bring up the TaishanPi 3M's SDIO Wi-Fi for an operating
+ *  Tspi3mWifi.c: bring up the TaishanPi 3M's SDIO Wi-Fi for an operating
  *  system that has no pin, clock or power-sequence driver of its own
  *  (Windows with the woa-rk3576 drivers, docs/WIFI.md there), and probe the
  *  card once so the serial log says whether it answers.

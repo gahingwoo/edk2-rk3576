@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
- * LCKFB TaishanPi 3M -- the device tree the UEFI firmware hands to the OS.
+ * LCKFB TaishanPi 3M: the device tree the UEFI firmware hands to the OS.
  *
  * rk3576-lckfb-tspi-3m.dts next to this file is the mainline Linux 7.3 file,
  * unchanged.  Anything the firmware needs on top of it goes here, so the

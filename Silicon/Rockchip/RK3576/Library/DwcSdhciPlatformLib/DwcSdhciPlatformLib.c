@@ -1,6 +1,6 @@
 /** @file
  *
- *  DwcSdhciDxe platform helper library — RK3576 variant.
+ *  DwcSdhciDxe platform helper library, RK3576 variant.
  *
  *  Differs from the RK3588 version only in the CRU base address
  *  (0x27200000) and the eMMC clock-select register offset.

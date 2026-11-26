@@ -7,103 +7,48 @@ English | [简体中文](README.zh-CN.md)
 [![Flash](https://img.shields.io/badge/flash-WebUSB%20browser%20tool-informational)](https://flash.gahingwoo.com/)
 [![Docs](https://img.shields.io/badge/docs-edk2.gahingwoo.com-informational)](https://edk2.gahingwoo.com/)
 
-UEFI firmware (EDK2 / TianoCore) for Rockchip RK3576 boards: the Radxa
-ROCK 4D, the ArmSoM CM5-IO and the LCKFB TaishanPi 3M. It boots Linux like
-a PC does, and Windows 11 23H2 on the CM5-IO and the TaishanPi 3M.
+UEFI firmware (EDK2 / TianoCore) for Rockchip RK3576 boards. It boots Linux
+the way a PC does, and Windows 11 23H2 on all three boards.
 
 ```
 BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
 ```
 
-This repository is the starting point for all the RK3576 projects listed
-below.
-
 | Windows 11 on the TaishanPi 3M | Fedora on the CM5-IO |
 |---|---|
 | ![Windows 11 23H2 on the TaishanPi 3M](docs/imgs/tspi3m-win11-desktop.jpg) | ![Fedora GNOME on the CM5-IO](docs/imgs/cm5io-desktop.png) |
 
-More pictures: [gallery](docs/gallery.md).
-
-## From a new board to Windows or Linux
-
-1. Read your board's page: [Radxa ROCK 4D](docs/boards/rock4d.md),
-   [ArmSoM CM5-IO](docs/boards/cm5io.md),
-   [LCKFB TaishanPi 3M](docs/boards/tspi3m.md).
-2. Write the firmware ([flashing](docs/flash.md)) with one of:
-   - [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio), a
-     desktop app;
-   - [flash.gahingwoo.com](https://flash.gahingwoo.com/), in Chrome or Edge;
-   - `rkdeveloptool`.
-3. For Windows 11 23H2 (CM5-IO, TaishanPi 3M), follow
-   [woa-rk3576's install guide](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.md),
-   or let Maskrom Studio install it from the PC without a USB stick.
-   Overview: [Windows](docs/windows.md).
-4. Add the drivers you want under Windows: the GPU and display driver
-   [wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52), the NPU
-   driver [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu).
-5. For Linux, see [Linux](docs/linux.md).
-6. If something goes wrong: [troubleshooting](docs/troubleshooting.md),
-   [known issues](docs/known-issues.md).
-
-Images: [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
-(0.4.1, 2026-11-17), or the [`ci` build](docs/flash.md#the-rolling-ci-build)
-of `main`, which has everything merged since.
-
 ## Boards
 
-Status on 2026-11-24. "ci" means: works with the `ci` build of `main`, not
-in release 0.4.1.
-
-| | Radxa ROCK 4D | ArmSoM CM5-IO | LCKFB TaishanPi 3M |
+| Board | Firmware on | Status | Last run on the board |
 |---|---|---|---|
-| Firmware lives on | SPI NOR | eMMC or SD card | eMMC (or SPL on eMMC, rest on SD) |
-| HDMI | works | works | works |
-| DSI screen and touch | not tried | not tried | works (LCKFB 800x1280) |
-| eMMC | no eMMC (UFS, not tried) | works | works |
-| NVMe | works | works | no M.2 slot |
-| USB-A | works | works | works |
-| USB-C | USB 2.0 | USB 2.0 | works for a device attached at power-on (ci) |
-| Ethernet | works | works | works |
-| Linux through UEFI | Fedora from NVMe | Fedora from NVMe | Armbian edge from the eMMC, [with limits](docs/linux.md#lckfb-taishanpi-3m) |
-| Windows 11 23H2 | not available (no ACPI) | boots to the desktop | boots to the desktop |
-| Windows: GPU desktop | | not tried | works with wddm-mali-g52 |
-| Windows: audio | | not tried | headphones, microphone, HDMI (ci) |
-| Windows: Bluetooth, WiFi | | not working | Bluetooth works (ci), WiFi not working |
-| Windows: NPU | | not available | works with woa-rk3576-npu (ci) |
+| [Radxa ROCK 4D](docs/boards/rock4d.md) | SPI NOR | Linux (Fedora from NVMe), Windows 11 23H2 from NVMe with GPU, Ethernet, audio, NPU. | `main`, 2026-11-26 (Windows) |
+| [ArmSoM CM5-IO](docs/boards/cm5io.md) | eMMC or SD card | Linux (Fedora from NVMe), Windows 11 23H2 desktop from the eMMC. | 0.4.x |
+| [LCKFB TaishanPi 3M](docs/boards/tspi3m.md) | eMMC | Windows 11 23H2 with GPU, DSI touch screen, audio, Bluetooth, NPU; Armbian edge [with limits](docs/linux.md#lckfb-taishanpi-3m). | `main`, 2026-11-24 |
 
-Each board's results come from one unit. When each board was last run, and
-on what: [testing](docs/dev/testing.md). Serial console: 1500000 8N1.
+Each result comes from one unit of each board ([testing](docs/dev/testing.md)).
+Windows touch, Bluetooth, audio and USB-C on the TaishanPi 3M, and Windows
+on the ROCK 4D, need the [`ci` build](docs/flash.md#the-rolling-ci-build);
+release 0.4.1 does not have them. Serial console: 1500000 8N1.
 
-The firmware itself: Simplified Chinese menus, screenshots, a debug report,
-Reset All Settings, network time sync, an on-screen keyboard. See
-[firmware menus](docs/firmware-menus.md).
+## Get started
 
-## Windows
+1. Download an image: the
+   [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
+   (0.4.1), or the [`ci` build](docs/flash.md#the-rolling-ci-build) of `main`.
+2. Write it ([flashing](docs/flash.md)) with
+   [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio),
+   [flash.gahingwoo.com](https://flash.gahingwoo.com/) (Chrome or Edge) or
+   `rkdeveloptool`.
+3. Install an OS: [Windows](docs/windows.md) (23H2 only; RK3576 is ARMv8.0)
+   or [Linux](docs/linux.md). Armbian with its own U-Boot, once from the boot
+   manager: [Armbian (U-Boot)](docs/armbian-boot.md).
+4. Problems: [troubleshooting](docs/troubleshooting.md),
+   [known issues](docs/known-issues.md).
 
-Windows 11 23H2 runs from the eMMC of the CM5-IO and of the TaishanPi 3M.
-Windows 11 24H2 and later cannot run: RK3576 is ARMv8.0. Windows Setup does
-not work on these boards, so the image is applied with DISM from a WinPE
-stick, or by Maskrom Studio. How:
-[woa-rk3576's install guide](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.md).
-Which firmware each feature needs: [Windows](docs/windows.md).
-
-### Linux on the TaishanPi 3M
-
-Armbian edge runs from the eMMC next to Windows, through GRUB and the
-firmware's device tree: the DSI screen, touch, headphones, backlight, USB-A,
-Ethernet and the EC20 modem work. The GPU is disabled there for now. Details
-and limits: [Linux](docs/linux.md#lckfb-taishanpi-3m).
-
-## Known issues
-
-The main ones, all on [known issues](docs/known-issues.md):
-
-- Windows 11 24H2 and later cannot run (ARMv8.0).
-- The TaishanPi 3M's USB-C port gets power only for a device attached at
-  power-on.
-- USB-C runs at USB 2.0 outside Linux on the ROCK 4D and the CM5-IO.
-- The TaishanPi 3M's RTC loses its time at every power-off; the clock comes
-  from NTP or the OS.
+Firmware features (Chinese menus, screenshots, debug report, Reset All
+Settings, NTP clock, on-screen keyboard): [firmware menus](docs/firmware-menus.md).
+Pictures: [gallery](docs/gallery.md).
 
 ## Related projects
 
@@ -132,9 +77,9 @@ scripts/package.sh cm5io      # -> out/CM5IO/
 ## Acknowledgements
 
 Thanks to [JLC](https://jlc.com/) (嘉立创) for sponsoring the LCKFB
-TaishanPi 3M, its MIPI DSI screen, the fan and the EC20 4G module used for
-this work, and to [ArmSoM](https://www.armsom.org/) for sponsoring the CM5
-module and the CM5-IO board.
+TaishanPi 3M, its MIPI DSI screen, the fan and the EC20 4G module, and to
+[ArmSoM](https://www.armsom.org/) for sponsoring the CM5 module and the
+CM5-IO board.
 
 ## Licence
 

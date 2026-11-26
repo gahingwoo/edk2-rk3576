@@ -4,7 +4,7 @@
 #
 # Do not use a terminal emulator for this.  The UEFI console clears the screen
 # a few lines after display bring-up finishes, and a terminal that interprets
-# ANSI will silently discard everything in that window -- which is exactly
+# ANSI will silently discard everything in that window, which is exactly
 # where the display diagnostics land.  Three rounds of instrumentation were
 # lost that way before anyone noticed.  A log that goes quiet there is not
 # evidence the code stopped running; it is evidence the terminal ate it.
@@ -35,7 +35,7 @@ if [ -z "$DEV" ]; then
     done
 fi
 [ -n "$DEV" ] && [ -e "$DEV" ] || {
-    echo "no serial device found -- pass one explicitly" >&2
+    echo "no serial device found; pass one explicitly" >&2
     echo "candidates:" >&2; ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null >&2
     exit 1
 }

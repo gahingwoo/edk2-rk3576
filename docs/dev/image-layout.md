@@ -3,8 +3,7 @@
 English | [简体中文](image-layout.zh-CN.md)
 
 Offsets are what [`scripts/package.sh`](https://github.com/gahingwoo/edk2-rk3576/blob/main/scripts/package.sh)
-writes. The SD and eMMC offsets were checked on 2026-11-24 against the
-0.4.1 and `ci` (`4479752`) images of the CM5-IO and the TaishanPi 3M.
+writes.
 
 ## ROCK 4D: 16 MB SPI NOR
 

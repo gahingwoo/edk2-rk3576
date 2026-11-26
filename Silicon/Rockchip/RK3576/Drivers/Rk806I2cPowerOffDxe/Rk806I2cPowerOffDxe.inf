@@ -46,6 +46,7 @@
 [FixedPcd]
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
   gRK3576TokenSpaceGuid.PcdRk806I2cAddress
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported
 
 [Pcd]
   gRK3576TokenSpaceGuid.PcdAcpiPwrKey
