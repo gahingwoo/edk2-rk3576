@@ -41,6 +41,7 @@ ACPI 表、设备树，从 Device Manager 进入时还有每个设置页的截�
 它依次尝试 DHCP 服务器给的 NTP 服务器、pool.ntp.org 和 time.cloudflare.com，最后是固定的 Cloudflare 和
 Google 地址。它在后台运行，不会拖慢启动；拿到地址后 10 秒放弃（没拿到地址时 30 秒）。
 结果看串口日志里的 `NetworkTimeSync:` 和 `NetworkTimeSync: stage:` 两行。
+"关于"页面每次打开时显示当前日期和时间，并注明"已通过网络校时"、"来自 RTC"或"未设置"。
 
 ## 操作系统写入的启动项
 
@@ -76,9 +77,9 @@ Google 地址。它在后台运行，不会拖慢启动；拿到地址后 10 秒
 | Config Table Mode | ACPI + 设备树（CM5-IO 和泰山派 3M 的默认值）、只用 ACPI，或只用设备树 |
 | CPU Maximum Frequency | 两个簇都 1608 MHz（默认），或 Max（2208 / 2016 MHz）。第一次带屏幕启动时固件会问一次（10 秒超时，记在变量 `CpuMaxFreqAsked` 里），答案改变设置时会重启。仅泰山派 3M |
 | GPU voltage for 702 MHz (775 mV) | 在操作系统启动前把 GPU 供电（RK806 BUCK5）从 750 mV 升到 775 mV，Windows GPU 驱动就能跑 702 MHz 而不是 594 MHz。只用于普通 RK3576 且已启用过热关机。关闭时把升过的电压恢复到 750 mV。要开着风扇。泰山派 3M 默认打开 |
-| CPU Idle States | 把核心的空闲状态告诉操作系统；关闭时只有 WFI |
-| Fan Mode（风扇模式） | 常开（默认，上电即全速，不会停）；性能 / 均衡 / 静音：Windows 按大核温度开关风扇，50 / 60 / 70 C 开，低 10 C 关 |
-| NPU (experimental) | 给 NPU 上电并在 ACPI 里声明，供 [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) 使用。仅泰山派 3M |
+| CPU Idle States | 默认打开：向操作系统提供 WFI 和核心掉电（PSCI CPU_SUSPEND）两种空闲状态。关闭时只有 WFI。尚未在 Windows 上验证；开机卡住或时钟变慢时请关闭 |
+| Fan Mode（风扇模式） | 常开（默认，上电即全速，不会停）；性能 / 均衡 / 静音：Windows 按大核温度开关风扇，50 / 60 / 70 C 开，低 10 C 关；关闭：风扇保持 0%，只适合被动散热足够的板子（115 C 的 _CRT 和 120 C 的 TSHUT 仍然有效） |
+| NPU (experimental) | 默认打开：给 NPU 上电并在 ACPI 里声明，供 [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) 使用。仅泰山派 3M |
 | 40-pin UART (experimental) | 把排针上的 UART 作为 COM 口，给 woa-rk3576 的 rk3xuart 驱动用（不包括调试串口）。泰山派 3M；CM5-IO 和 ROCK 4D 在各自的板级分支上 |
 | 40-pin GPIO/I2C/SPI for apps (experimental) | 排针上的 GPIO、I2C、SPI 给 Windows.Devices.Gpio、.I2c、.Spi 用（ACPI RhProxy）。板子同上 |
 | Save OS Variable Changes to eMMC | 见[上文](#操作系统写入的启动项) |
