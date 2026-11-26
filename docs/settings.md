@@ -52,14 +52,14 @@ several.
 | RK3576 Platform Configuration > Display | Display Mode | `DisplayModePreset` | Native Mode (Monitor Preferred), Custom Mode, 640x480 @ 60 Hz, ... (28 choices) | Native Mode (Monitor Preferred) | Native Mode (Monitor Preferred) | Native Mode (Monitor Preferred) |
 | RK3576 Platform Configuration > Display | Pixel Clock (kHz) | `DisplayModeCustom` @4 | 25175 to 600000 | 25175 | 25175 | 25175 |
 | RK3576 Platform Configuration > Display | Horizontal Active | `DisplayModeCustom` @8 | 640 to 4096 | 640 | 640 | 640 |
-| RK3576 Platform Configuration > Display | Horizontal Front Porch | `DisplayModeCustom` @12 | 640 to 4096 | 16 | 16 | 16 |
-| RK3576 Platform Configuration > Display | Horizontal Sync Width | `DisplayModeCustom` @16 | 640 to 4096 | 96 | 96 | 96 |
-| RK3576 Platform Configuration > Display | Horizontal Back Porch | `DisplayModeCustom` @20 | 640 to 4096 | 48 | 48 | 48 |
+| RK3576 Platform Configuration > Display | Horizontal Front Porch | `DisplayModeCustom` @12 | 1 to 2048 | 16 | 16 | 16 |
+| RK3576 Platform Configuration > Display | Horizontal Sync Width | `DisplayModeCustom` @16 | 1 to 2048 | 96 | 96 | 96 |
+| RK3576 Platform Configuration > Display | Horizontal Back Porch | `DisplayModeCustom` @20 | 1 to 2048 | 48 | 48 | 48 |
 | RK3576 Platform Configuration > Display | Horizontal Sync Polarity | `DisplayModeCustom` @24 | -, + | - | - | - |
 | RK3576 Platform Configuration > Display | Vertical Active | `DisplayModeCustom` @28 | 480 to 4320 | 480 | 480 | 480 |
-| RK3576 Platform Configuration > Display | Vertical Front Porch | `DisplayModeCustom` @32 | 480 to 4320 | 10 | 10 | 10 |
-| RK3576 Platform Configuration > Display | Vertical Sync Width | `DisplayModeCustom` @36 | 480 to 4320 | 2 | 2 | 2 |
-| RK3576 Platform Configuration > Display | Vertical Back Porch | `DisplayModeCustom` @40 | 480 to 4320 | 33 | 33 | 33 |
+| RK3576 Platform Configuration > Display | Vertical Front Porch | `DisplayModeCustom` @32 | 1 to 1024 | 10 | 10 | 10 |
+| RK3576 Platform Configuration > Display | Vertical Sync Width | `DisplayModeCustom` @36 | 1 to 1024 | 2 | 2 | 2 |
+| RK3576 Platform Configuration > Display | Vertical Back Porch | `DisplayModeCustom` @40 | 1 to 1024 | 33 | 33 | 33 |
 | RK3576 Platform Configuration > Display | Vertical Sync Polarity | `DisplayModeCustom` @44 | -, + | - | - | - |
 | RK3576 Platform Configuration > Display | Force Output | `DisplayForceOutput` | Disabled, Enabled | Enabled | Enabled | Enabled |
 | RK3576 Platform Configuration > Display | Duplicate Output | `DisplayDuplicateOutput` | Disabled, Enabled | Disabled | Disabled | Disabled |

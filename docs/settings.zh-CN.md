@@ -48,14 +48,14 @@
 | RK3576 Platform Configuration > Display | 显示模式 | `DisplayModePreset` | 原生模式（显示器首选）, 自定义模式, 640x480 @ 60 Hz, ... (共 28 项) | 原生模式（显示器首选） | 原生模式（显示器首选） | 原生模式（显示器首选） |
 | RK3576 Platform Configuration > Display | 像素时钟 (kHz) | `DisplayModeCustom` @4 | 25175 到 600000 | 25175 | 25175 | 25175 |
 | RK3576 Platform Configuration > Display | 水平有效像素 | `DisplayModeCustom` @8 | 640 到 4096 | 640 | 640 | 640 |
-| RK3576 Platform Configuration > Display | 水平前沿 | `DisplayModeCustom` @12 | 640 到 4096 | 16 | 16 | 16 |
-| RK3576 Platform Configuration > Display | 水平同步宽度 | `DisplayModeCustom` @16 | 640 到 4096 | 96 | 96 | 96 |
-| RK3576 Platform Configuration > Display | 水平后沿 | `DisplayModeCustom` @20 | 640 到 4096 | 48 | 48 | 48 |
+| RK3576 Platform Configuration > Display | 水平前沿 | `DisplayModeCustom` @12 | 1 到 2048 | 16 | 16 | 16 |
+| RK3576 Platform Configuration > Display | 水平同步宽度 | `DisplayModeCustom` @16 | 1 到 2048 | 96 | 96 | 96 |
+| RK3576 Platform Configuration > Display | 水平后沿 | `DisplayModeCustom` @20 | 1 到 2048 | 48 | 48 | 48 |
 | RK3576 Platform Configuration > Display | 水平同步极性 | `DisplayModeCustom` @24 | -, + | - | - | - |
 | RK3576 Platform Configuration > Display | 垂直有效行数 | `DisplayModeCustom` @28 | 480 到 4320 | 480 | 480 | 480 |
-| RK3576 Platform Configuration > Display | 垂直前沿 | `DisplayModeCustom` @32 | 480 到 4320 | 10 | 10 | 10 |
-| RK3576 Platform Configuration > Display | 垂直同步宽度 | `DisplayModeCustom` @36 | 480 到 4320 | 2 | 2 | 2 |
-| RK3576 Platform Configuration > Display | 垂直后沿 | `DisplayModeCustom` @40 | 480 到 4320 | 33 | 33 | 33 |
+| RK3576 Platform Configuration > Display | 垂直前沿 | `DisplayModeCustom` @32 | 1 到 1024 | 10 | 10 | 10 |
+| RK3576 Platform Configuration > Display | 垂直同步宽度 | `DisplayModeCustom` @36 | 1 到 1024 | 2 | 2 | 2 |
+| RK3576 Platform Configuration > Display | 垂直后沿 | `DisplayModeCustom` @40 | 1 到 1024 | 33 | 33 | 33 |
 | RK3576 Platform Configuration > Display | 垂直同步极性 | `DisplayModeCustom` @44 | -, + | - | - | - |
 | RK3576 Platform Configuration > Display | 强制输出 | `DisplayForceOutput` | 禁用, 启用 | 启用 | 启用 | 启用 |
 | RK3576 Platform Configuration > Display | 复制输出 | `DisplayDuplicateOutput` | 禁用, 启用 | 禁用 | 禁用 | 禁用 |
