@@ -23,20 +23,9 @@
 
 ## 为什么把请求放在 eMMC 上
 
-在这些板子上，芯片里没有任何东西能在复位后保留：TF-A 的 PSCI SYSTEM_RESET 是第一全局复位，它的复位输出让 PMIC
-给 SoC 断电重上电（`soc.c` `system_reset_init()`、`pmu.c` `rockchip_soc_soft_reset()`）。在泰山派 3M 上测得：
-
-| 载体 | 结果 |
-|---|---|
-| PMU0/PMU1 GRF OS 寄存器 | 被清掉（OS_REG16 到 23 回来的是上电噪声） |
-| PMU SRAM | 同一个电源域 |
-| DRAM | 3768 个标记一个都没留下 |
-| RTC 寄存器 | 每次复位 RTC 都掉电 |
-| 第二全局复位（`CRU_GLB_SRST_SND = 0xeca8`） | 也许能保住 PMU 域，但没人在 RK3576 上用过，之后 BootROM/ddrbin 的表现未知；没有采用 |
-| **eMMC 上的一个扇区** | **采用**：什么情况都能保留，EDK2 本来就写 eMMC，SPL 本来就读它 |
-
-以后要测第二全局复位，在 UEFI Shell 里：`mm 0x2602623C 0x12345678 -w 4 -n`，再 `mm 0x27200C0C 0xECA8 -w 4 -n`；
-启动日志里 `PMU1 GRF OS_REG0-15` 这一行最后应该是 `12345678`。
+在这些板子上，芯片里没有任何东西能熬过一次复位：TF-A 的 PSCI SYSTEM_RESET 会让电源管理芯片给 SoC 断电重上电，
+GRF 寄存器、PMU SRAM、DRAM 和 RTC 实测都会丢失内容。一个 eMMC 扇区什么都能熬过，EDK2 本来就写 eMMC，SPL 本来就读它。
+测量记录见[历史](history/2026-11-27-armbian-once-notes.md)。
 
 ## 磁盘上的布局
 
@@ -185,22 +174,6 @@ scripts/package.sh tspi3m       # 会使用 out/TaishanPi3M/idbloader.img
 （它只改 `arch/arm/mach-rockchip/{Kconfig,Makefile}` 并新增一个文件），再改 `boards/tspi3m.conf` 里的
 `SPL_UBOOT_TAG`、`SPL_UBOOT_COMMIT`、`SPL_PATCH_DIR`、`SPL_BOARD_DIR`。
 
-## 板上测试（泰山派 3M）
+## 板上测试
 
-需要一张 Armbian SD 卡（主线 U-Boot 映像）、1500000 的串口和 MaskROM。
-
-1. 用"保留分区"的方式写入 `TaishanPi3M-emmc.img`（[刷写固件](flash.zh-CN.md#只更新固件保留其他内容)）：
-   它写入 SPL 和固件，UEFI 变量保留。
-
-2. 不插卡启动：固件和 Windows 照旧；没有 `ArmbianOnce/1` 这一行。
-3. 插卡启动：`ArmbianOnce/1: not booting the U-Boot FIT on the SD card, the firmware is on the eMMC`，然后进固件。启动项已列出。
-4. 选这个启动项：`Request written. Restarting`，然后 SPL 打印 `request found and erased: booting U-Boot from the SD card, once`，
-   接着是 Armbian 的 U-Boot、`boot.scr`、Armbian。在 Armbian 里 `/sys/firmware/efi` 不存在，
-   `dd if=/dev/mmcblk0 bs=512 skip=16383 count=1 status=none | tr -d '\0' | wc -c` 输出 0（用 eMMC 的设备名）。
-5. `sudo reboot`、`echo b | sudo tee /proc/sysrq-trigger`，以及在 Armbian 的 U-Boot 里断电，都回到固件。第 4 步重复三次。
-6. 拔掉卡：启动管理器和 BootOrder 里都没有这个启动项；插回卡：又出现，排在最后。
-7. 屏幕显示 `Restarting` 时拔卡：SPL 打印 `U-Boot was not loaded from the SD card, booting the firmware`；16383 扇区为零。
-8. 可选，槽位：拔卡，在 USB-A 上插 Armbian USB 盘，选启动项：`Copying it to the eMMC slot`，SPL 打印
-   `booting U-Boot from the eMMC slot, once`。第二次使用会打印 `The eMMC slot already holds that U-Boot.`
-
-第 3 到 5 步串口日志里的 SPL 行就是证据。
+这个功能在泰山派 3M 上通过的板上测试（每一步应该看到的串口日志）见[历史](history/2026-11-27-armbian-once-notes.md#board-test-taishanpi-3m)（英文）。
