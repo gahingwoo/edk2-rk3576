@@ -468,15 +468,17 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
   #
-  # CPU idle states (setup option, backs PcdAcpiCpuIdleStates below): off,
-  # which installs the WFI-only _LPI table (AcpiTables/CpuIdleWfi.asl) that
-  # Windows needs for a sane "% Processor Utility".  On adds core power-down
-  # (AcpiTables/CpuIdle.asl).  edk2-rk3588 publishes no _LPI at all, so that
-  # is not upstream behaviour to inherit, and core power-down stops the
-  # core's generic timer on a SoC with no always-on timer frame Windows could
-  # use instead.  Turn it on per board once a board has run with it.
+  # CPU idle states (setup option, backs PcdAcpiCpuIdleStates below): on
+  # since 2026-11-26, on every board, which installs the _LPI table with core
+  # power-down through PSCI CPU_SUSPEND (AcpiTables/CpuIdle.asl).  Off
+  # installs the WFI-only table (AcpiTables/CpuIdleWfi.asl) that Windows
+  # needs for a sane "% Processor Utility".  edk2-rk3588 publishes no _LPI at
+  # all, so neither is upstream behaviour to inherit, and core power-down
+  # stops the core's generic timer on a SoC with no always-on timer frame
+  # Windows could use instead (CpuIdle.asl, "The timer").  Not yet run under
+  # Windows on a board: if a boot hangs or the clock runs slow, turn it off.
   #
-  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|0
+  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|1
   #
   # CPU maximum frequency (setup option, backs PcdCpuMaxFreq below): hidden
   # unless a board sets PcdCpuMaxFreqSupported, and the default rates when
@@ -492,11 +494,14 @@
   # 594 MHz, so the higher rail and clock are a choice, not a default.
   #
   gRK3576TokenSpaceGuid.PcdGpuRail775Default|0
-  # NPU for an ACPI OS (setup option, backs PcdAcpiNpu below): off.  When on,
-  # RK3576Dxe sets the NPU rail, powers the NPU domains and sets its clock,
-  # and RK3576AcpiPlatformDxe installs the NPU SSDT (Npu.asl).
+  # NPU for an ACPI OS (setup option, backs PcdAcpiNpu below): on since
+  # 2026-11-26.  It only does something on a board that can set the NPU
+  # rail (PcdRk806I2cBase), which is also the only board that shows the
+  # option.  When on, RK3576Dxe sets the NPU rail, powers the NPU domains
+  # and sets its clock, and RK3576AcpiPlatformDxe installs the NPU SSDT
+  # (Npu.asl).
   #
-  gRK3576TokenSpaceGuid.PcdAcpiNpuDefault|0
+  gRK3576TokenSpaceGuid.PcdAcpiNpuDefault|1
   #
   # Video decoder for an ACPI OS (setup option, backs PcdAcpiVdec below): on
   # since 2026-11-26 (Edge decodes H.264, HEVC, VP9 and AV1 through it on

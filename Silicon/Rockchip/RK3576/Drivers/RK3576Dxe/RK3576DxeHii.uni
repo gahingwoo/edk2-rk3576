@@ -79,11 +79,11 @@
 #string STR_GPU_RAIL_775_ON                                #language en-US "On (775 mV)"
 #string STR_ACPI_CPU_IDLE_STATES_PROMPT                    #language en-US "CPU Idle States"
 #string STR_ACPI_CPU_IDLE_STATES_HELP                      #language en-US "Disabled - the OS gets one idle state, WFI (ACPI _LPI). The cores idle exactly as they would with no idle state at all; Windows needs one to keep idle time out of % Processor Utility, the counter Task Manager's CPU graph shows, which otherwise reads 100% at any load.\n\n"
-                                                                           "Enabled - the OS also gets a core power-down idle state (ACPI _LPI, entered through PSCI CPU_SUSPEND with the parameters of mainline Linux's CPU_SLEEP), for lower idle power and temperature. Not yet run under Windows: a powered-down core's timer stops, and this SoC has no always-on timer Windows can use instead. If a boot hangs or the clock runs slow, turn this off. Has no effect on Linux with a device tree."
+                                                                           "Enabled (default) - the OS also gets a core power-down idle state (ACPI _LPI, entered through PSCI CPU_SUSPEND with the parameters of mainline Linux's CPU_SLEEP), for lower idle power and temperature. Not yet run under Windows: a powered-down core's timer stops, and this SoC has no always-on timer Windows can use instead. If a boot hangs or the clock runs slow, turn this off. Has no effect on Linux with a device tree."
 
 #string STR_ACPI_NPU_PROMPT                                #language en-US "NPU (experimental)"
 #string STR_ACPI_NPU_HELP                                  #language en-US "Disabled - the NPU stays powered off and the OS is not told about it.\n\n"
-                                                                           "Enabled - the firmware sets the NPU rail to 800 mV, powers the NPU, turns on its clocks at 594 MHz and describes it in an ACPI SSDT for a Windows driver (woa-rk3576-npu). Only in ACPI mode. Linux with a device tree finds the NPU already powered, at 800 mV."
+                                                                           "Enabled (default) - the firmware sets the NPU rail to 800 mV, powers the NPU, turns on its clocks at 594 MHz and describes it in an ACPI SSDT for a Windows driver (woa-rk3576-npu). Only in ACPI mode. Linux with a device tree finds the NPU already powered, at 800 mV."
 
 #string STR_ACPI_VDEC_PROMPT                               #language en-US "Video Decoder (VDPU383, experimental)"
 #string STR_ACPI_VDEC_HELP                                 #language en-US "Disabled - the video decoder stays powered off and the OS is not told about it.\n\n"
@@ -357,11 +357,11 @@
 #string STR_GPU_RAIL_775_ON                                #language zh-Hans "\wide开（\narrow775 mV\wide）\narrow"
 #string STR_ACPI_CPU_IDLE_STATES_PROMPT                    #language zh-Hans "CPU \wide空闲状态\narrow"
 #string STR_ACPI_CPU_IDLE_STATES_HELP                      #language zh-Hans "\wide禁用\narrow - \wide只向操作系统提供一个\narrow WFI \wide空闲状态（\narrowACPI _LPI\wide），让核心空闲的方式不变。\narrow Windows \wide要有空闲状态才不会把空闲时间算进任务管理器的\narrow CPU \wide使用率，没有时它总是显示\narrow 100%\wide。\narrow\n\n"
-                                                                             "\wide启用\narrow - \wide向操作系统提供核心掉电空闲状态（\narrowACPI _LPI\wide，经\narrow PSCI CPU_SUSPEND \wide进入，参数与主线\narrow Linux \wide的\narrow CPU_SLEEP \wide相同），降低空闲功耗和温度。尚未在\narrow Windows \wide上验证：掉电时核心的定时器会停，而本芯片没有\narrow Windows \wide可用的常开定时器。如果开机卡住或时钟变慢，请关闭此项。使用设备树的\narrow Linux \wide不受此选项影响。\narrow"
+                                                                             "\wide启用（默认）\narrow - \wide向操作系统提供核心掉电空闲状态（\narrowACPI _LPI\wide，经\narrow PSCI CPU_SUSPEND \wide进入，参数与主线\narrow Linux \wide的\narrow CPU_SLEEP \wide相同），降低空闲功耗和温度。尚未在\narrow Windows \wide上验证：掉电时核心的定时器会停，而本芯片没有\narrow Windows \wide可用的常开定时器。如果开机卡住或时钟变慢，请关闭此项。使用设备树的\narrow Linux \wide不受此选项影响。\narrow"
 
 #string STR_ACPI_NPU_PROMPT                                #language zh-Hans "NPU\wide（实验性）\narrow"
 #string STR_ACPI_NPU_HELP                                  #language zh-Hans "\wide禁用\narrow - NPU \wide保持断电，操作系统看不到它。\narrow\n\n"
-                                                                             "\wide启用\narrow - \wide固件把\narrow NPU \wide电压设为\narrow 800 mV\wide，为\narrow NPU \wide上电，以\narrow 594 MHz \wide打开它的时钟，并通过\narrow ACPI SSDT \wide提供给\narrow Windows \wide驱动（\narrowwoa-rk3576-npu\wide）。仅在\narrow ACPI \wide模式下生效。使用设备树的\narrow Linux \wide会看到\narrow NPU \wide已经上电，电压为\narrow 800 mV\wide。\narrow"
+                                                                             "\wide启用（默认）\narrow - \wide固件把\narrow NPU \wide电压设为\narrow 800 mV\wide，为\narrow NPU \wide上电，以\narrow 594 MHz \wide打开它的时钟，并通过\narrow ACPI SSDT \wide提供给\narrow Windows \wide驱动（\narrowwoa-rk3576-npu\wide）。仅在\narrow ACPI \wide模式下生效。使用设备树的\narrow Linux \wide会看到\narrow NPU \wide已经上电，电压为\narrow 800 mV\wide。\narrow"
 
 #string STR_ACPI_VDEC_PROMPT                               #language zh-Hans "\wide视频解码器（\narrowVDPU383\wide，实验性）\narrow"
 #string STR_ACPI_VDEC_HELP                                 #language zh-Hans "\wide禁用\narrow - \wide视频解码器保持断电，操作系统看不到它。\narrow\n\n"

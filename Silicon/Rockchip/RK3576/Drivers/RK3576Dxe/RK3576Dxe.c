@@ -453,7 +453,9 @@ RK3576EntryPoint (
   /*
    * The NPU, only if setup asks for it, the OS gets ACPI and the board can
    * set the NPU rail: the Windows driver (woa-rk3576-npu) is its only user.
-   * Off by default.
+   * On by default; a board that cannot set the rail does not show the
+   * option, so the default being on says nothing there and is not logged
+   * as an error.
    */
   if ((PcdGet8 (PcdAcpiNpu) != 0) &&
       ((PcdGet32 (PcdConfigTableMode) & CONFIG_TABLE_MODE_ACPI) != 0))
@@ -461,7 +463,7 @@ RK3576EntryPoint (
     EFI_EVENT  NpuEvent;
 
     if (!RK3576NpuSupported ()) {
-      DEBUG ((DEBUG_ERROR, "RK3576Dxe: NPU on in setup, but this board cannot set the NPU rail; left off\n"));
+      DEBUG ((DEBUG_INFO, "RK3576Dxe: NPU: this board cannot set the NPU rail; left off\n"));
     } else {
       Status = gBS->CreateEventEx (
                       EVT_NOTIFY_SIGNAL,
@@ -479,7 +481,7 @@ RK3576EntryPoint (
 
   /*
    * The video decoder, only if setup asks for it and the OS gets ACPI: the
-   * Windows driver (woa-rk3576 vdpu383) is its only user.  Off by default.
+   * Windows driver (woa-rk3576 vdpu383) is its only user.  On by default.
    */
   if ((PcdGet8 (PcdAcpiVdec) != 0) &&
       ((PcdGet32 (PcdConfigTableMode) & CONFIG_TABLE_MODE_ACPI) != 0))
