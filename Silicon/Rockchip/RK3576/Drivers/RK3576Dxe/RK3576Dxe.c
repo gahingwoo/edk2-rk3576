@@ -236,8 +236,8 @@ RK3576InitStatusLed (
  *
  * The fan is left on after ExitBootServices on purpose: Windows has no driver
  * for it, and Linux's pwm-fan takes the channel over when it probes.  "Fan
- * Control by ACPI Thermal Zone" is separate: with it on, the OS may start
- * the fan from its thermal zone even with this option off.
+ * Mode" is separate: in any mode but Always on, the OS may start the fan
+ * from its thermal zone even with this option off.
  */
 STATIC
 VOID

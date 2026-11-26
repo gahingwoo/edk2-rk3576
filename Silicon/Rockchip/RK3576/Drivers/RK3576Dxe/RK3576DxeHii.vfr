@@ -486,8 +486,10 @@ formset
               help        = STRING_TOKEN(STR_ACPI_FAN_CONTROL_HELP),
               flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
               default     = FixedPcdGet8 (PcdAcpiFanControlDefault),
-              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
-              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_ALWAYS_ON),   value = ACPI_FAN_MODE_ALWAYS_ON,   flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_PERFORMANCE), value = ACPI_FAN_MODE_PERFORMANCE, flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_BALANCED),    value = ACPI_FAN_MODE_BALANCED,    flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_QUIET),       value = ACPI_FAN_MODE_QUIET,       flags = 0;
             endoneof;
           endif;
 

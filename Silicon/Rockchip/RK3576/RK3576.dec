@@ -65,9 +65,10 @@
   #
   # ACPI fan control (the board's fan SSDT, OEM table ID "RKFAN"): TRUE in
   # PcdAcpiFanControlSupported makes the setup option visible; the option
-  # (PcdAcpiFanControl, default PcdAcpiFanControlDefault) decides whether
-  # RK3576AcpiPlatformDxe installs that SSDT.  Without it only the
-  # temperature read-out in the DSDT remains.
+  # "Fan Mode" (PcdAcpiFanControl, default PcdAcpiFanControlDefault,
+  # ACPI_FAN_MODE_* in VarStoreData.h) decides whether RK3576AcpiPlatformDxe
+  # installs that SSDT (0, Always on: no) and with which trip points.
+  # Without it only the temperature read-out in the DSDT remains.
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|FALSE|BOOLEAN|0x00010303
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0|UINT8|0x00010304

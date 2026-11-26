@@ -232,8 +232,8 @@
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|50000
 
-  # Fan control by ACPI thermal zone (AcpiTables/Fan.asl): the setup option
-  # exists on this board, and is off until the fan's polarity and its
+  # Fan Mode (AcpiTables/Fan.asl): the setup option exists on this board, and
+  # defaults to Always on (0, no fan SSDT) until the fan's polarity and its
   # behaviour at partial duty have been seen on the board.
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0

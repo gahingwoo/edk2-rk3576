@@ -426,12 +426,30 @@ AcpiDsdtFixupStatus (
 }
 
 //
-// The board's fan SSDT (OEM table ID "RKFAN") is installed only when fan
-// control is enabled in setup (PcdAcpiFanControl).  Without it the DSDT's
+// The board's fan SSDT (OEM table ID "RKFAN") is installed only when "Fan
+// Mode" in setup (PcdAcpiFanControl) is not Always on.  Without it the DSDT's
 // thermal zones still report the temperature, but have no trip points and no
-// cooling device, so the OS changes nothing.
+// cooling device, so the OS changes nothing.  With it, \_SB.FTON is the
+// mode's on-point in tenths of a kelvin; Fan.asl derives every trip point
+// and its hysteresis from it.
 //
 #define FAN_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'F', 'A', 'N', ' ', ' ', ' ')
+
+STATIC
+UINTN
+FanModeOnPoint (
+  IN UINT8  Mode
+  )
+{
+  switch (Mode) {
+    case ACPI_FAN_MODE_PERFORMANCE:
+      return 2732 + 500;  // 50.0 C
+    case ACPI_FAN_MODE_QUIET:
+      return 2732 + 700;  // 70.0 C
+    default:
+      return 2732 + 600;  // 60.0 C, Balanced
+  }
+}
 
 //
 // Exactly one CPU idle SSDT is installed, chosen by "CPU Idle States" in
@@ -521,6 +539,7 @@ AcpiTableCheck (
 {
   EFI_STATUS  Status;
   BOOLEAN     Uart;
+  UINT8       FanMode;
 
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
       (AcpiHeader->OemTableId == CPU_IDLE_SSDT_OEM_TABLE_ID))
@@ -547,12 +566,24 @@ AcpiTableCheck (
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&
       (AcpiHeader->OemTableId == FAN_SSDT_OEM_TABLE_ID))
   {
-    if (PcdGet8 (PcdAcpiFanControl) == 0) {
-      DEBUG ((DEBUG_INFO, "AcpiPlatform: fan control off in setup, fan SSDT not installed\n"));
+    FanMode = PcdGet8 (PcdAcpiFanControl);
+    if ((FanMode == ACPI_FAN_MODE_ALWAYS_ON) || (FanMode > ACPI_FAN_MODE_MAX)) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: fan mode Always on, fan SSDT not installed\n"));
       return FALSE;
     }
 
-    DEBUG ((DEBUG_INFO, "AcpiPlatform: fan control on, installing the fan SSDT\n"));
+    Status = AcpiUpdateSdtNameInteger (AcpiHeader, "FTON", FanModeOnPoint (FanMode));
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "AcpiPlatform: fan SSDT has no FTON to patch (%r), not installed\n", Status));
+      return FALSE;
+    }
+
+    DEBUG ((
+      DEBUG_ERROR,
+      "AcpiPlatform: fan mode %u, installing the fan SSDT (on at %u.0 C)\n",
+      FanMode,
+      (UINT32)(FanModeOnPoint (FanMode) - 2732) / 10
+      ));
   }
 
   if ((AcpiHeader->Signature == EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) &&

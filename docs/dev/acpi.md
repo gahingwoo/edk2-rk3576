@@ -49,7 +49,7 @@ unless noted.
 | Pin controller (`\_SB.PINC`) | `RKCP3005`, `_CID` `PRP0001` | C T | always; no Windows driver |
 | UART2 (`\_SB.UAR2`) | `HISI0031` | C | CM5-IO DSDT (no T pin option reaches a connector) |
 | Thermal zones (TSADC) | | C T | always; an untrusted reading shows as 100.0 C |
-| Fan (`PNP0C0B`, `Fan.asl`) | | C T | option "Fan Control by ACPI Thermal Zone" |
+| Fan (`PNP0C0B`, `Fan.asl`) | | C T | option "Fan Mode" (not Always on) |
 | CPU idle states (SSDT `RKLPI`) | | C T | option "CPU Idle States" |
 | NPU (`Npu.asl`) | `RKCP3576` | T | option "NPU (experimental)"; needs `PcdRk806I2cBase` |
 | 40-pin UARTs (SSDT `RKUART40`) | `RKCP3006`, `_CID` `PRP0001` | T | option "40-pin UART (experimental)" with `PcdPin40Supported`; `SerCx-FriendlyName` gives COM ports for rk3xuart |

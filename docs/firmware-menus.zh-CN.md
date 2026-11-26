@@ -78,7 +78,7 @@ Google 地址。它在后台运行，不会拖慢启动；拿到地址后 10 秒
 | GPU voltage for 702 MHz (775 mV) | 在操作系统启动前把 GPU 供电（RK806 BUCK5）从 750 mV 升到 775 mV，Windows GPU 驱动就能跑 702 MHz 而不是 594 MHz。只用于普通 RK3576 且已启用过热关机。关闭时把升过的电压恢复到 750 mV。要开着风扇。泰山派 3M 默认打开 |
 | CPU Idle States | 把核心的空闲状态告诉操作系统；关闭时只有 WFI |
 | Fan | 打开（默认）：从上电到操作系统一直全速；关闭：不转。没有中间档，因为脉冲调速会让风扇啸叫。泰山派 3M 和 CM5-IO |
-| Fan Control by ACPI Thermal Zone | 让 Windows 按大核温度控制风扇 |
+| Fan Mode（风扇模式） | 常开（默认，全速）；性能 / 均衡 / 静音：Windows 按大核温度开关风扇，50 / 60 / 70 C 开，低 10 C 关 |
 | NPU (experimental) | 给 NPU 上电并在 ACPI 里声明，供 [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) 使用。仅泰山派 3M |
 | 40-pin UART (experimental) | 把排针上的 UART 作为 COM 口，给 woa-rk3576 的 rk3xuart 驱动用（不包括调试串口）。泰山派 3M；CM5-IO 和 ROCK 4D 在各自的板级分支上 |
 | 40-pin GPIO/I2C/SPI for apps (experimental) | 排针上的 GPIO、I2C、SPI 给 Windows.Devices.Gpio、.I2c、.Spi 用（ACPI RhProxy）。板子同上 |

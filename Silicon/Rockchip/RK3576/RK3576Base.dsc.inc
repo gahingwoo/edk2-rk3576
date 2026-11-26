@@ -463,8 +463,8 @@
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePathDefault|L""
   gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPathDefault|L""
   #
-  # ACPI fan control (setup option, backs PcdAcpiFanControl below): off unless
-  # a board turns it on.  A DynamicHii default must be set here explicitly.
+  # Fan Mode (setup option, backs PcdAcpiFanControl below): 0, Always on, no
+  # fan SSDT.  A DynamicHii default must be set here explicitly.
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
   #
