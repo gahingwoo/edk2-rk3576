@@ -24,8 +24,8 @@ several.
 | Device Manager > Network Stack Configuration | IPv6 Stack | `NetworkStackConfigData` @2 | Disabled, Enabled | Disabled | Disabled | Disabled |
 | Device Manager > Network Stack Configuration | PXE Boot | `NetworkStackConfigData` @3 | Disabled, Enabled | Enabled | Enabled | Enabled |
 | Device Manager > Network Stack Configuration | HTTP Boot | `NetworkStackConfigData` @4 | Disabled, Enabled | Disabled | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration | CPU Maximum Frequency | `CpuMaxFreq` | 1608 MHz, Max (2208 / 2016 MHz) | hidden | 1608 MHz | 1608 MHz |
-| Device Manager > RK3576 Platform Configuration | GPU voltage for 702 MHz (775 mV) | `GpuRail775` | Off (750 mV), On (775 mV) | hidden | Off (750 mV) | On (775 mV) |
+| Device Manager > RK3576 Platform Configuration | CPU Maximum Frequency | `CpuMaxFreq` | 1608 MHz, Max (2208 / 2016 MHz) | 1608 MHz | 1608 MHz | 1608 MHz |
+| Device Manager > RK3576 Platform Configuration | GPU voltage for 702 MHz (775 mV) | `GpuRail775` | Off (750 mV), On (775 mV) | Off (750 mV) | Off (750 mV) | On (775 mV) |
 | Device Manager > RK3576 Platform Configuration | Save Screenshots To | `ScreenshotTarget` | Automatic (USB stick first), USB stick only, SD card only, Internal storage only | Automatic (USB stick first) | Automatic (USB stick first) | Automatic (USB stick first) |
 | Device Manager > RK3576 Platform Configuration | Network Time Sync | `NetworkTimeSync` | Disabled, Enabled | Enabled | Enabled | Enabled |
 | Device Manager > RK3576 Platform Configuration | Save OS Variable Changes to eMMC | `RtVarEmmcCommit` | Disabled, Enabled | Disabled | Disabled | Disabled |
@@ -36,12 +36,12 @@ several.
 | Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | NPU (experimental) | `AcpiNpu` | Disabled, Enabled | Enabled | Enabled | Enabled |
 | Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Video Decoder (VDPU383, experimental) | `AcpiVdec` | Disabled, Enabled | Enabled | Enabled | Enabled |
 | Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | USB-C DisplayPort (experimental) | `UsbcDp` | Disabled, Enabled | Disabled | hidden | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | SDIO Wi-Fi (experimental) | `AcpiSdioWifi` | Disabled, Enabled | hidden | hidden | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | 40-pin UART (experimental) | `Pin40Uart` | Disabled, Enabled | hidden | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | 40-pin GPIO/I2C/SPI for apps (experimental) | `Pin40RhProxy` | Disabled, Enabled | hidden | Disabled | Disabled |
+| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | SDIO Wi-Fi (experimental) | `AcpiSdioWifi` | Disabled, Enabled | Disabled | hidden | Disabled |
+| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | 40-pin UART (experimental) | `Pin40Uart` | Disabled, Enabled | Disabled | Disabled | Disabled |
+| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | 40-pin GPIO/I2C/SPI for apps (experimental) | `Pin40RhProxy` | Disabled, Enabled | Disabled | Disabled | Disabled |
 | Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Hardware watchdog (experimental) | `HwWatchdog` | Disabled, Enabled | Disabled | Disabled | Disabled |
 | Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Power button (RK806, experimental) | `AcpiPwrKey` | Disabled, Enabled | Disabled | Disabled | hidden |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Board LEDs for the OS (experimental) | `AcpiLeds` | Disabled, Enabled | hidden | Disabled | Disabled |
+| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Board LEDs for the OS (experimental) | `AcpiLeds` | Disabled, Enabled | Disabled | Disabled | Disabled |
 | Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | ADC keys for the OS (experimental) | `AcpiSaradc` | Disabled, Enabled | hidden | hidden | Enabled |
 | Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Compatibility Mode | `FdtCompatMode` | Vendor, Mainline | Mainline | Mainline | Mainline |
 | Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Force UEFI GOP Display | `FdtForceGop` | Disabled, Enabled | Disabled | Disabled | Disabled |
