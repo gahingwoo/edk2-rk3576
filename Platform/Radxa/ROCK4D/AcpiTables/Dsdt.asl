@@ -254,9 +254,10 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // delays in the PHY, none in the MAC, and the firmware sets the MAC TX
     // delay to 0 (PcdGmac0TxDelay in ROCK4D.dsc).  Gmac0.asl says
     // "rgmii-rxid", as on the CM5-IO; Windows' dwc_eqos does not read
-    // phy-mode, and inherits the delays the PHY's straps and the firmware
-    // leave.  The firmware writes only the LED register of the RTL8211F
-    // (RealtekPhy.c), not its delays.  Its reset (GMAC0_RSTn, GPIO2_B5,
+    // phy-mode, and inherits the delays the firmware leaves: RealtekPhy.c
+    // sets the RTL8211F's TX and RX delays itself (both on for rgmii-id),
+    // because their power-on values come from straps and without the TX
+    // delay no frame the board sends was accepted.  Its reset (GMAC0_RSTn, GPIO2_B5,
     // dts:710) is not declared, as on the CM5-IO; the firmware leaves it
     // deasserted.
     include ("Gmac0.asl")
