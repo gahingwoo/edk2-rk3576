@@ -32,7 +32,7 @@ TaishanPi 3M v1.4) and the vendor kernel tree; the ROCK 4D's are cited in
 |---|---|---|---|---|
 | Config Table Mode (ACPI / Device Tree) | every board | yes, ACPI + DT | yes, ACPI + DT | yes, ACPI + DT (main: device tree only) |
 | ACPI PCIe ECAM compatibility | ACPI on | yes | yes | yes |
-| Fan Control by ACPI Thermal Zone | `PcdAcpiFanControlSupported` | yes, off | yes, off | yes, off (main: missing) |
+| Fan Mode | `PcdAcpiFanControlSupported` | yes, Always on | yes, Always on | yes, Always on (main: missing) |
 | CPU Idle States (`_LPI`) | every board | yes | yes | yes |
 | NPU (experimental) | `PcdRk806I2cBase` != 0 | yes | missing (RK806 on I2C1 0x23 exists) | yes (main: missing) |
 | Video decoder (VDPU383) | every board | yes | yes | yes |
@@ -40,7 +40,6 @@ TaishanPi 3M v1.4) and the vendor kernel tree; the ROCK 4D's are cited in
 | Device tree: compat mode, Force UEFI GOP, DTB override, overlays, fixups | DT on | yes | yes | yes |
 | CPU Maximum Frequency | `PcdCpuMaxFreqSupported` | yes, 1608 MHz | missing (same RK806 rails) | yes, 1608 MHz (main: missing) |
 | GPU voltage for 702 MHz (775 mV) | `PcdGpuRail775Supported` | yes, on | missing on main (branch `cm5io-parity`: yes, off) | yes, off (main: missing) |
-| Fan (on/off, CPU page) | `PcdPwmFanSpeedDefault` != 0 | yes, on | yes, on | yes, on (main: hidden, no fan) |
 | CPU frequency asked once at first boot (with a screen) | `PcdCpuMaxFreqSupported` | yes | no (option not offered) | yes (main: no) |
 | Screenshot target | every board with a display | yes | yes | yes |
 | Network Time Sync | every board with IPv4 | yes | yes | yes |
@@ -70,7 +69,7 @@ TaishanPi 3M v1.4) and the vendor kernel tree; the ROCK 4D's are cited in
 | Fan started at 100% | yes (CN2, PWM2 ch3) | yes (CN32, PWM2 ch6, polarity disputed) | yes, J16, PWM2 ch5, GPIO4_C5, normal polarity (main: no fan) |
 | HDMI audio preset (SAI6, 48 kHz) | yes | yes | yes (main: off) |
 | Analog audio preset (ES8388 on SAI1 + I2C3) | yes, with amplifier and jack detect | not on main | yes: headphone jack and its microphone, no amplifier (none fitted), jack detect on SARADC channel 3 through rk3xsaradc (branch, not run) (main: missing) |
-| "Armbian (U-Boot)" one-shot | yes (request on the eMMC) | missing (its SPL is not rebuilt by `build-spl.sh`) | yes: request on the SD card, Armbian on the SD card only; needs the new SPL this branch builds (main: missing) |
+| "Armbian (U-Boot)" one-shot | yes (request on the eMMC) | missing (its SPL is not rebuilt by `build-spl.sh`) | missing on `rock4d-win-test` (needs the new SPL, left out until a board has booted it) |
 | SPL built from pinned sources (`build-spl.sh`) | yes | no (prebuilt `idblock_cm5io.bin`) | yes, U-Boot v2026.10 (main: prebuilt 2026.04) |
 | MIPI DSI screen | yes | n/a | missing: connector exists, no panel |
 | USB-C VBUS from the FUSB302 | yes | yes | n/a: USB-C is power input only |

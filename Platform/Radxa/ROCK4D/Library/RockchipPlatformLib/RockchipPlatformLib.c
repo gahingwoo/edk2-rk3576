@@ -879,7 +879,7 @@ HdmiTxIomux (
 }
 
 /*
- * PwmFanIoSetup / PwmFanSetSpeed -- the 2-pin fan header J16.
+ * PwmFanIoSetup / PwmFanSetSpeed: the 2-pin fan header J16.
  *
  * Wiring, from two sources that agree:
  *   - The schematic, ROCK 4D V1.12 page 28 "40PIN/FAN/LED/KEY": J16

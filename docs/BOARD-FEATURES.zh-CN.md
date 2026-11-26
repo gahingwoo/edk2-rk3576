@@ -27,7 +27,7 @@ CM5-IO 1V1、立创泰山派 3M v1.4）和厂商内核设备树；ROCK 4D 的出
 |---|---|---|---|---|
 | Config Table Mode（ACPI / Device Tree） | 所有板子 | yes，ACPI + DT | yes，ACPI + DT | yes，ACPI + DT（main：只有设备树） |
 | ACPI PCIe ECAM 兼容模式 | ACPI 开启时 | yes | yes | yes |
-| Fan Control by ACPI Thermal Zone | `PcdAcpiFanControlSupported` | yes，默认关 | yes，默认关 | yes，默认关（main：missing） |
+| Fan Mode（风扇模式） | `PcdAcpiFanControlSupported` | yes，默认常开 | yes，默认常开 | yes，默认常开（main：missing） |
 | CPU Idle States（`_LPI`） | 所有板子 | yes | yes | yes |
 | NPU（实验性） | `PcdRk806I2cBase` != 0 | yes | missing（I2C1 0x23 上有 RK806） | yes（main：missing） |
 | 视频解码器（VDPU383） | 所有板子 | yes | yes | yes |
@@ -35,7 +35,6 @@ CM5-IO 1V1、立创泰山派 3M v1.4）和厂商内核设备树；ROCK 4D 的出
 | 设备树：兼容模式、Force UEFI GOP、DTB 覆盖、overlay、fixup | DT 开启时 | yes | yes | yes |
 | CPU Maximum Frequency | `PcdCpuMaxFreqSupported` | yes，1608 MHz | missing（RK806 供电轨相同） | yes，1608 MHz（main：missing） |
 | GPU voltage for 702 MHz (775 mV) | `PcdGpuRail775Supported` | yes，开 | main 上 missing（分支 `cm5io-parity`：yes，关） | yes，关（main：missing） |
-| Fan（开/关，CPU 页） | `PcdPwmFanSpeedDefault` != 0 | yes，开 | yes，开 | yes，开（main：隐藏，没有风扇） |
 | 首次启动时询问一次 CPU 频率（接了屏幕时） | `PcdCpuMaxFreqSupported` | yes | 否（不提供该选项） | yes（main：否） |
 | 截图保存位置 | 所有有显示的板子 | yes | yes | yes |
 | Network Time Sync | 所有有 IPv4 的板子 | yes | yes | yes |
@@ -65,7 +64,7 @@ CM5-IO 1V1、立创泰山派 3M v1.4）和厂商内核设备树；ROCK 4D 的出
 | 风扇以 100% 启动 | yes（CN2，PWM2 ch3） | yes（CN32，PWM2 ch6，极性有争议） | yes，J16，PWM2 ch5，GPIO4_C5，正常极性（main：没有风扇） |
 | HDMI 音频预设（SAI6，48 kHz） | yes | yes | yes（main：关） |
 | 模拟音频预设（SAI1 + I2C3 上的 ES8388） | yes，带功放和插孔检测 | main 上没有 | yes：耳机插孔和它的麦克风，没有功放（未贴片），插孔检测走 SARADC 通道 3，由 rk3xsaradc 读取（分支，未运行）（main：missing） |
-| "Armbian (U-Boot)" 一次性启动 | yes（请求放在 eMMC） | missing（它的 SPL 没有用 `build-spl.sh` 重新构建） | yes：请求放在 SD 卡，Armbian 只能在 SD 卡上；需要本分支构建的新 SPL（main：missing） |
+| "Armbian (U-Boot)" 一次性启动 | yes（请求放在 eMMC） | missing（它的 SPL 没有用 `build-spl.sh` 重新构建） | `rock4d-win-test` 上没有（需要新 SPL，板子跑过之前不放进来） |
 | 从固定版本的源码构建 SPL（`build-spl.sh`） | yes | 否（预编译的 `idblock_cm5io.bin`） | yes，U-Boot v2026.10（main：预编译的 2026.04） |
 | MIPI DSI 屏 | yes | n/a | missing：有接口，没有屏 |
 | FUSB302 控制 USB-C VBUS | yes | yes | n/a：USB-C 只用于供电 |

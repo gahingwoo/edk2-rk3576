@@ -45,12 +45,11 @@
  *      headphone codec is declared (below), only when PcdAnalogAudioPreset
  *      is TRUE, without a jack-detect line: the jack's detect is an analog
  *      SARADC input here, not a GPIO.
- *    - The LEDs (dts:48-66) and HDMI itself: not declared on the CM5-IO
- *      either.
+ *    - HDMI itself: not declared on the CM5-IO either.  The LEDs (dts:48-66)
+ *      are in Leds.asl, an SSDT installed only with "Board LEDs for the OS".
  *
  *  The fan header (J16, "40PIN/FAN/LED/KEY" page) is in Fan.asl, a separate
- *  SSDT installed only when fan control by thermal zone is enabled in
- *  setup.
+ *  SSDT installed only when "Fan Mode" in setup is not Always on.
  *
  *  Copyright (c) 2020, Pete Batard <pete@akeo.ie>
  *  Copyright (c) 2018-2020, Andrey Warkentin <andrey.warkentin@gmail.com>
