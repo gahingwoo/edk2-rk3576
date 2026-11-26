@@ -17,13 +17,14 @@
  *  the VOP2 CRTC protocol and the GOP, the touch screen from the same test as
  *  PlatformBm.c.
  *
- *  The clock line is the one value that moves: it is filled in again each
- *  time the page is opened (the FORM_OPEN callback of the hidden question in
+ *  The clock line is the one value that moves: it is filled in again when
+ *  the page opens and every second while it is open (the FORM_OPEN and
+ *  RETRIEVE callbacks of its question, refresh interval 1, in
  *  AboutUiLibVfr.vfr), from gRT->GetTime(), with where the time came from
  *  when the firmware knows (the L"TimeSource" variable, Guid/TimeSource.h).
- *  It does not tick while the page is open: a refresh interval would make
- *  the browser repaint the whole page every second, on the serial console
- *  too.
+ *  The browser redraws the whole page after each refresh, on the serial
+ *  console too: about one screenful of text per second while this page is
+ *  open, nothing on any other page.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
@@ -508,8 +509,7 @@ STATIC EFI_HANDLE  mAboutDriverHandle;
 
 //
 // The page has no storage: the browser calls ExtractConfig and RouteConfig
-// only for a formset with a varstore, and Callback only for the hidden clock
-// question.
+// only for a formset with a varstore, and Callback only for the clock line.
 //
 STATIC
 EFI_STATUS
@@ -558,7 +558,9 @@ AboutCallback (
   OUT EFI_BROWSER_ACTION_REQUEST            *ActionRequest
   )
 {
-  if ((Action == EFI_BROWSER_ACTION_FORM_OPEN) && (QuestionId == RK3576_ABOUT_KEY_CLOCK)) {
+  if (((Action == EFI_BROWSER_ACTION_FORM_OPEN) || (Action == EFI_BROWSER_ACTION_RETRIEVE)) &&
+      (QuestionId == RK3576_ABOUT_KEY_CLOCK))
+  {
     AboutFillClock ();
     return EFI_SUCCESS;
   }

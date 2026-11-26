@@ -18,7 +18,7 @@
 #define RK3576_ABOUT_FORM_ID  0x0001
 
 //
-// The hidden question whose FORM_OPEN callback refreshes the clock line.
+// The clock line, a read-only action whose callback refreshes it.
 //
 #define RK3576_ABOUT_KEY_CLOCK  0x1001
 
