@@ -531,6 +531,43 @@ FanModeOnPoint (
 //
 #define SARADC_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'S', 'A', 'R', 'A', 'D', 'C')
 
+//
+// UNTESTED EXPERIMENT for the 0x5C bugcheck with CpuIdle.asl ("RKLPI"; see
+// its "Windows: bugcheck 0x5C").  Hypothesis: the HAL refuses an idle state
+// that loses core context because the GTDT names no timer that keeps
+// running through it.  With "CPU Idle States" on, and only then, the
+// per-core timers' Always-On capability flag is set in the GTDT, so the
+// HAL's check (if that is the check) passes.
+//
+// The flag is not true on RK3576: a powered-down core's comparator stops
+// (mainline's local-timer-stop).  So this only tests the hypothesis.  If
+// Windows then boots, expect timers on idle cores to fire late (a slow
+// clock, stalls until some other interrupt), and do not ship it as a fix.
+//
+STATIC
+VOID
+CpuIdleGtdtAlwaysOn (
+  IN EFI_ACPI_DESCRIPTION_HEADER  *AcpiHeader
+  )
+{
+  EFI_ACPI_5_1_GENERIC_TIMER_DESCRIPTION_TABLE  *Gtdt;
+
+  if (AcpiHeader->Length < sizeof (EFI_ACPI_5_1_GENERIC_TIMER_DESCRIPTION_TABLE)) {
+    return;
+  }
+
+  Gtdt                          = (EFI_ACPI_5_1_GENERIC_TIMER_DESCRIPTION_TABLE *)AcpiHeader;
+  Gtdt->NonSecurePL1TimerFlags |= EFI_ACPI_5_1_GTDT_TIMER_FLAG_ALWAYS_ON_CAPABILITY;
+  Gtdt->VirtualTimerFlags      |= EFI_ACPI_5_1_GTDT_TIMER_FLAG_ALWAYS_ON_CAPABILITY;
+  Gtdt->NonSecurePL2TimerFlags |= EFI_ACPI_5_1_GTDT_TIMER_FLAG_ALWAYS_ON_CAPABILITY;
+  Gtdt->SecurePL1TimerFlags    |= EFI_ACPI_5_1_GTDT_TIMER_FLAG_ALWAYS_ON_CAPABILITY;
+
+  DEBUG ((
+    DEBUG_ERROR,
+    "AcpiPlatform: CPU idle states on: GTDT timers marked Always-On (untested 0x5C experiment)\n"
+    ));
+}
+
 STATIC
 BOOLEAN
 EFIAPI
@@ -696,6 +733,12 @@ AcpiTableCheck (
     }
 
     DEBUG ((DEBUG_ERROR, "AcpiPlatform: ADC keys on, installing the SARADC SSDT (\\_SB.ADC0)\n"));
+  }
+
+  if ((AcpiHeader->Signature == EFI_ACPI_5_1_GENERIC_TIMER_DESCRIPTION_TABLE_SIGNATURE) &&
+      (PcdGet8 (PcdAcpiCpuIdleStates) != 0))
+  {
+    CpuIdleGtdtAlwaysOn (AcpiHeader);
   }
 
   if (AcpiHeader->Signature == EFI_ACPI_3_0_WATCHDOG_ACTION_TABLE_SIGNATURE) {

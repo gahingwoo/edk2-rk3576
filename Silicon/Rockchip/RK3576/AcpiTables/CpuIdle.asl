@@ -37,9 +37,13 @@
  *      and usage counters, the _OSC and the missing processor container
  *      _LPI are the same in CpuIdleWfi.asl, which boots.
  *
- *  A real fix needs a timer that runs through core power-down and that
- *  Windows can use; RK3576's Rockchip timers (0x2acc0000) are not a GT
- *  block.
+ *  The untested experiment that follows from the first point is in
+ *  RK3576AcpiPlatformDxe.c (CpuIdleGtdtAlwaysOn): with this table only,
+ *  mark the per-core timers Always-On in the GTDT.  If 0x5C goes away, that
+ *  was the check; but the flag is then not true, and a core sleeping with a
+ *  pending timer would wake late.  A real fix needs a timer that runs
+ *  through core power-down and that Windows can use; RK3576's Rockchip
+ *  timers (0x2acc0000) are not a GT block.
  *
  *  The states
  *  ----------
