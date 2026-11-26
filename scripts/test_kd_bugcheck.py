@@ -321,9 +321,10 @@ class ProtocolTests(unittest.TestCase):
 
 
 class BugcheckTests(unittest.TestCase):
-    def run_bugcheck(self, **kw):
+    def run_bugcheck(self, reads=(), **kw):
         t = FakeTarget(**kw)
-        eng, log = make_engine(t)
+        t.map(0x1200, bytes(range(0x40)) + b"SDRC")
+        eng, log = make_engine(t, reads=tuple(reads))
         t.send(kdb.PT_STATE_CHANGE64, t.load(r"\SystemRoot\system32\ntoskrnl.exe", K, KSIZE))
         t.send(kdb.PT_STATE_CHANGE64, t.load(r"\SystemRoot\System32\drivers\mydrv.sys", D, DSIZE))
         t.send(kdb.PT_DEBUG_IO, t.dbgprint(
@@ -363,6 +364,28 @@ class BugcheckTests(unittest.TestCase):
         self.assertEqual(len(eng.reports), 1)
         rep = eng.reports[0]
         self.assertTrue(rep["modules"].lookup(X + 0x10))      # added by the module walk
+
+    def test_read_option(self):
+        t, eng, log = self.run_bugcheck(reads=["P2-0x34:0x40", "[FP1]+8:8", "[P4]:8", "P3+:4", "Q1:4"])
+        out = text(log)
+        self.check_report(out)
+        # P2 = 0x1234: 0x1200..0x123f, then the "SDRC" bytes right after
+        self.assertIn("read P2-0x34:0x40 = 0x0000000000001200, 64 bytes", out)
+        self.assertIn("  0x0000000000001200  0706050403020100 0f0e0d0c0b0a0908", out)
+        # [FP1] = the caller's fp, S + 0x40; +8 is its return slot, D + 0x1234
+        self.assertIn(f"read [FP1]+8:8 = 0x{S + 0x48:016x}, 8 bytes", out)
+        self.assertIn("    +0x0: mydrv.sys+0x1234", out)
+        self.assertRegex(out, r"read \[P4\]:8: \[0xffff800012345000\] unreadable")
+        self.assertIn("read P3+:4: expression ends early", out)
+        self.assertIn("read Q1:4: unknown term 'Q1'", out)
+        self.assertEqual(t.continues, [kdb.DBG_CONTINUE] * 3)
+
+    def test_read_spec_parse(self):
+        self.assertEqual(kdb.parse_read_spec("P2-0x40:0x80"), ("P2-0x40", 0x80))
+        self.assertEqual(kdb.parse_read_spec("0xffff800000000000:16"), ("0xffff800000000000", 16))
+        for bad in ("P2", ":8", "P2:0", "P2:0x20000"):
+            with self.assertRaises(ValueError):
+                kdb.parse_read_spec(bad)
 
     def test_offline_replay_matches_live(self):
         t, eng, log = self.run_bugcheck()

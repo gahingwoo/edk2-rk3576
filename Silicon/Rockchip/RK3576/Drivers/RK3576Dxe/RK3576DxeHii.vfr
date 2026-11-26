@@ -11,7 +11,6 @@
  *
  **/
 
-#include <Guid/HiiPlatformSetupFormset.h>
 #include <VarStoreData.h>
 
 #include "RK3576DxeFormSetGuid.h"
@@ -34,7 +33,14 @@ formset
     guid      = RK3576DXE_FORMSET_GUID,
     title     = STRING_TOKEN(STR_FORM_SET_TITLE),
     help      = STRING_TOKEN(STR_FORM_SET_TITLE_HELP),
-    classguid = EFI_HII_PLATFORM_SETUP_FORMSET_GUID,
+    //
+    // A front page entry of its own, like the About page: UiApp's front page
+    // lists every formset of class gEfiIfrFrontPageGuid
+    // (UiListThirdPartyDrivers).  Not EFI_HII_PLATFORM_SETUP_FORMSET_GUID as
+    // well, or Device Manager would list it a second time.  The variable
+    // stores below do not change.
+    //
+    classguid = gEfiIfrFrontPageGuid,
 
     //
     // Display variable stores (ROCK 4D: single HDMI0 output)
@@ -724,8 +730,8 @@ formset
             prompt        = STRING_TOKEN(STR_DISPLAY_MODE_CUSTOM_HORIZONTAL_FRONT_PORCH),
             help          = STRING_TOKEN(STR_NULL_STRING),
             flags         = DISPLAY_UINT_DEC | NUMERIC_SIZE_4 | INTERACTIVE | RESET_REQUIRED,
-            minimum       = VOP_HORIZONTAL_RES_MIN,
-            maximum       = VOP_HORIZONTAL_RES_MAX,
+            minimum       = VOP_HORIZONTAL_BLANK_MIN,
+            maximum       = VOP_HORIZONTAL_BLANK_MAX,
             step          = 0,
             default value = get(DisplayModeCustomDefault.HFrontPorch),
           endnumeric;
@@ -733,8 +739,8 @@ formset
             prompt        = STRING_TOKEN(STR_DISPLAY_MODE_CUSTOM_HORIZONTAL_SYNC_WIDTH),
             help          = STRING_TOKEN(STR_NULL_STRING),
             flags         = DISPLAY_UINT_DEC | NUMERIC_SIZE_4 | INTERACTIVE | RESET_REQUIRED,
-            minimum       = VOP_HORIZONTAL_RES_MIN,
-            maximum       = VOP_HORIZONTAL_RES_MAX,
+            minimum       = VOP_HORIZONTAL_BLANK_MIN,
+            maximum       = VOP_HORIZONTAL_BLANK_MAX,
             step          = 0,
             default value = get(DisplayModeCustomDefault.HSync),
           endnumeric;
@@ -742,8 +748,8 @@ formset
             prompt        = STRING_TOKEN(STR_DISPLAY_MODE_CUSTOM_HORIZONTAL_BACK_PORCH),
             help          = STRING_TOKEN(STR_NULL_STRING),
             flags         = DISPLAY_UINT_DEC | NUMERIC_SIZE_4 | INTERACTIVE | RESET_REQUIRED,
-            minimum       = VOP_HORIZONTAL_RES_MIN,
-            maximum       = VOP_HORIZONTAL_RES_MAX,
+            minimum       = VOP_HORIZONTAL_BLANK_MIN,
+            maximum       = VOP_HORIZONTAL_BLANK_MAX,
             step          = 0,
             default value = get(DisplayModeCustomDefault.HBackPorch),
           endnumeric;
@@ -768,8 +774,8 @@ formset
             prompt        = STRING_TOKEN(STR_DISPLAY_MODE_CUSTOM_VERTICAL_FRONT_PORCH),
             help          = STRING_TOKEN(STR_NULL_STRING),
             flags         = DISPLAY_UINT_DEC | NUMERIC_SIZE_4 | INTERACTIVE | RESET_REQUIRED,
-            minimum       = VOP_VERTICAL_RES_MIN,
-            maximum       = VOP_VERTICAL_RES_MAX,
+            minimum       = VOP_VERTICAL_BLANK_MIN,
+            maximum       = VOP_VERTICAL_BLANK_MAX,
             step          = 0,
             default value = get(DisplayModeCustomDefault.VFrontPorch),
           endnumeric;
@@ -777,8 +783,8 @@ formset
             prompt        = STRING_TOKEN(STR_DISPLAY_MODE_CUSTOM_VERTICAL_SYNC_WIDTH),
             help          = STRING_TOKEN(STR_NULL_STRING),
             flags         = DISPLAY_UINT_DEC | NUMERIC_SIZE_4 | INTERACTIVE | RESET_REQUIRED,
-            minimum       = VOP_VERTICAL_RES_MIN,
-            maximum       = VOP_VERTICAL_RES_MAX,
+            minimum       = VOP_VERTICAL_BLANK_MIN,
+            maximum       = VOP_VERTICAL_BLANK_MAX,
             step          = 0,
             default value = get(DisplayModeCustomDefault.VSync),
           endnumeric;
@@ -786,8 +792,8 @@ formset
             prompt        = STRING_TOKEN(STR_DISPLAY_MODE_CUSTOM_VERTICAL_BACK_PORCH),
             help          = STRING_TOKEN(STR_NULL_STRING),
             flags         = DISPLAY_UINT_DEC | NUMERIC_SIZE_4 | INTERACTIVE | RESET_REQUIRED,
-            minimum       = VOP_VERTICAL_RES_MIN,
-            maximum       = VOP_VERTICAL_RES_MAX,
+            minimum       = VOP_VERTICAL_BLANK_MIN,
+            maximum       = VOP_VERTICAL_BLANK_MAX,
             step          = 0,
             default value = get(DisplayModeCustomDefault.VBackPorch),
           endnumeric;

@@ -24,50 +24,50 @@ several.
 | Device Manager > Network Stack Configuration | IPv6 Stack | `NetworkStackConfigData` @2 | Disabled, Enabled | Disabled | Disabled | Disabled |
 | Device Manager > Network Stack Configuration | PXE Boot | `NetworkStackConfigData` @3 | Disabled, Enabled | Enabled | Enabled | Enabled |
 | Device Manager > Network Stack Configuration | HTTP Boot | `NetworkStackConfigData` @4 | Disabled, Enabled | Disabled | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration | CPU Maximum Frequency | `CpuMaxFreq` | 1608 MHz, Max (2208 / 2016 MHz) | hidden | 1608 MHz | 1608 MHz |
-| Device Manager > RK3576 Platform Configuration | GPU voltage for 702 MHz (775 mV) | `GpuRail775` | Off (750 mV), On (775 mV) | hidden | Off (750 mV) | On (775 mV) |
-| Device Manager > RK3576 Platform Configuration | Save Screenshots To | `ScreenshotTarget` | Automatic (USB stick first), USB stick only, SD card only, Internal storage only | Automatic (USB stick first) | Automatic (USB stick first) | Automatic (USB stick first) |
-| Device Manager > RK3576 Platform Configuration | Network Time Sync | `NetworkTimeSync` | Disabled, Enabled | Enabled | Enabled | Enabled |
-| Device Manager > RK3576 Platform Configuration | Save OS Variable Changes to eMMC | `RtVarEmmcCommit` | Disabled, Enabled | Disabled | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Config Table Mode | `ConfigTableMode` | ACPI, Device Tree, Both | Both | Both | Both |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | PCIe ECAM Compatibility Mode | `AcpiPcieEcamCompatMode` | Auto, Single Device, NXPMX6, AMAZON GRAVITON | Auto | Auto | Auto |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Fan Mode | `AcpiFanControl` | Always on, Performance, Balanced, Quiet, Off | Always on | Always on | Always on |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | CPU Idle States | `AcpiCpuIdleStates` | Disabled, Enabled | Disabled | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | NPU (experimental) | `AcpiNpu` | Disabled, Enabled | Enabled | Enabled | Enabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Video Decoder (VDPU383, experimental) | `AcpiVdec` | Disabled, Enabled | Enabled | Enabled | Enabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | USB-C DisplayPort (experimental) | `UsbcDp` | Disabled, Enabled | Disabled | hidden | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | SDIO Wi-Fi (experimental) | `AcpiSdioWifi` | Disabled, Enabled | hidden | hidden | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | 40-pin UART (experimental) | `Pin40Uart` | Disabled, Enabled | hidden | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | 40-pin GPIO/I2C/SPI for apps (experimental) | `Pin40RhProxy` | Disabled, Enabled | hidden | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Hardware watchdog (experimental) | `HwWatchdog` | Disabled, Enabled | Disabled | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Power button (RK806, experimental) | `AcpiPwrKey` | Disabled, Enabled | Disabled | Disabled | hidden |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Board LEDs for the OS (experimental) | `AcpiLeds` | Disabled, Enabled | hidden | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | ADC keys for the OS (experimental) | `AcpiSaradc` | Disabled, Enabled | hidden | hidden | Enabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Compatibility Mode | `FdtCompatMode` | Vendor, Mainline | Mainline | Mainline | Mainline |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Force UEFI GOP Display | `FdtForceGop` | Disabled, Enabled | Disabled | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Support DTB override & overlays | `FdtSupportOverrides` | Disabled, Enabled | Disabled | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Firmware Fix-ups | `FdtOverrideFixup` | Disabled, Enabled | Enabled | Enabled | Enabled |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Preferred Base DTB Path | `FdtOverrideBasePath` @0 | 254 chars | "" | "" | "" |
-| Device Manager > RK3576 Platform Configuration > ACPI / Device Tree | Preferred Overlays Path | `FdtOverrideOverlayPath` @0 | 254 chars | "" | "" | "" |
-| Device Manager > RK3576 Platform Configuration > Display | Display Mode | `DisplayModePreset` | Native Mode (Monitor Preferred), Custom Mode, 640x480 @ 60 Hz, ... (28 choices) | Native Mode (Monitor Preferred) | Native Mode (Monitor Preferred) | Native Mode (Monitor Preferred) |
-| Device Manager > RK3576 Platform Configuration > Display | Pixel Clock (kHz) | `DisplayModeCustom` @4 | 25175 to 600000 | 25175 | 25175 | 25175 |
-| Device Manager > RK3576 Platform Configuration > Display | Horizontal Active | `DisplayModeCustom` @8 | 640 to 4096 | 640 | 640 | 640 |
-| Device Manager > RK3576 Platform Configuration > Display | Horizontal Front Porch | `DisplayModeCustom` @12 | 640 to 4096 | 16 | 16 | 16 |
-| Device Manager > RK3576 Platform Configuration > Display | Horizontal Sync Width | `DisplayModeCustom` @16 | 640 to 4096 | 96 | 96 | 96 |
-| Device Manager > RK3576 Platform Configuration > Display | Horizontal Back Porch | `DisplayModeCustom` @20 | 640 to 4096 | 48 | 48 | 48 |
-| Device Manager > RK3576 Platform Configuration > Display | Horizontal Sync Polarity | `DisplayModeCustom` @24 | -, + | - | - | - |
-| Device Manager > RK3576 Platform Configuration > Display | Vertical Active | `DisplayModeCustom` @28 | 480 to 4320 | 480 | 480 | 480 |
-| Device Manager > RK3576 Platform Configuration > Display | Vertical Front Porch | `DisplayModeCustom` @32 | 480 to 4320 | 10 | 10 | 10 |
-| Device Manager > RK3576 Platform Configuration > Display | Vertical Sync Width | `DisplayModeCustom` @36 | 480 to 4320 | 2 | 2 | 2 |
-| Device Manager > RK3576 Platform Configuration > Display | Vertical Back Porch | `DisplayModeCustom` @40 | 480 to 4320 | 33 | 33 | 33 |
-| Device Manager > RK3576 Platform Configuration > Display | Vertical Sync Polarity | `DisplayModeCustom` @44 | -, + | - | - | - |
-| Device Manager > RK3576 Platform Configuration > Display | Force Output | `DisplayForceOutput` | Disabled, Enabled | Enabled | Enabled | Enabled |
-| Device Manager > RK3576 Platform Configuration > Display | Duplicate Output | `DisplayDuplicateOutput` | Disabled, Enabled | Disabled | Disabled | Disabled |
-| Device Manager > RK3576 Platform Configuration > Display | Screen Rotation | `DisplayRotation` | Default, 0° (None), 90° Clockwise, 270° Clockwise | Default | Default | Default |
-| Device Manager > RK3576 Platform Configuration > Display | Screen Brightness (%) | `DisplayBrightness` | 10 to 100 | 60 | 60 | 60 |
-| Device Manager > RK3576 Platform Configuration > Display | HDMI Signaling | `HdmiSignalingMode` | Auto, DVI, HDMI | Auto | Auto | Auto |
-| Device Manager > RK3576 Platform Configuration > ComboPHY Mode | ComboPHY0 (M.2 PCIe) | `ComboPhy0Mode` | Unconnected, PCIe | PCIe | PCIe | PCIe |
-| Device Manager > RK3576 Platform Configuration > ComboPHY Mode | ComboPHY1 (USB Type-A) | `ComboPhy1Mode` | Unconnected, PCIe, USB 3.0 | USB 3.0 | USB 3.0 | USB 3.0 |
+| RK3576 Platform Configuration | CPU Maximum Frequency | `CpuMaxFreq` | 1608 MHz, Max (2208 / 2016 MHz) | hidden | 1608 MHz | 1608 MHz |
+| RK3576 Platform Configuration | GPU voltage for 702 MHz (775 mV) | `GpuRail775` | Off (750 mV), On (775 mV) | hidden | Off (750 mV) | On (775 mV) |
+| RK3576 Platform Configuration | Save Screenshots To | `ScreenshotTarget` | Automatic (USB stick first), USB stick only, SD card only, Internal storage only | Automatic (USB stick first) | Automatic (USB stick first) | Automatic (USB stick first) |
+| RK3576 Platform Configuration | Network Time Sync | `NetworkTimeSync` | Disabled, Enabled | Enabled | Enabled | Enabled |
+| RK3576 Platform Configuration | Save OS Variable Changes to eMMC | `RtVarEmmcCommit` | Disabled, Enabled | Disabled | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Config Table Mode | `ConfigTableMode` | ACPI, Device Tree, Both | Both | Both | Both |
+| RK3576 Platform Configuration > ACPI / Device Tree | PCIe ECAM Compatibility Mode | `AcpiPcieEcamCompatMode` | Auto, Single Device, NXPMX6, AMAZON GRAVITON | Auto | Auto | Auto |
+| RK3576 Platform Configuration > ACPI / Device Tree | Fan Mode | `AcpiFanControl` | Always on, Performance, Balanced, Quiet, Off | Always on | Always on | Always on |
+| RK3576 Platform Configuration > ACPI / Device Tree | CPU Idle States | `AcpiCpuIdleStates` | Disabled, Enabled | Disabled | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | NPU (experimental) | `AcpiNpu` | Disabled, Enabled | Enabled | Enabled | Enabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Video Decoder (VDPU383, experimental) | `AcpiVdec` | Disabled, Enabled | Enabled | Enabled | Enabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | USB-C DisplayPort (experimental) | `UsbcDp` | Disabled, Enabled | Disabled | hidden | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | SDIO Wi-Fi (experimental) | `AcpiSdioWifi` | Disabled, Enabled | hidden | hidden | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | 40-pin UART (experimental) | `Pin40Uart` | Disabled, Enabled | hidden | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | 40-pin GPIO/I2C/SPI for apps (experimental) | `Pin40RhProxy` | Disabled, Enabled | hidden | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Hardware watchdog (experimental) | `HwWatchdog` | Disabled, Enabled | Disabled | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Power button (RK806, experimental) | `AcpiPwrKey` | Disabled, Enabled | Disabled | Disabled | hidden |
+| RK3576 Platform Configuration > ACPI / Device Tree | Board LEDs for the OS (experimental) | `AcpiLeds` | Disabled, Enabled | hidden | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | ADC keys for the OS (experimental) | `AcpiSaradc` | Disabled, Enabled | hidden | hidden | Enabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Compatibility Mode | `FdtCompatMode` | Vendor, Mainline | Mainline | Mainline | Mainline |
+| RK3576 Platform Configuration > ACPI / Device Tree | Force UEFI GOP Display | `FdtForceGop` | Disabled, Enabled | Disabled | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Support DTB override & overlays | `FdtSupportOverrides` | Disabled, Enabled | Disabled | Disabled | Disabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Firmware Fix-ups | `FdtOverrideFixup` | Disabled, Enabled | Enabled | Enabled | Enabled |
+| RK3576 Platform Configuration > ACPI / Device Tree | Preferred Base DTB Path | `FdtOverrideBasePath` @0 | 254 chars | "" | "" | "" |
+| RK3576 Platform Configuration > ACPI / Device Tree | Preferred Overlays Path | `FdtOverrideOverlayPath` @0 | 254 chars | "" | "" | "" |
+| RK3576 Platform Configuration > Display | Display Mode | `DisplayModePreset` | Native Mode (Monitor Preferred), Custom Mode, 640x480 @ 60 Hz, ... (28 choices) | Native Mode (Monitor Preferred) | Native Mode (Monitor Preferred) | Native Mode (Monitor Preferred) |
+| RK3576 Platform Configuration > Display | Pixel Clock (kHz) | `DisplayModeCustom` @4 | 25175 to 600000 | 25175 | 25175 | 25175 |
+| RK3576 Platform Configuration > Display | Horizontal Active | `DisplayModeCustom` @8 | 640 to 4096 | 640 | 640 | 640 |
+| RK3576 Platform Configuration > Display | Horizontal Front Porch | `DisplayModeCustom` @12 | 1 to 2048 | 16 | 16 | 16 |
+| RK3576 Platform Configuration > Display | Horizontal Sync Width | `DisplayModeCustom` @16 | 1 to 2048 | 96 | 96 | 96 |
+| RK3576 Platform Configuration > Display | Horizontal Back Porch | `DisplayModeCustom` @20 | 1 to 2048 | 48 | 48 | 48 |
+| RK3576 Platform Configuration > Display | Horizontal Sync Polarity | `DisplayModeCustom` @24 | -, + | - | - | - |
+| RK3576 Platform Configuration > Display | Vertical Active | `DisplayModeCustom` @28 | 480 to 4320 | 480 | 480 | 480 |
+| RK3576 Platform Configuration > Display | Vertical Front Porch | `DisplayModeCustom` @32 | 1 to 1024 | 10 | 10 | 10 |
+| RK3576 Platform Configuration > Display | Vertical Sync Width | `DisplayModeCustom` @36 | 1 to 1024 | 2 | 2 | 2 |
+| RK3576 Platform Configuration > Display | Vertical Back Porch | `DisplayModeCustom` @40 | 1 to 1024 | 33 | 33 | 33 |
+| RK3576 Platform Configuration > Display | Vertical Sync Polarity | `DisplayModeCustom` @44 | -, + | - | - | - |
+| RK3576 Platform Configuration > Display | Force Output | `DisplayForceOutput` | Disabled, Enabled | Enabled | Enabled | Enabled |
+| RK3576 Platform Configuration > Display | Duplicate Output | `DisplayDuplicateOutput` | Disabled, Enabled | Disabled | Disabled | Disabled |
+| RK3576 Platform Configuration > Display | Screen Rotation | `DisplayRotation` | Default, 0° (None), 90° Clockwise, 270° Clockwise | Default | Default | Default |
+| RK3576 Platform Configuration > Display | Screen Brightness (%) | `DisplayBrightness` | 10 to 100 | 60 | 60 | 60 |
+| RK3576 Platform Configuration > Display | HDMI Signaling | `HdmiSignalingMode` | Auto, DVI, HDMI | Auto | Auto | Auto |
+| RK3576 Platform Configuration > ComboPHY Mode | ComboPHY0 (M.2 PCIe) | `ComboPhy0Mode` | Unconnected, PCIe | PCIe | PCIe | PCIe |
+| RK3576 Platform Configuration > ComboPHY Mode | ComboPHY1 (USB Type-A) | `ComboPhy1Mode` | Unconnected, PCIe, USB 3.0 | USB 3.0 | USB 3.0 | USB 3.0 |
 
 <!-- /generated -->
 
