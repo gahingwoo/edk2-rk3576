@@ -508,7 +508,7 @@ FanModeOnPoint (
 //
 // The RK806 power key SSDT (AcpiTables/PwrKey.asl, OEM table ID "RKPWRKEY",
 // \_SB.I2C1.PWRK, RKCP806B for woa-rk3576 rk806pwrkey) is installed only
-// with "Power button (RK806)" on in setup (PcdAcpiPwrKey) on a board with a
+// with "Power button" on in setup (PcdAcpiPwrKey) on a board with a
 // button on the RK806's PWRON pin (PcdAcpiPwrKeySupported) whose RK806 the
 // firmware reaches (PcdRk806I2cBase).  Rk806I2cPowerOffDxe sets
 // up the PMIC interrupt pin and the PMIC's interrupt masks under the same
@@ -526,7 +526,7 @@ FanModeOnPoint (
 //
 // The board's SARADC SSDT (OEM table ID "RKSARADC", \_SB.ADC0, RKCP0ADC
 // for woa-rk3576 rk3xsaradc, the body is AcpiTables/Saradc.asl) is
-// installed only with "ADC keys for the OS" on in setup (PcdAcpiSaradc) on
+// installed only with "ADC keys" on in setup (PcdAcpiSaradc) on
 // a board that has one (PcdAcpiSaradcSupported).
 //
 #define SARADC_SSDT_OEM_TABLE_ID  SIGNATURE_64 ('R', 'K', 'S', 'A', 'R', 'A', 'D', 'C')

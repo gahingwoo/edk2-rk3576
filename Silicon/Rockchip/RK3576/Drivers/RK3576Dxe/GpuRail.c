@@ -3,9 +3,9 @@
  *  Report the Mali-G52's supply, vdd_gpu_s0, and the per-chip OTP data that
  *  decide which GPU clock that supply is good for.  The report is always
  *  made and writes nothing.  On a board with PcdGpuRail775Supported the
- *  setup option "GPU voltage for 702 MHz (775 mV)" (PcdGpuRail775, its
+ *  setup option "GPU voltage" (PcdGpuRail775, its
  *  default the board's PcdGpuRail775Default) raises BUCK5 from 750 to
- *  775 mV and to no more (RaiseRail); with the option off, a rail an earlier boot left
+ *  775 mV and to no more (RaiseRail); with the option at 750 mV, a rail an earlier boot left
  *  at 775 mV (the RK806 keeps its selectors across a SoC reset) is stepped
  *  back to 750 mV (LowerRail).  Nothing else here writes a PMIC register,
  *  a clock or anything else on the chip.

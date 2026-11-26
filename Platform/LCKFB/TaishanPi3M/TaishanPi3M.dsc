@@ -224,8 +224,8 @@
 
   # BUCK5 read 0x28 (750 mV) on this board on 2026-11-23; 702 MHz (SPLL / 1)
   # needs mainline's 775 mV for the 800 MHz operating point.  The setup
-  # option "GPU voltage for 702 MHz (775 mV)" raises it to 775 mV and no
-  # higher.  On by default on this board, as 537ea09 did unconditionally:
+  # option "GPU voltage" raises it to 775 mV and no
+  # higher.  775 mV by default on this board, as 537ea09 did unconditionally:
   # on 2026-11-24 FurMark at 702 MHz scored 334-336 against 288-290 at
   # 594 MHz and peaked at 49.9 C with the fan on.  Turn it off to keep the
   # PMIC's 750 mV (the Windows driver then stays at 594 MHz).
@@ -275,11 +275,11 @@
   # option exists on this board and is off by default.
   gRK3576TokenSpaceGuid.PcdAcpiLedsSupported|TRUE
   # The board's buttons are RECOVERY and RESET; its PWRON net has no key
-  # fitted, so there is no "Power button (RK806)" option and no PwrKey SSDT
+  # fitted, so there is no "Power button" option and no PwrKey SSDT
   # (PcdAcpiPwrKeySupported stays FALSE).  Instead the Recovery key, on
   # SARADC channel 1, is the OS's power button: the SARADC SSDT
   # (AcpiTables/RecoveryKey.asl, woa-rk3576 rk3xsaradc) behind the setup
-  # option "ADC keys for the OS", on by default, and the converter clock
+  # option "ADC keys", on by default, and the converter clock
   # (1 MHz from xin24m) set only when that option is on.
   gRK3576TokenSpaceGuid.PcdAcpiSaradcSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault|1

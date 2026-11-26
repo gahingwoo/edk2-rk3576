@@ -4,7 +4,7 @@
  *  (RKVDEC, VDPU383) for the Windows driver in woa-rk3576
  *  (drivers/video/vdpu383).
  *
- *  Installed only when "Video Decoder (VDPU383, experimental)" is enabled in
+ *  Installed only when "Video Decoder" is enabled in
  *  setup (PcdAcpiVdec, default off): RK3576AcpiPlatformDxe skips any SSDT with
  *  OEM table ID "RKVDEC" otherwise.  RK3576Dxe powers PD_VDEC and sets the
  *  decoder clocks under the same condition (Vdec.c); nothing here changes

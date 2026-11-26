@@ -77,7 +77,7 @@ on when power is applied.
 | RESET | resets the board | resets the board | resets the board |
 
 RECOVERY as the power button needs the woa-rk3576 driver rk3xsaradc and the
-setup option "ADC keys for the OS" (on by default here). Holding it during
+setup option "ADC keys (experimental)" (on by default here). Holding it during
 boot does nothing: a key counts only after it has been seen released. If
 Windows has trouble with the ADC device, turn the option off and the firmware
 leaves the ADC alone.

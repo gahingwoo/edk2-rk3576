@@ -100,10 +100,10 @@ the next boot. Which board has which option, and the defaults:
 |---|---|
 | Config Table Mode | ACPI + device tree, ACPI only, or device tree only |
 | CPU Maximum Frequency | 1608 MHz on both clusters, or Max (2208 / 2016 MHz). On the first boot with a screen the firmware asks once (10 s timeout, kept in variable `CpuMaxFreqAsked`) and restarts if the answer changes it |
-| GPU voltage for 702 MHz (775 mV) | raises the GPU supply (RK806 BUCK5) from 750 to 775 mV before the OS starts, so the Windows GPU driver runs 702 MHz instead of 594 MHz. Only on a plain RK3576 with thermal shutdown armed. Off puts a raised rail back to 750 mV. Keep a fan running |
+| GPU voltage | 775 mV (702 MHz) raises the GPU supply (RK806 BUCK5) from 750 to 775 mV before the OS starts, so the Windows GPU driver runs 702 MHz instead of 594 MHz. Only on a plain RK3576 with thermal shutdown armed. 750 mV (594 MHz) puts a raised rail back to 750 mV. Keep a fan running |
 | CPU Idle States | off: WFI only. On adds core power-down (PSCI CPU_SUSPEND), and Windows 11 23H2 then stops at boot with bugcheck 0x5C (HAL_INITIALIZATION_FAILED, 0x113): keep it off for Windows |
 | Fan Mode | Always on: full speed from power-on, never off. Performance / Balanced / Quiet: Windows switches the fan with the big-core temperature, on at 50 / 60 / 70 C, off 10 C lower. Off: the fan stays at 0%, only for a board with enough passive cooling (the 115 C _CRT and the 120 C TSHUT still apply) |
 | NPU (experimental) | powers the NPU and declares it in ACPI for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) |
 | 40-pin UART (experimental) | header UART pins as COM ports for the woa-rk3576 rk3xuart driver (never the debug UART) |
-| 40-pin GPIO/I2C/SPI for apps (experimental) | header GPIO, I2C and SPI for Windows.Devices.Gpio, .I2c, .Spi (ACPI RhProxy) |
+| 40-pin GPIO/I2C/SPI for apps | header GPIO, I2C and SPI for Windows.Devices.Gpio, .I2c, .Spi (ACPI RhProxy) |
 | Save OS Variable Changes to eMMC | see [above](#boot-entries-written-by-an-os) |

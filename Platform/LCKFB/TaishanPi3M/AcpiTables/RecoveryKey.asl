@@ -3,7 +3,7 @@
  *  Secondary System Description Table (SSDT): the TaishanPi 3M's SARADC
  *  and its one key, Recovery, as the OS's power button.
  *
- *  Installed only with "ADC keys for the OS" on in setup (PcdAcpiSaradc,
+ *  Installed only with "ADC keys" on in setup (PcdAcpiSaradc,
  *  default on for this board, TaishanPi3M.dsc): RK3576AcpiPlatformDxe skips
  *  any SSDT with OEM table ID "RKSARADC" otherwise, and RK3576Dxe then
  *  leaves the SARADC clock alone too.  The driver is woa-rk3576 rk3xsaradc

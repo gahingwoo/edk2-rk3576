@@ -32,7 +32,7 @@
  *  the OS becomes a power-off; the next power-on is a cold start with the
  *  PMIC back at its defaults.
  *
- *  With "Power button (RK806)" on in setup (PcdAcpiPwrKey) this driver also
+ *  With "Power button" on in setup (PcdAcpiPwrKey) this driver also
  *  gets the PMIC's interrupt ready for woa-rk3576 rk806pwrkey
  *  (AcpiTables/PwrKey.asl): at boot GPIO0_A6, the PMIC INT line on every
  *  RK3576 board here, becomes a GPIO input with its pull-up (mainline

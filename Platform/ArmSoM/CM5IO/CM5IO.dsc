@@ -226,7 +226,7 @@
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
   # A real button on the RK806's PWRON_L: SW4 "PWR_KEY" (carrier schematic 1V1, KEY page, TS_1088).  The
-  # "Power button (RK806)" setup option is offered once the firmware also
+  # "Power button" setup option is offered once the firmware also
   # reaches the RK806 (PcdRk806I2cBase).
   gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported|TRUE
 

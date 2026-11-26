@@ -99,7 +99,7 @@
   #
   gRK3576TokenSpaceGuid.PcdGpuRailReport|FALSE|BOOLEAN|0x00010903
   #
-  # "GPU voltage for 702 MHz (775 mV)" (RK3576Dxe GpuRail.c).  Supported
+  # "GPU voltage" (RK3576Dxe GpuRail.c).  Supported
   # makes the setup option visible; the option (PcdGpuRail775, default
   # PcdGpuRail775Default) is 0 for the PMIC's 750 mV and 1 for raising
   # vdd_gpu_s0 from exactly 750 mV (selector 0x28) to 775 mV (0x2C) in

@@ -49,11 +49,11 @@ C = CM5-IO，R = ROCK 4D，T = 泰山派 3M。"设置项"指固件设置里的�
 | CPU 空闲状态（SSDT `RKLPI`） | | C R T | 设置项 "CPU Idle States" |
 | NPU（`Npu.asl`） | `RKCP3576` | R T | 设置项 "NPU (experimental)"；需要 `PcdRk806I2cBase` |
 | 40-pin UART（SSDT `RKUART40`） | `RKCP3006`，`_CID` `PRP0001` | R T | 设置项 "40-pin UART (experimental)"，需要 `PcdPin40Supported`；`SerCx-FriendlyName` 让 rk3xuart 生成 COM 口 |
-| RhProxy（SSDT `RKRHPX`，`\_SB.RHPX`） | `MSFT8000` | R T | 设置项 "40-pin GPIO/I2C/SPI for apps (experimental)"，板子同上 |
+| RhProxy（SSDT `RKRHPX`，`\_SB.RHPX`） | `MSFT8000` | R T | 设置项 "40-pin GPIO/I2C/SPI for apps"，板子同上 |
 | 硬件看门狗（WDAT） | | C R T | 设置项 "Hardware watchdog (experimental)"，见下文 |
-| 电源键（SSDT `RKPWRKEY`，`\_SB.I2C1.PWRK`） | `RKCP806B` | R | 设置项 "Power button (RK806, experimental)"；需要 `PcdAcpiPwrKeySupported`（ROCK 4D SW1、CM5-IO SW4）和 `PcdRk806I2cBase`；`main` 上只有 ROCK 4D 两者都设。供 rk806pwrkey 使用 |
-| LED（SSDT `RKLED`，`\_SB.LEDS`） | `RKCP1ED0` | R T | 设置项 "Board LEDs for the OS (experimental)"，需要 `PcdAcpiLedsSupported`；供 rkled 使用 |
-| SARADC 和按键（SSDT `RKSARADC`，`\_SB.ADC0`） | `RKCP0ADC` | R T | 设置项 "ADC keys for the OS (experimental)"，需要 `PcdAcpiSaradcSupported`（T 上默认打开）；R 的 DSDT 里总是有。关闭时连 SARADC 时钟也不设置。T 的 Recovery 键上报 HID System Power Down（`0x00010081`），即 Windows 的电源按钮。供 rk3xsaradc 使用 |
+| 电源键（SSDT `RKPWRKEY`，`\_SB.I2C1.PWRK`） | `RKCP806B` | R | 设置项 "Power button (experimental)"；需要 `PcdAcpiPwrKeySupported`（ROCK 4D SW1、CM5-IO SW4）和 `PcdRk806I2cBase`；`main` 上只有 ROCK 4D 两者都设。供 rk806pwrkey 使用 |
+| LED（SSDT `RKLED`，`\_SB.LEDS`） | `RKCP1ED0` | R T | 设置项 "Board LEDs (experimental)"，需要 `PcdAcpiLedsSupported`；供 rkled 使用 |
+| SARADC 和按键（SSDT `RKSARADC`，`\_SB.ADC0`） | `RKCP0ADC` | R T | 设置项 "ADC keys (experimental)"，需要 `PcdAcpiSaradcSupported`（T 上默认打开）；R 的 DSDT 里总是有。关闭时连 SARADC 时钟也不设置。T 的 Recovery 键上报 HID System Power Down（`0x00010081`），即 Windows 的电源按钮。供 rk3xsaradc 使用 |
 
 可选 SSDT 的规则：只能用 `External` 引用 DSDT 里的对象，不能引用另一个可选 SSDT 里的设备。SSDT 按 FV 顺序安装，
 Windows 加载这张表时那个对象可能还不存在（这样写的 RhProxy SSDT 曾让 Windows 启动不了）。

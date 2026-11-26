@@ -59,7 +59,7 @@ eMMC 上跑 Windows 11 23H2 和 Armbian，接立创的 DSI 触摸屏，也接 HD
 | RECOVERY | 无作用 | 电源按钮：按 Windows 电源选项里的设定执行 | `KEY_VENDOR` |
 | RESET | 复位开发板 | 复位开发板 | 复位开发板 |
 
-RECOVERY 作为电源按钮，需要 woa-rk3576 的 rk3xsaradc 驱动和设置项 "ADC keys for the OS"（这块板子默认打开）。
+RECOVERY 作为电源按钮，需要 woa-rk3576 的 rk3xsaradc 驱动和设置项 "ADC keys (experimental)"（这块板子默认打开）。
 开机时按住它没有作用：按键要先被看到松开才生效。如果 Windows 在 ADC 设备上出问题，关掉这个设置项，固件就不再碰 ADC。
 
 ## 硬件细节
