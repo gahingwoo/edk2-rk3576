@@ -183,3 +183,24 @@ jobs:
           gh release delete ci --yes --cleanup-tag -R "$GITHUB_REPOSITORY" || true
           gh release create ci rel/* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
             --title "CI build ${sha} ${date}" --notes-file notes.md
+
+  # The generated doc sections made from this run's features.json files
+  # (feature matrix, settings reference), and the UEFI settings sector the
+  # docs give against the SD and eMMC images this run built.
+  docs-generated:
+    name: Generated docs against the build
+    needs: firmware
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Host tools for the FIT layout
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq u-boot-tools device-tree-compiler python3-pyelftools
+      - name: nvdata sector in the built images
+        run: scripts/gen-docs --images artifacts --check
+      - name: Feature and settings sections (run scripts/gen-docs --features <dir> to update)
+        run: scripts/gen-docs --features artifacts --check

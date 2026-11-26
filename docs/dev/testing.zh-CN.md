@@ -7,6 +7,12 @@
 `.github/workflows/build.yml` 在每次 push 到 `main` 和每个 pull request 上构建所有板子，并检查每个 SD 和 eMMC
 映像里的变量存储是否在 `package.sh` 预期的位置。它不在硬件上运行任何东西。`main` 构建成功后会替换 `ci` 预发布版。
 
+文档也要检查。`docs.yml` 运行 `scripts/check-docs --edk2`（相对链接、反引号里的仓库路径、Pcd 和 DEFINE 名字、
+长破折号和短破折号）和 `scripts/gen-docs --check`（`<!-- generated:NAME -->` 和 `<!-- /generated -->` 之间的内容，
+来自 `boards/*.conf`、`scripts/package.sh` 和 `RK3576.fdf`）。`build.yml` 的 `docs-generated` 任务检查根据各板子
+`features.json` 生成的部分，以及构建出的映像里设置所在的扇区。检查失败时，运行 `scripts/gen-docs`（用
+`--features <目录>` 指向放着 `features.json` 的目录，比如 `gh run download` 下载的），然后提交结果。
+
 ## 在板子上
 
 每种板子只有一块。结果写在合并提交里（"Board-verified on the TaishanPi 3M on <date>: ..."）和正式版说明里
