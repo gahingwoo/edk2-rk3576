@@ -94,14 +94,15 @@
   DEFINE NETWORK_IP6_ENABLE      = TRUE
   DEFINE NETWORK_PXE_BOOT_ENABLE = TRUE
   #
-  # HTTP boot + TLS off: FVMAIN was at 95% full, and this board installs from
-  # USB/eMMC rather than over the network.  HttpDxe was also one of the two
-  # drivers seen requesting ConvertPages at a bogus 0x180000000.  Flip back on
-  # if HTTPS boot is ever wanted; it costs roughly a third of the remaining
-  # FV headroom.
+  # HTTP(S) boot, as on the ROCK 4D.  It was off while FVMAIN was 95% full.
+  # With it FVMAIN goes from 84% (2.6 MB free) to 93% (1.0 MB free); the
+  # compressed BL33_AP_UEFI.Fv grows by 226 KB.  The bogus ConvertPages at
+  # 0x180000000 once blamed on HttpDxe was the Realtek UNDI binaries, whose
+  # PE ImageBase is 0x180000000 (the loader tries it, then relocates); they
+  # are not built for this board.
   #
-  DEFINE NETWORK_HTTP_BOOT_ENABLE = FALSE
-  DEFINE NETWORK_TLS_ENABLE      = FALSE
+  DEFINE NETWORK_HTTP_BOOT_ENABLE = TRUE   # DnsDxe+HttpDxe+HttpUtilitiesDxe+HttpBootDxe in FV
+  DEFINE NETWORK_TLS_ENABLE      = TRUE   # TlsDxe+TlsAuthConfigDxe, required for HTTPS boot
   #
   # No Realtek NIC on CM5-IO: GMAC0 goes to an on-module MotorComm YT8531.
   # (The DT and the EDK2 port both used to claim RTL8211F; the schematic says
