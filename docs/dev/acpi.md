@@ -73,14 +73,18 @@ to the normal world. Windows asks for 5 minutes, longer than the block can
 count, so the table declares 1 s counts up to 600 and the firmware always
 programs the longest period: 2^31 cycles of 24 MHz, twice (interrupt, then
 reset), about 179 s. Register details: `Wdat.aslc` and
-`RK3576AcpiPlatformDxe/Watchdog.c`. The serial log says at each boot whether
-the last reset came from the watchdog.
+`RK3576AcpiPlatformDxe/Watchdog.c`. The serial log says "last reset WAS the
+watchdog" when the CRU kept its record of a watchdog reset, and "last reset
+cause unknown" otherwise: the record does not survive a PMIC power cycle,
+and on the TaishanPi 3M a watchdog reset is one (2026-11-26).
 
 Board test:
 
 1. Option on, Windows idle and then loaded for an hour: no reset.
 2. Hang Windows with woa-rk3576 `tools/wdthang`: reset within about
-   3 minutes, next boot logs "last reset WAS the watchdog".
+   3 minutes, no ResetSystem in the log before it. The next boot logs
+   "last reset WAS the watchdog" or, where the PMIC power-cycles the chip
+   (TaishanPi 3M), "last reset cause unknown".
 3. Option off, same hang: the board stays hung.
 
 ## Variables for OS drivers
