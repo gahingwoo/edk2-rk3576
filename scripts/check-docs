@@ -19,6 +19,7 @@ wddm-mali-g52.  Keep the copies identical; repository differences go in
 flags and in .docs-check-ignore.
 
 Usage: scripts/check-docs [--edk2] [--exclude PREFIX ...]
+(tools/check-docs in woa-rk3576 and wddm-mali-g52)
 """
 
 import argparse
@@ -31,6 +32,17 @@ from urllib.parse import unquote
 
 ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                       capture_output=True, text=True, check=True).stdout.strip()
+
+# A path in backticks shortly after one of these names is that project's,
+# not this repository's ("Linux `drivers/spi/spi-rockchip.c`",
+# "wddm-mali-g52 `docs/USBC-DP.md`").  More names: "external NAME" lines in
+# .docs-check-ignore.
+EXTERNAL = {
+    "Linux", "kernel", "mainline", "U-Boot", "TF-A", "Mesa", "mesa", "MPP", "OpenBSD", "Armbian",
+    "armbian/build", "TianoCore", "edk2-rockchip", "edk2-rk3576", "woa-rk3576", "woa-rk3576-npu",
+    "wddm-mali-g52", "maskrom-studio", "edk2-webflash", "worproject", "Radxa", "Rockchip", "vendor",
+    "Vulkan-Loader",
+}
 
 DASHES = {"\u2013": "en dash", "\u2014": "em dash"}
 
@@ -52,11 +64,14 @@ def git_files():
 
 def load_ignore():
     pats = []
+    global EXTERNAL
     p = os.path.join(ROOT, ".docs-check-ignore")
     if os.path.exists(p):
         for line in open(p, encoding="utf-8"):
             line = line.strip()
-            if line and not line.startswith("#"):
+            if line.startswith("external "):
+                EXTERNAL = EXTERNAL | {line.split(None, 1)[1]}
+            elif line and not line.startswith("#"):
                 pats.append(line)
     return pats
 
@@ -150,7 +165,9 @@ def main():
             continue
         text = open(path, encoding="utf-8").read()
         here = os.path.dirname(f)
+        prev = ""
         for n, line, in_fence in split_fences(text):
+            before, prev = prev, line
             for ch, name in DASHES.items():
                 if ch in line:
                     err(f, n, f"{name} (U+{ord(ch):04X}); use a comma, colon, "
@@ -181,9 +198,15 @@ def main():
                 if not exists(rel) and not ignored(t2, pats):
                     err(f, n, f"link to a file that does not exist: {t}")
             # code spans
-            stripped = re.sub(r"\]\([^)]*\)", "]", line)
+            # [`path`](https://...) names another project's file: the link
+            # says whose.
+            stripped = re.sub(r"\[[^\]]*\]\((?:[A-Za-z][\w+.-]*:|//)[^)]*\)", "", line)
+            stripped = re.sub(r"\]\([^)]*\)", "]", stripped)
             for m in CODE_SPAN.finditer(stripped):
                 tok = m.group(2).strip()
+                context = re.findall(r"[\w./'-]+", (before + " " + stripped[:m.start()])[-80:])
+                if any(w.rstrip(".,;:").removesuffix("'s") in EXTERNAL for w in context):
+                    continue
                 if args.edk2 and DEFINE.match(tok):
                     if not ignored(tok, pats) and not defined(tok):
                         err(f, n, f"`{tok}` is not defined anywhere outside the docs")
