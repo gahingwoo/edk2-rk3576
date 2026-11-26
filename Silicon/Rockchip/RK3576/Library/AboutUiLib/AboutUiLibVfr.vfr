@@ -4,6 +4,14 @@
  *  draws it across the prompt and option columns.  AboutUiLib.c fills in the
  *  values per language; see there for where each comes from.
  *
+ *  The clock line is the one question: an action, read-only so the cursor
+ *  never lands on it, with a callback and a refresh interval of one second.
+ *  The browser calls AboutUiLib.c with EFI_BROWSER_ACTION_FORM_OPEN when the
+ *  page opens and with EFI_BROWSER_ACTION_RETRIEVE every second while it is
+ *  open, and redraws the page after each.  It cannot be hidden: the browser
+ *  only runs refresh timers for questions it displays.  An action, like a
+ *  text with one string, is drawn across both columns.
+ *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -28,6 +36,14 @@ formset
     text
       help = STRING_TOKEN(STR_NULL_STRING),
       text = STRING_TOKEN(STR_ABOUT_BUILD);
+    action
+      questionid = RK3576_ABOUT_KEY_CLOCK,
+      prompt     = STRING_TOKEN(STR_ABOUT_CLOCK),
+      help       = STRING_TOKEN(STR_NULL_STRING),
+      flags      = INTERACTIVE | READ_ONLY,
+      config     = STRING_TOKEN(STR_NULL_STRING),
+      refresh interval = 1
+    endaction;
     text
       help = STRING_TOKEN(STR_NULL_STRING),
       text = STRING_TOKEN(STR_ABOUT_LICENSE);

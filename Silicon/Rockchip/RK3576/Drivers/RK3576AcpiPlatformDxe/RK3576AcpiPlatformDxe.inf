@@ -65,6 +65,8 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported
   gRK3576TokenSpaceGuid.PcdPin40Supported
   gRK3576TokenSpaceGuid.PcdAcpiLedsSupported
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcSupported
 
 [Pcd]
   gRK3576TokenSpaceGuid.PcdConfigTableMode
@@ -79,6 +81,7 @@
   gRK3576TokenSpaceGuid.PcdHwWatchdog
   gRK3576TokenSpaceGuid.PcdAcpiPwrKey
   gRK3576TokenSpaceGuid.PcdAcpiLeds
+  gRK3576TokenSpaceGuid.PcdAcpiSaradc
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode
   gRK3576TokenSpaceGuid.PcdComboPhy1Mode
   gRK3576TokenSpaceGuid.PcdPcieEcamCompliantSegmentsMask

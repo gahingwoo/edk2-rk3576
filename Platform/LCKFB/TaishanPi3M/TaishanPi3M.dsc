@@ -254,9 +254,8 @@
   # reset write.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
-  # Fan control by ACPI thermal zone (AcpiTables/Fan.asl): the setup option
-  # exists on this board, and is off until the temperature read-out has been
-  # checked on the board.
+  # Fan Mode (AcpiTables/Fan.asl): the setup option exists on this board, and
+  # defaults to Always on (0, no fan SSDT).
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
 
@@ -265,12 +264,26 @@
   # the card and the Wi-Fi SSDT (AcpiTables/Wifi.asl) is installed.  See
   # woa-rk3576 docs/WIFI.md.
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|TRUE
+  # USB-C DisplayPort Alt Mode (docs/usbc-dp.md): the option exists on this
+  # board (DP AUX on SBU1/2 biased by GPIO4_C4/C5, schematic v1.4) and is
+  # off by default.
+  gRK3576TokenSpaceGuid.PcdUsbcDpSupported|TRUE
   # The 40-pin header: Tspi3mPin40.c describes it, AcpiTables has its UART
   # and RhProxy SSDTs.  Both setup options stay off by default.
   gRK3576TokenSpaceGuid.PcdPin40Supported|TRUE
   # The LED for an ACPI OS (AcpiTables/Leds.asl, woa-rk3576 rkled): the setup
   # option exists on this board and is off by default.
   gRK3576TokenSpaceGuid.PcdAcpiLedsSupported|TRUE
+  # The board's buttons are RECOVERY and RESET; its PWRON net has no key
+  # fitted, so there is no "Power button (RK806)" option and no PwrKey SSDT
+  # (PcdAcpiPwrKeySupported stays FALSE).  Instead the Recovery key, on
+  # SARADC channel 1, is the OS's power button: the SARADC SSDT
+  # (AcpiTables/RecoveryKey.asl, woa-rk3576 rk3xsaradc) behind the setup
+  # option "ADC keys for the OS", on by default, and the converter clock
+  # (1 MHz from xin24m) set only when that option is on.
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault|1
+  gRK3576TokenSpaceGuid.PcdRk3576SaradcClockInit|TRUE
 
 ################################################################################
 [Components.common]

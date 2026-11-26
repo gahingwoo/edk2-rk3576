@@ -183,7 +183,7 @@ OnScmiClockAvailable (
 // Reading has stopped paying.  This asks PSCI directly, on the BL31 actually
 // flashed rather than the source that was read.
 //
-// AFFINITY_INFO only queries -- it starts nothing, needs no entry point and
+// AFFINITY_INFO only queries. It starts nothing, needs no entry point and
 // leaks no core, so it is safe to call for every CPU on every boot.
 //
 #define PSCI_VERSION_FID        0x84000000

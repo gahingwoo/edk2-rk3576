@@ -89,7 +89,7 @@ Rk3576VpComputeRegs (
   RK3576 supplied none.  The display therefore ran on whatever U-Boot SPL
   happened to leave behind, which is why output was intermittent and why every
   register readable from DXE looked identical on a boot that produced a picture
-  and one that did not -- the difference was already decided.
+  and one that did not; the difference was already decided.
 
   VOP2 sits in PD_VOP; the DW-HDMI-QP controller and the HDPTX PHY GRF sit in
   PD_VO0.  Both are needed before any of their registers mean anything.
@@ -99,7 +99,7 @@ Rk3576VpComputeRegs (
   @retval EFI_SUCCESS   Both domains are on (or already were).
   @retval EFI_TIMEOUT   A domain did not report powered, or its NIU did not
                         leave idle, within the timeout.  The caller may still
-                        continue -- on a board where the SPL already brought
+                        continue: on a board where the SPL already brought
                         the domain up, the display can work regardless.
 **/
 EFI_STATUS

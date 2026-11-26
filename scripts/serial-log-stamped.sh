@@ -3,7 +3,7 @@
 # serial-log-resilient.sh, but every line carries the host's wall-clock time.
 #
 # Why this exists: on 2026-09-20 an eMMC probe added roughly five minutes to a
-# WinPE-era boot, and the plain capture could not say where the time went --
+# WinPE-era boot, and the plain capture could not say where the time went:
 # the log is one unbroken stream with no way to tell a fast retry from a
 # multi-second timeout loop.  Three different candidate loops in SdMmcPciHcDxe
 # fit the evidence equally well, and picking between them by reading code is

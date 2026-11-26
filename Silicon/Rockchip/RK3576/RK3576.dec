@@ -65,9 +65,11 @@
   #
   # ACPI fan control (the board's fan SSDT, OEM table ID "RKFAN"): TRUE in
   # PcdAcpiFanControlSupported makes the setup option visible; the option
-  # (PcdAcpiFanControl, default PcdAcpiFanControlDefault) decides whether
-  # RK3576AcpiPlatformDxe installs that SSDT.  Without it only the
-  # temperature read-out in the DSDT remains.
+  # "Fan Mode" (PcdAcpiFanControl, default PcdAcpiFanControlDefault,
+  # ACPI_FAN_MODE_* in VarStoreData.h) decides whether RK3576AcpiPlatformDxe
+  # installs that SSDT (not for 0, Always on, or 4, Off) and with which trip
+  # points.  Off also makes RK3576Dxe hold the fan at 0%.
+  # Without it only the temperature read-out in the DSDT remains.
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|FALSE|BOOLEAN|0x00010303
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0|UINT8|0x00010304
@@ -137,8 +139,9 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|FALSE|BOOLEAN|0x00010307
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault|0|UINT8|0x00010308
   #
-  # SARADC for an ACPI OS: TRUE on a board whose DSDT includes Saradc.asl
-  # (\_SB.ADC0, RKCP0ADC, for the woa-rk3576 rk3xsaradc driver).  RK3576Dxe
+  # SARADC for an ACPI OS: TRUE on a board whose DSDT, or SARADC SSDT
+  # (PcdAcpiSaradcSupported), includes Saradc.asl (\_SB.ADC0, RKCP0ADC, for
+  # the woa-rk3576 rk3xsaradc driver).  RK3576Dxe
   # then sets CLK_SARADC to xin24m / 24 = 1 MHz, the rate Linux sets, and
   # makes sure both SARADC clock gates are open (their reset state).  It
   # never touches the SARADC resets; Saradc.asl says why.
@@ -174,14 +177,29 @@
   #
   # RK806 power key as the ACPI OS's power button (setup option
   # PcdAcpiPwrKey, default PcdAcpiPwrKeyDefault, off; shown only on a board
-  # that sets PcdRk806I2cBase): RK3576AcpiPlatformDxe installs the PwrKey
+  # that sets PcdAcpiPwrKeySupported, which is for a board with a button
+  # fitted on the RK806's PWRON pin and a PcdRk806I2cBase: ROCK 4D SW1 and
+  # CM5-IO SW4 are; the TaishanPi 3M has no PWRON key fitted, only Recovery
+  # and Reset): RK3576AcpiPlatformDxe installs the PwrKey
   # SSDT (OEM table ID "RKPWRKEY", \_SB.I2C1.PWRK, RKCP806B for woa-rk3576
   # rk806pwrkey), and Rk806I2cPowerOffDxe makes GPIO0_A6 (the RK806 INT
   # line on every RK3576 board here) a pulled-up GPIO input and, at
   # ExitBootServices, sets the RK806 interrupt active low with only
   # PWRON_FALL and PWRON_RISE unmasked.
   #
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported|FALSE|BOOLEAN|0x00010A10
   gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault|0|UINT8|0x00010A01
+  #
+  # The SARADC and the board's keys on it for an ACPI OS (setup option
+  # PcdAcpiSaradc, default PcdAcpiSaradcDefault; shown only where
+  # PcdAcpiSaradcSupported is TRUE, a board whose AcpiTables carry a SARADC
+  # SSDT, OEM table ID "RKSARADC", \_SB.ADC0, RKCP0ADC for woa-rk3576
+  # rk3xsaradc, built from Saradc.asl).  Off, the SSDT is not installed and
+  # RK3576Dxe leaves the SARADC clock alone even with
+  # PcdRk3576SaradcClockInit.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcSupported|FALSE|BOOLEAN|0x00010A11
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault|0|UINT8|0x00010A12
   #
   # Board LEDs for an ACPI OS (setup option PcdAcpiLeds, default
   # PcdAcpiLedsDefault, off; shown only where PcdAcpiLedsSupported is TRUE,
@@ -220,7 +238,7 @@
   gRK3576TokenSpaceGuid.PcdStatusLedGpio|0xFF|UINT8|0x00010500
   gRK3576TokenSpaceGuid.PcdStatusLedGpioPolarity|TRUE|BOOLEAN|0x00010501
 
-  # GMAC — gmac0 (ROCK 4D: RTL8211F RGMII-ID PHY; gmac1 unused on this board)
+  # GMAC: gmac0 (ROCK 4D: RTL8211F RGMII-ID PHY; gmac1 unused on this board)
   gRK3576TokenSpaceGuid.PcdGmac0Supported|FALSE|BOOLEAN|0x00010600
   gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0x00|UINT8|0x00010601
   gRK3576TokenSpaceGuid.PcdGmac0RxDelay|0x00|UINT8|0x00010602
@@ -240,11 +258,6 @@
   # pin is held high and the period does not matter.
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|500000|UINT32|0x00010702
 
-  # "Fan" setup option (PcdCoolingFan): 1 runs the board fan at full speed
-  # (the pin held at its on level, no PWM switching), 0 holds it at its off
-  # level.  Shown only where PcdPwmFanSpeedDefault is not 0, the boards whose
-  # fan the firmware drives.
-  gRK3576TokenSpaceGuid.PcdCoolingFanDefault|1|UINT8|0x00010720
 
   # Rk806I2cPowerOffDxe: the I2C controller and address of an RK806 that
   # the firmware has to switch off itself at a shutdown (see the driver).
@@ -287,6 +300,16 @@
   # registers the regulators and loses a USB stick it is booting from.
   gRK3576TokenSpaceGuid.PcdFdtUsbAVbusAlwaysOn|FALSE|BOOLEAN|0x00010704
 
+  # "USB-C DisplayPort (experimental)" setup option (PcdUsbcDp): 1 makes
+  # UsbHcd ask the board to enter DisplayPort Alt Mode on its USB-C port at
+  # ExitBootServices (PD contract and VDMs with the FUSB302), mux two DP
+  # lanes next to USB3 in the USBDP PHY and power the DP controller for the
+  # OS display driver (docs/usbc-dp.md).  Off by default: nothing changes.
+  # Shown only where PcdUsbcDpSupported is TRUE (a board whose
+  # UsbTypeCDpAltModeEnter does the work: CM5-IO, TaishanPi 3M).
+  gRK3576TokenSpaceGuid.PcdUsbcDpDefault|0|UINT8|0x0001070A
+  gRK3576TokenSpaceGuid.PcdUsbcDpSupported|FALSE|BOOLEAN|0x0001070B
+
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   # Runtime dynamic PCDs (set by RK3576Dxe at DXE phase from *Default FixedAtBuild values)
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode|0|UINT32|0x00000101
@@ -295,7 +318,6 @@
   gRK3576TokenSpaceGuid.PcdConfigTableMode|0|UINT32|0x00000300
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|0|UINT32|0x00000351
   gRK3576TokenSpaceGuid.PcdAcpiFanControl|0|UINT8|0x00000303
-  gRK3576TokenSpaceGuid.PcdCoolingFan|1|UINT8|0x00000720
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates|0|UINT8|0x00000900
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq|0|UINT8|0x00000901
   gRK3576TokenSpaceGuid.PcdGpuRail775|0|UINT8|0x00000902
@@ -304,9 +326,11 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|0|UINT8|0x00000306
   gRK3576TokenSpaceGuid.PcdPin40Uart|0|UINT8|0x00000307
   gRK3576TokenSpaceGuid.PcdPin40RhProxy|0|UINT8|0x00000308
+  gRK3576TokenSpaceGuid.PcdUsbcDp|0|UINT8|0x00000309
   gRK3576TokenSpaceGuid.PcdHwWatchdog|0|UINT8|0x00000A00
   gRK3576TokenSpaceGuid.PcdAcpiPwrKey|0|UINT8|0x00000A01
   gRK3576TokenSpaceGuid.PcdAcpiLeds|0|UINT8|0x00000A02
+  gRK3576TokenSpaceGuid.PcdAcpiSaradc|0|UINT8|0x00000A10
   gRK3576TokenSpaceGuid.PcdDisplayBrightness|60|UINT8|0x00000400
   gRK3576TokenSpaceGuid.PcdFdtForceGop|0|UINT8|0x00000352
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|0|UINT8|0x00000353

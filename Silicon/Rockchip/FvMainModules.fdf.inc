@@ -87,7 +87,7 @@
 
   #
   # Arm GIC
-  # RK3576 has GIC-400 (v2), not v3 — use the unified ArmGicDxe which
+  # RK3576 has GIC-400 (v2), not v3. Use the unified ArmGicDxe which
   # auto-detects v2/v3 from the distributor PIDR.
   #
   INF ArmPkg/Drivers/ArmGicDxe/ArmGicDxe.inf
@@ -99,7 +99,7 @@
   INF MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
 
   #
-  # SCMI Support.  RK3576 reaches it over SMC, not an MHU mailbox -- see the
+  # SCMI Support.  RK3576 reaches it over SMC, not an MHU mailbox; see the
   # note on RK_SCMI_ENABLE in RK3576Base.dsc.inc.
   #
 !if $(RK_SCMI_ENABLE) == TRUE

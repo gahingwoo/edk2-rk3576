@@ -1,6 +1,6 @@
 /** @file
  *
- *  Rock4dAudio.c -- the Radxa ROCK 4D's ES8388 headphone codec on SAI1, set
+ *  Rock4dAudio.c: the Radxa ROCK 4D's ES8388 headphone codec on SAI1, set
  *  up for an operating system that has no clock, power-domain or pin driver
  *  of its own (Windows with the woa-rk3576 audio drivers).
  *

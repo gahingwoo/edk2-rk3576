@@ -21,7 +21,7 @@
 //
 // Single-letter UART checkpoints for locating a hang in the pre-MMU window,
 // where DEBUG() output is not yet available.  Unconditional SerialPortWrite,
-// so it costs bytes on the wire on every boot — off by default, and worth
+// so it costs bytes on the wire on every boot. Off by default, and worth
 // leaving off for anything that measures boot behaviour.
 //
 #define RK_MEM_CHECKPOINTS  0
@@ -135,7 +135,7 @@ ArmPlatformGetVirtualMemoryMap (
     // hardware: `dmem 0x30000000` in the UEFI Shell gives
     //     ESR=0x96000010 (DFSC 0b010000, sync external abort) FAR=0x30000000
     // and the Windows boot manager died the same way, because its preferred
-    // ImageBase is 0x10000000 -- inside the bogus "mid" region -- so
+    // ImageBase is 0x10000000 (inside the bogus "mid" region), so
     // PeCoffLoaderLoadImage memcpy'd .text straight into nothing.
     //
     // MMIO at [0x20000000 .. 0x30000000) is correct and stays (UART0
@@ -168,7 +168,7 @@ ArmPlatformGetVirtualMemoryMap (
      * Reclaiming the last 1.25 GB.
      *
      * With DRAM at [0x40000000 .. 0x140000000) the region
-     * [0xF0000000 .. 0x140000000) is ordinary DRAM — 256 MB that the old code
+     * [0xF0000000 .. 0x140000000) is ordinary DRAM: 256 MB that the old code
      * carved out as a "TZASC firewall hole" plus the 1 GB the dead
      * `> 0x100000000` test never reached. Both exclusions were reasoned from
      * the RK3588 layout, where 0xF0000000 really is an MMIO hole.
@@ -184,8 +184,8 @@ ArmPlatformGetVirtualMemoryMap (
      * tables. It could not have been, because this flag is what keeps it out
      * of them. The access never reached the bus, so it says nothing about
      * whether DRAM answers there. The distinguishing code would have been
-     * DFSC 0b010000, a synchronous external abort -- access issued, nobody
-     * home. Probing an unmapped region to decide whether it is backed is
+     * DFSC 0b010000, a synchronous external abort (access issued, nobody
+     * home). Probing an unmapped region to decide whether it is backed is
      * circular.
      *
      * So the only real test is to map it and use it: flip this to 1, boot,
@@ -215,7 +215,7 @@ ArmPlatformGetVirtualMemoryMap (
     //     Synchronous Exception at 0x12ECD3C3C   [ArmScmiDxe]
     //     ESR=0x96000006 FAR=0x4010F004        EC 0x25, ISS 0x06
     //
-    // -- EC 0x25 data abort, DFSC 0b000110, a level-2 translation fault, at
+    // That is an EC 0x25 data abort, DFSC 0b000110, a level-2 translation fault, at
     // the shared memory + 4.  Measured on CM5-IO 2026-09-19, the first boot
     // with ArmScmiDxe enabled.
     //
@@ -243,8 +243,8 @@ ArmPlatformGetVirtualMemoryMap (
     // only worked because RK3588's DRAM base is 0.
     //
     // The FV and the NV variable store sit inside this DRAM range (TF-A loads
-    // the whole FD to 0x40600000), so — exactly as the RK3588 branch below
-    // does — they get their own descriptors and are carved out of the System
+    // the whole FD to 0x40600000), so, exactly as the RK3588 branch below
+    // does, they get their own descriptors and are carved out of the System
     // RAM the allocator is allowed to hand out. Without that they are ordinary
     // free Conventional Memory, and nothing stops DXE from allocating over the
     // running firmware volume or the variable store.
@@ -273,7 +273,7 @@ ArmPlatformGetVirtualMemoryMap (
       VirtualMemoryInfo[Index].Type          = RK3576_MEM_BASIC_REGION;
       VirtualMemoryInfo[Index++].Name        = L"System RAM (< FV)";
 
-      // Firmware Volume — reserved, because nothing else claims it and the
+      // Firmware Volume: reserved, because nothing else claims it and the
       // DXE allocator would otherwise be free to hand out the pages the
       // running firmware volume lives in.
       VirtualMemoryTable[Index].PhysicalBase = FvBase;
@@ -294,7 +294,7 @@ ArmPlatformGetVirtualMemoryMap (
       // the pages allocated before RkFvbDxe runs, that AllocateAddress fails,
       // and RkFvbDxe falls back to AllocatePool at some heap address that no
       // longer matches the PCD. VariableRuntimeDxe then finds no valid store
-      // and ASSERTs — and since PcdDebugPropertyMask has ASSERT_DEADLOOP set,
+      // and ASSERTs, and since PcdDebugPropertyMask has ASSERT_DEADLOOP set,
       // the board hangs before the display path ever runs.
       //
       // Verified on hardware: reserving it produced

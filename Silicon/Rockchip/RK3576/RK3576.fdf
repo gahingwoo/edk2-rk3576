@@ -25,7 +25,7 @@
 [FD.NOR_FLASH_IMAGE]
 # NOTE: EDK2 is loaded by TF-A as BL33 directly into DRAM at 0x40800000.
 # FdBase is anchored 0x200000 below so that the FV (placed at FD offset
-# 0x200000 below) lands exactly at 0x40800000 — required because all
+# 0x200000 below) lands exactly at 0x40800000. This is required because all
 # FV-internal absolute symbol references are linked using PcdFvBaseAddress.
 BaseAddress   = 0x40600000|gArmTokenSpaceGuid.PcdFdBaseAddress  # FD anchor in DRAM
 Size          = 0x01000000|gArmTokenSpaceGuid.PcdFdSize         # 16MB FD region
@@ -133,7 +133,7 @@ READ_LOCK_STATUS   = TRUE
   #
   # Common components
   #
-  # RK3576: FVB enabled — NorFlashDxe uses PcdRkFvbNvStorageSpiOffset=0xFC0000
+  # RK3576: FVB enabled. NorFlashDxe uses PcdRkFvbNvStorageSpiOffset=0xFC0000
   # to read/write the NV variable area at SPI NOR offset 0xFC0000 (immediately
   # after the FIT image max boundary).  PcdRkAtagsBase=0 prevents the ATAGS
   # bus-fault that previously blocked this.
@@ -146,7 +146,7 @@ READ_LOCK_STATUS   = TRUE
   INF Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/RK3576Dxe.inf
 
   #
-  # Simple Framebuffer GOP — NOT BUILT.
+  # Simple Framebuffer GOP: NOT BUILT.
   #
   # RK3576SimpleFbDxe adopts whatever framebuffer the SPL left configured and
   # installs a GOP over it, instead of programming VOP2 ourselves. It was
@@ -155,7 +155,7 @@ READ_LOCK_STATUS   = TRUE
   # native display path is abandoned, and because it is the only code here
   # that reads the SPL's inherited VOP2 state.
   #
-  # It compiles against nothing that is verified — treat it as unbuilt code,
+  # It compiles against nothing that is verified; treat it as unbuilt code,
   # not as a working alternative, and re-check it against Vop2Regs.h before
   # enabling.
   #
@@ -165,8 +165,8 @@ READ_LOCK_STATUS   = TRUE
   # PCI Support
   #
   # This was force-disabled while the only host-bridge library available was
-  # RK3588's, which touches PCIe MMIO at 0xFD8D_xxxx -- unmapped on RK3576, so
-  # a data abort (translation fault L2, ESR=0x96000046).  Rk3576PciHostBridgeLib
+  # RK3588's, which touches PCIe MMIO at 0xFD8D_xxxx. That is unmapped on RK3576, so
+  # it took a data abort (translation fault L2, ESR=0x96000046).  Rk3576PciHostBridgeLib
   # is what the DSC chain resolves now, so PCIe is enabled.
   DEFINE RK3576_PCIE_ENABLE = TRUE
 !if $(RK3576_PCIE_ENABLE) == TRUE
@@ -187,14 +187,14 @@ READ_LOCK_STATUS   = TRUE
 !endif
 
   #
-  # ACPI Support — deliberately NOT listed here.
+  # ACPI Support: deliberately NOT listed here.
   #
   # RK3576AcpiPlatformDxe is only in [Components] for the platforms that enable
   # ACPI (today all three: CM5IO, ROCK4D, TaishanPi3M); referencing it from
   # this shared FDF would fail a board built without ACPI tables. Platforms
   # that want it add it to their own
   # <Platform>.Modules.fdf.inc, which is included at RK_PLATFORM_FVMAIN_MODULES
-  # below — see Platform/ArmSoM/CM5IO/CM5IO.Modules.fdf.inc.
+  # below; see Platform/ArmSoM/CM5IO/CM5IO.Modules.fdf.inc.
   #
   # (Putting AcpiTables.inf in the .dsc alone is not enough either: a module has
   # to appear in an FDF to actually land in an FV. That is how the CM5-IO ACPI

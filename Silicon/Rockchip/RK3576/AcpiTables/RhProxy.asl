@@ -17,9 +17,6 @@
  *                           pin that is a GPIO whatever the setup says
  *    RHPX_BOARD_UART_GPIOS  RHPX_GPIO for the header UARTs' pins, which
  *                           are GPIOs only while "40-pin UART" is off
- *    RHPX_BOARD_UART_PROBE  a device the UART SSDT declares, e.g.
- *                           \_SB.URT4: present means the UARTs own their
- *                           pins, and _CRS leaves those pins out
  *    RHPX_BOARD_DSD         the bus-SPI-*, bus-I2C-* and per-bus
  *                           properties, each followed by a comma
  *
@@ -29,21 +26,38 @@
  *  controllers that each number their pins 0 to 31.  The UART pins come
  *  last, so turning the UARTs on or off does not renumber the other pins.
  *
+ *  Whether the UART pins are in _CRS is UAON, which RK3576AcpiPlatformDxe
+ *  sets to 1 when it installs the UART SSDT as well ("40-pin UART" on).
+ *  This table must not refer to anything the UART SSDT declares: it is
+ *  installed first, so an External for one of those devices names an
+ *  object that does not exist yet when Windows loads this table.  The
+ *  first version did exactly that (External and CondRefOf on \_SB.URT4),
+ *  the only forward reference between any of our tables, and Windows did
+ *  not boot with both options on (TaishanPi 3M, 2026-11-25).  That is the
+ *  suspected cause, not a proven one.
+ *
  *  Each pin is a GpioIo followed by a GpioInt on the same pin, Shared, the
  *  GpioInt Edge and ActiveBoth (rk3xgpio asks GpioClx to emulate both
- *  edges).  PullNone in both, and "GPIO-SupportedDriveModes" 0x9 (input,
- *  push-pull output): rk3xgpio does not change pulls, so a pin keeps the
- *  pull it has at reset (on RK3576 most pins come up with a pull-down;
- *  GpioLib.c) whatever drive mode an application picks.
+ *  edges).  Both carry RHPX_GPIO_PULL, PullDown unless the board says
+ *  otherwise: Microsoft requires the pull to be the pin's power-on pull,
+ *  and every RK3576 pin a board here offers comes out of reset with a
+ *  pull-down (TRM V1.2 Part 1, the PMU0/PMU1/VCCIO_IOC_GPIOxx_PULL reset
+ *  values).  "GPIO-SupportedDriveModes" is 0x9 (input, push-pull output):
+ *  rk3xgpio does not change pulls, so a pin keeps that pull-down whatever
+ *  drive mode an application picks.
  *
  *  Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
  *
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  **/
 
+#ifndef RHPX_GPIO_PULL
+#define RHPX_GPIO_PULL  PullDown
+#endif
+
 #define RHPX_GPIO(Controller, Pin) \
-  GpioIo (Shared, PullNone, 0, 0, IoRestrictionNone, Controller, 0, ResourceConsumer, , ) { Pin } \
-  GpioInt (Edge, ActiveBoth, Shared, PullNone, 0, Controller, 0, ResourceConsumer, , ) { Pin }
+  GpioIo (Shared, RHPX_GPIO_PULL, 0, 0, IoRestrictionNone, Controller, 0, ResourceConsumer, , ) { Pin } \
+  GpioInt (Edge, ActiveBoth, Shared, RHPX_GPIO_PULL, 0, Controller, 0, ResourceConsumer, , ) { Pin }
 
 Device (RHPX) {
   Name (_HID, "MSFT8000")
@@ -58,8 +72,15 @@ Device (RHPX) {
     RHPX_BOARD_UART_GPIOS
   })
 
+  //
+  // 1: the UART SSDT is installed and its UARTs own their pins, so they are
+  // not GPIOs.  Patched by RK3576AcpiPlatformDxe; keep it a plain Name with
+  // a 0 initialiser (AML ZeroOp), which is what the patcher looks for.
+  //
+  Name (UAON, 0)
+
   Method (_CRS, 0x0, NotSerialized) {
-    If (CondRefOf (RHPX_BOARD_UART_PROBE)) {
+    If (UAON) {
       Return (RBUF)
     }
     Return (ConcatenateResTemplate (RBUF, UBUF))

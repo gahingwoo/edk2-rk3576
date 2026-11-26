@@ -91,8 +91,8 @@
   # are RK3588 drivers: DwDpLib carries 0xFDE50000/0xFDE60000 and DwMipiDsi2Lib
   # 0xFDE20000/0xFDE30000, addresses that are ordinary DRAM on RK3576 (DRAM is
   # [0x40000000, 0x140000000) here).  Nothing fired, because each entry point
-  # only registers a protocol notify -- gDpPhyProtocolGuid and
-  # gRockchipDsiPanelProtocolGuid -- and neither board installs either protocol.
+  # only registers a protocol notify (gDpPhyProtocolGuid and
+  # gRockchipDsiPanelProtocolGuid), and neither board installs either protocol.
   # So 88 KB of dead RK3588 code sat in FVMAIN with a loaded gun pointed at
   # DRAM, waiting for the first DSI panel driver.  Off until they are ported.
   #
@@ -119,8 +119,8 @@
   #   Rk860xRegulatorDxe:        no board here has an RK860x.
   #   Pca9555Dxe:                neither carrier has the expander.
   #
-  # ArmScmiDxe is ON.  The note that used to sit here -- "no SCMI firmware on
-  # this SoC" -- was wrong.  mainline's rk3576.dtsi has:
+  # ArmScmiDxe is ON.  The note that used to sit here ("no SCMI firmware on
+  # this SoC") was wrong.  mainline's rk3576.dtsi has:
   #
   #     scmi: scmi { compatible = "arm,scmi-smc";
   #                  arm,smc-id = <0x82000010>;
@@ -206,7 +206,7 @@
   ArmPlatformLib|Silicon/Rockchip/RK3576/Library/PlatformLib/PlatformLib.inf
 
   # PCI Support.  RK3576 has no PCIe 3.0 controller, so there is no
-  # Pcie30PhyLib here -- the RK3588 chain used to pull one in unconditionally.
+  # Pcie30PhyLib here; the RK3588 chain used to pull one in unconditionally.
 !if $(RK3576_PCIE_ENABLE) == TRUE
   PciExpressLib|MdePkg/Library/BasePciExpressLib/BasePciExpressLib.inf
   PciLib|MdePkg/Library/BasePciLibPciExpress/BasePciLibPciExpress.inf
@@ -225,7 +225,7 @@
 
   # Other SoC-specific libraries.
   #
-  # PlatformCruLib still carries RK3588's clock tree -- see the warning at the
+  # PlatformCruLib still carries RK3588's clock tree; see the warning at the
   # top of Rk3576CruLib.c.  Nothing on RK3576 is known to reach it; it is here
   # to satisfy the library class.  Real RK3576 CRU programming is an open item.
   PlatformCruLib|Silicon/Rockchip/RK3576/Library/Rk3576CruLib/Rk3576CruLib.inf
@@ -277,7 +277,7 @@
 
   # SCMI shared memory.  Same inheritance as the DRAM base above: RockchipPkg.dec
   # defaults this to 0x0010f000, which is where it sits on RK3588 because RK3588
-  # DRAM starts at 0.  On RK3576 the same buffer is at 0x4010f000 --
+  # DRAM starts at 0.  On RK3576 the same buffer is at 0x4010f000:
   # rk3576.dtsi has `scmi_shmem: scmi-shmem@4010f000, reg = <0x0 0x4010f000
   # 0x0 0x100>`.  The old value is not DRAM and not a peripheral here, so a read
   # of it is a synchronous external abort.
@@ -305,8 +305,8 @@
   # The boards' RK806 init tables, which would put 800 mV on vdd_cpu_lit_s0
   # and vdd_cpu_big_s0, have no caller: the rails are at the PMIC's power-on
   # defaults, which RK3576Dxe now logs ("CpuMaxFreq: vdd_cpu_...") on a board
-  # with PcdCpuMaxFreqSupported.  Going higher means raising those rails first
-  # -- an undervolted core does not fail politely.  The setup option "CPU
+  # with PcdCpuMaxFreqSupported.  Going higher means raising those rails first,
+  # because an undervolted core does not fail politely.  The setup option "CPU
   # Maximum Frequency" (PcdCpuMaxFreq, RK3576Dxe CpuMaxFreq.c) is the one path
   # that does, on boards that set PcdCpuMaxFreqSupported.
   #
@@ -351,7 +351,7 @@
   gRockchipTokenSpaceGuid.PcdRk860xRegulatorBuses|{ 0x1 }
   gRockchipTokenSpaceGuid.PcdRk860xRegulatorTags|{ 0 }
 
-  # UART0 - Serial Terminal (RK3576: 0x2AD40000, 1.5 Mbaud)
+  # UART0: Serial Terminal (RK3576: 0x2AD40000, 1.5 Mbaud)
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x2AD40000
   gRockchipTokenSpaceGuid.PcdSerialPortSendDelay|500000
   gRockchipTokenSpaceGuid.PcdUartClkInHz|24000000
@@ -365,7 +365,7 @@
 
   #
   # ARM Generic Interrupt Controller.
-  # RK3576 has a GIC-400 (GICv2) -- there are no redistributors, so
+  # RK3576 has a GIC-400 (GICv2). There are no redistributors, so
   # PcdGicRedistributorsBase is deliberately not set here.
   #
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x2A701000
@@ -379,13 +379,13 @@
   gEmbeddedTokenSpaceGuid.PcdMetronomeTickPeriod|1000
 
   #
-  # DesignWare SD Controller (MSHC) - sdmmc @ 0x2A310000
+  # DesignWare SD Controller (MSHC): sdmmc @ 0x2A310000
   #
   gRK3576TokenSpaceGuid.PcdSdmmcBaseAddr|0x2A310000
   gRockchipTokenSpaceGuid.PcdRkSdmmcBaseAddress|0x2A310000
 
   #
-  # DesignWare SD/eMMC Controller (SDHCI) - sdhci @ 0x2A330000
+  # DesignWare SD/eMMC Controller (SDHCI): sdhci @ 0x2A330000
   #
   gRK3576TokenSpaceGuid.PcdSdhciBaseAddr|0x2A330000
   gRockchipTokenSpaceGuid.PcdDwcSdhciBaseAddress|0x2A330000
@@ -422,7 +422,7 @@
   # today.
   #
   # ECAM compat mode.  AUTO picks NXPMX6 for Windows, which claims
-  # PCIE_BUS_COUNT buses of ECAM from PCIE_CFG_BASE -- measured on CM5-IO
+  # PCIE_BUS_COUNT buses of ECAM from PCIE_CFG_BASE, measured on CM5-IO
   # 2026-09-18 as `seg0 [0] base=0x20000000 bus 1..15`, i.e. 15 MB from
   # 0x20000000.  The root bridge's _CRS puts its 32-bit memory window at
   # 0x20200000..0x20FFFFFF, so 13 MB of the two overlap.
@@ -431,12 +431,12 @@
   # port can go: a PCI-to-PCI bridge forwards non-prefetchable memory through
   # 32-bit Base/Limit registers, so the 2 GB window at 0x900000000 is out of
   # reach for it.  The NVMe's BAR0 is 64-bit non-prefetchable, and Linux
-  # places it at 0x20200000 -- the first address in the overlap.  Windows
+  # places it at 0x20200000, the first address in the overlap.  Windows
   # enumerates the device, matches stornvme, and then fails arbitration with
   # CM_PROB_NORMAL_CONFLICT.
   #
   # SINGLE_DEV claims one bus instead, at PCIE_CFG_BASE + 0x8000, which does
-  # not reach 0x20200000 -- and it was tried, 2026-09-18, and hangs Windows in
+  # not reach 0x20200000. It was tried on 2026-09-18 and hangs Windows in
   # the kernel just after ExitBootServices.  AcpiFixupPcieEcam says why in its
   # own comment: that mode turns McfgDeviceFiltering off, which "will hide the
   # root port and may cause the system to lock-up with certain endpoints that
@@ -463,23 +463,19 @@
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePathDefault|L""
   gRK3576TokenSpaceGuid.PcdFdtOverrideOverlayPathDefault|L""
   #
-  # ACPI fan control (setup option, backs PcdAcpiFanControl below): off unless
-  # a board turns it on.  A DynamicHii default must be set here explicitly.
+  # Fan Mode (setup option, backs PcdAcpiFanControl below): 0, Always on, no
+  # fan SSDT.  A DynamicHii default must be set here explicitly.
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
-  #
-  # Fan on/off (setup option, backs PcdCoolingFan below): on, at full speed.
-  # Only shown on a board with PcdPwmFanSpeedDefault set.
-  #
-  gRK3576TokenSpaceGuid.PcdCoolingFanDefault|1
   #
   # CPU idle states (setup option, backs PcdAcpiCpuIdleStates below): off,
   # which installs the WFI-only _LPI table (AcpiTables/CpuIdleWfi.asl) that
   # Windows needs for a sane "% Processor Utility".  On adds core power-down
-  # (AcpiTables/CpuIdle.asl).  edk2-rk3588 publishes no _LPI at all, so that
-  # is not upstream behaviour to inherit, and core power-down stops the
-  # core's generic timer on a SoC with no always-on timer frame Windows could
-  # use instead.  Turn it on per board once a board has run with it.
+  # through PSCI CPU_SUSPEND (AcpiTables/CpuIdle.asl, "RKLPI"), and that
+  # does not boot Windows: on 2026-11-26 Windows 11 23H2 bugchecked at boot
+  # with HAL_INITIALIZATION_FAILED (0x5C) 0x113, 0x21, 0xFFFFF79C0001C1F8, 0
+  # on the TaishanPi 3M and on the ROCK 4D (CpuIdle.asl has the details).
+  # Keep it off until RKLPI is fixed.
   #
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|0
   #
@@ -497,17 +493,26 @@
   # 594 MHz, so the higher rail and clock are a choice, not a default.
   #
   gRK3576TokenSpaceGuid.PcdGpuRail775Default|0
-  # NPU for an ACPI OS (setup option, backs PcdAcpiNpu below): off.  When on,
-  # RK3576Dxe sets the NPU rail, powers the NPU domains and sets its clock,
-  # and RK3576AcpiPlatformDxe installs the NPU SSDT (Npu.asl).
+  # NPU for an ACPI OS (setup option, backs PcdAcpiNpu below): on since
+  # 2026-11-26.  It only does something on a board that can set the NPU
+  # rail (PcdRk806I2cBase), which is also the only board that shows the
+  # option.  When on, RK3576Dxe sets the NPU rail, powers the NPU domains
+  # and sets its clock, and RK3576AcpiPlatformDxe installs the NPU SSDT
+  # (Npu.asl).
   #
-  gRK3576TokenSpaceGuid.PcdAcpiNpuDefault|0
+  gRK3576TokenSpaceGuid.PcdAcpiNpuDefault|1
   #
-  # Video decoder for an ACPI OS (setup option, backs PcdAcpiVdec below): off.
-  # When on, RK3576Dxe powers PD_VDEC and RK3576AcpiPlatformDxe installs the
-  # decoder SSDT (Vdec.asl).
+  # Video decoder for an ACPI OS (setup option, backs PcdAcpiVdec below): on
+  # since 2026-11-26 (Edge decodes H.264, HEVC, VP9 and AV1 through it on
+  # the TaishanPi 3M). RK3576Dxe powers PD_VDEC and RK3576AcpiPlatformDxe
+  # installs the decoder SSDT (Vdec.asl).
   #
-  gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|0
+  gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|1
+  #
+  # USB-C DisplayPort Alt Mode (setup option, backs PcdUsbcDp below): off.
+  # Shown only where a board sets PcdUsbcDpSupported (docs/usbc-dp.md).
+  #
+  gRK3576TokenSpaceGuid.PcdUsbcDpDefault|0
   # SDIO Wi-Fi for an ACPI OS (setup option, backs PcdAcpiSdioWifi below):
   # off.  Shown only where a board sets PcdAcpiSdioWifiSupported.
   #
@@ -527,6 +532,12 @@
   gRK3576TokenSpaceGuid.PcdHwWatchdogDefault|0
   gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault|0
   gRK3576TokenSpaceGuid.PcdAcpiLedsDefault|0
+  #
+  # The SARADC and its keys for an ACPI OS (setup option, backs
+  # PcdAcpiSaradc below): off unless a board that has the SSDT says
+  # otherwise.
+  #
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault|0
   #
   # MIPI DSI screen brightness in percent (setup option, backs
   # PcdDisplayBrightness below), read only on a board with a DSI panel.
@@ -598,7 +609,7 @@
 
 [PcdsDynamicHii.common.DEFAULT]
   #
-  # Everything here binds to gRK3576DxeFormSetGuid -- the formset RK3576Dxe
+  # Everything here binds to gRK3576DxeFormSetGuid, the formset RK3576Dxe
   # actually publishes.  The RK3588 chain bound the same settings to
   # gRK3588DxeFormSetGuid, whose formset is not in this firmware at all.
   #
@@ -617,11 +628,6 @@
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq|L"CpuMaxFreq"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault
 
   #
-  # Cooling
-  #
-  gRK3576TokenSpaceGuid.PcdCoolingFan|L"CoolingFan"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdCoolingFanDefault
-
-  #
   # GPU
   #
   gRK3576TokenSpaceGuid.PcdGpuRail775|L"GpuRail775"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdGpuRail775Default
@@ -635,6 +641,10 @@
   # Video decoder
   #
   gRK3576TokenSpaceGuid.PcdAcpiVdec|L"AcpiVdec"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiVdecDefault
+  #
+  # USB-C DisplayPort Alt Mode
+  #
+  gRK3576TokenSpaceGuid.PcdUsbcDp|L"UsbcDp"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdUsbcDpDefault
   # SDIO Wi-Fi
   #
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|L"AcpiSdioWifi"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault
@@ -649,6 +659,7 @@
   gRK3576TokenSpaceGuid.PcdHwWatchdog|L"HwWatchdog"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdHwWatchdogDefault
   gRK3576TokenSpaceGuid.PcdAcpiPwrKey|L"AcpiPwrKey"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault
   gRK3576TokenSpaceGuid.PcdAcpiLeds|L"AcpiLeds"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiLedsDefault
+  gRK3576TokenSpaceGuid.PcdAcpiSaradc|L"AcpiSaradc"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault
   gRK3576TokenSpaceGuid.PcdFdtCompatMode|L"FdtCompatMode"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtCompatModeDefault
   gRK3576TokenSpaceGuid.PcdFdtForceGop|L"FdtForceGop"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtForceGopDefault
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides|L"FdtSupportOverrides"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdFdtSupportOverridesDefault

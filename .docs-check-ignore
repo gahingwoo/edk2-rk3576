@@ -1,0 +1,9 @@
+# Names the docs mention that are real but not files or definitions of this
+# repository (scripts/check-docs).  One fnmatch pattern per line.
+
+# made by scripts/setup-host.sh and CI, not tracked
+devicetree/mainline/upstream*
+# schematic net name
+SARADC_IN0_BOOT
+# a udev property
+LIBINPUT_CALIBRATION_MATRIX

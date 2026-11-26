@@ -95,7 +95,6 @@
   gRK3576TokenSpaceGuid.PcdStatusLedGpio
   gRK3576TokenSpaceGuid.PcdStatusLedGpioPolarity
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault
-  gRK3576TokenSpaceGuid.PcdCoolingFanDefault
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault
@@ -110,12 +109,17 @@
   gRK3576TokenSpaceGuid.PcdTsadcTshutTemp
   gRK3576TokenSpaceGuid.PcdAcpiNpuDefault
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported
+  gRK3576TokenSpaceGuid.PcdUsbcDpSupported
+  gRK3576TokenSpaceGuid.PcdUsbcDpDefault
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiDefault
   gRK3576TokenSpaceGuid.PcdPin40Supported
   gRK3576TokenSpaceGuid.PcdPin40UartDefault
   gRK3576TokenSpaceGuid.PcdPin40RhProxyDefault
   gRK3576TokenSpaceGuid.PcdHwWatchdogDefault
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported
   gRK3576TokenSpaceGuid.PcdAcpiPwrKeyDefault
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcSupported
+  gRK3576TokenSpaceGuid.PcdAcpiSaradcDefault
   gRK3576TokenSpaceGuid.PcdAcpiLedsSupported
   gRK3576TokenSpaceGuid.PcdAcpiLedsDefault
   gRK3576TokenSpaceGuid.PcdRk806I2cBase
@@ -136,7 +140,7 @@
   gRockchipTokenSpaceGuid.PcdNetworkTimeSyncDefault
 
 [Pcd]
-  # Dynamic display PCDs — variable write service must be available (see [Depex]).
+  # Dynamic display PCDs: variable write service must be available (see [Depex]).
   gRK3588TokenSpaceGuid.PcdDisplayConnectorsMask
   gRK3588TokenSpaceGuid.PcdDisplayModePreset
   gRK3588TokenSpaceGuid.PcdDisplayModeCustom
@@ -157,18 +161,19 @@
   gRK3576TokenSpaceGuid.PcdFdtCompatMode
   gRK3576TokenSpaceGuid.PcdFdtForceGop
   gRK3576TokenSpaceGuid.PcdAcpiFanControl
-  gRK3576TokenSpaceGuid.PcdCoolingFan
   gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStates
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq
   gRK3576TokenSpaceGuid.PcdGpuRail775
   gRK3576TokenSpaceGuid.PcdAcpiNpu
   gRK3576TokenSpaceGuid.PcdAcpiVdec
+  gRK3576TokenSpaceGuid.PcdUsbcDp
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi
   gRK3576TokenSpaceGuid.PcdPin40Uart
   gRK3576TokenSpaceGuid.PcdPin40RhProxy
   gRK3576TokenSpaceGuid.PcdHwWatchdog
   gRK3576TokenSpaceGuid.PcdAcpiPwrKey
   gRK3576TokenSpaceGuid.PcdAcpiLeds
+  gRK3576TokenSpaceGuid.PcdAcpiSaradc
   gRK3576TokenSpaceGuid.PcdFdtSupportOverrides
   gRK3576TokenSpaceGuid.PcdFdtOverrideFixup
   gRK3576TokenSpaceGuid.PcdFdtOverrideBasePath

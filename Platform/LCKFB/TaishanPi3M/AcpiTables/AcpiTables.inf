@@ -63,12 +63,16 @@
   # Hardware watchdog WDAT, installed only when enabled in setup
   # (PcdHwWatchdog).
   $(RK_COMMON_ACPI_DIR)/Wdat.aslc
-  # RK806 power button SSDT, installed only when enabled in setup
-  # (PcdAcpiPwrKey) on a board that reaches its RK806 (PcdRk806I2cBase).
-  $(RK_COMMON_ACPI_DIR)/PwrKey.asl
+  # No RK806 power button SSDT (PwrKey.asl): nothing is fitted on this
+  # board's PWRON net (PcdAcpiPwrKeySupported FALSE).  The Recovery key is
+  # the power button instead (RecoveryKey.asl).
   # LED SSDT, installed only when "Board LEDs for the OS" is enabled in
   # setup (PcdAcpiLeds).
   Leds.asl
+  # SARADC SSDT with the Recovery key as the power button, installed only
+  # when "ADC keys for the OS" is enabled in setup (PcdAcpiSaradc, on by
+  # default on this board).
+  RecoveryKey.asl
 
 [Packages]
   ArmPkg/ArmPkg.dec

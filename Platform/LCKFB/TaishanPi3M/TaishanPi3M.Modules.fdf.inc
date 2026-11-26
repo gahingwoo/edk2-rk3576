@@ -1,5 +1,5 @@
 ##
-#  TaishanPi3M.Modules.fdf.inc -- FV_MAIN module list for the LCKFB TaishanPi 3M
+#  TaishanPi3M.Modules.fdf.inc: FV_MAIN module list for the LCKFB TaishanPi 3M
 #
 #  Included by Silicon/Rockchip/RK3576/RK3576.fdf through the
 #  RK_PLATFORM_FVMAIN_MODULES define in TaishanPi3M.dsc.

@@ -1,6 +1,6 @@
 /** @file
  *
- *  RkSdmmcDxe platform helper library — RK3576 variant.
+ *  RkSdmmcDxe platform helper library, RK3576 variant.
  *
  *  Differences from the RK3588 version:
  *    - RK3576 has no SCMI clock provider (no SCP/MHU mailbox).  The
@@ -11,7 +11,7 @@
  *    - Card-detect uses the DW MMC CDETECT hardware register (offset 0x050,
  *      bit0 = cdetect_n) via GPIO0 PA7 configured as function 1 (sdmmc0_detn)
  *      by SdmmcIoMux(). The vendor and mainline Linux DTS for ROCK 4D have no
- *      cd-gpios at all — they also rely on the hardware CDETECT path.
+ *      cd-gpios at all; they also rely on the hardware CDETECT path.
  *
  *  Copyright (c) 2023, Mario Bălănică <mariobalanica02@gmail.com>
  *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>

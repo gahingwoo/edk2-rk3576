@@ -79,7 +79,7 @@ InitializeDisplayVariables (
          );
 
   //
-  // DisplayModePreset — write boot-time default hint var for VFR, then seed
+  // DisplayModePreset: write boot-time default hint var for VFR, then seed
   // the runtime PCD if no user preference is stored in NVRAM.
   //
   PcdData = PcdGetPtr (PcdDisplayModePresetDefault);
@@ -161,7 +161,7 @@ InitializeDisplayVariables (
   }
 
   //
-  // DisplayModeCustom — write boot-time default for VFR, seed PCD on first boot.
+  // DisplayModeCustom: write boot-time default for VFR, seed PCD on first boot.
   //
   PcdData = PcdGetPtr (PcdDisplayModeCustomDefault);
   ASSERT (PcdData != NULL);
@@ -190,7 +190,7 @@ InitializeDisplayVariables (
   }
 
   //
-  // DisplayConnectorsPriority — seed from board connector list on first boot.
+  // DisplayConnectorsPriority: seed from board connector list on first boot.
   //
   Size   = sizeof (ConnectorsPriority);
   Status = !Reset ? gRT->GetVariable (
@@ -327,7 +327,7 @@ ResetKeyHandler (
   IN EFI_KEY_DATA  *KeyData
   )
 {
-  DEBUG ((DEBUG_INFO, "RK3576Dxe: Display reset key pressed — restoring default settings.\n"));
+  DEBUG ((DEBUG_INFO, "RK3576Dxe: Display reset key pressed, restoring default settings.\n"));
 
   InitializeDisplayVariables (TRUE);
 

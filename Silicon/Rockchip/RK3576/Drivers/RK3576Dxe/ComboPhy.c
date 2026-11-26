@@ -7,8 +7,8 @@
  *  originally in RK3576Dxe.c and is consolidated here.
  *
  *  RK3576 combo PHY topology:
- *    combphy0_ps  (0x2B050000)  — PCIe2x1l0 only  (M.2 NVMe slot)
- *    combphy1_psu (0x2B060000)  — DRD1 USB3 or PCIe2x1l1
+ *    combphy0_ps  (0x2B050000)  PCIe2x1l0 only  (M.2 NVMe slot)
+ *    combphy1_psu (0x2B060000)  DRD1 USB3 or PCIe2x1l1
  *
  *  Copyright (c) 2026, gahingwoo <huhuvmb88@outlook.com>
  *
@@ -49,7 +49,7 @@
 #endif
 
 /* -----------------------------------------------------------------------
- * Rk3576CombPhy0InitPcie — Naneng combphy0 in PCIe mode
+ * Rk3576CombPhy0InitPcie: Naneng combphy0 in PCIe mode
  * (pcie2x1l0, ROCK 4D M.2 NVMe slot)
  * ----------------------------------------------------------------------- */
 STATIC
@@ -98,7 +98,7 @@ Rk3576CombPhy0InitPcie (
    * The vendor BSP combphy driver writes this UNCONDITIONALLY for PCIe, and
    * the vendor rk-pcie stack is what actually links this board's NVMe at Gen2
    * (mainline dw-pcie fails to probe here).  Mainline gates SSC on a DT flag
-   * (default off), so a mainline-derived sequence omits it — but without SSC
+   * (default off), so a mainline-derived sequence omits it, but without SSC
    * the link reaches L0, drops into Recovery (0x0D) and collapses, so the NVMe
    * never enumerates.  Only touch bits[5:4]: an earlier attempt cleared bits
    * [7:4] (mask 0xF0) which clobbered adjacent fields and made things worse;
@@ -128,7 +128,7 @@ Rk3576CombPhy0InitPcie (
   MmioWrite32 (Phy + 0x34U, 0x56U);
 
   /*
-   * force_det_out — "Tx detect Rx" erratum workaround.  The vendor combphy
+   * force_det_out: "Tx detect Rx" erratum workaround.  The vendor combphy
    * driver sets it for every rk3576 PCIe PHY (cfg->force_det_out = true):
    * PHYREG25 (0x19<<2 = 0x64) bit5 = 1.  Without it the receiver-detect during
    * Detect is unreliable, so the link can reach L0 yet fail to hold it.  Not in
@@ -155,7 +155,7 @@ Rk3576CombPhy0InitPcie (
 }
 
 /* -----------------------------------------------------------------------
- * Rk3576CombPhy1InitPcie — Naneng combphy1 in PCIe mode
+ * Rk3576CombPhy1InitPcie: Naneng combphy1 in PCIe mode
  * (pcie2x1l1; user opted to use USB-A PIPE as a second PCIe lane)
  * ----------------------------------------------------------------------- */
 STATIC
@@ -197,7 +197,7 @@ Rk3576CombPhy1InitPcie (
   MmioWrite32 (PhyGrf + 0x0004U, (0x6000U << 16) | 0x4000U);
 
   /* 5. PHY tuning (same Naneng IP settings as PHY0 PCIe) */
-  /* SSC downward spread spectrum, bits[5:4]=01 — see the note in
+  /* SSC downward spread spectrum, bits[5:4]=01; see the note in
    * Rk3576CombPhy0InitPcie (the vendor combphy driver writes this for PCIe). */
   Val  = MmioRead32 (Phy + 0x7CU);
   Val &= ~0x30U;
@@ -217,7 +217,7 @@ Rk3576CombPhy1InitPcie (
   MmioWrite32 (Phy + 0x30U, 0x88U);
   MmioWrite32 (Phy + 0x34U, 0x56U);
 
-  /* force_det_out (Tx detect Rx erratum) — PHYREG25 (0x64) bit5 = 1.
+  /* force_det_out (Tx detect Rx erratum): PHYREG25 (0x64) bit5 = 1.
    * See the note in Rk3576CombPhy0InitPcie. */
   Val  = MmioRead32 (Phy + 0x64U);
   Val |= (1U << 5);
@@ -227,7 +227,7 @@ Rk3576CombPhy1InitPcie (
   MmioWrite32 (PHP_CRU_SOFTRST_CON (1), (1U << (8 + 16)) | 0U);
 
   /* Deassert the GRF-based PHY reset (pipe_phy_grf_reset): PhyGrf 0x14
-   * bits[1:0] = 0x3 — see the note in Rk3576CombPhy0InitPcie. */
+   * bits[1:0] = 0x3; see the note in Rk3576CombPhy0InitPcie. */
   MmioWrite32 (PhyGrf + 0x14U, (0x3U << 16) | 0x3U);
 
   MicroSecondDelay (10 * 1000);
@@ -236,7 +236,7 @@ Rk3576CombPhy1InitPcie (
 }
 
 /* -----------------------------------------------------------------------
- * Rk3576CombPhy1InitUsb3 — Naneng combphy1 in USB3 mode
+ * Rk3576CombPhy1InitUsb3: Naneng combphy1 in USB3 mode
  * (DRD1 PIPE3 interface, ROCK 4D USB-A Type-A port)
  * ----------------------------------------------------------------------- */
 STATIC
@@ -325,7 +325,7 @@ Rk3576CombPhy1InitUsb3 (
 }
 
 /* -----------------------------------------------------------------------
- * SetupComboPhyVariables — read NVRAM variables (or use defaults) and
+ * SetupComboPhyVariables: read NVRAM variables (or use defaults) and
  * seed PcdComboPhy0/1Mode so ApplyComboPhyVariables() sees the right mode.
  * ----------------------------------------------------------------------- */
 VOID
@@ -385,7 +385,7 @@ SetupComboPhyVariables (
 }
 
 /* -----------------------------------------------------------------------
- * ApplyComboPhyVariables — dispatch to hardware init based on PCD modes.
+ * ApplyComboPhyVariables: dispatch to hardware init based on PCD modes.
  * ----------------------------------------------------------------------- */
 VOID
 EFIAPI
@@ -420,7 +420,7 @@ ApplyComboPhyVariables (
       );
 
     DEBUG ((DEBUG_INFO,
-      "RK3576Dxe: PCIe0 APB ok — LTSSM_STATUS=0x%08X"
+      "RK3576Dxe: PCIe0 APB ok, LTSSM_STATUS=0x%08X"
       " (link training deferred to PciHostBridgeDxe)\n",
       MmioRead32 (0x2A200000U + 0x0300U)
       ));
@@ -437,7 +437,7 @@ ApplyComboPhyVariables (
       Rk3576CombPhy1InitPcie ();
       break;
     default:
-      DEBUG ((DEBUG_INFO, "RK3576Dxe: ComboPHY1 mode %u — skipping init\n", Phy1Mode));
+      DEBUG ((DEBUG_INFO, "RK3576Dxe: ComboPHY1 mode %u, skipping init\n", Phy1Mode));
       break;
   }
 }

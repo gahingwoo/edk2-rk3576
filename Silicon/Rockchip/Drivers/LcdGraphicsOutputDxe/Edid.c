@@ -380,7 +380,7 @@ EdidDetailedTimingToDisplayMode (
     if ((DisplayMode->HFrontPorch + DisplayMode->HSync) >= HBlanking) {
       DEBUG ((
         DEBUG_WARN,
-        "%a: DTD HSync(%u)+HFP(%u) >= HBlanking(%u) — bad DTD, rejecting\n",
+        "%a: DTD HSync(%u)+HFP(%u) >= HBlanking(%u): bad DTD, rejecting\n",
         __func__,
         DisplayMode->HSync,
         DisplayMode->HFrontPorch,
@@ -411,7 +411,7 @@ EdidDetailedTimingToDisplayMode (
     if ((DisplayMode->VFrontPorch + DisplayMode->VSync) >= VBlanking) {
       DEBUG ((
         DEBUG_WARN,
-        "%a: DTD VSync(%u)+VFP(%u) >= VBlanking(%u) — bad DTD, rejecting\n",
+        "%a: DTD VSync(%u)+VFP(%u) >= VBlanking(%u): bad DTD, rejecting\n",
         __func__,
         DisplayMode->VSync,
         DisplayMode->VFrontPorch,
@@ -500,7 +500,7 @@ EdidGetPreferredModeDetailed (
         if (Sum != 0) {
           DEBUG ((
             DEBUG_WARN,
-            "%a: Block 0 checksum INVALID (sum=0x%02X) — DDC data unreliable, skipping DTD parse\n",
+            "%a: Block 0 checksum INVALID (sum=0x%02X): DDC data unreliable, skipping DTD parse\n",
             __func__,
             Sum
             ));

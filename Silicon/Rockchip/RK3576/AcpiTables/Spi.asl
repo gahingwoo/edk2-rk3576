@@ -8,7 +8,7 @@
  *    SPI2  @ 0x2ad10000, GIC_SPI 118 → ACPI 150
  *    SPI3  @ 0x2ad20000, GIC_SPI 119 → ACPI 151
  *    SPI4  @ 0x2ad30000, GIC_SPI 120 → ACPI 152
- *    SFC0  @ 0x2a340000, GIC_SPI 254 → ACPI 286 (FSPI0 — disabled, used by UEFI)
+ *    SFC0  @ 0x2a340000, GIC_SPI 254 → ACPI 286 (FSPI0, disabled, used by UEFI)
  *
  *  Copyright (c) 2022 ARM Limited. All rights reserved.
  *

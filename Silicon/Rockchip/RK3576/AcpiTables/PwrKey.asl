@@ -3,15 +3,17 @@
  *  The RK806's power key as the OS's power button.
  *
  *  Installed only with "Power button (RK806)" on in setup (PcdAcpiPwrKey,
- *  default off) on a board whose RK806 the firmware reaches
+ *  default off) on a board with a button on the RK806's PWRON pin
+ *  (PcdAcpiPwrKeySupported) whose RK806 the firmware reaches
  *  (PcdRk806I2cBase): RK3576AcpiPlatformDxe drops this SSDT otherwise
  *  (OEM table ID "RKPWRKEY").
  *
  *  The board's power button is wired to the RK806's PWRON pin, not to the
  *  SoC: ROCK 4D SW1 -> PWRON_L (schematic V1.12, Power-DC IN/RTC page);
  *  CM5-IO SW4 "PWR_KEY" -> PWRON_L on the module connector (carrier
- *  schematic 1V1); TaishanPi 3M: the KEY page's power key drives net PWRON
- *  (LCKFB project v1.4).  The PMIC reports a press and a release as
+ *  schematic 1V1).  The TaishanPi 3M's PWRON net has no key fitted (its
+ *  buttons are RECOVERY and RESET); there the Recovery key on the SARADC is
+ *  the power button (Platform/LCKFB/TaishanPi3M/AcpiTables/RecoveryKey.asl).  The PMIC reports a press and a release as
  *  PWRON_FALL and PWRON_RISE in INT_STS0 (0x77, bits 0 and 1; mainline
  *  rk808.h, rk8xx-core.c rk806_irqs, rk805-pwrkey.c) and pulls its INT line
  *  low until the status is written back.  That line is GPIO0_A6 on all three

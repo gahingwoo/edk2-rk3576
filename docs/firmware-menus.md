@@ -2,141 +2,108 @@
 
 English | [简体中文](firmware-menus.zh-CN.md)
 
-What the firmware offers before an operating system starts. Applies to all
-three boards unless a board is named.
+All three boards unless a board is named. Serial console: 1500000 8N1.
 
-Serial console: 1500000 8N1. Keys during the boot countdown: F4 resets into
-MaskROM, F9 starts Reset All Settings.
+| Key | When | Does |
+|---|---|---|
+| F4 | boot countdown | reset into MaskROM |
+| F9 | boot countdown | Reset All Settings |
+| Ctrl+Alt+F12 (F12 on serial) | anywhere | screenshot |
+| Ctrl+Alt+F11 (F11 on serial) | anywhere | debug report |
 
 ## Language
 
-The setup menus can be switched to Simplified Chinese on the front page.
-Chinese text also reaches the serial console, as UTF-8, from 0.4.1 on.
+Simplified Chinese can be chosen on the front page. Chinese text reaches the
+serial console as UTF-8.
 
 ## Screenshots
 
-Press Ctrl+Alt+F12 on a keyboard, F12 on the serial console, or the camera
-key of the on-screen keyboard. The picture is saved as
-`\uefi-screenshots\YYYYMMDD-HHMMSS.png` (`shot-NNNN.png` when the clock is not
-set) on a FAT formatted medium.
-
-"Save Screenshots To" in the platform setup picks where: Automatic (a USB
-stick first, then an SD card, then the ESP), or only one of them. A green
-square flashes in the top left corner when it is saved, yellow when there is
-nowhere to write, red when it failed. The serial log has the path.
+Ctrl+Alt+F12, F12 on the serial console, or the camera key of the on-screen
+keyboard. Saved as `\uefi-screenshots\YYYYMMDD-HHMMSS.png` (`shot-NNNN.png`
+without a set clock) on a FAT medium. "Save Screenshots To" in the platform
+setup picks Automatic (USB stick, then SD card, then the ESP) or one of them.
+A square flashes in the top left corner: green saved, yellow nowhere to
+write, red failed. The serial log has the path.
 
 ## Debug report
 
-To report a problem, save a debug report: Device Manager > Debug Report, or
-Ctrl+Alt+F11 (F11 on the serial console). It writes
-`\uefi-debug\YYYYMMDD-HHMMSS\` to the same place as screenshots:
-
-- the firmware log of this boot;
-- a summary: firmware, board, boot options, display, PCI, USB and storage
-  devices, memory map;
-- the ACPI tables and the device tree;
-- from Device Manager, a screenshot of every setup page. While it walks the
-  pages, "Collecting debug report, please do not touch anything..." stays in
-  the top left corner.
-
-Attach the folder to the
+Device Manager > Debug Report, or Ctrl+Alt+F11. It writes
+`\uefi-debug\YYYYMMDD-HHMMSS\` to the same place as screenshots: this boot's
+firmware log, a summary (firmware, board, boot options, display, PCI, USB,
+storage, memory map), the ACPI tables, the device tree and, from Device
+Manager, a screenshot of every setup page (do not touch anything while it
+runs). Attach the folder to an
 [issue](https://github.com/gahingwoo/edk2-rk3576/issues).
 
 ## Reset All Settings
 
-"Reset All Settings" on the front page, or F9 during the boot countdown
-(from a serial terminal too), puts the firmware back to how a freshly
-written board starts. It erases the whole UEFI variable store: every setup
-setting, the language, the boot options and boot order, the timeout and any
-Secure Boot keys. Nothing outside the variable store is touched.
-
-1. Choose it. A red warning asks first, with No selected.
-2. Choose Yes. The board restarts, erases the store and sets itself up as
-   on its first boot.
-3. Add back any boot options you had made by hand (an OS, a second loader),
-   for example with `bcfg boot add` in the UEFI Shell.
+On the front page, or F9 during the boot countdown. It erases the whole UEFI
+variable store (setup settings, language, boot options and order, timeout,
+Secure Boot keys) and nothing else. Answer Yes to the warning; the board
+restarts as on its first boot. Add back boot options you made by hand, for
+example with `bcfg boot add` in the UEFI Shell.
 
 ## Clock
 
-None of the boards keeps time across a power-off in the firmware. With a
-network cable in, the firmware sets its clock from NTP at every boot
-("Network Time Sync" in the platform setup, on by default):
-
-- it asks the NTP servers the DHCP server names, then pool.ntp.org and
-  time.cloudflare.com, then fixed Cloudflare and Google addresses;
-- it runs in the background while the boot menu counts down and never delays
-  the boot;
-- it gives up 10 seconds after getting an address (30 seconds without one);
-- the clock is kept in UTC.
-
-The serial log has a `NetworkTimeSync:` line with the old and the new time,
-and a `NetworkTimeSync: stage:` line saying how far it got (no link, no
-lease, DNS timeout, NTP timeout, or clock set).
+No board keeps time across a power-off. With a network cable in, the
+firmware sets the clock (UTC) from NTP at every boot ("Network Time Sync",
+on by default). It tries the DHCP server's NTP servers, then pool.ntp.org and
+time.cloudflare.com, then fixed Cloudflare and Google addresses. It runs in
+the background, never delays the boot, and gives up 10 s after getting an
+address (30 s without one). The serial log lines `NetworkTimeSync:` and
+`NetworkTimeSync: stage:` show the result. The About page shows the date
+and time each time it is opened, with "set from the network", "from the
+RTC" or "not set".
 
 ## Boot entries written by an OS
 
-On SPI NOR (ROCK 4D), boot entries an OS writes (`efibootmgr`, `bcdboot`)
-go to the flash at once.
-
-On eMMC (CM5-IO, TaishanPi 3M) they are kept in memory and lost at the next
-reset, except BootNext, unless "Save OS Variable Changes to eMMC" is on
-(off by default, marked experimental). With it on, the firmware writes them
-to the eMMC when the OS restarts or shuts down the board. Checked on the
-TaishanPi 3M on 2026-11-22 with `efibootmgr`, 3 runs.
+On SPI NOR (ROCK 4D) entries written by `efibootmgr` or `bcdboot` are saved
+at once. On eMMC (CM5-IO, TaishanPi 3M) they are lost at the next reset,
+except BootNext, unless "Save OS Variable Changes to eMMC" (experimental,
+off by default) is on; then the firmware writes them when the OS restarts
+or shuts down. Tested on the TaishanPi 3M only.
 
 ## Display
 
-On the display setup page:
+- Display setup page: "Display Mode", "Output Priority", "Force Output",
+  "Duplicate Output", "HDMI Signaling".
+- "Screen Rotation" rotates the menus, the UEFI Shell and the touch test,
+  not the OS.
+- "Screen Brightness (%)": TaishanPi 3M DSI backlight, 10 to 100%.
+- "Force UEFI GOP Display" (ACPI / Device Tree page): whether Linux keeps
+  the firmware's picture or drives the display itself ([Linux](linux.md)).
 
-- "Display Mode", "Output Priority", "Force Output", "Duplicate Output",
-  "HDMI Signaling" choose the mode and the output.
-- "Screen Rotation" turns the menus, the UEFI Shell and the touch test. An
-  operating system gets the panel as it is and rotates it itself.
-- "Screen Brightness (%)" sets the TaishanPi 3M's DSI backlight, 10 to 100%.
+## On-screen keyboard, mouse and touch
 
-"Force UEFI GOP Display" on the ACPI / Device Tree page decides whether
-Linux keeps the firmware's picture or drives the display itself
-([Linux](linux.md)).
-
-## On-screen keyboard and mouse
-
-On the TaishanPi 3M's DSI screen the small keyboard key near the top right
-corner opens an on-screen keyboard; Hide on it closes it. Its keys reach
-setup, the UEFI Shell, GRUB and the Windows boot manager.
-
-The same keyboard appears on every board as soon as a USB mouse is plugged
-in, with a mouse cursor: the wheel is Up and Down, a left click Enter and a
-right click Esc anywhere off the keyboard. The mouse part has not been run on
-a board yet (2026-11-24).
-
-## Touch (TaishanPi 3M)
-
-Touch works in the menus as keys: drag moves the highlight, a tap is Enter,
-two fingers or a long press is Esc. "Touch Test" in the boot manager shows
-where touches land.
+- TaishanPi 3M DSI screen: the keyboard key near the top right corner opens
+  the on-screen keyboard; Hide closes it. It works in setup, the UEFI Shell,
+  GRUB and the Windows boot manager.
+- Any board with a USB mouse: the keyboard and a cursor appear; wheel is
+  Up/Down, left click Enter, right click (off the keyboard) Esc. Not run on a
+  board yet.
+- Touch (TaishanPi 3M): drag moves the highlight, tap is Enter, two fingers
+  or a long press is Esc. "Touch Test" in the boot manager shows touches.
 
 ## Power off
 
-"Shut Down" on the front page, `reset -s` in the UEFI Shell and a shutdown
-from Windows power the board off. On the TaishanPi 3M (and the ROCK 4D on
-branch `rock4d-parity`, not run there) the firmware switches
-the RK806 PMIC off over I2C1 itself, and arms it for the PSCI call Windows
-makes.
+"Shut Down" on the front page, `reset -s` in the UEFI Shell, or a Windows
+shutdown. On the TaishanPi 3M and the ROCK 4D the firmware switches the RK806 PMIC off over
+I2C1, and arms it for the PSCI call Windows makes.
 
 ## Options for operating systems
 
-On the ACPI / Device Tree and CPU pages. Each takes effect at the next boot.
-Except Config Table Mode, CPU Maximum Frequency and the TaishanPi 3M's GPU voltage, all are off by default.
+On the ACPI / Device Tree page and the platform page; each takes effect at
+the next boot. Which board has which option, and the defaults:
+[settings reference](settings.md).
 
 | Option | What it does |
 |---|---|
-| Config Table Mode | ACPI + device tree (default on CM5-IO, TaishanPi 3M, and the ROCK 4D on branch `rock4d-parity`), ACPI only, or device tree only |
-| CPU Maximum Frequency | 1608 MHz on both clusters (default), or Max (2208 / 2016 MHz). On the first boot with a screen, the firmware asks once which one to use (10 s, then the current setting, 1608 MHz unless Max was chosen in Setup before; Up/Down or a drag moves, Enter or a tap chooses) and restarts if the answer changes it; the answer is kept in the variable `CpuMaxFreqAsked`, and without a screen nothing is asked. TaishanPi 3M, and the ROCK 4D on branch `rock4d-parity` |
-| GPU voltage for 702 MHz (775 mV) | on: before the OS starts, the firmware raises the GPU supply (RK806 BUCK5) from 750 to 775 mV in 6.25 mV steps, each read back, only on a plain RK3576 with the thermal shutdown armed, and never higher; the Windows GPU driver then runs 702 MHz instead of 594 MHz. Off: 750 mV, and a rail an earlier boot raised is put back. More heat, so keep a fan running. On by default on the TaishanPi 3M; shown only on boards that offer it |
-| CPU Idle States | tells the OS about the cores' idle states; off means WFI only |
-| Fan | on (default): the board fan runs at full speed from power-on into the OS; off: held off. No speed setting, because a partial speed is pulsed and the pulsing makes the fan whine. TaishanPi 3M, CM5-IO, and the ROCK 4D on branch `rock4d-parity` (J16). With Fan Control by ACPI Thermal Zone on, the OS can still start the fan |
-| Fan Control by ACPI Thermal Zone | lets Windows run the fan from the big-core temperature; off means the fan stays at the speed the firmware set |
-| NPU (experimental) | powers the NPU and declares it in ACPI, for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu); TaishanPi 3M, and the ROCK 4D on branch `rock4d-parity` |
-| 40-pin UART (experimental) | switches the header's UART pins to their UARTs and declares the UARTs in ACPI as COM ports, for the woa-rk3576 rk3xuart driver; never the debug console UART. TaishanPi 3M; the CM5-IO and ROCK 4D on their board branches |
-| 40-pin GPIO/I2C/SPI for apps (experimental) | switches the header's I2C and SPI pins to those buses and declares an ACPI RhProxy device, so Windows applications can use the header's GPIO, I2C and SPI (Windows.Devices.Gpio, .I2c, .Spi). Same boards |
-| Save OS Variable Changes to eMMC | see above |
+| Config Table Mode | ACPI + device tree, ACPI only, or device tree only |
+| CPU Maximum Frequency | 1608 MHz on both clusters, or Max (2208 / 2016 MHz). On the first boot with a screen the firmware asks once (10 s timeout, kept in variable `CpuMaxFreqAsked`) and restarts if the answer changes it |
+| GPU voltage for 702 MHz (775 mV) | raises the GPU supply (RK806 BUCK5) from 750 to 775 mV before the OS starts, so the Windows GPU driver runs 702 MHz instead of 594 MHz. Only on a plain RK3576 with thermal shutdown armed. Off puts a raised rail back to 750 mV. Keep a fan running |
+| CPU Idle States | off: WFI only. On adds core power-down (PSCI CPU_SUSPEND), and Windows 11 23H2 then stops at boot with bugcheck 0x5C (HAL_INITIALIZATION_FAILED, 0x113): keep it off for Windows |
+| Fan Mode | Always on: full speed from power-on, never off. Performance / Balanced / Quiet: Windows switches the fan with the big-core temperature, on at 50 / 60 / 70 C, off 10 C lower. Off: the fan stays at 0%, only for a board with enough passive cooling (the 115 C _CRT and the 120 C TSHUT still apply) |
+| NPU (experimental) | powers the NPU and declares it in ACPI for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) |
+| 40-pin UART (experimental) | header UART pins as COM ports for the woa-rk3576 rk3xuart driver (never the debug UART) |
+| 40-pin GPIO/I2C/SPI for apps (experimental) | header GPIO, I2C and SPI for Windows.Devices.Gpio, .I2c, .Spi (ACPI RhProxy) |
+| Save OS Variable Changes to eMMC | see [above](#boot-entries-written-by-an-os) |

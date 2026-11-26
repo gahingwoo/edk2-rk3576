@@ -43,12 +43,15 @@
   PcdLib
   PrintLib
   UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
 
 [Guids]
   gEfiIfrFrontPageGuid                          ## CONSUMES ## GUID (formset class: listed on the front page)
+  gRockchipTimeSourceGuid                       ## SOMETIMES_CONSUMES ## Variable:L"TimeSource"
 
 [Protocols]
   gEfiDevicePathProtocolGuid                    ## PRODUCES
+  gEfiHiiConfigAccessProtocolGuid               ## PRODUCES
   gArmScmiClock2ProtocolGuid                    ## SOMETIMES_CONSUMES
   gEfiSmbiosProtocolGuid                        ## SOMETIMES_CONSUMES
   gEfiGraphicsOutputProtocolGuid                ## SOMETIMES_CONSUMES

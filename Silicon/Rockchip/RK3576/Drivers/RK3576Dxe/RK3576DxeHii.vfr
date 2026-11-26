@@ -1,6 +1,6 @@
 /** @file
  *
- *  RK3576 DXE HII form — ACPI / Device Tree mode switcher.
+ *  RK3576 DXE HII form: ACPI / Device Tree mode switcher.
  *
  *  Copyright (c) 2018 Andrei Warkentin <andrey.warkentin@gmail.com>
  *  Copyright (c) 2020, ARM Limited. All rights reserved.
@@ -147,16 +147,6 @@ formset
 
     efivarstore UINT8,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
-      name  = CoolingFan,
-      guid  = RK3576DXE_FORMSET_GUID;
-
-    efivarstore UINT8,
-      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
-      name  = CoolingFanSupported,
-      guid  = RK3576DXE_FORMSET_GUID;
-
-    efivarstore UINT8,
-      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
       name  = AcpiCpuIdleStates,
       guid  = RK3576DXE_FORMSET_GUID;
 
@@ -183,6 +173,16 @@ formset
     efivarstore UINT8,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
       name  = AcpiSdioWifiSupported,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = UsbcDp,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      name  = UsbcDpSupported,
       guid  = RK3576DXE_FORMSET_GUID;
 
     efivarstore UINT8,
@@ -223,6 +223,16 @@ formset
     efivarstore UINT8,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
       name  = AcpiLedsSupported,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = AcpiSaradc,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      name  = AcpiSaradcSupported,
       guid  = RK3576DXE_FORMSET_GUID;
 
     //
@@ -299,7 +309,7 @@ formset
       guid  = RK3576DXE_FORMSET_GUID;
 
     //
-    // Main form — ROCK 4D / RK3576 Settings
+    // Main form: ROCK 4D / RK3576 Settings
     //
     form formid = 1,
       title  = STRING_TOKEN(STR_FORM_SET_TITLE);
@@ -349,24 +359,6 @@ formset
           default     = FixedPcdGet8 (PcdCpuMaxFreqDefault),
           option text = STRING_TOKEN(STR_CPU_MAX_FREQ_DEFAULT), value = CPU_MAX_FREQ_DEFAULT, flags = 0;
           option text = STRING_TOKEN(STR_CPU_MAX_FREQ_MAX),     value = CPU_MAX_FREQ_MAX,     flags = 0;
-        endoneof;
-      endif;
-
-      //
-      // Only on a board whose fan the firmware drives
-      // (PcdPwmFanSpeedDefault not 0).  On or off, no speed.
-      //
-      suppressif ideqval CoolingFanSupported == 0;
-        subtitle text = STRING_TOKEN(STR_NULL_STRING);
-        subtitle text = STRING_TOKEN(STR_COOLING_SUBTITLE);
-
-        oneof varid = CoolingFan,
-          prompt      = STRING_TOKEN(STR_COOLING_FAN_PROMPT),
-          help        = STRING_TOKEN(STR_COOLING_FAN_HELP),
-          flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
-          default     = FixedPcdGet8 (PcdCoolingFanDefault),
-          option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
-          option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
         endoneof;
       endif;
 
@@ -476,8 +468,11 @@ formset
               help        = STRING_TOKEN(STR_ACPI_FAN_CONTROL_HELP),
               flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
               default     = FixedPcdGet8 (PcdAcpiFanControlDefault),
-              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
-              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_ALWAYS_ON),   value = ACPI_FAN_MODE_ALWAYS_ON,   flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_PERFORMANCE), value = ACPI_FAN_MODE_PERFORMANCE, flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_BALANCED),    value = ACPI_FAN_MODE_BALANCED,    flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_QUIET),       value = ACPI_FAN_MODE_QUIET,       flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_OFF),         value = ACPI_FAN_MODE_OFF,         flags = 0;
             endoneof;
           endif;
 
@@ -509,6 +504,16 @@ formset
             option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
             option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
           endoneof;
+          suppressif ideqval UsbcDpSupported == 0;
+            oneof varid = UsbcDp,
+              prompt      = STRING_TOKEN(STR_USBC_DP_PROMPT),
+              help        = STRING_TOKEN(STR_USBC_DP_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              default     = FixedPcdGet8 (PcdUsbcDpDefault),
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+            endoneof;
+          endif;
           suppressif ideqval AcpiSdioWifiSupported == 0;
             oneof varid = AcpiSdioWifi,
               prompt      = STRING_TOKEN(STR_ACPI_SDIO_WIFI_PROMPT),
@@ -561,6 +566,16 @@ formset
               help        = STRING_TOKEN(STR_ACPI_LEDS_HELP),
               flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
               default     = FixedPcdGet8 (PcdAcpiLedsDefault),
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+            endoneof;
+          endif;
+          suppressif ideqval AcpiSaradcSupported == 0;
+            oneof varid = AcpiSaradc,
+              prompt      = STRING_TOKEN(STR_ACPI_SARADC_PROMPT),
+              help        = STRING_TOKEN(STR_ACPI_SARADC_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              default     = FixedPcdGet8 (PcdAcpiSaradcDefault),
               option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
               option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
             endoneof;
@@ -642,7 +657,7 @@ formset
 
     //
     // ====================================================================
-    // formid 0x1000  —  Display Settings
+    // formid 0x1000: Display Settings
     // ====================================================================
     //
     form formid = 0x1000,
@@ -789,7 +804,7 @@ formset
         subtitle text = STRING_TOKEN(STR_NULL_STRING);
 
         //
-        // Output priority (orderedlist) — display all connector slots, hidden by
+        // Output priority (orderedlist): display all connector slots, hidden by
         // suppressif when not present in ConnectorsMask.
         //
         orderedlist varid = DisplayConnectorsPriority.Order,
@@ -894,17 +909,17 @@ formset
 
     //
     // ====================================================================
-    // formid 0x1002  —  ComboPHY Mode
+    // formid 0x1002: ComboPHY Mode
     // ROCK 4D has two Naneng combo PHYs:
-    //   PHY0 (combphy0_ps)  — PCIe2x1l0 only      (M.2 NVMe slot)
-    //   PHY1 (combphy1_psu) — USB3 DRD1 or PCIe    (USB-A Type-A)
+    //   PHY0 (combphy0_ps):  PCIe2x1l0 only      (M.2 NVMe slot)
+    //   PHY1 (combphy1_psu): USB3 DRD1 or PCIe    (USB-A Type-A)
     // ====================================================================
     //
     form formid = 0x1002,
         title  = STRING_TOKEN(STR_COMBO_PHY_FORM_TITLE);
 
         //
-        // PHY0 — only PCIe is wired on ROCK 4D; SATA/USB3 not supported by RK3576 PHY0
+        // PHY0: only PCIe is wired on ROCK 4D; SATA/USB3 not supported by RK3576 PHY0
         //
         grayoutif FixedPcdGetBool (PcdComboPhy0Switchable) == 0;
           oneof varid = ComboPhy0Mode.Mode,
@@ -922,7 +937,7 @@ formset
         endif;
 
         //
-        // PHY1 — USB3 or PCIe on ROCK 4D
+        // PHY1: USB3 or PCIe on ROCK 4D
         //
         grayoutif FixedPcdGetBool (PcdComboPhy1Switchable) == 0;
           oneof varid = ComboPhy1Mode.Mode,

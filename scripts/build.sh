@@ -32,12 +32,12 @@ if [ "${2:-}" = "clean" ]; then
 fi
 
 EDK2="$(edk2_dir)"
-[ -d "$EDK2/BaseTools" ] || die "EDK2 not found at $EDK2 -- run scripts/setup-host.sh first"
+[ -d "$EDK2/BaseTools" ] || die "EDK2 not found at $EDK2; run scripts/setup-host.sh first"
 
 step "Preparing build environment"
 
 # tools_def is regenerated from the template every time so the patch stays
-# idempotent -- patching an already-patched file used to double the flags.
+# idempotent: patching an already-patched file used to double the flags.
 mkdir -p "$ROOT/Conf"
 cp "$EDK2/BaseTools/Conf/tools_def.template" "$ROOT/Conf/tools_def.txt"
 cp "$EDK2/BaseTools/Conf/build_rule.template" "$ROOT/Conf/build_rule.txt"
@@ -50,7 +50,7 @@ case "$(uname -m)" in
     aarch64) export GCC5_AARCH64_PREFIX="" GCC_AARCH64_PREFIX="" ;;
     x86_64)
         command -v aarch64-linux-gnu-gcc >/dev/null \
-            || die "aarch64-linux-gnu-gcc missing -- run scripts/setup-host.sh"
+            || die "aarch64-linux-gnu-gcc missing; run scripts/setup-host.sh"
         export GCC5_AARCH64_PREFIX="aarch64-linux-gnu-" GCC_AARCH64_PREFIX="aarch64-linux-gnu-"
         ;;
     *) die "unsupported host architecture: $(uname -m)" ;;
@@ -76,7 +76,7 @@ LOG="$ROOT/Build/build-$BOARD.log"
 mkdir -p "$ROOT/Build"
 
 # RK3576Dxe.c prints __DATE__ __TIME__ as "RK3576Dxe: build ...", which is the
-# only stamp in the image that says which build is running -- the
+# only stamp in the image that says which build is running.  The
 # "UEFI firmware (version ...)" banner comes from a module that is almost never
 # recompiled and reads the same in every image.  __DATE__ only moves when this
 # file is compiled, so touch it every build.  The predecessor script did this
@@ -110,7 +110,7 @@ set -e
 if [ "$rc" -ne 0 ] || grep -qE '^build\.py\.\.\..*error|error [0-9A-F]{4}:' "$LOG"; then
     echo
     grep -E 'error [0-9A-F]+:|\.[ch]:[0-9]+:.*error:' "$LOG" | head -20 || true
-    die "build failed (exit $rc) -- full log: $LOG"
+    die "build failed (exit $rc), full log: $LOG"
 fi
 
 FV="$ROOT/Build/$PLATFORM_NAME/RELEASE_GCC/FV/BL33_AP_UEFI.Fv"

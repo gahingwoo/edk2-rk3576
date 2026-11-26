@@ -45,12 +45,11 @@
  *      headphone codec is declared (below), only when PcdAnalogAudioPreset
  *      is TRUE, without a jack-detect line: the jack's detect is an analog
  *      SARADC input here, not a GPIO.
- *    - The LEDs (dts:48-66) and HDMI itself: not declared on the CM5-IO
- *      either.
+ *    - HDMI itself: not declared on the CM5-IO either.  The LEDs (dts:48-66)
+ *      are in Leds.asl, an SSDT installed only with "Board LEDs for the OS".
  *
  *  The fan header (J16, "40PIN/FAN/LED/KEY" page) is in Fan.asl, a separate
- *  SSDT installed only when fan control by thermal zone is enabled in
- *  setup.
+ *  SSDT installed only when "Fan Mode" in setup is not Always on.
  *
  *  Copyright (c) 2020, Pete Batard <pete@akeo.ie>
  *  Copyright (c) 2018-2020, Andrey Warkentin <andrey.warkentin@gmail.com>
@@ -255,9 +254,10 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // delays in the PHY, none in the MAC, and the firmware sets the MAC TX
     // delay to 0 (PcdGmac0TxDelay in ROCK4D.dsc).  Gmac0.asl says
     // "rgmii-rxid", as on the CM5-IO; Windows' dwc_eqos does not read
-    // phy-mode, and inherits the delays the PHY's straps and the firmware
-    // leave.  The firmware writes only the LED register of the RTL8211F
-    // (RealtekPhy.c), not its delays.  Its reset (GMAC0_RSTn, GPIO2_B5,
+    // phy-mode, and inherits the delays the firmware leaves: RealtekPhy.c
+    // sets the RTL8211F's TX and RX delays itself (both on for rgmii-id),
+    // because their power-on values come from straps and without the TX
+    // delay no frame the board sends was accepted.  Its reset (GMAC0_RSTn, GPIO2_B5,
     // dts:710) is not declared, as on the CM5-IO; the firmware leaves it
     // deasserted.
     include ("Gmac0.asl")

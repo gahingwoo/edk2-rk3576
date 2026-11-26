@@ -1,7 +1,7 @@
 ## @file
 #
 #  UEFI Platform Description for Radxa ROCK 4D (RK3576)
-#  Ported from ROCK 5B (RK3588) — uses RK3588Platform as base,
+#  Ported from ROCK 5B (RK3588); uses RK3588Platform as base,
 #  overrides SoC-specific PCDs for RK3576.
 #
 #  Board:  Radxa ROCK 4D
@@ -34,7 +34,7 @@
   RK_PLATFORM_FVMAIN_MODULES     = $(PLATFORM_DIRECTORY)/ROCK4D.Modules.fdf.inc
   FIRMWARE_VER                   = "0.1"
 
-  # ROCK4D / RK3576: SD/eMMC temporarily disabled — enabling RK_SD_ENABLE
+  # ROCK4D / RK3576: SD/eMMC temporarily disabled: enabling RK_SD_ENABLE
   # broke boot (no serial). Need to bisect: SD lib init or RkSdmmcDxe binding
   # likely hangs on RK3576 GPIO/CRU mismatch. Re-enable after debug.
   # ROCK4D / RK3576: SD + eMMC re-enabled now that DEBUG_INFO output is
@@ -43,7 +43,7 @@
   #   eMMC : DwcSdhciDxe + SdMmcPciHcDxe → DwcSdhciPlatformLib (RK3576)
   # PHY/IO mux retained from SPL; UEFI only ungates clocks + reads CD GPIO.
   DEFINE RK_SD_ENABLE            = TRUE
-  DEFINE RK_EMMC_ENABLE          = FALSE  # ROCK 4D has no onboard eMMC — avoids 3-min Cmd0 timeout
+  DEFINE RK_EMMC_ENABLE          = FALSE  # ROCK 4D has no onboard eMMC; avoids 3-min Cmd0 timeout
   DEFINE RK_NOR_FLASH_ENABLE     = TRUE
   # FVB / NV-Variable stack enabled.
   # PcdRkAtagsBase=0 prevents the ATAGS bus-fault (BL31 TZASC on RK3576).
@@ -90,16 +90,16 @@
   DEFINE NETWORK_IP6_ENABLE      = TRUE   # Ip6Dxe in FV; runtime toggle via NetworkStackConfigDxe HII
   DEFINE NETWORK_PXE_BOOT_ENABLE = TRUE
   DEFINE NETWORK_HTTP_BOOT_ENABLE = TRUE  # DnsDxe+HttpDxe+HttpUtilitiesDxe+HttpBootDxe in FV
-  DEFINE NETWORK_TLS_ENABLE      = TRUE   # TlsDxe+TlsAuthConfigDxe — required for HTTPS boot
+  DEFINE NETWORK_TLS_ENABLE      = TRUE   # TlsDxe+TlsAuthConfigDxe, required for HTTPS boot
   DEFINE RK_X86_EMULATOR_ENABLE  = FALSE
-  # Static SMBIOS tables (Type 0/1/2/3/4/7/9/11/16/17/19/32) — required so
+  # Static SMBIOS tables (Type 0/1/2/3/4/7/9/11/16/17/19/32), required so
   # UiApp banner shows "<NNNN> MB RAM" and OS sees system info.
   DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
   # USB hosts:
   #   DWC3 DRD0 @ 0x23000000 (USB-C, u2phy0 + Samsung USBDP combo PHY)
   #     UEFI phase: HS-only (UsbDpPhyDxe not ported to RK3576).
   #     Kernel phase: SS+HS (phy-rockchip-usbdp.c in mainline Linux inits USBDP PHY).
-  #   DWC3 DRD1 @ 0x23400000 (USB-A, u2phy1 + combphy1) - SS + HS.
+  #   DWC3 DRD1 @ 0x23400000 (USB-A, u2phy1 + combphy1): SS + HS.
   # PCDs (DwcXhci base addresses) are set further down. RK3576 has no
   # EHCI/OHCI -> set count to 0 below.
   DEFINE RK_USB_ENABLE             = TRUE
@@ -115,15 +115,15 @@
 [LibraryClasses.common]
   # The only library this board overrides.  The RK3576 replacements for
   # SdramLib / RkSdmmcPlatformLib / DwcSdhciPlatformLib / OtpLib /
-  # ResetSystemLib / GpioLib / PCI used to be listed here on both boards --
+  # ResetSystemLib / GpioLib / PCI used to be listed here on both boards;
   # they are the SoC's, not the board's, and now live in RK3576Base.dsc.inc.
   RockchipPlatformLib|$(PLATFORM_DIRECTORY)/Library/RockchipPlatformLib/RockchipPlatformLib.inf
 
 ################################################################################
 [PcdsFixedAtBuild.common]
   #
-  # Everything the SoC decides -- memory map, UART, GIC, CRU, SD/eMMC/FSPI
-  # bases, I2C, ComboPHY, FDT defaults, network defaults -- is in
+  # Everything the SoC decides (memory map, UART, GIC, CRU, SD/eMMC/FSPI
+  # bases, I2C, ComboPHY, FDT defaults, network defaults) is in
   # Silicon/Rockchip/RK3576/RK3576Base.dsc.inc.  What follows is only what
   # actually differs between this board and the ArmSoM CM5-IO.
   #
@@ -175,6 +175,11 @@
   # The same limit and mode rk3576.dtsi gives Linux; an OS without a TSADC
   # driver had no over-temperature protection at all before this.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
+
+  # A real button on the RK806's PWRON_L: SW1 (schematic V1.12, Power-DC
+  # IN/RTC page, TS_018B).  The "Power button (RK806)" setup option is
+  # offered once the firmware also reaches the RK806 (PcdRk806I2cBase).
+  gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported|TRUE
 
   # SARADC converter clock (1 MHz from xin24m) for the DSDT's \_SB.ADC0:
   # the Maskrom key and the headphone jack (Saradc.asl).  Clocks only.
@@ -242,16 +247,18 @@
   gRK3576TokenSpaceGuid.PcdPwmFanSpeedDefault|100
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs|60000
 
-  # Fan control by ACPI thermal zone (AcpiTables/Fan.asl, all levels 100%):
-  # the setup option exists on this board and is off, as on the other two.
+  # Fan Mode (AcpiTables/Fan.asl, all levels 100%): the setup option exists
+  # on this board, and defaults to Always on (0, no fan SSDT), as on the
+  # other two.
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
+
   # The 40-pin header: Rock4dPin40.c describes it, AcpiTables has its UART
   # and RhProxy SSDTs.  Both setup options stay off by default.
   gRK3576TokenSpaceGuid.PcdPin40Supported|TRUE
   # The LEDs for an ACPI OS (AcpiTables/Leds.asl, woa-rk3576 rkled): the
   # setup option exists on this board and is off by default.
   gRK3576TokenSpaceGuid.PcdAcpiLedsSupported|TRUE
-  gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
 
   #
   # HDMI audio: at ExitBootServices, mclk_sai6 = 12.288 MHz and the HDMI
@@ -279,7 +286,7 @@
   #
   # NATIVE degrades safely.  If the EDID cannot be read, LcdGraphicsOutputDxe
   # finds no usable mode and falls back to predefined mode 0, 640x480, which
-  # every monitor displays -- a worse picture, not a blank one.
+  # every monitor displays: a worse picture, not a blank one.
   #
   # CM5-IO went through the same thing for a different reason and is already
   # NATIVE; see the matching block in CM5IO.dsc.

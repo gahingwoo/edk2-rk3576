@@ -4,32 +4,29 @@
  *  (J16) as ACPI cooling devices, with active trip points on the big core
  *  thermal zone.
  *
- *  The same model, trip points and register writes as the TaishanPi 3M's
- *  Fan.asl (Platform/LCKFB/TaishanPi3M/AcpiTables/Fan.asl), which explains
- *  them in full: three ACPI 1.0 PNP0C0B fans, each with a power resource,
- *  for one physical fan, because the inbox Windows ACPI driver only turns
- *  fans on (D0) and off (D3).  Only what differs is here.
+ *  The same model, trip points, hysteresis and register writes as the
+ *  TaishanPi 3M's Fan.asl (Platform/LCKFB/TaishanPi3M/AcpiTables/Fan.asl),
+ *  which explains them in full.  Only what differs is here.
  *
- *  Installed only when "Fan Control by ACPI Thermal Zone" is enabled in
- *  setup (PcdAcpiFanControl, default off on this board).  With it off the
- *  firmware leaves the fan where it starts it, PcdPwmFanSpeedDefault = 100%.
+ *  Installed only when "Fan Mode" in setup (PcdAcpiFanControl) is not
+ *  "Always on", the default.  With "Always on" the firmware leaves the fan
+ *  where it starts it, PcdPwmFanSpeedDefault = 100%.  Otherwise the trip
+ *  points follow the mode's on-point T, \_SB.FTON, which
+ *  RK3576AcpiPlatformDxe patches (Performance 50 C, Balanced 60 C, Quiet
+ *  70 C):
  *
- *    _AC2 45.0 C  FAN0  100%
- *    _AC1 60.0 C  FAN1  100%
- *    _AC0 75.0 C  FAN2  100%
- *    below all     -      0%
+ *          on at   off below   fan    duty
+ *    _AC2  T       T - 10 C    FAN0   100%
+ *    _AC1  T + 10  T + 5 C     FAN1   100%
+ *    _AC0  T + 20  T + 15 C    FAN2   100%
+ *    below all      -           -       0%
  *
  *  Every level is 100%, so the fan is on or off and the pin never switches
- *  at a partial duty: a pulsed fan whined on the TaishanPi 3M, and the user
- *  decided on on/off only for every board (2026-11-25).  This fan has not
- *  been run at all yet.
+ *  at a partial duty, as on the TaishanPi 3M.
  *
  *  PWM writes: PWM2 channel 5, 0x2ADE5000 (vendor rk3576.dtsi:6131-6141;
  *  PwmFanSetSpeed in this board's RockchipPlatformLib.c), normal polarity,
- *  left by the firmware enabled in continuous mode.  DUTY (+0x14) as a
- *  fraction of PERIOD (+0x10), then 0x00040004 to ENABLE (+0x04), the
- *  CTRL_UPDATE_EN commit with its write mask; nothing is written unless
- *  ENABLE reads back PWM_EN and PWM_CLK_EN set and PERIOD is not 0.
+ *  left by the firmware enabled in continuous mode.
  *
  *  NOT RUN ON A ROCK 4D.  It compiles.
  *
@@ -55,6 +52,11 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
 
     Mutex (FNMX, 0)
     Name (FNST, 7)  // bit n: FPRn on
+
+    // Fan mode on-point, tenths of a kelvin: 3232 Performance (50.0 C),
+    // 3332 Balanced (60.0 C), 3432 Quiet (70.0 C).  Patched by
+    // RK3576AcpiPlatformDxe; every value keeps the WordConst encoding.
+    Name (FTON, 3332)
 
     // Duty in percent for each level, FAN0..FAN2, and with all off
     Name (FDL0, 100)
@@ -90,13 +92,28 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
     Method (FNSE, 2, Serialized) {
       // Arg0: bit, Arg1: 1 on / 0 off
       Acquire (FNMX, 0xFFFF)
+      Local0 = FNST
       If (Arg1) {
         FNST |= Arg0
       } Else {
         FNST &= (0x7 ^ Arg0)
       }
+      Local1 = (FNST != Local0)
       FNUP ()
       Release (FNMX)
+
+      // The level's trip point moved (hysteresis): have OSPM re-read them
+      If (Local1) {
+        Notify (\_SB.TZ01, 0x81)
+      }
+    }
+
+    // Arg0: level bit, Arg1: on-point, Arg2: off-point
+    Method (FTRP, 3, NotSerialized) {
+      If (FNST & Arg0) {
+        Return (Arg2)
+      }
+      Return (Arg1)
     }
 
     PowerResource (FPR0, 0, 0) {
@@ -138,11 +155,17 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
 
   // Active trip points, tenths of a kelvin (2732 = 0.0 C), greatest first.
   Scope (\_SB.TZ01) {
-    Name (_AC0, 3482)   // 75.0 C
+    Method (_AC0, 0, NotSerialized) {
+      Return (\_SB.FTRP (4, \_SB.FTON + 200, \_SB.FTON + 150))
+    }
     Name (_AL0, Package () { \_SB.FAN2 })
-    Name (_AC1, 3332)   // 60.0 C
+    Method (_AC1, 0, NotSerialized) {
+      Return (\_SB.FTRP (2, \_SB.FTON + 100, \_SB.FTON + 50))
+    }
     Name (_AL1, Package () { \_SB.FAN1 })
-    Name (_AC2, 3182)   // 45.0 C
+    Method (_AC2, 0, NotSerialized) {
+      Return (\_SB.FTRP (1, \_SB.FTON, \_SB.FTON - 100))
+    }
     Name (_AL2, Package () { \_SB.FAN0 })
   }
 }

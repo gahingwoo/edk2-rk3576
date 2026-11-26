@@ -42,7 +42,7 @@ DbgKdContinueApi2 = 0x0000313C
 DBG_CONTINUE      = 0x00010002
 DBG_EXCEPTION_NOT_HANDLED = 0x80010001
 MANIPULATE_SIZE   = 56          # sizeof(DBGKD_MANIPULATE_STATE64); not verified
-                                # for ARM64 -- if continue is ignored, this is
+                                # for ARM64.  If continue is ignored, this is
                                 # the first thing to doubt.
 out_id = INITIAL_PACKET_ID
 
@@ -175,7 +175,7 @@ while True:
     else:
         # A read of zero bytes on a cdc-acm node that has been unplugged never
         # turns into an error, so this used to spin at 100% CPU holding a
-        # deleted /dev/ttyACM1 while the probe came back as ttyACM0 -- and the
+        # deleted /dev/ttyACM1 while the probe came back as ttyACM0, and the
         # wrapper could not move on, because it waits for this process to
         # exit.  Exit instead and let the wrapper find the new node.
         empty += 1
@@ -232,8 +232,8 @@ while True:
             # A retransmission repeats the id *and* the contents. Keying on the
             # id alone hid almost everything: KDCOM alternates data packet ids
             # between ...000 and ...001, so from the third packet on every new
-            # one looked like a resend and was answered but never printed --
-            # 2026-10-01, a 67-module boot logged as three.
+            # one looked like a resend and was answered but never printed
+            # (2026-10-01: a 67-module boot logged as three).
             key = (pid, csum)
             n = seen.get(key, 0) + 1
             seen[key] = n
@@ -251,7 +251,7 @@ while True:
                 if api == DbgKdPrintStringApi:
                     # Take the rest of the packet rather than trusting slen.
                     # DBGKD_DEBUG_IO's string length sits at a different offset
-                    # than assumed here and the text came out clipped -- "BD:
+                    # than assumed here and the text came out clipped: "BD:
                     # Boot Debugger Initiali" for "...Initialized".  The packet
                     # length already bounds the payload, so there is nothing to
                     # gain from the field and a truncated message can hide the
@@ -331,13 +331,13 @@ while True:
             if ptype == 5 and last_sent is not None:
                 # RESEND: the target did not get our last packet and will not
                 # move until it does. Without this the boot stops right after
-                # the first CONTINUE -- seen on CM5-IO 2026-09-19, where the
+                # the first CONTINUE.  Seen on CM5-IO 2026-09-19, where the
                 # exchange ended on `KD<ctrl RESEND>` and Windows never drew a
                 # frame.
                 os.write(fd, last_sent)
                 show(f"KD<ctrl {name}> id=0x{pid:08x} -> resent {len(last_sent)}B")
             elif ptype == 6:
-                # RESET: the target is resynchronising -- it does this when the
+                # RESET: the target is resynchronising.  It does this when the
                 # boot debugger hands over to the kernel's.  KDCOM answers a
                 # RESET with a RESET and restarts packet numbering; log it and
                 # do nothing and the kernel-side debugger never comes up, which

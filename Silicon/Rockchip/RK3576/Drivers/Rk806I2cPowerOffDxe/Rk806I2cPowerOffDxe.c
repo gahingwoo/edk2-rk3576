@@ -490,7 +490,11 @@ Rk806I2cPowerOffDxeInitialize (
 
   Rk806DisarmAtBoot ();
 
-  mPwrKey = (PcdGet8 (PcdAcpiPwrKey) != 0);
+  //
+  // Only on a board with a button on PWRON (PcdAcpiPwrKeySupported): a
+  // stored AcpiPwrKey = 1 on any other board is ignored.
+  //
+  mPwrKey = FixedPcdGetBool (PcdAcpiPwrKeySupported) && (PcdGet8 (PcdAcpiPwrKey) != 0);
   if (mPwrKey) {
     Rk806PwrKeyPin ();
   }

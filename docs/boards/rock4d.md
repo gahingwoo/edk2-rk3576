@@ -2,50 +2,55 @@
 
 English | [简体中文](rock4d.zh-CN.md)
 
-The firmware lives on the ROCK 4D's 16 MB SPI NOR and boots Fedora from
-NVMe. The image now carries ACPI tables next to the device tree, as on the
-other two boards; Windows has not been started on this board yet.
-
-What the TaishanPi 3M has and this board has the hardware for is on branch
-`rock4d-parity`, built and not run on a ROCK 4D: thermal zones, the fan on
-J16 at full speed (and "Fan Control by ACPI Thermal Zone"), power-off
-through the RK806, "CPU Maximum Frequency", the NPU option, "GPU voltage for
-702 MHz (775 mV)" (off by default), the GPU rail
-report, HDMI audio, the ES8388 headphone jack and "Armbian (U-Boot)" for an
-Armbian SD card. The full list, per board: [board features](../BOARD-FEATURES.md).
+The firmware lives on the 16 MB SPI NOR and boots Fedora or Windows 11 23H2
+from NVMe. It installs ACPI tables next to the device tree.
 
 ## What works
 
-| | In the firmware | Linux (Fedora) |
-|---|---|---|
-| HDMI | works, 2560x1440 from the monitor's EDID | works |
-| NVMe | works | works, boot disk |
-| USB | works; USB-C at USB 2.0 | works |
-| Ethernet | works | works |
-| SD card | not recorded | not recorded |
-| UFS | not tried | not tried |
-| Windows | not tried (ACPI tables built, not run) | |
+Firmware and Linux: board-tested after release 0.2.1 (version not recorded);
+0.2.1 was run by a user on a v1.12 board (XMC SPI flash). Windows: `main` on
+2026-11-26, on a 12 GB board.
 
-The board was run again after release 0.2.1; which version was not
-recorded. 0.2.1 itself was run on a v1.12 board (XMC SPI flash) by a user:
-it reached the boot menu and started a Fedora installer from USB. The
-display, I2C and menu changes since then are shared with the other two
-boards and were run there.
+| | In the firmware | Linux (Fedora) | Windows 11 23H2 |
+|---|---|---|---|
+| HDMI | works, 2560x1440 from EDID | works | works, GPU driver, 1920x1080 at 60 Hz |
+| NVMe | works | works, boot disk | works, boot disk |
+| USB | works; USB-C at USB 2.0 | works | not recorded |
+| Ethernet | works | works | works, 1 Gbps |
+| Audio | | not recorded | headphones, headset microphone, HDMI |
+| NPU, video decoder | | not recorded | work |
+| Wi-Fi, Bluetooth (USB module) | | not recorded | no driver |
+| SD card | not recorded | not recorded | not recorded |
+| UFS | not tried | not tried | no driver |
 
 ## Before you start
 
 - Serial console (optional): 1500000 8N1.
-- MaskROM: connect a USB-A to USB-A cable from the board's upper USB 3.0
-  USB-A port to the computer, and hold the MaskROM button while plugging in
-  the power supply. The USB-C port carries power only.
+- MaskROM: USB-A to USB-A cable from the upper USB 3.0 port to the computer,
+  then hold the MaskROM button while plugging in the power supply. The USB-C
+  port carries power only.
 
 ## Install the firmware
 
-Write the `ROCK4D-spi` image to the SPI NOR
-([flashing](../flash.md#radxa-rock-4d)). The UEFI settings are kept on the
-same flash; writing the image resets them.
+Write the `ROCK4D-spi` image to the SPI NOR ([flashing](../flash.md#radxa-rock-4d)).
+This resets the UEFI settings, which live on the same flash. Then
+[Linux](../linux.md) or Windows (below).
 
-Then: [Linux](../linux.md).
+## Windows
+
+- Use the [`ci` build](../flash.md#the-rolling-ci-build): release 0.4.1 has
+  no ACPI tables for this board. Ethernet needs a build from 2026-11-26 or
+  later (the RTL8211F RGMII delays); older ones get a link but no DHCP
+  address.
+- Install with [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)
+  (Windows to NVMe). It can also put Armbian on an SD card next to Windows;
+  that needs the SPL of branch `rock4d-parity`, not on `main` yet.
+- Keep "CPU Idle States" Disabled (the default), or Windows stops at boot
+  with bugcheck 0x5C.
+- Built, not run yet: the LEDs, the EEPROM, the 40-pin header (off by
+  default), fan control on J16, the Maskrom key and headphone jack detect
+  (SARADC), the 775 mV GPU option. Details: [board features](../BOARD-FEATURES.md),
+  [Windows](../windows.md).
 
 ## Board facts
 
