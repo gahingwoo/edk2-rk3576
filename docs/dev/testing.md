@@ -9,6 +9,17 @@ on pull requests, and checks that the variable store in each SD and eMMC
 image is where `package.sh` expects it. It runs nothing on hardware. A
 successful build of `main` replaces the `ci` pre-release.
 
+The docs are checked too. `docs.yml` runs `scripts/check-docs --edk2`
+(relative links, repository paths in backticks, Pcd and DEFINE names, em and
+en dashes) and `scripts/gen-docs --check` (the sections between
+`<!-- generated:NAME -->` and `<!-- /generated -->`, made from
+`boards/*.conf`, `scripts/package.sh` and `RK3576.fdf`). The
+`docs-generated` job of `build.yml` checks the sections made from the
+boards' `features.json` and the settings sector in the built images. When a
+check fails, run `scripts/gen-docs` (with `--features <dir>` holding the
+`features.json` files, for example from `gh run download`) and commit the
+result.
+
 ## On a board
 
 There is one unit of each board. Results go into the merge commit

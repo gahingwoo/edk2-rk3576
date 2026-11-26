@@ -1,6 +1,6 @@
 # Board features: TaishanPi 3M, CM5-IO, ROCK 4D
 
-English | [简体中文](BOARD-FEATURES.zh-CN.md)
+Kept as written on 2026-11-26; the current page is [BOARD-FEATURES](../BOARD-FEATURES.md).
 
 Inventory of 2026-11-25 (ROCK 4D column updated 2026-11-26), written for the
 feature freeze: every setup option, ACPI device, firmware feature and Windows

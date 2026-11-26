@@ -11,7 +11,7 @@
 | `db` 之后马上报 `Write LBA failed` | 等几秒再写一次。 |
 | 写完后启动的还是旧固件 | 写入没到 100%。`rd` 之前重新写。 |
 | CM5-IO 不从 SD 卡启动 | BootROM 先试 eMMC；只有 eMMC 上没有引导程序时才用 SD 卡。泰山派 3M 单独一张 SD 卡永远启动不了（见[刷写固件](flash.zh-CN.md#立创泰山派-3m)）。 |
-| 更新后设置丢了 | 写入覆盖了 43648 扇区。用"保留分区"或[刷写固件](flash.zh-CN.md#只更新固件保留其他内容)里的 `dd` 范围。 |
+| 更新后设置丢了 | 写入覆盖了存放设置的 <!-- generated:nvdata-sector -->43648<!-- /generated --> 扇区。用"保留分区"或[刷写固件](flash.zh-CN.md#只更新固件保留其他内容)里的 `dd` 范围。 |
 | Linux 或 Windows 里加的启动项重启后没了 | eMMC 上要打开 "Save OS Variable Changes to eMMC"（见[固件菜单](firmware-menus.zh-CN.md#操作系统写入的启动项)）。恢复全部设置也会删掉手动加的启动项。 |
 | 时间不对 | 断电后没有一块板子能保持时间。插网线（启动时 NTP 校时），再让操作系统同步。 |
 | 泰山派 3M 屏幕只亮背光，触摸能用 | DSI 排线松了。断电后重新插好。 |

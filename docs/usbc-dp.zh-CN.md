@@ -2,7 +2,7 @@
 
 [English](usbc-dp.md) | 简体中文
 
-分支 `usbc-dp`。泰山派 3M 或 CM5-IO 的 USB-C 口通过 DisplayPort Alt Mode 接显示器，在 Windows 下作为 HDMI 旁边的第二块屏。这里写固件这一半；Windows 显示驱动那一半见 wddm-mali-g52 的 `docs/USBC-DP.md`（分支 `usbc-dp`）。**还没有在板子上跑过。** 默认关闭：选项关着时启动流程没有任何变化。
+已在 `main` 上，默认关闭。泰山派 3M 或 CM5-IO 的 USB-C 口通过 DisplayPort Alt Mode 接显示器，在 Windows 下作为 HDMI 旁边的第二块屏。这里写固件这一半；Windows 显示驱动那一半见 wddm-mali-g52 的 [USBC-DP.md](https://github.com/gahingwoo/wddm-mali-g52/blob/main/docs/USBC-DP.md)。**还没有在板子上跑过。** 选项关着时启动流程没有任何变化。
 
 ## 用法
 
@@ -34,7 +34,7 @@
 
 Windows 对端口控制器有这几条路：UCSI 需要一个 PPM（跑 PD 的 EC 固件），这两块板子都没有；`UcmTcpciCx` 是微软的软件 PD 引擎，带 DisplayPort alt mode 通知，但客户端接口按 TCPCI 设计（FUSB302 不是 TCPCI，客户端要把 TCPCI 语义映射到它基于 FIFO token 的寄存器上）；UcmCx 客户端则要自带一整套 PD 协议栈。这几条都需要 Windows 的 I2C、GPIO 驱动和 FUSB302 的 ACPI 设备；泰山派上 FUSB302 所在的 I2C2 还和 HYM8563 共用，而固件的运行时 RTC 服务正在替 Windows 驱动 HYM8563。
 
-对"开机前插好"这个目标，固件是最省事的地方：不要操作系统驱动，不要 ACPI 设备，运行时也没有总线共享问题，这份代码以后还能用来出开机画面。热插拔需要 Windows 驱动，那是第二阶段（见 wddm-mali-g52 的 `docs/USBC-DP.md`）。
+对"开机前插好"这个目标，固件是最省事的地方：不要操作系统驱动，不要 ACPI 设备，运行时也没有总线共享问题，这份代码以后还能用来出开机画面。热插拔需要 Windows 驱动，那是第二阶段（见 wddm-mali-g52 的 [USBC-DP.md](https://github.com/gahingwoo/wddm-mali-g52/blob/main/docs/USBC-DP.md)）。
 
 ## 为什么总是两条 DP lane
 
@@ -55,12 +55,11 @@ Windows 对端口控制器有这几条路：UCSI 需要一个 PPM（跑 PD 的 E
 
 ## 板上测试（泰山派 3M）
 
-1. 从 PR 的 `build` 运行里下载 artifact `tspi3m-firmware`，取 `TaishanPi3M-emmc.img`。只写固件那一段，Windows 和 UEFI 设置都保留（docs/flash.md 的"更新固件并保留其他内容"）：
-   `dd if=TaishanPi3M-emmc.img of=firmware.bin bs=512 skip=64 count=43584`，然后 `rkdeveloptool db rk3576_spl_loader.bin`、`rkdeveloptool wl 64 firmware.bin`、`rkdeveloptool rd`。
+1. 从 PR 的 `build` 运行里下载 artifact `tspi3m-firmware`，取 `TaishanPi3M-emmc.img`。只写固件那一段，Windows 和 UEFI 设置都保留（[刷写固件](flash.zh-CN.md#只更新固件保留其他内容)）。
 2. 选项关（默认）：USB-C 上接 USB 硬盘启动一次 Windows，必须和以前一样（USB-C 仍是 USB 3，日志没有新行）。
 3. 把 DP 显示器或转接头插到 USB-C，开机进设置：**USB-C DisplayPort (experimental)** = Enabled，保存、重启。
 4. 操作系统启动时看串口：`DP alt mode:` 那行（要有 `config` 和 `HPD`）以及 `UsbDpPhy DP: PD_VO1 on` 那行。驱动的 `UsbcDp` 仍为 0 时，Windows 必须照常在 HDMI 上进桌面。
-5. 再装 wddm-mali-g52 的 `usbc-dp`，把 `UsbcDp` 设为 1（见它的 `docs/USBC-DP.md`）。两个插入方向各启动三次。
+5. 再装 wddm-mali-g52 的 `usbc-dp`，把 `UsbcDp` 设为 1（见 [USBC-DP.md](https://github.com/gahingwoo/wddm-mali-g52/blob/main/docs/USBC-DP.md)）。两个插入方向各启动三次。
 
 回退：设置里改回 Disabled，或刷回 main 的固件。
 

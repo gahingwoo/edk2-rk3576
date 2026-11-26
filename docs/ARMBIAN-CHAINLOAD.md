@@ -153,7 +153,7 @@ The ROCK 4D's SPL and firmware FIT are in SPI NOR (idblock 0x8000, FIT
 SPI NOR, so the request lives on the SD card at sector 0x3FFF. Two switches,
 both off by default:
 
-- SPL `CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST` (`uboot/v2026.10/0002-...patch`):
+- SPL `CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST` (`uboot/v2026.10/0002-rockchip-spl-armbian-once-a-request-on-the-SD-card.patch`):
   reads and erases the record on the SD card and accepts only target 1. On a
   requested boot `spl_spi_get_uboot_offs()` returns 0 (no FIT there; with
   `SPL_RAW_IMAGE_SUPPORT` off the SPL moves on to the card). Otherwise the
@@ -164,11 +164,11 @@ both off by default:
   writes the request to SD sector 0x3FFF. No slot and no copying: sector
   0x10000 of an Armbian card is inside its root partition.
 
-`boards/rock4d.conf` has `build-spl.sh` build U-Boot v2026.10's own
-`rock-4d-rk3576_defconfig` and DT with both patches,
-`uboot/v2026.10/rock4d/spl.config` (XMC flash for v1.12 boards,
-`SPL_MMC_WRITE`, the two switches) and DDR blob v1.09. Because it replaces the
-SPL every ROCK 4D image ships, it stays on branch `rock4d-parity` until a
+On branch `rock4d-parity` (not on `main`), `boards/rock4d.conf` has
+`build-spl.sh` build U-Boot v2026.10's own `rock-4d-rk3576_defconfig` and DT
+with both patches, that branch's `rock4d/spl.config` (XMC flash for v1.12
+boards, `SPL_MMC_WRITE`, the two switches) and DDR blob v1.09. Because it
+replaces the SPL every ROCK 4D image ships, it stays on that branch until a
 board has booted it.
 
 ## What can be booted this way
@@ -247,19 +247,11 @@ in `boards/tspi3m.conf`.
 ## Board test (TaishanPi 3M)
 
 Needs an Armbian SD card (mainline U-Boot image), serial console at 1500000
-and MaskROM access. The update writes only the SPL and the firmware, so UEFI
-variables stay (nvdata at sector 43648).
+and MaskROM access.
 
-1. Flash:
-
-   ```bash
-   dd if=TaishanPi3M-emmc.img of=spl.bin bs=512 skip=64 count=400
-   dd if=TaishanPi3M-emmc.img of=firmware.bin bs=512 skip=16384 count=27264
-   rkdeveloptool db rk3576_spl_loader.bin
-   rkdeveloptool wl 64 spl.bin
-   rkdeveloptool wl 16384 firmware.bin
-   rkdeveloptool rd
-   ```
+1. Flash `TaishanPi3M-emmc.img` keeping the partitions
+   ([flashing](flash.md#updating-the-firmware-and-keeping-everything-else)):
+   it writes the SPL and the firmware, and the UEFI variables stay.
 
 2. No card, boot: firmware and Windows as before; no `ArmbianOnce/1` line.
 3. Card in, boot: `ArmbianOnce/1: not booting the U-Boot FIT on the SD card,

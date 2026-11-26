@@ -118,14 +118,14 @@ eMMC 用户区，512 字节扇区：
 ROCK 4D 的 SPL 和固件 FIT 在 SPI NOR 上（idblock 0x8000，FIT 0x60000），启动顺序是 `"same-as-spl"`，然后 SD 卡。
 SPL 不方便写 SPI NOR，所以请求放在 SD 卡的 0x3FFF 扇区。两个开关，默认都关：
 
-- SPL `CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST`（`uboot/v2026.10/0002-...patch`）：在 SD 卡上读取并擦除记录，
+- SPL `CONFIG_SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST`（`uboot/v2026.10/0002-rockchip-spl-armbian-once-a-request-on-the-SD-card.patch`）：在 SD 卡上读取并擦除记录，
   只接受目标 1。有请求时 `spl_spi_get_uboot_offs()` 返回 0（那里没有 FIT；`SPL_RAW_IMAGE_SUPPORT` 关闭时 SPL 会转向 SD 卡）。
   没有请求时偏移为 `CONFIG_SYS_SPI_U_BOOT_OFFS`（0x60000）。擦除后卡上没有 U-Boot FIT：SPL 启动固件。
 - EDK2 `PcdArmbianOnceRequestOnSd`（RockchipPkg.dec）：在 SPI NOR（0x8000..0x5FFFF）里找 SPL 标记，只在 SD 卡 0x4000
   扇区找 FIT，把请求写到 SD 卡 0x3FFF 扇区。没有槽位，也不复制：Armbian 卡的 0x10000 扇区在它的根分区里。
 
-`boards/rock4d.conf` 让 `build-spl.sh` 用 U-Boot v2026.10 自带的 `rock-4d-rk3576_defconfig` 和 DT，加上两个补丁、
-`uboot/v2026.10/rock4d/spl.config`（v1.12 板子的 XMC 闪存、`SPL_MMC_WRITE`、两个开关）和 DDR 程序 v1.09 构建。
+在分支 `rock4d-parity` 上（`main` 上没有），`boards/rock4d.conf` 让 `build-spl.sh` 用 U-Boot v2026.10 自带的 `rock-4d-rk3576_defconfig` 和 DT，加上两个补丁、
+该分支的 `rock4d/spl.config`（v1.12 板子的 XMC 闪存、`SPL_MMC_WRITE`、两个开关）和 DDR 程序 v1.09 构建。
 它会替换每个 ROCK 4D 映像带的 SPL，所以在有板子启动过之前只放在 `rock4d-parity` 分支上。
 
 ## 用这种方法能启动什么
@@ -187,18 +187,10 @@ scripts/package.sh tspi3m       # 会使用 out/TaishanPi3M/idbloader.img
 
 ## 板上测试（泰山派 3M）
 
-需要一张 Armbian SD 卡（主线 U-Boot 映像）、1500000 的串口和 MaskROM。更新只写 SPL 和固件，UEFI 变量保留（nvdata 在 43648 扇区）。
+需要一张 Armbian SD 卡（主线 U-Boot 映像）、1500000 的串口和 MaskROM。
 
-1. 刷写：
-
-   ```bash
-   dd if=TaishanPi3M-emmc.img of=spl.bin bs=512 skip=64 count=400
-   dd if=TaishanPi3M-emmc.img of=firmware.bin bs=512 skip=16384 count=27264
-   rkdeveloptool db rk3576_spl_loader.bin
-   rkdeveloptool wl 64 spl.bin
-   rkdeveloptool wl 16384 firmware.bin
-   rkdeveloptool rd
-   ```
+1. 用"保留分区"的方式写入 `TaishanPi3M-emmc.img`（[刷写固件](flash.zh-CN.md#只更新固件保留其他内容)）：
+   它写入 SPL 和固件，UEFI 变量保留。
 
 2. 不插卡启动：固件和 Windows 照旧；没有 `ArmbianOnce/1` 这一行。
 3. 插卡启动：`ArmbianOnce/1: not booting the U-Boot FIT on the SD card, the firmware is on the eMMC`，然后进固件。启动项已列出。

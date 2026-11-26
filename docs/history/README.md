@@ -7,6 +7,7 @@ dates and may not match `main`. The current pages are linked from the
 | Dates | File | What it is |
 |---|---|---|
 | 2026-05-01 to 2026-11-22 | [2026-11-22-hardware-before-rewrite.md](2026-11-22-hardware-before-rewrite.md) | `docs/HARDWARE.md` before the rewrite: TaishanPi 3M bring-up notes from 2026-11-12 on, and the list of changes merged on 2026-11-14 that had not been checked on a board then |
+| 2026-11-25 to 2026-11-26 | [2026-11-26-board-features.md](2026-11-26-board-features.md) | `docs/BOARD-FEATURES.md` before it was generated: the hand-written inventory per board (setup options, firmware features, ACPI devices, Windows drivers, what was left on the ROCK 4D, the 702 MHz board test) |
 | 2026-05-01 to 2026-11-24 | [2026-11-24-readme-before-rewrite.md](2026-11-24-readme-before-rewrite.md) | The README before the rewrite, with the per-board narratives it carried |
 
 Older history is in the git log and in the
