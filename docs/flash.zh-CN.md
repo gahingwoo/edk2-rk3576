@@ -29,7 +29,7 @@
 三种方法都要让板子进入 MaskROM 模式（方法见下面各板子），用 USB 连接电脑。
 
 1. [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)：Windows、macOS、Linux
-   桌面程序，也能不用 U 盘直接装 Windows。还没有在板子上跑过。
+   桌面程序，也能不用 U 盘直接装 Windows。在 ROCK 4D 上跑过（把 Windows 装到 NVMe）。
 2. 用 Chrome 或 Edge 打开 [flash.gahingwoo.com](https://flash.gahingwoo.com/)。
 3. `rkdeveloptool`。
 

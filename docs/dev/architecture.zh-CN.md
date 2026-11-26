@@ -42,7 +42,7 @@ RK3576 的包是独立的，不叠加在 RK3588 的配置上，因为继承来�
 
 ## ACPI 与设备树
 
-CM5-IO 和泰山派 3M 同时安装 ACPI 表和设备树，Windows 用 ACPI，Linux 用设备树。ROCK 4D 只编译设备树。详见 [ACPI](acpi.zh-CN.md)。
+三块板子都同时安装 ACPI 表和设备树，Windows 用 ACPI，Linux 用设备树。详见 [ACPI](acpi.zh-CN.md)。
 
 交给 Linux 的设备树是固件自己的，由 `devicetree/mainline/` 编译而来，并在启动时做修正（`FdtPlatformDxe`）：例如泰山派 3M 接了屏幕时加上 DSI 面板和背光，"Force UEFI GOP Display" 打开时加上一个 simple-framebuffer 节点，以及把 USB-A 的 VBUS 供电设为常开。
 

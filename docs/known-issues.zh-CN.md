@@ -2,13 +2,14 @@
 
 [English](known-issues.md) | 简体中文
 
-截至 2026-11-24 的 `main`。
+截至 2026-11-26 的 `main`。
 
 | 方面 | 问题 |
 |---|---|
-| Windows | 11 24H2 及以后跑不了（RK3576 是 ARMv8.0），请用 23H2。ROCK 4D 不能跑 Windows（没有 ACPI 表）。 |
-| Windows | 两块板的 WiFi 都不能用；蓝牙只有泰山派 3M 能用。 |
-| Windows | 泰山派 3M 的触摸、蓝牙、音频和 USB-C，在 0.4.1 之后的下一个正式版之前都要用 `ci` 构建。 |
+| Windows | 11 24H2 及以后跑不了（RK3576 是 ARMv8.0），请用 23H2。 |
+| Windows | 打开 "CPU Idle States" 后启动时蓝屏 0x5C（HAL_INITIALIZATION_FAILED）。保持 Disabled，即默认值。 |
+| Windows | 所有板子的 WiFi 都不能用（ROCK 4D：它的 USB AIC8800D80 没有驱动）；蓝牙只有泰山派 3M 能用。 |
+| Windows | 泰山派 3M 的触摸、蓝牙、音频和 USB-C，以及 ROCK 4D 上的 Windows，在 0.4.1 之后的下一个正式版之前都要用 `ci` 构建。 |
 | USB-C，泰山派 3M | 只给上电时插着的设备供 VBUS。接充电器或电脑前先重启。 |
 | USB-C，ROCK 4D 和 CM5-IO | 在 Linux 以外只有 USB 2.0：SuperSpeed 建立不了链路（DRD0 一直停在 Rx.Detect）。 |
 | 启动项 | 在 eMMC 上，操作系统写入的启动项只有打开 "Save OS Variable Changes to eMMC" 才能在复位后保留。 |

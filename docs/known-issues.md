@@ -2,13 +2,14 @@
 
 English | [简体中文](known-issues.zh-CN.md)
 
-As of `main` on 2026-11-24.
+As of `main` on 2026-11-26.
 
 | Area | Issue |
 |---|---|
-| Windows | 11 24H2 and later cannot run (RK3576 is ARMv8.0); use 23H2. No Windows on the ROCK 4D (no ACPI tables). |
-| Windows | WiFi does not work on either board; Bluetooth only on the TaishanPi 3M. |
-| Windows | TaishanPi 3M touch, Bluetooth, audio and USB-C need the `ci` build until the release after 0.4.1. |
+| Windows | 11 24H2 and later cannot run (RK3576 is ARMv8.0); use 23H2. |
+| Windows | "CPU Idle States" on: bugcheck 0x5C (HAL_INITIALIZATION_FAILED) at boot. Keep it Disabled, the default. |
+| Windows | WiFi does not work on any board (ROCK 4D: no driver for its USB AIC8800D80); Bluetooth only on the TaishanPi 3M. |
+| Windows | TaishanPi 3M touch, Bluetooth, audio and USB-C, and Windows on the ROCK 4D, need the `ci` build until the release after 0.4.1. |
 | USB-C, TaishanPi 3M | VBUS only for a device attached at power-on. Reboot before connecting a charger or a PC. |
 | USB-C, ROCK 4D and CM5-IO | USB 2.0 outside Linux: SuperSpeed does not train (DRD0's link stays in Rx.Detect). |
 | Boot entries | On eMMC, entries written by an OS survive a reset only with "Save OS Variable Changes to eMMC" on. |

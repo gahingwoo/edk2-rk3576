@@ -18,7 +18,7 @@
 |---|---|---|
 | 泰山派 3M | 到 2026-11-24 为止的 `main` | 从 eMMC 启动 Windows 11 23H2 和 Armbian |
 | CM5-IO | 固件 0.4.x | 用 0.4.x 启动过操作系统 |
-| ROCK 4D | 0.2.1 之后，版本未记录 | 0.2.1 的 SPL 由一位用户在 v1.12 板子（XMC 闪存）上跑过；之后的改动是共用代码 |
+| ROCK 4D | 2026-11-26 的 `main` | 从 NVMe 启动 Windows 11 23H2（用 Maskrom Studio 安装），12 GB 板。Fedora 最后一次是在 0.2.1 之后跑的；0.2.1 的 SPL 由一位用户在 v1.12 板子（XMC 闪存）上跑过 |
 
 ## 只在泰山派 3M 上跑过
 
@@ -26,6 +26,6 @@
 - 在 ResetSystem 时把操作系统对变量的修改写到 eMMC（`efibootmgr -n` 和 `-o`）；
 - 启动时接着受电设备时打开 USB-C VBUS，接充电器时关闭；
 - GPU 供电 775 mV，Windows 驱动跑在 702 MHz；
-- Windows 下的蓝牙、耳机音频和 HDMI 音频。
+- Windows 下的蓝牙。
 
 2026-11-14 未经上板检查就合并的改动清单在[历史记录](../history/2026-11-22-hardware-before-rewrite.md)里。

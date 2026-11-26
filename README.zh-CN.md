@@ -7,8 +7,8 @@
 [![Flash](https://img.shields.io/badge/flash-WebUSB%20browser%20tool-informational)](https://flash.gahingwoo.com/)
 [![Docs](https://img.shields.io/badge/docs-edk2.gahingwoo.com-informational)](https://edk2.gahingwoo.com/)
 
-Rockchip RK3576 开发板的 UEFI 固件（EDK2 / TianoCore）。它像 PC 一样启动 Linux，在 CM5-IO 和泰山派 3M
-上还能启动 Windows 11 23H2。
+Rockchip RK3576 开发板的 UEFI 固件（EDK2 / TianoCore）。它像 PC 一样启动 Linux，三块板子上都能启动
+Windows 11 23H2。
 
 ```
 BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
@@ -22,12 +22,12 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 
 | 板子 | 固件放在 | 状态 | 最近一次上板 |
 |---|---|---|---|
-| [Radxa ROCK 4D](docs/boards/rock4d.zh-CN.md) | SPI NOR | Linux（从 NVMe 启动 Fedora）。不支持 Windows：编译时不带 ACPI。 | 0.2.1 之后 |
+| [Radxa ROCK 4D](docs/boards/rock4d.zh-CN.md) | SPI NOR | Linux（从 NVMe 启动 Fedora），从 NVMe 启动 Windows 11 23H2：GPU、以太网、音频、NPU。 | `main`，2026-11-26（Windows） |
 | [ArmSoM CM5-IO](docs/boards/cm5io.zh-CN.md) | eMMC 或 SD 卡 | Linux（从 NVMe 启动 Fedora），从 eMMC 启动 Windows 11 23H2 能进桌面。 | 0.4.x |
 | [立创泰山派 3M](docs/boards/tspi3m.zh-CN.md) | eMMC | Windows 11 23H2：GPU、DSI 触摸屏、音频、蓝牙、NPU；Armbian edge [有限制](docs/linux.zh-CN.md#立创泰山派-3m)。 | `main`，2026-11-24 |
 
 每块板的结果都来自同一块实物（见[测试](docs/dev/testing.zh-CN.md)）。泰山派 3M 在 Windows 下的触摸、蓝牙、
-音频和 USB-C 需要 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)，0.4.1 正式版没有。串口：1500000 8N1。
+音频和 USB-C，以及 ROCK 4D 上的 Windows，需要 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)，0.4.1 正式版没有。串口：1500000 8N1。
 
 ## 上手
 

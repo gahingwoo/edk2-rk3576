@@ -103,6 +103,6 @@ All are off by default except where the table says otherwise.
 | CPU Idle States | off by default (WFI only). On adds core power-down (PSCI CPU_SUSPEND), and Windows 11 23H2 then stops at boot with bugcheck 0x5C (HAL_INITIALIZATION_FAILED, 0x113): keep it off for Windows |
 | Fan Mode | Always on (default, full speed from power-on, never off); Performance / Balanced / Quiet: Windows switches the fan with the big-core temperature, on at 50 / 60 / 70 C, off 10 C lower; Off: the fan stays at 0%, only for a board with enough passive cooling (the 115 C _CRT and the 120 C TSHUT still apply) |
 | NPU (experimental) | on by default: powers the NPU and declares it in ACPI for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu). TaishanPi 3M and ROCK 4D |
-| 40-pin UART (experimental) | header UART pins as COM ports for the woa-rk3576 rk3xuart driver (never the debug UART). TaishanPi 3M; CM5-IO and ROCK 4D on their board branches |
+| 40-pin UART (experimental) | header UART pins as COM ports for the woa-rk3576 rk3xuart driver (never the debug UART). TaishanPi 3M and ROCK 4D; CM5-IO on branch `cm5io-parity` |
 | 40-pin GPIO/I2C/SPI for apps (experimental) | header GPIO, I2C and SPI for Windows.Devices.Gpio, .I2c, .Spi (ACPI RhProxy). Same boards |
 | Save OS Variable Changes to eMMC | see [above](#boot-entries-written-by-an-os) |

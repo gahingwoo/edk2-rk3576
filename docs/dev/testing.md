@@ -23,7 +23,7 @@ message names that image.
 |---|---|---|
 | TaishanPi 3M | `main` through 2026-11-24 | Windows 11 23H2 and Armbian from the eMMC |
 | CM5-IO | firmware 0.4.x | has booted an OS with 0.4.x |
-| ROCK 4D | after 0.2.1, version not recorded | 0.2.1's SPL run by a user on a v1.12 board (XMC flash); later changes are shared code |
+| ROCK 4D | `main` on 2026-11-26 | Windows 11 23H2 from NVMe (installed by Maskrom Studio), 12 GB board. Fedora last run after 0.2.1; 0.2.1's SPL run by a user on a v1.12 board (XMC flash) |
 
 ## Run on the TaishanPi 3M only
 
@@ -33,7 +33,7 @@ message names that image.
   and `-o`);
 - USB-C VBUS on for a sink attached at boot, off for a charger;
 - GPU rail at 775 mV with the Windows driver at 702 MHz;
-- Bluetooth, headphone audio and HDMI audio under Windows.
+- Bluetooth under Windows.
 
 The 2026-11-14 list of changes merged without a board check is in
 [history](../history/2026-11-22-hardware-before-rewrite.md).

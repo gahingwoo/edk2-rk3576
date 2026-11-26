@@ -8,7 +8,7 @@ English | [简体中文](README.zh-CN.md)
 [![Docs](https://img.shields.io/badge/docs-edk2.gahingwoo.com-informational)](https://edk2.gahingwoo.com/)
 
 UEFI firmware (EDK2 / TianoCore) for Rockchip RK3576 boards. It boots Linux
-the way a PC does, and Windows 11 23H2 on the CM5-IO and the TaishanPi 3M.
+the way a PC does, and Windows 11 23H2 on all three boards.
 
 ```
 BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
@@ -22,14 +22,14 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
 
 | Board | Firmware on | Status | Last run on the board |
 |---|---|---|---|
-| [Radxa ROCK 4D](docs/boards/rock4d.md) | SPI NOR | Linux (Fedora from NVMe). No Windows: built without ACPI. | after 0.2.1 |
+| [Radxa ROCK 4D](docs/boards/rock4d.md) | SPI NOR | Linux (Fedora from NVMe), Windows 11 23H2 from NVMe with GPU, Ethernet, audio, NPU. | `main`, 2026-11-26 (Windows) |
 | [ArmSoM CM5-IO](docs/boards/cm5io.md) | eMMC or SD card | Linux (Fedora from NVMe), Windows 11 23H2 desktop from the eMMC. | 0.4.x |
 | [LCKFB TaishanPi 3M](docs/boards/tspi3m.md) | eMMC | Windows 11 23H2 with GPU, DSI touch screen, audio, Bluetooth, NPU; Armbian edge [with limits](docs/linux.md#lckfb-taishanpi-3m). | `main`, 2026-11-24 |
 
 Each result comes from one unit of each board ([testing](docs/dev/testing.md)).
-Windows touch, Bluetooth, audio and USB-C on the TaishanPi 3M need the
-[`ci` build](docs/flash.md#the-rolling-ci-build); release 0.4.1 does not
-have them. Serial console: 1500000 8N1.
+Windows touch, Bluetooth, audio and USB-C on the TaishanPi 3M, and Windows
+on the ROCK 4D, need the [`ci` build](docs/flash.md#the-rolling-ci-build);
+release 0.4.1 does not have them. Serial console: 1500000 8N1.
 
 ## Get started
 
