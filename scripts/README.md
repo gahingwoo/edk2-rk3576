@@ -38,8 +38,22 @@ python3 scripts/kd-bugcheck.py /dev/ttyACM0 --out-dir ~/Desktop/woa-kd-captures
 ```
 
 (`auto` in place of the device finds the Raspberry Pi Debug Probe by USB id.)
+
+If a serial logger that owns the port already runs (the session `serd.py`,
+which logs to `serd.log` and writes whatever comes into its `serd.in`
+FIFO to the port), do not stop it. Run the tool through it instead:
+
+```
+python3 scripts/kd-bugcheck.py --via-serd ~/Desktop/board-session-prep/<session>/serial --out-dir ~/Desktop/woa-kd-captures
+```
+
+The port then never changes hands, so keys sent to the firmware setup
+just before the reboot are not lost, and the logger's reopen on
+re-enumeration covers the tool too. Stopping the logger and opening the
+device in its place lost a key and then every byte on the board on
+2026-11-26.
 It writes `kd-bugcheck-<time>.log`, the received bytes `.bin` and the sent
-bytes `-tx.bin`. It reattaches if the probe re-enumerates. Ctrl-C stops it.
+bytes `-tx.bin`. It reattaches when the probe re-enumerates (the device node is replaced at every board reset). Ctrl-C stops it.
 
 ### At a bugcheck
 

@@ -194,6 +194,28 @@ def text(log):
     return "\n".join(log.lines)
 
 
+
+class SerdPortTests(unittest.TestCase):
+    def test_reads_appended_bytes_and_writes_the_fifo(self):
+        with tempfile.TemporaryDirectory() as d:
+            logp = os.path.join(d, "serd.log")
+            fifo = os.path.join(d, "serd.in")
+            with open(logp, "wb") as f:
+                f.write(b"old firmware output")
+            os.mkfifo(fifo)
+            rfd = os.open(fifo, os.O_RDWR | os.O_NONBLOCK)  # as serd.py does
+            try:
+                port = kdb.SerdPort(d)
+                self.assertEqual(port.read(), b"")           # starts at the end
+                with open(logp, "ab") as f:
+                    f.write(b"\x30\x30\x30\x30new")
+                self.assertEqual(port.read(), b"\x30\x30\x30\x30new")
+                port.write(b"\x69\x69\x69\x69ack")
+                self.assertEqual(os.read(rfd, 64), b"\x69\x69\x69\x69ack")
+                port.close()
+            finally:
+                os.close(rfd)
+
 class FramingTests(unittest.TestCase):
     def test_roundtrip_and_checksum(self):
         pl = bytes(range(200))

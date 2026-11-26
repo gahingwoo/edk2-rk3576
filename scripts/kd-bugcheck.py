@@ -1158,6 +1158,45 @@ class Port:
             pass
 
 
+class SerdPort:
+    """The port through the UEFI serial logger (serd.py) instead of the
+    device itself: new bytes are read from the end of its log, and what
+    we send goes into its key FIFO, which it writes to the port. The
+    logger stays the only process that opens /dev/ttyACM0, so there is no
+    hand-over between readers (where keys and bytes got lost on the board,
+    2026-11-26) and its own reopen on re-enumeration covers ours."""
+
+    def __init__(self, d):
+        self.logp = os.path.join(d, "serd.log")
+        self.fifo = os.path.join(d, "serd.in")
+        if not os.path.exists(self.logp) or not os.path.exists(self.fifo):
+            raise OSError(f"no serd.log / serd.in in {d}")
+        self.f = open(self.logp, "rb")
+        self.f.seek(0, os.SEEK_END)
+        self.wfd = os.open(self.fifo, os.O_WRONLY | os.O_NONBLOCK)
+
+    def read(self):
+        b = self.f.read(65536)
+        if not b:
+            time.sleep(0.01)
+        return b
+
+    def write(self, b):
+        while b:
+            try:
+                n = os.write(self.wfd, b)
+                b = b[n:]
+            except BlockingIOError:
+                time.sleep(0.001)
+
+    def close(self):
+        try:
+            self.f.close()
+            os.close(self.wfd)
+        except Exception:
+            pass
+
+
 def run_live(args, opts):
     stamp = time.strftime("%Y%m%d-%H%M%S")
     base = os.path.join(args.out_dir, f"kd-bugcheck-{stamp}")
@@ -1174,6 +1213,26 @@ def run_live(args, opts):
             port.write(b)
 
     eng = Engine(tx, log, opts)
+    if args.via_serd:
+        port = SerdPort(args.via_serd)
+        log(f"# through serd in {args.via_serd} (it owns the port)")
+        try:
+            while True:
+                b = port.read()
+                if b:
+                    raw.write(b)
+                    eng.feed(b)
+                eng.tick()
+        except KeyboardInterrupt:
+            log("# stopped")
+        finally:
+            eng.finish()
+            log(f"# {len(eng.modules)} modules known, {len(eng.reports)} report(s); log {base}.log")
+            log.close()
+            raw.close()
+            txf.close()
+            port.close()
+        return 0
     try:
         while True:
             dev = args.device if args.device != "auto" else find_probe()
@@ -1194,8 +1253,16 @@ def run_live(args, opts):
                 time.sleep(0.5)
                 continue
             log(f"# attached {dev} at {args.baud}")
+            ctime = os.stat(dev).st_ctime
             try:
                 while True:
+                    # the probe re-enumerates when the board resets; the old
+                    # descriptor then reads nothing forever instead of failing
+                    try:
+                        if os.stat(dev).st_ctime != ctime:
+                            raise OSError("device node replaced (re-enumerated)")
+                    except FileNotFoundError:
+                        raise OSError("device went away")
                     b = port.read()
                     if b:
                         raw.write(b)
@@ -1240,6 +1307,9 @@ def main(argv=None):
     ap.add_argument("device", nargs="?", default="/dev/ttyACM0",
                     help="serial device, or 'auto' for the Raspberry Pi Debug Probe (default /dev/ttyACM0)")
     ap.add_argument("--baud", type=int, default=1500000)
+    ap.add_argument("--via-serd", metavar="DIR",
+                    help="do not open the device: read the serial logger's DIR/serd.log and "
+                         "send through its DIR/serd.in FIFO (serd.py keeps the port)")
     ap.add_argument("--out-dir", default=".", help="where the .log/.bin files go")
     ap.add_argument("--offline", metavar="FILE.bin", help="replay a saved capture instead of a live port")
     ap.add_argument("--log", help="offline: log file (default FILE-offline.log)")
