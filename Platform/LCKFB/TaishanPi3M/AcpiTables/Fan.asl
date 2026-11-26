@@ -3,10 +3,11 @@
  *  Secondary System Description Table (SSDT): the TaishanPi 3M fan as ACPI
  *  cooling devices, with active trip points on the big core thermal zone.
  *
- *  Installed only when "Fan Mode" in setup (PcdAcpiFanControl) is not
- *  "Always on", the default: RK3576AcpiPlatformDxe skips any SSDT with OEM
- *  table ID "RKFAN" otherwise, the DSDT's zones then only report the
- *  temperature and the fan stays at the speed the firmware set.
+ *  Installed only when "Fan Mode" in setup (PcdAcpiFanControl) is
+ *  Performance, Balanced or Quiet: with "Always on" (the default) or "Off"
+ *  RK3576AcpiPlatformDxe skips any SSDT with OEM table ID "RKFAN", the
+ *  DSDT's zones then only report the temperature and the fan stays at the
+ *  speed the firmware set (100%, or 0% for Off).
  *
  *  Model: ACPI 1.0 fans
  *  --------------------

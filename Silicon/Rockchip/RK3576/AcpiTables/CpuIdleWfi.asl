@@ -4,9 +4,11 @@
  *  for the eight RK3576 cores.
  *
  *  Installed when "CPU Idle States" is disabled in setup
- *  (PcdAcpiCpuIdleStates == 0), which is the default.  CpuIdle.asl (OEM table
- *  ID "RKLPI") is installed instead when the option is enabled; it has this
- *  same WFI state plus core power-down.  RK3576AcpiPlatformDxe installs
+ *  (PcdAcpiCpuIdleStates == 0), which is the default.  CpuIdle.asl (OEM
+ *  table ID "RKLPI") is installed instead when the option is enabled; it
+ *  has this same WFI state plus core power-down, and Windows does not boot
+ *  with it (CpuIdle.asl, "Windows: bugcheck 0x5C").
+ *  RK3576AcpiPlatformDxe installs
  *  exactly one of the two, so the _LPI methods and \_SB._OSC below never
  *  collide with CpuIdle.asl's.
  *

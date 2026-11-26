@@ -85,6 +85,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeLib.h>
+#include <Guid/TimeSource.h>
 #include <Protocol/ExitBootServicesOsNotify.h>
 #include <Protocol/I2cMaster.h>
 #include <Protocol/RockchipI2cMasterProtocol.h>
@@ -150,6 +151,29 @@ STATIC VOID       *mI2cMasterRegistration;
 STATIC VOID       *mOsNotifyRegistration;
 STATIC EFI_EVENT  mVirtualAddrChangeEvent;
 STATIC BOOLEAN    mReportedFallback;
+
+/**
+  Tell the About page where the clock comes from (Guid/TimeSource.h).
+  Boot time only: the variable is boot-services-only.
+**/
+STATIC
+VOID
+RtcSetTimeSource (
+  IN UINT8  Source
+  )
+{
+  if (EfiAtRuntime ()) {
+    return;
+  }
+
+  EfiSetVariable (
+    ROCKCHIP_TIME_SOURCE_NAME,
+    &gRockchipTimeSourceGuid,
+    ROCKCHIP_TIME_SOURCE_ATTRIBUTES,
+    sizeof (Source),
+    &Source
+    );
+}
 
 //
 // ---------------------------------------------------------------------------
@@ -705,6 +729,7 @@ LibSetTime (
   // The chip is right now; a later fallback starts from here too.
   //
   mReportedFallback = FALSE;
+  RtcSetTimeSource (ROCKCHIP_TIME_SOURCE_RTC);
   return EFI_SUCCESS;
 }
 
@@ -878,6 +903,13 @@ RtcProbe (
   }
 
   mI2cMaster = Master;
+  //
+  // The same tests GetTime() makes before it believes the chip.
+  //
+  RtcSetTimeSource (
+    (((Regs.Seconds & RTC_SEC_VL) == 0) && ((Regs.Ctl1 & RTC_CTL1_STOP) == 0) && TimeValid) ?
+    ROCKCHIP_TIME_SOURCE_RTC : ROCKCHIP_TIME_SOURCE_RTC_LOST
+    );
 
   if (FixedPcdGetBool (PcdRtc8563ClkoutEnable)) {
     RtcEnsureClkout (Master);

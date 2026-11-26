@@ -96,14 +96,17 @@ typedef struct {
 
 //
 // "Fan Mode" (AcpiFanControl, UINT8).  The values keep the old on/off
-// option's meaning: 0 was "off" (no fan SSDT) and 1 "on" (ACPI control),
-// which is now Balanced.  The setup page lists them in a different order.
+// option's meaning: 0 meant no fan SSDT (now Always on) and 1 ACPI control,
+// which is now Balanced.  Off came later and got the next free value, so a
+// stored 0..3 means what it always did.  The setup page lists them in a
+// different order.
 //
 #define ACPI_FAN_MODE_ALWAYS_ON    0
 #define ACPI_FAN_MODE_BALANCED     1
 #define ACPI_FAN_MODE_PERFORMANCE  2
 #define ACPI_FAN_MODE_QUIET        3
-#define ACPI_FAN_MODE_MAX          ACPI_FAN_MODE_QUIET
+#define ACPI_FAN_MODE_OFF          4
+#define ACPI_FAN_MODE_MAX          ACPI_FAN_MODE_OFF
 
 #define COOLING_FAN_STATE_DISABLED  0
 #define COOLING_FAN_STATE_ENABLED   1

@@ -220,7 +220,8 @@ RK3576InitStatusLed (
 }
 
 /*
- * Start the board's cooling fan at full speed and leave it running.
+ * Start the board's cooling fan at full speed and leave it running, or, with
+ * "Fan Mode" set to Off, hold it at 0%.
  *
  * Boards that leave PcdPwmFanSpeedDefault at 0 (the ROCK 4D) skip this
  * entirely, so their fan pins and PWM blocks are not touched.
@@ -229,13 +230,19 @@ RK3576InitStatusLed (
  * partial duty made the TaishanPi 3M's fan whine (TaishanPi3M.dsc).  Which
  * level is "on" is each board's PwmFanSetSpeed: the TaishanPi 3M's pin is
  * high for on, the CM5-IO's is inverted, low for on (RockchipPlatformLib.c
- * of each board says why).  There is no setup option that holds the fan
- * off: the old "Fan" option (variable CoolingFan) is gone, and a value left
- * in NV storage by an older build is deleted here so it cannot come back.
+ * of each board says why).  The old "Fan" option (variable CoolingFan) is
+ * gone, and a value left in NV storage by an older build is deleted here so
+ * it cannot come back; "Fan Mode" Off (ACPI_FAN_MODE_OFF, a value the old
+ * option never stored) is the one way to keep the fan off.  Off still sets
+ * the pin up and writes 0%, rather than leaving the pad alone, so that the
+ * fan's level is the board's "off" level whatever it was before.  Off is
+ * for a board with enough passive cooling; the 115 C _CRT (Thermal.asl)
+ * and the 120 C TSHUT (Rk3576TsadcLib.c) are the same as in every mode.
  *
- * The fan is left on after ExitBootServices on purpose.  "Fan Mode" (Fan.asl)
- * lets Windows turn it off and on again from the thermal zone; in Always on
- * nothing does.  Linux's pwm-fan takes the channel over when it probes.
+ * The fan is left as set after ExitBootServices on purpose.  "Fan Mode"
+ * Performance, Balanced or Quiet (Fan.asl) lets Windows turn it off and on
+ * again from the thermal zone; in Always on and Off nothing does.  Linux's
+ * pwm-fan takes the channel over when it probes.
  */
 STATIC
 VOID
@@ -250,6 +257,15 @@ RK3576InitCoolingFan (
   gRT->SetVariable (L"CoolingFan", &gRK3576DxeFormSetGuid, 0, 0, NULL);
 
   PwmFanIoSetup ();
+
+  if (FixedPcdGetBool (PcdAcpiFanControlSupported) &&
+      (PcdGet8 (PcdAcpiFanControl) == ACPI_FAN_MODE_OFF))
+  {
+    PwmFanSetSpeed (0);
+    DEBUG ((DEBUG_ERROR, "RK3576Dxe: cooling fan held at 0%% (Fan Mode: Off)\n"));
+    return;
+  }
+
   PwmFanSetSpeed (100);
   DEBUG ((DEBUG_ERROR, "RK3576Dxe: cooling fan on, full speed\n"));
 }
@@ -437,7 +453,9 @@ RK3576EntryPoint (
   /*
    * The NPU, only if setup asks for it, the OS gets ACPI and the board can
    * set the NPU rail: the Windows driver (woa-rk3576-npu) is its only user.
-   * Off by default.
+   * On by default; a board that cannot set the rail does not show the
+   * option, so the default being on says nothing there and is not logged
+   * as an error.
    */
   if ((PcdGet8 (PcdAcpiNpu) != 0) &&
       ((PcdGet32 (PcdConfigTableMode) & CONFIG_TABLE_MODE_ACPI) != 0))
@@ -445,7 +463,7 @@ RK3576EntryPoint (
     EFI_EVENT  NpuEvent;
 
     if (!RK3576NpuSupported ()) {
-      DEBUG ((DEBUG_ERROR, "RK3576Dxe: NPU on in setup, but this board cannot set the NPU rail; left off\n"));
+      DEBUG ((DEBUG_INFO, "RK3576Dxe: NPU: this board cannot set the NPU rail; left off\n"));
     } else {
       Status = gBS->CreateEventEx (
                       EVT_NOTIFY_SIGNAL,
@@ -463,7 +481,7 @@ RK3576EntryPoint (
 
   /*
    * The video decoder, only if setup asks for it and the OS gets ACPI: the
-   * Windows driver (woa-rk3576 vdpu383) is its only user.  Off by default.
+   * Windows driver (woa-rk3576 vdpu383) is its only user.  On by default.
    */
   if ((PcdGet8 (PcdAcpiVdec) != 0) &&
       ((PcdGet32 (PcdConfigTableMode) & CONFIG_TABLE_MODE_ACPI) != 0))

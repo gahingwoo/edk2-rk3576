@@ -118,8 +118,8 @@ SetupConfigTableVariables (
   }
 
   //
-  // AcpiFanControl, "Fan Mode": Always on (no fan SSDT) or the trip points the
-  // fan SSDT gets (ACPI_FAN_MODE_*).  The option is only shown on a board
+  // AcpiFanControl, "Fan Mode": Always on or Off (no fan SSDT; Off holds the
+  // fan at 0%) or the trip points the fan SSDT gets (ACPI_FAN_MODE_*).  The option is only shown on a board
   // that has one (AcpiFanControlSupported).
   //
   Var8   = FixedPcdGetBool (PcdAcpiFanControlSupported) ? 1 : 0;

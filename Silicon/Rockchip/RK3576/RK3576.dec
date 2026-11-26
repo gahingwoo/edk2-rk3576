@@ -67,7 +67,8 @@
   # PcdAcpiFanControlSupported makes the setup option visible; the option
   # "Fan Mode" (PcdAcpiFanControl, default PcdAcpiFanControlDefault,
   # ACPI_FAN_MODE_* in VarStoreData.h) decides whether RK3576AcpiPlatformDxe
-  # installs that SSDT (0, Always on: no) and with which trip points.
+  # installs that SSDT (not for 0, Always on, or 4, Off) and with which trip
+  # points.  Off also makes RK3576Dxe hold the fan at 0%.
   # Without it only the temperature read-out in the DSDT remains.
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|FALSE|BOOLEAN|0x00010303
