@@ -26,7 +26,21 @@
 | 固件存放位置 | 16 MB SPI NOR。v1.12 的板子用 XMC XM25QU128C，更早的板子用 Macronix 的芯片；SPL 从 0.2.1 起两种都支持。 |
 | MaskROM 端口 | 上面那个 USB 3.0 USB-A 口（USB-C 口只供电） |
 | 存储 | UFS、microSD、PCIe 上的 NVMe。没有 eMMC。 |
+| PCIe | combphy0 上的 pcie0，接到一个 16 针 FPC 接口；NVMe 盘需要接一块 M.2 转接板。PERST# 为 GPIO2_B4，3.3 V 开关为 GPIO2_D3。 |
+| USB | USB-C 口只用于供电输入。DRD0 是上面那个 USB 3.0 口（USBDP PHY 的 lane 0 和 1），DRD1 接一颗 FE1.1s hub，带另外三个 USB-A 口和 USB WiFi，下面那个口的 SuperSpeed 则经 combphy1 接到 DRD1。 |
+| 以太网 PHY | Realtek RTL8211F-CG，MDIO 地址 1，25 MHz 时钟来自 SoC，`rgmii-id`。固件只写它的 LED 寄存器。 |
+| 风扇 | 2 针插座 J16，低边 AO3416A，栅极为 FAN-PWM = GPIO4_C5（PWM2 ch5，功能 14），高电平开风扇（原理图第 28 页，厂商设备树 pwm-fan）。 |
+| 音频 | I2C3 上 0x10 的 ES8388 和 SAI1 M0；LOUT1/ROUT1 直接驱动耳机插孔 J18。扬声器功放未贴片，插孔检测是 SARADC 输入 SARADC_VIN3_HP_HOOK。 |
 | 测试过的型号 | 12 GB LPDDR5 |
+
+ACPI：映像在设备树之外同时安装 ACPI 表，和 CM5-IO 一样（ConfigTableMode ACPI + FDT，
+可在首页菜单切换）。之前 ROCK 4D 只有设备树。SoC 表是另外两块板子共用的那些。DSDT
+（`Platform/Radxa/ROCK4D/AcpiTables/Dsdt.asl`）是 CM5-IO 的去掉 eMMC（这块板子没有，
+它的引脚给了 SPI NOR）和禁用的 XHC2、SATA 空壳；UFS 没有描述，因为没有 Windows 驱动。
+注释里给出了每个板级数值对应的设备树行号或原理图页。PCIe 根复合体在 UEFI 里链路没训练
+起来时会从 ACPI 中隐藏。分支 `rock4d-parity` 还加了温区、风扇 SSDT、ES8388 和 RK806 关机
+（[板子功能对照](../BOARD-FEATURES.zh-CN.md)）。**这些都没有在 ROCK 4D 上运行过**，
+不管有没有操作系统；能编译，这就是目前所知的全部。
 
 ## ArmSoM CM5-IO
 

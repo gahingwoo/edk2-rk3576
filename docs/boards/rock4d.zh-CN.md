@@ -2,7 +2,7 @@
 
 [English](rock4d.md) | 简体中文
 
-固件放在 16 MB SPI NOR 上，从 NVMe 启动 Fedora。这块板子编译时不带 ACPI 表，所以不能启动 Windows。
+固件放在 16 MB SPI NOR 上，从 NVMe 启动 Fedora。映像在设备树之外同时带 ACPI 表；还没有在这块板子上启动过 Windows。
 
 ## 能用什么
 
@@ -17,7 +17,7 @@
 | 以太网 | 可用 | 可用 |
 | SD 卡 | 无记录 | 无记录 |
 | UFS | 未试过 | 未试过 |
-| Windows | 不支持（没有 ACPI 表） | |
+| Windows | 未试过（ACPI 表已构建，未运行） | |
 
 ## 开始之前
 

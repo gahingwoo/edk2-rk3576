@@ -3,7 +3,8 @@
 English | [简体中文](rock4d.zh-CN.md)
 
 The firmware lives on the 16 MB SPI NOR and boots Fedora from NVMe. The board
-builds without ACPI tables, so Windows does not start on it.
+carries ACPI tables next to the device tree; Windows has not been
+started on this board yet.
 
 ## What works
 
@@ -19,7 +20,7 @@ are shared code tested on the other two boards.
 | Ethernet | works | works |
 | SD card | not recorded | not recorded |
 | UFS | not tried | not tried |
-| Windows | not available (no ACPI tables) | |
+| Windows | not tried (ACPI tables built, not run) | |
 
 ## Before you start
 

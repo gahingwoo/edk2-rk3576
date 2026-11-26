@@ -28,7 +28,8 @@
 #include <Library/IoLib.h>
 #include <Library/GpioLib.h>
 #include <Library/RK806.h>
-#include <Library/PWMLib.h>
+#include <Library/PcdLib.h>
+#include <Library/Rk3576PwmLib.h>
 #include <Library/TimerLib.h>
 #include <Soc.h>
 #include <VarStoreData.h>
@@ -878,16 +879,46 @@ HdmiTxIomux (
 }
 
 /*
- * PwmFanIoSetup / PwmFanSetSpeed
- * ROCK 4D has no on-board fan connector exposed in mainline DTS.
- * These are no-ops.
+ * PwmFanIoSetup / PwmFanSetSpeed: the 2-pin fan header J16.
+ *
+ * Wiring, from two sources that agree:
+ *   - The schematic, ROCK 4D V1.12 page 28 "40PIN/FAN/LED/KEY": J16
+ *     (CON1X2) between VCC5V0_SYS_S5 and the drain of Q20, an AO3416A
+ *     N-MOSFET on the low side, with D28 (B5819WS) across the fan.  Q20's
+ *     gate is net FAN-PWM through R264 (1K).  FAN-PWM is GPIO4_C5_d
+ *     (page 14 "RK3576-GPIO VCCIO4/5", function PWM2_CH5_M1).  A high pin
+ *     turns Q20 and the fan on.
+ *   - The vendor kernel tree, rk3576-rock-4d.dts:25-30 and :592-595:
+ *       fan0: pwm-fan { pwms = <&pwm2_8ch_5 0 60000 0>;
+ *                       cooling-levels = <0 64 128 192 255>; }
+ *       &pwm2_8ch_5 { pinctrl-0 = <&pwm2m1_ch5>; }
+ *     pwm2_8ch_5 is pwm@2ade5000 (rk3576.dtsi:6131-6141), polarity flag 0 =
+ *     PWM_POLARITY_NORMAL: the pin is high for the duty part of the period.
+ *   The mainline tree for this board does not describe the fan.
+ *
+ * pwm2m1_ch5 is GPIO4_C5 function 14 (rk3576-pinctrl.dtsi:2860-2864).  The
+ * pin config also asks for a pull-down and drive level 2; the pull-down is
+ * set, GpioLib cannot set drive strength on RK3576, so the pad keeps its
+ * reset drive.  It only feeds Q20's gate through 1K.
+ *
+ * The firmware runs the fan at 100% (PcdPwmFanSpeedDefault), where the pin
+ * is held high and the period does not matter; the period is the vendor
+ * tree's 60000 ns (PcdPwmFanPeriodNs in ROCK4D.dsc).
  */
+#define FAN_PWM_CONTROLLER  2
+#define FAN_PWM_CHANNEL     5
+#define FAN_PWM_PERIOD_NS   FixedPcdGet32 (PcdPwmFanPeriodNs)
+#define FAN_PWM_INVERTED    FALSE
+
 VOID
 EFIAPI
 PwmFanIoSetup (
   VOID
   )
 {
+  /* pwm2m1_ch5: GPIO4 PC5 function 14, pull-down */
+  GpioPinSetPull (4, GPIO_PIN_PC5, GPIO_PIN_PULL_DOWN);
+  GpioPinSetFunction (4, GPIO_PIN_PC5, 14);
 }
 
 VOID
@@ -896,6 +927,25 @@ PwmFanSetSpeed (
   IN UINT32  Percentage
   )
 {
+  EFI_STATUS  Status;
+
+  if (Percentage > 100) {
+    Percentage = 100;
+  }
+
+  Status = Rk3576PwmStart (
+             FAN_PWM_CONTROLLER,
+             FAN_PWM_CHANNEL,
+             FAN_PWM_PERIOD_NS,
+             (UINT32)(((UINT64)FAN_PWM_PERIOD_NS * Percentage) / 100),
+             FAN_PWM_INVERTED
+             );
+  DEBUG ((
+    EFI_ERROR (Status) ? DEBUG_ERROR : DEBUG_INFO,
+    "ROCK 4D PwmFanSetSpeed: %u%% on PWM2 ch5 (GPIO4 PC5): %r\n",
+    Percentage,
+    Status
+    ));
 }
 
 /*
@@ -931,11 +981,17 @@ PlatformSetStatusLed (
 
 /*
  * PlatformEarlyInit: Early board initialization
- * Called before driver dispatch. Enable WiFi power for M.2 WiFi module.
+ * Called before driver dispatch. Enable WiFi power for the USB WiFi module,
+ * and set up the ES8388's SAI1 when PcdAnalogAudioPreset is set.
  * From rk3576-rock-4d.dts:
  *   wifi rfkill shutdown-gpios = GPIO2 PD1 (active-high)
  *   vcc_3v3_wifi enable-gpios  = GPIO2 PC7 (active-high)
  */
+VOID
+Rock4dAnalogAudioInit (
+  VOID
+  );
+
 VOID
 EFIAPI
 PlatformEarlyInit (
@@ -949,6 +1005,32 @@ PlatformEarlyInit (
   /* Enable WiFi: GPIO2 PD1 (bank 2, PD=24+1=25) */
   GpioPinWrite (2, GPIO_PIN_PD1, TRUE);
   GpioPinSetDirection (2, GPIO_PIN_PD1, GPIO_PIN_OUTPUT);
+
+  /*
+   * The ES8388 headphone codec's SAI1, for an OS without clock, power-domain
+   * or pin drivers (Rock4dAudio.c).
+   */
+  if (FixedPcdGetBool (PcdAnalogAudioPreset)) {
+    Rock4dAnalogAudioInit ();
+  }
+
+  /*
+   * I2C6 M3 for the BL24C16F EEPROM (\_SB.I2C6.EEP0), as the device tree
+   * sets it (dts:685-688, i2c6m3_xfer: GPIO4_C6 SCL, GPIO4_C7 SDA, function
+   * 11, pcfg_pull_none_smt).  The pads reset with a pull-down
+   * (RK3576_PULL_GPIO4_CL_OFFSET 0xA148 reads 0x5555), which the DTS turns
+   * off; C6/C7 are bits 13:12 and 15:14 of that register.  The schematic's
+   * pull-ups on the bus do the rest.  PCLK_I2C6 is CRU_GATE_CON12 bit 5 and
+   * CLK_I2C6 CRU_GATE_CON13 bit 1 (clk-rk3576.c), open at reset, opened
+   * again in case a warm reboot from Linux left them gated.  These pins are
+   * also the 40-pin header's 27/28, which the header's RhProxy option uses
+   * as I2C6 as well.
+   */
+  GpioPinSetFunction (4, GPIO_PIN_PC6, 11);   /* i2c6_scl_m3 */
+  GpioPinSetFunction (4, GPIO_PIN_PC7, 11);   /* i2c6_sda_m3 */
+  MmioWrite32 (0x26040000 + 0xA148, 0xFU << (12 + 16));
+  MmioWrite32 (CRU_CLKGATE_CON (12), BIT5 << 16);
+  MmioWrite32 (CRU_CLKGATE_CON (13), BIT1 << 16);
 
   DEBUG ((DEBUG_INFO, "ROCK 4D: PlatformEarlyInit done\n"));
 }
@@ -994,17 +1076,4 @@ PlatformSdioWifiInit (
   )
 {
   return EFI_UNSUPPORTED;
-}
-
-/*
- * PlatformGetPin40Config: this board does not set PcdPin40Supported, so
- * RK3576Dxe never asks.
- */
-CONST PIN40_CONFIG *
-EFIAPI
-PlatformGetPin40Config (
-  VOID
-  )
-{
-  return NULL;
 }
