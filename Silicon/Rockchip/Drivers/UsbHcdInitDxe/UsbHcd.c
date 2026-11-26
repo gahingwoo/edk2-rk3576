@@ -771,7 +771,12 @@ UsbHcProtocolNotify (
        */
 #define USB_CCS_POLL_MS    FixedPcdGet32 (PcdUsbCDeviceWaitMs)   /* max wait for device to appear; 0 on a board that does not power the port */
 #define USB_CCS_STABLE_MS  3000U   /* extra settle time once CCS=1     */
-      {
+      /*
+       * PcdUsbCDeviceWaitMs = 0 turns the whole wait off, the 3 s settle for
+       * a device already present included: a board that sets 0 has no
+       * device on this port worth waiting for at every boot.
+       */
+      if (USB_CCS_POLL_MS != 0) {
         UINTN   HsPortscAddr = RawOpBase + 0x0400U;  /* PORTSC[0] HS port */
         UINTN   PollMs;
         for (PollMs = 0; PollMs < USB_CCS_POLL_MS; PollMs++) {

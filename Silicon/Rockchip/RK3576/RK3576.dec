@@ -289,8 +289,9 @@
   # How long, in ms, the firmware waits at boot for a device to appear on
   # the USB-C port (DRD0), so that a bus-powered disk that drops off and
   # reconnects once during its own start-up still gets a boot option.  The
-  # wait runs to the end when nothing is plugged in.  0 on a board whose
-  # firmware does not power the port: nothing can appear there.
+  # wait runs to the end when nothing is plugged in, and a device that is
+  # present gets 3 s more to settle.  0 turns both off: on a board whose
+  # firmware does not power the port, or whose DRD0 is a plain USB-A port.
   gRK3576TokenSpaceGuid.PcdUsbCDeviceWaitMs|5000|UINT32|0x00010703
 
   # TRUE: mark the USB-A VBUS regulators of the device tree handed to the
