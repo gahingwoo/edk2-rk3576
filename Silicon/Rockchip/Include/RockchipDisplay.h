@@ -32,6 +32,16 @@
 #define VOP_VERTICAL_RES_MIN    480
 #define VOP_VERTICAL_RES_MAX    4320
 
+//
+// Custom display mode: front porch, sync width and back porch, in pixels
+// (horizontal) and lines (vertical).  The widest CEA-861 timings fit
+// (3840x2160@24: 1276 pixel front porch).
+//
+#define VOP_HORIZONTAL_BLANK_MIN  1
+#define VOP_HORIZONTAL_BLANK_MAX  2048
+#define VOP_VERTICAL_BLANK_MIN    1
+#define VOP_VERTICAL_BLANK_MAX    1024
+
 #pragma pack (1)
 
 typedef struct {
