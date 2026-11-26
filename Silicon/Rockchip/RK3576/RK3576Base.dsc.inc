@@ -498,11 +498,12 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiNpuDefault|0
   #
-  # Video decoder for an ACPI OS (setup option, backs PcdAcpiVdec below): off.
-  # When on, RK3576Dxe powers PD_VDEC and RK3576AcpiPlatformDxe installs the
-  # decoder SSDT (Vdec.asl).
+  # Video decoder for an ACPI OS (setup option, backs PcdAcpiVdec below): on
+  # since 2026-11-26 (Edge decodes H.264, HEVC, VP9 and AV1 through it on
+  # the TaishanPi 3M). RK3576Dxe powers PD_VDEC and RK3576AcpiPlatformDxe
+  # installs the decoder SSDT (Vdec.asl).
   #
-  gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|0
+  gRK3576TokenSpaceGuid.PcdAcpiVdecDefault|1
   # SDIO Wi-Fi for an ACPI OS (setup option, backs PcdAcpiSdioWifi below):
   # off.  Shown only where a board sets PcdAcpiSdioWifiSupported.
   #
