@@ -468,11 +468,6 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
   #
-  # Fan on/off (setup option, backs PcdCoolingFan below): on, at full speed.
-  # Only shown on a board with PcdPwmFanSpeedDefault set.
-  #
-  gRK3576TokenSpaceGuid.PcdCoolingFanDefault|1
-  #
   # CPU idle states (setup option, backs PcdAcpiCpuIdleStates below): off,
   # which installs the WFI-only _LPI table (AcpiTables/CpuIdleWfi.asl) that
   # Windows needs for a sane "% Processor Utility".  On adds core power-down
@@ -621,11 +616,6 @@
   # CPU
   #
   gRK3576TokenSpaceGuid.PcdCpuMaxFreq|L"CpuMaxFreq"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault
-
-  #
-  # Cooling
-  #
-  gRK3576TokenSpaceGuid.PcdCoolingFan|L"CoolingFan"|gRK3576DxeFormSetGuid|0x0|gRK3576TokenSpaceGuid.PcdCoolingFanDefault
 
   #
   # GPU
