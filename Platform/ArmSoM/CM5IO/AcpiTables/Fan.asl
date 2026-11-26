@@ -10,24 +10,25 @@
  *  for one physical fan at three speeds, because the inbox Windows ACPI
  *  driver only turns fans on (D0) and off (D3).  Only what differs is here.
  *
- *  Installed only when "Fan Control by ACPI Thermal Zone" is enabled in
- *  setup (PcdAcpiFanControl, default off on this board).  With it off the
- *  firmware leaves the fan where it starts it, PcdPwmFanSpeedDefault = 100%,
+ *  Installed only when "Fan Mode" in setup (PcdAcpiFanControl) is not
+ *  "Always on", the default.  With "Always on" the firmware leaves the fan
+ *  where it starts it, PcdPwmFanSpeedDefault = 100%,
  *  which holds the pin at the level it has always had (see the polarity
  *  note in PwmFanIoSetup, RockchipPlatformLib.c).
  *
- *  Trip points (tenths of a kelvin, 2732 = 0.0 C), lower than the TaishanPi
- *  3M's because this fan's behaviour at partial duty has not been seen yet,
- *  and its default, before this SSDT, never turned it down:
+ *  Trip points and hysteresis are the TaishanPi 3M's, from the fan mode's
+ *  on-point T (\_SB.FTON, patched by RK3576AcpiPlatformDxe: Performance
+ *  50 C, Balanced 60 C, Quiet 70 C); only the duties differ, because this
+ *  fan's behaviour at partial duty has not been seen yet:
  *
- *    _AC2 40.0 C  FAN0  50%
- *    _AC1 50.0 C  FAN1  75%
- *    _AC0 60.0 C  FAN2 100%
- *    below all     -     0%
+ *          on at   off below   fan    duty
+ *    _AC2  T       T - 10 C    FAN0    50%
+ *    _AC1  T + 10  T + 5 C     FAN1    75%
+ *    _AC0  T + 20  T + 15 C    FAN2   100%
+ *    below all      -           -       0%
  *
  *  The vendor device tree runs this fan from 50 C (20%) to 70 C (100%)
- *  (rk3576-armsom-cm5-io.dts:53-59, rockchip,temp-trips); every level here
- *  is reached earlier and is at least as fast.
+ *  (rk3576-armsom-cm5-io.dts:53-59, rockchip,temp-trips).
  *
  *  The thermal zones' _CRT (115 C) and the hardware TSHUT (120 C) are in
  *  Thermal.asl and Rk3576TsadcLib; this table adds no shutdown of its own.
@@ -63,6 +64,11 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
     Mutex (FNMX, 0)
     Name (FNST, 7)  // bit n: FPRn on
 
+    // Fan mode on-point, tenths of a kelvin: 3232 Performance (50.0 C),
+    // 3332 Balanced (60.0 C), 3432 Quiet (70.0 C).  Patched by
+    // RK3576AcpiPlatformDxe; every value keeps the WordConst encoding.
+    Name (FTON, 3332)
+
     // Duty in percent for each level, FAN0..FAN2, and with all off
     Name (FDL0, 50)
     Name (FDL1, 75)
@@ -97,13 +103,28 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
     Method (FNSE, 2, Serialized) {
       // Arg0: bit, Arg1: 1 on / 0 off
       Acquire (FNMX, 0xFFFF)
+      Local0 = FNST
       If (Arg1) {
         FNST |= Arg0
       } Else {
         FNST &= (0x7 ^ Arg0)
       }
+      Local1 = (FNST != Local0)
       FNUP ()
       Release (FNMX)
+
+      // The level's trip point moved (hysteresis): have OSPM re-read them
+      If (Local1) {
+        Notify (\_SB.TZ01, 0x81)
+      }
+    }
+
+    // Arg0: level bit, Arg1: on-point, Arg2: off-point
+    Method (FTRP, 3, NotSerialized) {
+      If (FNST & Arg0) {
+        Return (Arg2)
+      }
+      Return (Arg1)
     }
 
     PowerResource (FPR0, 0, 0) {
@@ -145,11 +166,17 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
 
   // Active trip points, tenths of a kelvin (2732 = 0.0 C), greatest first.
   Scope (\_SB.TZ01) {
-    Name (_AC0, 3332)   // 60.0 C
+    Method (_AC0, 0, NotSerialized) {
+      Return (\_SB.FTRP (4, \_SB.FTON + 200, \_SB.FTON + 150))
+    }
     Name (_AL0, Package () { \_SB.FAN2 })
-    Name (_AC1, 3232)   // 50.0 C
+    Method (_AC1, 0, NotSerialized) {
+      Return (\_SB.FTRP (2, \_SB.FTON + 100, \_SB.FTON + 50))
+    }
     Name (_AL1, Package () { \_SB.FAN1 })
-    Name (_AC2, 3132)   // 40.0 C
+    Method (_AC2, 0, NotSerialized) {
+      Return (\_SB.FTRP (1, \_SB.FTON, \_SB.FTON - 100))
+    }
     Name (_AL2, Package () { \_SB.FAN0 })
   }
 }

@@ -44,7 +44,7 @@ C = CM5-IO，T = 泰山派 3M。"设置项"指固件设置里的选项，没有�
 | 引脚控制器（`\_SB.PINC`） | `RKCP3005`，`_CID` `PRP0001` | C T | 总是；没有 Windows 驱动 |
 | UART2（`\_SB.UAR2`） | `HISI0031` | C | CM5-IO DSDT（T 上没有引脚方案能引到接口） |
 | 温度区（TSADC） | | C T | 总是；不可信的读数显示为 100.0 C |
-| 风扇（`PNP0C0B`，`Fan.asl`） | | C T | 设置项 "Fan Control by ACPI Thermal Zone" |
+| 风扇（`PNP0C0B`，`Fan.asl`） | | C T | 设置项 "Fan Mode"（非 "Always on"） |
 | CPU 空闲状态（SSDT `RKLPI`） | | C T | 设置项 "CPU Idle States" |
 | NPU（`Npu.asl`） | `RKCP3576` | T | 设置项 "NPU (experimental)"；需要 `PcdRk806I2cBase` |
 | 40-pin UART（SSDT `RKUART40`） | `RKCP3006`，`_CID` `PRP0001` | T | 设置项 "40-pin UART (experimental)"，需要 `PcdPin40Supported`；`SerCx-FriendlyName` 让 rk3xuart 生成 COM 口 |

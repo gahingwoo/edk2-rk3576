@@ -118,8 +118,9 @@ SetupConfigTableVariables (
   }
 
   //
-  // AcpiFanControl: whether the board's fan SSDT is installed.  The option is
-  // only shown on a board that has one (AcpiFanControlSupported).
+  // AcpiFanControl, "Fan Mode": Always on (no fan SSDT) or the trip points the
+  // fan SSDT gets (ACPI_FAN_MODE_*).  The option is only shown on a board
+  // that has one (AcpiFanControlSupported).
   //
   Var8   = FixedPcdGetBool (PcdAcpiFanControlSupported) ? 1 : 0;
   Status = gRT->SetVariable (
@@ -139,7 +140,7 @@ SetupConfigTableVariables (
                   &Size,
                   &Var8
                   );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (Var8 > ACPI_FAN_MODE_MAX)) {
     Status = PcdSet8S (PcdAcpiFanControl, FixedPcdGet8 (PcdAcpiFanControlDefault));
     ASSERT_EFI_ERROR (Status);
   }

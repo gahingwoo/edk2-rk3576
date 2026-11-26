@@ -99,8 +99,7 @@ All are off by default except where the table says otherwise.
 | CPU Maximum Frequency | 1608 MHz on both clusters (default) or Max (2208 / 2016 MHz). On the first boot with a screen the firmware asks once (10 s timeout, kept in variable `CpuMaxFreqAsked`) and restarts if the answer changes it. TaishanPi 3M only |
 | GPU voltage for 702 MHz (775 mV) | raises the GPU supply (RK806 BUCK5) from 750 to 775 mV before the OS starts, so the Windows GPU driver runs 702 MHz instead of 594 MHz. Only on a plain RK3576 with thermal shutdown armed. Off puts a raised rail back to 750 mV. Keep a fan running. On by default on the TaishanPi 3M |
 | CPU Idle States | tells the OS about the cores' idle states; off means WFI only |
-| Fan | on (default): full speed from power-on into the OS; off: held off. No partial speed, because the pulsing makes the fan whine. TaishanPi 3M and CM5-IO |
-| Fan Control by ACPI Thermal Zone | lets Windows run the fan from the big-core temperature |
+| Fan Mode | Always on (default, full speed from power-on, never off); Performance / Balanced / Quiet: Windows switches the fan with the big-core temperature, on at 50 / 60 / 70 C, off 10 C lower |
 | NPU (experimental) | powers the NPU and declares it in ACPI for [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu). TaishanPi 3M only |
 | 40-pin UART (experimental) | header UART pins as COM ports for the woa-rk3576 rk3xuart driver (never the debug UART). TaishanPi 3M; CM5-IO and ROCK 4D on their board branches |
 | 40-pin GPIO/I2C/SPI for apps (experimental) | header GPIO, I2C and SPI for Windows.Devices.Gpio, .I2c, .Spi (ACPI RhProxy). Same boards |

@@ -62,9 +62,9 @@ without a USB stick) and [Linux](../linux.md).
   PC.
 - Clock: the RTC loses its time at every power-off and reset. With a network
   cable the firmware sets it over NTP ([firmware menus](../firmware-menus.md#clock)).
-- Fan (CN2): full speed from power-on. Under Windows "Fan Control by ACPI
-  Thermal Zone" (off by default) lets the temperature set it; under Linux it
-  stays at full speed.
+- Fan (CN2): full speed from power-on. Under Windows "Fan Mode" (Always on by
+  default) can switch it with the temperature; under Linux it stays at full
+  speed.
 
 ## Buttons
 

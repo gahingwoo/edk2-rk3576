@@ -48,7 +48,7 @@ eMMC 上跑 Windows 11 23H2 和 Armbian，接立创的 DSI 触摸屏，也接 HD
 - USB-C：只有上电时接着需要供电的设备（U 盘、硬盘、Hub），固件才打开 5 V，之后没人管这个口。
   设备要在上电前插好；接充电器或电脑前先重启。
 - 时钟：RTC 每次断电和复位都丢时间。插着网线时固件用 NTP 校时（见[固件菜单](../firmware-menus.zh-CN.md#时钟)）。
-- 风扇（CN2）：上电即全速。Windows 下打开 "Fan Control by ACPI Thermal Zone"（默认关）后按温度调速；Linux 下保持全速。
+- 风扇（CN2）：上电即全速。Windows 下 "Fan Mode"（默认常开）可改为按温度开关；Linux 下保持全速。
 
 ## 按键
 

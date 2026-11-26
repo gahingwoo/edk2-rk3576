@@ -766,8 +766,8 @@ HdmiTxIomux (
  * pin LOW all the time.  That is the level the pin has had all along
  * without the firmware touching it (R463 pulls Q46's base low; the pad
  * resets to a GPIO input), so whichever reading is right, the fan behaves
- * exactly as before.  It only matters once "Fan Control by ACPI Thermal
- * Zone" is enabled in setup (Fan.asl), and the board test settles it there.
+ * exactly as before.  It only matters once "Fan Mode" in setup is not
+ * Always on (Fan.asl), and the board test settles it there.
  *
  * Period 50000 ns (20 kHz), the vendor device tree's.  Linux's pwm-fan, if
  * a device tree ever has one, programs its own.

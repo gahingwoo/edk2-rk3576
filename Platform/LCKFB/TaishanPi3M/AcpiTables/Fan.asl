@@ -3,10 +3,10 @@
  *  Secondary System Description Table (SSDT): the TaishanPi 3M fan as ACPI
  *  cooling devices, with active trip points on the big core thermal zone.
  *
- *  Installed only when "Fan Control by ACPI Thermal Zone" is enabled in setup
- *  (PcdAcpiFanControl, default off): RK3576AcpiPlatformDxe skips any SSDT
- *  with OEM table ID "RKFAN" otherwise, and the DSDT's zones then only report
- *  the temperature.
+ *  Installed only when "Fan Mode" in setup (PcdAcpiFanControl) is not
+ *  "Always on", the default: RK3576AcpiPlatformDxe skips any SSDT with OEM
+ *  table ID "RKFAN" otherwise, the DSDT's zones then only report the
+ *  temperature and the fan stays at the speed the firmware set.
  *
  *  Model: ACPI 1.0 fans
  *  --------------------
@@ -24,12 +24,17 @@
  *
  *  So there are three PNP0C0B devices, FAN0..FAN2, each powered by its own
  *  power resource FPR0..FPR2.  The power resources only set a bit in FNST;
- *  the fan speed is the one for the highest bit that is set:
+ *  the fan speed is the one for the highest bit that is set.
  *
- *    _AC2 45.0 C  FAN0  100%
- *    _AC1 60.0 C  FAN1  100%
- *    _AC0 75.0 C  FAN2  100%
- *    below all     -      0%
+ *  Trip points follow the fan mode's on-point T, \_SB.FTON, which
+ *  RK3576AcpiPlatformDxe patches before installing the table:
+ *  Performance 50 C, Balanced 60 C, Quiet 70 C.
+ *
+ *          on at   off below   fan    duty
+ *    _AC2  T       T - 10 C    FAN0   100%
+ *    _AC1  T + 10  T + 5 C     FAN1   100%
+ *    _AC0  T + 20  T + 15 C    FAN2   100%
+ *    below all      -           -       0%
  *
  *  Every level is 100%: this fan does not run usefully at partial duty.
  *  Measured on the board under the vendor kernel (2026-11-16, LCKFB's fan):
@@ -42,9 +47,17 @@
  *
  *  No _CRT or _HOT here: the zones' _CRT (115 C) is in Thermal.asl, in
  *  the DSDT, and is there whether or not this table is installed; below it
- *  the firmware arms the 120 C hardware TSHUT.  No hysteresis: OSPM re-reads
- *  the trip points only on Notify 0x81, and none is sent; near a trip point
- *  the fan can change speed at most once per _TZP poll (5 s).
+ *  the firmware arms the 120 C hardware TSHUT.
+ *
+ *  Hysteresis: each _ACx returns its level's on-point while that level's
+ *  power resource is off and its off-point while it is on.  OSPM re-reads
+ *  the trip points only on Notify 0x81, so FNSE sends one to TZ01 whenever a
+ *  power resource really changed, after releasing FNMX (Notify is queued,
+ *  not run inside _ON/_OFF, so it cannot re-enter FNSE).  The levels stay in
+ *  descending order whatever their state: the lowest _AC0 (T + 15) is above
+ *  the highest _AC1 (T + 10), and the lowest _AC1 (T + 5) above the highest
+ *  _AC2 (T).  Every level is below TBAD (100.0 C), so an untrusted reading
+ *  still runs the fan at full speed.
  *
  *  FNST starts at 7, all three on, because the firmware leaves the fan at
  *  100% (PcdPwmFanSpeedDefault): the power resources' _STA tell the OS the
@@ -88,6 +101,11 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
     Mutex (FNMX, 0)
     Name (FNST, 7)  // bit n: FPRn on
 
+    // Fan mode on-point, tenths of a kelvin: 3232 Performance (50.0 C),
+    // 3332 Balanced (60.0 C), 3432 Quiet (70.0 C).  Patched by
+    // RK3576AcpiPlatformDxe; every value keeps the WordConst encoding.
+    Name (FTON, 3332)
+
     // Duty in percent for each level, FAN0..FAN2, and with all off
     Name (FDL0, 100)
     Name (FDL1, 100)
@@ -122,13 +140,28 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
     Method (FNSE, 2, Serialized) {
       // Arg0: bit, Arg1: 1 on / 0 off
       Acquire (FNMX, 0xFFFF)
+      Local0 = FNST
       If (Arg1) {
         FNST |= Arg0
       } Else {
         FNST &= (0x7 ^ Arg0)
       }
+      Local1 = (FNST != Local0)
       FNUP ()
       Release (FNMX)
+
+      // The level's trip point moved (hysteresis): have OSPM re-read them
+      If (Local1) {
+        Notify (\_SB.TZ01, 0x81)
+      }
+    }
+
+    // Arg0: level bit, Arg1: on-point, Arg2: off-point
+    Method (FTRP, 3, NotSerialized) {
+      If (FNST & Arg0) {
+        Return (Arg2)
+      }
+      Return (Arg1)
     }
 
     PowerResource (FPR0, 0, 0) {
@@ -170,11 +203,17 @@ DefinitionBlock ("Fan.aml", "SSDT", 2, "RKCP  ", "RKFAN   ", 1)
 
   // Active trip points, tenths of a kelvin (2732 = 0.0 C), greatest first.
   Scope (\_SB.TZ01) {
-    Name (_AC0, 3482)   // 75.0 C
+    Method (_AC0, 0, NotSerialized) {
+      Return (\_SB.FTRP (4, \_SB.FTON + 200, \_SB.FTON + 150))
+    }
     Name (_AL0, Package () { \_SB.FAN2 })
-    Name (_AC1, 3332)   // 60.0 C
+    Method (_AC1, 0, NotSerialized) {
+      Return (\_SB.FTRP (2, \_SB.FTON + 100, \_SB.FTON + 50))
+    }
     Name (_AL1, Package () { \_SB.FAN1 })
-    Name (_AC2, 3182)   // 45.0 C
+    Method (_AC2, 0, NotSerialized) {
+      Return (\_SB.FTRP (1, \_SB.FTON, \_SB.FTON - 100))
+    }
     Name (_AL2, Package () { \_SB.FAN0 })
   }
 }

@@ -60,5 +60,5 @@
 | 蓝牙 | AP6256（BCM4345C5），在 UART6 上（uart6m1，GPIO2 PD2 到 PD5），sclk_uart6 为 24 MHz，来自 xin24m；BT_REG_ON 为 GPIO1 PC7，BT_WAKE 为 GPIO1 PD4。32 kHz 睡眠时钟来自 HYM8563 的 CLKOUT，芯片出厂时就是打开的；固件不写它。 |
 | RTC | HYM8563，在 I2C2 0x51。每次断电和复位都丢时间（没有电池）；由 NTP 或操作系统校时。 |
 | GPU 供电 | `vdd_gpu_s0` = RK806 BUCK5，上电时 750 mV。打开 "GPU voltage for 702 MHz (775 mV)"（`PcdGpuRail775`，这块板默认打开）时升到 775 mV；读数写入 `GpuRail` 变量，Windows GPU 驱动在读数达到 775 mV 时跑 702 MHz，否则 594 MHz。 |
-| 风扇 | 2 针接口 CN2，接 PWM2 通道 3（GPIO3_D0），高电平为开，由一个 P-MOSFET 在供电端开关。以 100%（`PcdPwmFanSpeedDefault`）、2 kHz 周期（`PcdPwmFanPeriodNs` 500000）启动；非全速时能听到开关声。Windows：除非打开 "Fan Control by ACPI Thermal Zone"，保持 100%。Linux：设备树里有 PWM 通道但没有 `pwm-fan`，所以保持固件留下的状态。 |
+| 风扇 | 2 针接口 CN2，接 PWM2 通道 3（GPIO3_D0），高电平为开，由一个 P-MOSFET 在供电端开关。以 100%（`PcdPwmFanSpeedDefault`）、2 kHz 周期（`PcdPwmFanPeriodNs` 500000）启动；非全速时能听到开关声。Windows：除非 "Fan Mode" 不是 "Always on"，保持 100%。Linux：设备树里有 PWM 通道但没有 `pwm-fan`，所以保持固件留下的状态。 |
 | 测试过的型号 | 4 GB LPDDR5，64 GB eMMC |

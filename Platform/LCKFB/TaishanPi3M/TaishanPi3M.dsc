@@ -254,9 +254,8 @@
   # reset write.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
-  # Fan control by ACPI thermal zone (AcpiTables/Fan.asl): the setup option
-  # exists on this board, and is off until the temperature read-out has been
-  # checked on the board.
+  # Fan Mode (AcpiTables/Fan.asl): the setup option exists on this board, and
+  # defaults to Always on (0, no fan SSDT).
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
 
