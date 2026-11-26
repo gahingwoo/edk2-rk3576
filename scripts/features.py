@@ -38,7 +38,8 @@ SCHEMA = 1            # features.json and FEATURES.json
 SETTINGS_SCHEMA = 1   # the "settings" section
 
 ACPI_TABLES_GUID = '7e374e25-8e01-4fee-87f2-390c23c606cd'
-PLATFORM_SETUP_CLASS = '93039971-8545-4b04-b45e-32eb8326040e'
+PLATFORM_SETUP_CLASS = '93039971-8545-4b04-b45e-32eb8326040e'   # listed under Device Manager
+FRONT_PAGE_CLASS = 'e58809f8-fbc1-48e2-883a-a30fdc4b441e'       # gEfiIfrFrontPageGuid: on the front page
 
 # (key, label for the notes table)
 FEATURES = [
@@ -294,7 +295,7 @@ def decode_ifr(ifr, strings, module):
         if op == 0x0E:      # FORM_SET
             classes = [guid_str(b[23 + 16 * i:39 + 16 * i]) for i in range(b[22] & 3)]
             formset = {'guid': guid_str(b[2:18]), 'title': en(struct.unpack_from('<H', b, 18)[0]),
-                       'setup': PLATFORM_SETUP_CLASS in classes}
+                       'setup': PLATFORM_SETUP_CLASS in classes, 'frontPage': FRONT_PAGE_CLASS in classes}
         elif op == 0x26:    # VARSTORE_EFI
             vid = struct.unpack_from('<H', b, 2)[0]
             name = b[26:b.index(b'\0', 26)].decode()
@@ -457,7 +458,9 @@ def settings_from_formset(formset, varstores, forms, refs, questions, pcds, modu
             chain.append(forms.get(fid))
             fid = parent.get(fid)
         chain.reverse()
-        top = ['Device Manager'] if formset['setup'] else []
+        # A front page formset is a top-level entry (UiApp lists it there,
+        # and also under Device Manager when it has both classes).
+        top = ['Device Manager'] if formset['setup'] and not formset['frontPage'] else []
         if not chain or chain[0] != formset['title']:
             top.append(formset['title'])
         return top + [c for c in chain if c]

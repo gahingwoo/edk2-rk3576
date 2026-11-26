@@ -68,7 +68,7 @@ offline (in the variable store on the boot medium). Source: IFR.
 | `options[]` | one per question on a setup page |
 | `options[].id` | the variable name, or `<variable>@<offset>` for a field of a larger variable |
 | `options[].prompt` | the text on the page, `{"en-US": ..., "zh-Hans": ...}` |
-| `options[].menu` | the page path, e.g. `["Device Manager", "RK3576 Platform Configuration", "ACPI / Device Tree"]` |
+| `options[].menu` | the page path, e.g. `["RK3576 Platform Configuration", "ACPI / Device Tree"]` (a front page entry), or `["Device Manager", ...]` for a page listed there |
 | `options[].variable` | `name`, `guid` (vendor GUID), `attributes` (number) and `attributeNames` (`NV`, `BS`, `RT`), `size` (bytes of the whole variable) as the form's varstore declares them |
 | `options[].standalone` | true when the option is the whole variable |
 | `options[].offset`, `width` | byte offset and size of the value inside the variable; little-endian |
