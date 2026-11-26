@@ -468,17 +468,16 @@
   #
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
   #
-  # CPU idle states (setup option, backs PcdAcpiCpuIdleStates below): on
-  # since 2026-11-26, on every board, which installs the _LPI table with core
-  # power-down through PSCI CPU_SUSPEND (AcpiTables/CpuIdle.asl).  Off
-  # installs the WFI-only table (AcpiTables/CpuIdleWfi.asl) that Windows
-  # needs for a sane "% Processor Utility".  edk2-rk3588 publishes no _LPI at
-  # all, so neither is upstream behaviour to inherit, and core power-down
-  # stops the core's generic timer on a SoC with no always-on timer frame
-  # Windows could use instead (CpuIdle.asl, "The timer").  Not yet run under
-  # Windows on a board: if a boot hangs or the clock runs slow, turn it off.
+  # CPU idle states (setup option, backs PcdAcpiCpuIdleStates below): off,
+  # which installs the WFI-only _LPI table (AcpiTables/CpuIdleWfi.asl) that
+  # Windows needs for a sane "% Processor Utility".  On adds core power-down
+  # through PSCI CPU_SUSPEND (AcpiTables/CpuIdle.asl, "RKLPI"), and that
+  # does not boot Windows: on 2026-11-26 Windows 11 23H2 bugchecked at boot
+  # with HAL_INITIALIZATION_FAILED (0x5C) 0x113, 0x21, 0xFFFFF79C0001C1F8, 0
+  # on the TaishanPi 3M and on the ROCK 4D (CpuIdle.asl has the details).
+  # Keep it off until RKLPI is fixed.
   #
-  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|1
+  gRK3576TokenSpaceGuid.PcdAcpiCpuIdleStatesDefault|0
   #
   # CPU maximum frequency (setup option, backs PcdCpuMaxFreq below): hidden
   # unless a board sets PcdCpuMaxFreqSupported, and the default rates when
