@@ -4,6 +4,9 @@ English | [简体中文](firmware-menus.zh-CN.md)
 
 All three boards unless a board is named. Serial console: 1500000 8N1.
 
+The platform settings are on the front page: RK3576 Platform Configuration
+(under Device Manager before 2026-11-27).
+
 | Key | When | Does |
 |---|---|---|
 | F4 | boot countdown | reset into MaskROM |

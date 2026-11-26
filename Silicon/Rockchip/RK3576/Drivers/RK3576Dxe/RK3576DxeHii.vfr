@@ -11,7 +11,6 @@
  *
  **/
 
-#include <Guid/HiiPlatformSetupFormset.h>
 #include <VarStoreData.h>
 
 #include "RK3576DxeFormSetGuid.h"
@@ -34,7 +33,14 @@ formset
     guid      = RK3576DXE_FORMSET_GUID,
     title     = STRING_TOKEN(STR_FORM_SET_TITLE),
     help      = STRING_TOKEN(STR_FORM_SET_TITLE_HELP),
-    classguid = EFI_HII_PLATFORM_SETUP_FORMSET_GUID,
+    //
+    // A front page entry of its own, like the About page: UiApp's front page
+    // lists every formset of class gEfiIfrFrontPageGuid
+    // (UiListThirdPartyDrivers).  Not EFI_HII_PLATFORM_SETUP_FORMSET_GUID as
+    // well, or Device Manager would list it a second time.  The variable
+    // stores below do not change.
+    //
+    classguid = gEfiIfrFrontPageGuid,
 
     //
     // Display variable stores (ROCK 4D: single HDMI0 output)

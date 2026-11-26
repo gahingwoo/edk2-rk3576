@@ -75,8 +75,8 @@ STATIC CONST CHAR16  *mText[] = {
   NULL,     // the two choices go here
   NULL,
   L"",
-  L"You are asked this once. Change it later in Setup: Device Manager >",
-  L"RK3576 Platform Configuration > CPU Maximum Frequency.",
+  L"You are asked this once. Change it later in Setup: RK3576 Platform",
+  L"Configuration > CPU Maximum Frequency.",
   L"",
 };
 
