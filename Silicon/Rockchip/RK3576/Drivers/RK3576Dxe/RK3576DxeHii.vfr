@@ -462,6 +462,7 @@ formset
               option text = STRING_TOKEN(STR_ACPI_FAN_MODE_PERFORMANCE), value = ACPI_FAN_MODE_PERFORMANCE, flags = 0;
               option text = STRING_TOKEN(STR_ACPI_FAN_MODE_BALANCED),    value = ACPI_FAN_MODE_BALANCED,    flags = 0;
               option text = STRING_TOKEN(STR_ACPI_FAN_MODE_QUIET),       value = ACPI_FAN_MODE_QUIET,       flags = 0;
+              option text = STRING_TOKEN(STR_ACPI_FAN_MODE_OFF),         value = ACPI_FAN_MODE_OFF,         flags = 0;
             endoneof;
           endif;
 

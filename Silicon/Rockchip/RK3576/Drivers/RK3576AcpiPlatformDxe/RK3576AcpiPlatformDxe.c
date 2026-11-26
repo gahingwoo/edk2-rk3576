@@ -427,7 +427,8 @@ AcpiDsdtFixupStatus (
 
 //
 // The board's fan SSDT (OEM table ID "RKFAN") is installed only when "Fan
-// Mode" in setup (PcdAcpiFanControl) is not Always on.  Without it the DSDT's
+// Mode" in setup (PcdAcpiFanControl) is Performance, Balanced or Quiet, not
+// Always on or Off.  Without it the DSDT's
 // thermal zones still report the temperature, but have no trip points and no
 // cooling device, so the OS changes nothing.  With it, \_SB.FTON is the
 // mode's on-point in tenths of a kelvin; Fan.asl derives every trip point
@@ -569,6 +570,11 @@ AcpiTableCheck (
     FanMode = PcdGet8 (PcdAcpiFanControl);
     if ((FanMode == ACPI_FAN_MODE_ALWAYS_ON) || (FanMode > ACPI_FAN_MODE_MAX)) {
       DEBUG ((DEBUG_INFO, "AcpiPlatform: fan mode Always on, fan SSDT not installed\n"));
+      return FALSE;
+    }
+
+    if (FanMode == ACPI_FAN_MODE_OFF) {
+      DEBUG ((DEBUG_INFO, "AcpiPlatform: fan mode Off, fan SSDT not installed\n"));
       return FALSE;
     }
 

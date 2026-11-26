@@ -10,8 +10,9 @@
  *  for one physical fan at three speeds, because the inbox Windows ACPI
  *  driver only turns fans on (D0) and off (D3).  Only what differs is here.
  *
- *  Installed only when "Fan Mode" in setup (PcdAcpiFanControl) is not
- *  "Always on", the default.  With "Always on" the firmware leaves the fan
+ *  Installed only when "Fan Mode" in setup (PcdAcpiFanControl) is
+ *  Performance, Balanced or Quiet, not "Always on" (the default) or "Off".
+ *  With "Always on" the firmware leaves the fan
  *  where it starts it, PcdPwmFanSpeedDefault = 100%,
  *  which holds the pin at the level it has always had (see the polarity
  *  note in PwmFanIoSetup, RockchipPlatformLib.c).
