@@ -35,8 +35,10 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> OS
 
 - [Firmware menus and features](firmware-menus.md): language, screenshots,
   debug report, Reset All Settings, clock, display, touch, OS options
-- [Board features](BOARD-FEATURES.md): what each board has, option by
-  option and device by device
+- [Board features](BOARD-FEATURES.md): what each board's build contains
+  (generated from the build)
+- [Settings reference](settings.md): every setup option, its UEFI variable
+  and its default per board (generated)
 - [Gallery](gallery.md)
 - For developers: [building](dev/building.md), [architecture](dev/architecture.md),
   [image layout](dev/image-layout.md), [hardware](dev/hardware.md),

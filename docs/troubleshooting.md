@@ -12,7 +12,7 @@ and attach it to an [issue](https://github.com/gahingwoo/edk2-rk3576/issues).
 | `Write LBA failed` right after `db` | Wait a few seconds and write again. |
 | Old firmware still boots after a write | The write did not reach 100%. Write again before `rd`. |
 | CM5-IO ignores the SD card | The BootROM tries the eMMC first; the card is used only when the eMMC has no bootloader. The TaishanPi 3M never boots an SD card alone ([flashing](flash.md#lckfb-taishanpi-3m)). |
-| Settings lost after an update | The write covered sector 43648. Use "keep the partitions" or the `dd` range in [flashing](flash.md#updating-the-firmware-and-keeping-everything-else). |
+| Settings lost after an update | The write covered sector <!-- generated:nvdata-sector -->43648<!-- /generated -->, where the settings are. Use "keep the partitions" or the `dd` range in [flashing](flash.md#updating-the-firmware-and-keeping-everything-else). |
 | Boot entries made in Linux or Windows gone after a reboot | On eMMC, turn on "Save OS Variable Changes to eMMC" ([firmware menus](firmware-menus.md#boot-entries-written-by-an-os)). Reset All Settings also removes hand-made entries. |
 | Wrong clock | No board keeps time across a power-off. Connect a network cable (NTP at boot) and let the OS sync. |
 | TaishanPi 3M screen: backlight only, touch works | The DSI ribbon is loose. Power off and re-seat it. |
