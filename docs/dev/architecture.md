@@ -51,9 +51,8 @@ wrong for RK3576. The older layered tree is on the `legacy/v0.1` branch.
 
 ## ACPI and device tree
 
-The CM5-IO and the TaishanPi 3M install ACPI tables and a device tree side
-by side, so Windows uses ACPI and Linux the device tree. The ROCK 4D builds
-the device tree only. Details: [ACPI](acpi.md).
+All three boards install ACPI tables and a device tree side by side, so
+Windows uses ACPI and Linux the device tree. Details: [ACPI](acpi.md).
 
 The device tree handed to Linux is the firmware's own, built from
 `devicetree/mainline/`, with fix-ups at boot (`FdtPlatformDxe`): for

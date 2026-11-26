@@ -33,7 +33,7 @@ over USB.
 
 1. [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio): desktop app
    for Windows, macOS and Linux; can also install Windows without a USB
-   stick. Not run on a board yet.
+   stick. Run on the ROCK 4D (Windows to NVMe).
 2. [flash.gahingwoo.com](https://flash.gahingwoo.com/) in Chrome or Edge.
 3. `rkdeveloptool`.
 

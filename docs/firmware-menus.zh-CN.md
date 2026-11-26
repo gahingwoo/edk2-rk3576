@@ -80,6 +80,6 @@ Google 地址。它在后台运行，不会拖慢启动；拿到地址后 10 秒
 | CPU Idle States | 默认关闭（只有 WFI）。打开后增加核心掉电（PSCI CPU_SUSPEND），Windows 11 23H2 开机会蓝屏 0x5C（HAL_INITIALIZATION_FAILED，0x113）：用 Windows 时请保持关闭 |
 | Fan Mode（风扇模式） | 常开（默认，上电即全速，不会停）；性能 / 均衡 / 静音：Windows 按大核温度开关风扇，50 / 60 / 70 C 开，低 10 C 关；关闭：风扇保持 0%，只适合被动散热足够的板子（115 C 的 _CRT 和 120 C 的 TSHUT 仍然有效） |
 | NPU (experimental) | 默认打开：给 NPU 上电并在 ACPI 里声明，供 [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu) 使用。泰山派 3M 和 ROCK 4D |
-| 40-pin UART (experimental) | 把排针上的 UART 作为 COM 口，给 woa-rk3576 的 rk3xuart 驱动用（不包括调试串口）。泰山派 3M；CM5-IO 和 ROCK 4D 在各自的板级分支上 |
+| 40-pin UART (experimental) | 把排针上的 UART 作为 COM 口，给 woa-rk3576 的 rk3xuart 驱动用（不包括调试串口）。泰山派 3M 和 ROCK 4D；CM5-IO 在分支 `cm5io-parity` 上 |
 | 40-pin GPIO/I2C/SPI for apps (experimental) | 排针上的 GPIO、I2C、SPI 给 Windows.Devices.Gpio、.I2c、.Spi 用（ACPI RhProxy）。板子同上 |
 | Save OS Variable Changes to eMMC | 见[上文](#操作系统写入的启动项) |
