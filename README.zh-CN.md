@@ -20,13 +20,23 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 
 ## 板子
 
-| 板子 | 固件放在 | 状态 | 最近一次上板 |
-|---|---|---|---|
-| [Radxa ROCK 4D](docs/boards/rock4d.zh-CN.md) | SPI NOR | Linux（从 NVMe 启动 Fedora），从 NVMe 启动 Windows 11 23H2：GPU、以太网、音频、NPU。 | `main`，2026-11-26（Windows） |
-| [ArmSoM CM5-IO](docs/boards/cm5io.zh-CN.md) | eMMC 或 SD 卡 | Linux（从 NVMe 启动 Fedora），从 eMMC 启动 Windows 11 23H2 能进桌面。 | 0.4.x |
-| [立创泰山派 3M](docs/boards/tspi3m.zh-CN.md) | eMMC | Windows 11 23H2：GPU、DSI 触摸屏、音频、蓝牙、NPU；Armbian edge [有限制](docs/linux.zh-CN.md#立创泰山派-3m)。 | `main`，2026-11-24 |
+<!-- generated:boards -->
 
-每块板的结果都来自同一块实物（见[测试](docs/dev/testing.zh-CN.md)）。泰山派 3M 在 Windows 下的触摸、蓝牙、
+| 板子 | 构建 | 固件位置 | 映像 |
+|---|---|---|---|
+| [ArmSoM CM5-IO](docs/boards/cm5io.zh-CN.md) | `cm5io` | eMMC 或 SD 卡 | `CM5IO-emmc-edk2-<版本>.img`, `CM5IO-sdcard-edk2-<版本>.img` |
+| [Radxa ROCK 4D](docs/boards/rock4d.zh-CN.md) | `rock4d` | SPI NOR | `ROCK4D-spi-edk2-<版本>.img` |
+| [立创泰山派 3M](docs/boards/tspi3m.zh-CN.md) | `tspi3m` | eMMC 或 SD 卡 | `TaishanPi3M-emmc-edk2-<版本>.img`, `TaishanPi3M-sdcard-edk2-<版本>.img` |
+
+<!-- /generated -->
+
+在板子上跑过什么（每种板子只有一块，见[测试](docs/dev/testing.zh-CN.md)）：
+
+- ROCK 4D：Linux（从 NVMe 启动 Fedora），从 NVMe 启动 Windows 11 23H2：GPU、以太网、音频、NPU。
+- CM5-IO：Linux（从 NVMe 启动 Fedora），从 eMMC 启动 Windows 11 23H2 能进桌面。
+- 泰山派 3M：Windows 11 23H2：GPU、DSI 触摸屏、音频、蓝牙、NPU；Armbian edge [有限制](docs/linux.zh-CN.md#立创泰山派-3m)。
+
+每个构建里有什么：[板子功能](docs/BOARD-FEATURES.zh-CN.md)。泰山派 3M 在 Windows 下的触摸、蓝牙、
 音频和 USB-C，以及 ROCK 4D 上的 Windows，需要 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)，0.4.1 正式版没有。串口：1500000 8N1。
 
 ## 上手

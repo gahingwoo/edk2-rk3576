@@ -2,11 +2,11 @@
 
 [English](usbc-dp.md) | [简体中文](usbc-dp.zh-CN.md)
 
-Branch `usbc-dp`. A monitor on the USB-C port of a TaishanPi 3M or a CM5-IO
+On `main`, off by default. A monitor on the USB-C port of a TaishanPi 3M or a CM5-IO
 through DisplayPort Alt Mode, as a second display next to HDMI under
 Windows. The firmware's half is described here; the Windows display driver's
-half is wddm-mali-g52 `docs/USBC-DP.md` (branch `usbc-dp`). **Not run on a
-board yet.** Off by default: with the option off nothing in the boot changes.
+half is wddm-mali-g52's [USBC-DP.md](https://github.com/gahingwoo/wddm-mali-g52/blob/main/docs/USBC-DP.md). **Not run on a
+board yet.** With the option off nothing in the boot changes.
 
 ## Using it
 
@@ -80,7 +80,7 @@ HYM8563 that the firmware's runtime RTC service drives for Windows.
 For "plugged in before boot", the firmware is the cheapest place: no OS
 driver, no ACPI device, no bus sharing at runtime, and the same code can
 later give a boot picture. Hot-plug needs the Windows driver; that is phase
-2 (wddm-mali-g52 `docs/USBC-DP.md`).
+2 (wddm-mali-g52's [USBC-DP.md](https://github.com/gahingwoo/wddm-mali-g52/blob/main/docs/USBC-DP.md)).
 
 ## Why always two DP lanes
 
@@ -112,11 +112,8 @@ part about 150, option and boards about 200.
 
 1. From the PR's `build` run, artifact `tspi3m-firmware`, take
    `TaishanPi3M-emmc.img`. Flash only the firmware range so Windows and
-   the UEFI settings stay (docs/flash.md, "Updating the firmware and
-   keeping everything else"):
-   `dd if=TaishanPi3M-emmc.img of=firmware.bin bs=512 skip=64 count=43584`,
-   then `rkdeveloptool db rk3576_spl_loader.bin`, `rkdeveloptool wl 64 firmware.bin`,
-   `rkdeveloptool rd`.
+   the UEFI settings stay
+   ([flashing](flash.md#updating-the-firmware-and-keeping-everything-else)).
 2. Option off (the default): boot Windows once with a USB disk on USB-C.
    It must behave as before (USB-C still USB 3, no new log lines).
 3. Plug the DP monitor or adapter into USB-C, power on, setup:
@@ -124,8 +121,7 @@ part about 150, option and boards about 200.
 4. Serial log at OS start: the `DP alt mode:` line (want `config` and
    `HPD`) and the `UsbDpPhy DP: PD_VO1 on` line. Windows must still
    reach the desktop on HDMI with the driver's `UsbcDp` still 0.
-5. Then install wddm-mali-g52 `usbc-dp` and set `UsbcDp` = 1 (its
-   `docs/USBC-DP.md`). Both plug orientations, three boots each.
+5. Then install wddm-mali-g52 `usbc-dp` and set `UsbcDp` = 1 ([USBC-DP.md](https://github.com/gahingwoo/wddm-mali-g52/blob/main/docs/USBC-DP.md)). Both plug orientations, three boots each.
 
 Back out: setup option to Disabled, or reflash the main build.
 
