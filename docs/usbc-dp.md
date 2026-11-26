@@ -108,13 +108,26 @@ lanes as well; the sink sees lane count 2 in DPCD 0x101.
 Sizes: PD and alt mode about 760 lines with the header, the PHY/clock/power
 part about 150, option and boards about 200.
 
-## Board test plan
+## Board test (TaishanPi 3M)
 
-See wddm-mali-g52 `docs/USBC-DP.md`, "Board test plan". Firmware-only checks
-first (option on, driver setting off), for each partner and both plug
-orientations, three boots each; then with the option off, a boot with a USB
-disk on USB-C must look exactly as before (the option-off path is unchanged
-code).
+1. From the PR's `build` run, artifact `tspi3m-firmware`, take
+   `TaishanPi3M-emmc.img`. Flash only the firmware range so Windows and
+   the UEFI settings stay (docs/flash.md, "Updating the firmware and
+   keeping everything else"):
+   `dd if=TaishanPi3M-emmc.img of=firmware.bin bs=512 skip=64 count=43584`,
+   then `rkdeveloptool db rk3576_spl_loader.bin`, `rkdeveloptool wl 64 firmware.bin`,
+   `rkdeveloptool rd`.
+2. Option off (the default): boot Windows once with a USB disk on USB-C.
+   It must behave as before (USB-C still USB 3, no new log lines).
+3. Plug the DP monitor or adapter into USB-C, power on, setup:
+   **USB-C DisplayPort (experimental)** = Enabled, save, reset.
+4. Serial log at OS start: the `DP alt mode:` line (want `config` and
+   `HPD`) and the `UsbDpPhy DP: PD_VO1 on` line. Windows must still
+   reach the desktop on HDMI with the driver's `UsbcDp` still 0.
+5. Then install wddm-mali-g52 `usbc-dp` and set `UsbcDp` = 1 (its
+   `docs/USBC-DP.md`). Both plug orientations, three boots each.
+
+Back out: setup option to Disabled, or reflash the main build.
 
 ## Risks
 

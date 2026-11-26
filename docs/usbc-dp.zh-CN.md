@@ -53,9 +53,16 @@ Windows 对端口控制器有这几条路：UCSI 需要一个 PPM（跑 PD 的 E
 
 规模：PD 和 alt mode 连头文件约 760 行，PHY/时钟/电源部分约 150 行，选项和板级约 200 行。
 
-## 板上测试计划
+## 板上测试（泰山派 3M）
 
-见 wddm-mali-g52 `docs/USBC-DP.md` 的"Board test plan"。先只测固件（选项开、驱动设置关），每种对端设备、两个插入方向各启动三次；然后关掉选项，USB-C 上接 USB 硬盘启动，必须和以前完全一样（选项关闭时走的是没改过的代码）。
+1. 从 PR 的 `build` 运行里下载 artifact `tspi3m-firmware`，取 `TaishanPi3M-emmc.img`。只写固件那一段，Windows 和 UEFI 设置都保留（docs/flash.md 的"更新固件并保留其他内容"）：
+   `dd if=TaishanPi3M-emmc.img of=firmware.bin bs=512 skip=64 count=43584`，然后 `rkdeveloptool db rk3576_spl_loader.bin`、`rkdeveloptool wl 64 firmware.bin`、`rkdeveloptool rd`。
+2. 选项关（默认）：USB-C 上接 USB 硬盘启动一次 Windows，必须和以前一样（USB-C 仍是 USB 3，日志没有新行）。
+3. 把 DP 显示器或转接头插到 USB-C，开机进设置：**USB-C DisplayPort (experimental)** = Enabled，保存、重启。
+4. 操作系统启动时看串口：`DP alt mode:` 那行（要有 `config` 和 `HPD`）以及 `UsbDpPhy DP: PD_VO1 on` 那行。驱动的 `UsbcDp` 仍为 0 时，Windows 必须照常在 HDMI 上进桌面。
+5. 再装 wddm-mali-g52 的 `usbc-dp`，把 `UsbcDp` 设为 1（见它的 `docs/USBC-DP.md`）。两个插入方向各启动三次。
+
+回退：设置里改回 Disabled，或刷回 main 的固件。
 
 ## 风险
 
