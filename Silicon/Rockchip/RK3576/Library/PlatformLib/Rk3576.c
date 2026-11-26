@@ -56,14 +56,14 @@ ArmPlatformInitialize (
   //
   //   * SaradcLib.c defines SARADC_BASE as 0xFEC10000, which is RK3588's.
   //     RK3576's SARADC is at 0x2AE00000 (rk3576.dtsi adc@2ae00000, and the
-  //     TRM agrees).  On RK3576, 0xFEC10000 is ordinary DRAM -- DRAM here is
-  //     [0x40000000, 0x140000000) -- so the probe wrote five words into
+  //     TRM agrees).  On RK3576, 0xFEC10000 is ordinary DRAM (DRAM here is
+  //     [0x40000000, 0x140000000)), so the probe wrote five words into
   //     uninitialised memory and then polled it.
   //
   //   * Worse, SaradcStartChannel resets the block first, and our
   //     SRST_P_SARADC is 190, taken from RockchipIpRegs.h, which is the
   //     RK3588 register header.  Decoded with RK3576's reg*16+bit formula
-  //     that is SOFTRST_CON11 bit 14 -- which the RK3576 TRM documents as
+  //     that is SOFTRST_CON11 bit 14, which the RK3576 TRM documents as
   //     hresetn_bus_biu, the AHB interconnect reset for the BUS domain
   //     (UART0, I2C, SPI, GPIO1-4, WDT, TSADC).  Mainline puts this reset at
   //     CON13 bit 6 (rst-rk3576.c:114).  So every boot pulsed the bus
@@ -71,20 +71,20 @@ ArmPlatformInitialize (
   //
   //   * And when the DRAM garbage happened to have bit 0 set at +0x110 with
   //     a value under the threshold at +0x120, it called
-  //     ResetPlatformSpecificGuid (gRockchipResetTypeMaskromGuid) -- a silent
+  //     ResetPlatformSpecificGuid (gRockchipResetTypeMaskromGuid): a silent
   //     reboot into USB download mode, decided by uninitialised memory.
   //
   // SaradcLibConstructor in the same library had already been emptied for
   // exactly this reason, with the note "Touching them in SEC hangs the SoC ...
   // SARADC is not used during SEC/PEI on this port".  That was true of the
-  // constructor and false of this call site, which was left behind -- disabling
-  // one entry point into a library built for the wrong SoC, and not checking
+  // constructor and false of this call site, which was left behind. That fix disabled
+  // one entry point into a library built for the wrong SoC and did not check
   // for others.
   //
   // The library itself is gone now, so there is no second entry point to miss.
   // To bring the recovery key back, write an RK3576 one: SARADC_BASE
   // 0x2AE00000, and the APB reset at CRU_SOFTRST_CON13 bit 6 (0x27200A34,
-  // assert 0x00400040, deassert 0x00400000) -- not the RK3588 reset ID, which
+  // assert 0x00400040, deassert 0x00400000), not the RK3588 reset ID, which
   // is what aimed the old one at the interconnect.  Call it after the MMU is
   // up, not from here.
   //

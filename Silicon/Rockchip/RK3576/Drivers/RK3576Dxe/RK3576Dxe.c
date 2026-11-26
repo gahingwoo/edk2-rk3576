@@ -1,6 +1,6 @@
 /** @file
  *
- *  RK3576 SoC DXE init driver — Radxa ROCK 4D
+ *  RK3576 SoC DXE init driver (Radxa ROCK 4D)
  *
  *  Initializes: Display, ComboPHY, LED, early platform config.
  *
@@ -28,7 +28,7 @@
 #include <VarStoreData.h>
 /*
  * Force RK3576's own Soc.h via relative path so the shared __SOC_H__ guard
- * fires here first — preventing RK3588/Include/Soc.h (which appears earlier
+ * fires here first. That keeps RK3588/Include/Soc.h (which appears earlier
  * on the compiler search path due to RK3588.dec in [Packages]) from shadowing
  * the RK3576-specific register definitions.
  */
@@ -176,7 +176,7 @@ RK3576InstallHiiPages (
   //
   // Name the form after the board that is actually running.  This driver is
   // shared by every RK3576 board, and the static title in RK3576DxeHii.uni
-  // said "ROCK 4D / RK3576 Platform Configuration" on all of them -- so a
+  // said "ROCK 4D / RK3576 Platform Configuration" on all of them, so a
   // CM5-IO owner opening Setup was told they had a ROCK 4D.
   //
   // A failure here costs nothing but the fallback string, so it is not
@@ -255,7 +255,7 @@ RK3576InitCoolingFan (
 }
 
 /*
- * Boot-time register snapshot — OFF by default.  Read this before turning it on.
+ * Boot-time register snapshot, OFF by default.  Read this before turning it on.
  *
  * This driver used to open with a dozen MmioRead32() calls inside
  * DEBUG((DEBUG_INFO, ...)) argument lists, two of them against VOP2
@@ -269,7 +269,7 @@ RK3576InitCoolingFan (
  * They land in a specific place: this driver installs
  * gRockchipPlatformConfigAppliedProtocolGuid at the end of its entry point,
  * and LcdGraphicsOutputDxe depexes on it.  So the reads happen after the SPL
- * has left VOP2 in whatever state it left it in, and before we touch it —
+ * has left VOP2 in whatever state it left it in, and before we touch it:
  * exactly the window the intermittent-HDMI work has never characterised.
  *
  * Keep this at 0 for any success-rate measurement, or the measurement is of
@@ -286,7 +286,7 @@ RK3576DumpEntryState (
 {
  #if RK3576_DXE_ENTRY_REG_DUMP
   DEBUG ((DEBUG_INFO, "================================================================\n"));
-  DEBUG ((DEBUG_INFO, "  RK3576 SoC DXE Init — entry register snapshot\n"));
+  DEBUG ((DEBUG_INFO, "  RK3576 SoC DXE Init: entry register snapshot\n"));
   DEBUG ((DEBUG_INFO, "    IOC_GRF     0x26040000  HDMI_HPD_STATUS@0xA440 = 0x%08x\n",
           MmioRead32 (0x26040000 + 0xA440)));
   DEBUG ((DEBUG_INFO, "    VO0_GRF     0x2601A000  SOC_CON14@0x0038       = 0x%08x\n",
@@ -387,7 +387,7 @@ RK3576EntryPoint (
   //
   // Two rounds of hardware work have been lost to "is the board even running
   // the image we just flashed", answered by guessing from whether some new
-  // field appeared in the log -- circular, since that field was the thing in
+  // field appeared in the log. That was circular, since that field was the thing in
   // question. The stamp that used to answer it lived inside
   // RK_DISPLAY_DIAG_VARIABLE, which is 0, so it has not actually been emitted.
   //
@@ -533,7 +533,7 @@ RK3576EntryPoint (
   /*
    * NOTE: A ReadyToBoot callback (RK3576HdmiRouteDump) used to be registered
    * here to dump VOP2/HDMI route registers post-display-init.  Those VOP2
-   * register READS after Vop2Enable are NOT side-effect-free on RK3576 — they
+   * register READS after Vop2Enable are NOT side-effect-free on RK3576: they
    * corrupt the live video stream feeding the HDMI TX (VID_MON timing goes
    * garbage) and the sink loses signal.  The dump is removed; do not re-add
    * VOP2 reads on a post-enable path.  See memory project_rk3576_dump_breaks_hdmi.

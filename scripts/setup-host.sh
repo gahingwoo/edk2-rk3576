@@ -31,7 +31,7 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
     warn "These packages are missing and will be installed with sudo:"
     printf '        %s\n' "${MISSING[@]}"
     read -r -p "  proceed? [y/N] " reply
-    [[ "$reply" =~ ^[Yy] ]] || die "aborted -- install them yourself and re-run"
+    [[ "$reply" =~ ^[Yy] ]] || die "aborted; install them yourself and re-run"
     sudo apt-get update -qq
     sudo apt-get install -y "${MISSING[@]}"
 fi
@@ -56,7 +56,7 @@ if [ -d "$EDK2/.git" ]; then
     fi
     ok "EDK2 pinned at $EDK2_COMMIT"
 else
-    warn "EDK2 at $EDK2 is not a git checkout -- cannot verify it is $EDK2_COMMIT"
+    warn "EDK2 at $EDK2 is not a git checkout; cannot verify it is $EDK2_COMMIT"
 fi
 
 # The commit is pinned rather than tracked, because a newer EDK2 core changes
@@ -86,7 +86,7 @@ done
 step "3/6  Upstream dependency trees"
 
 # These three are on PACKAGES_PATH (see deps_packages_path in lib/common.sh)
-# and the build cannot start without them -- EDK2 reports the whole thing as
+# and the build cannot start without them.  EDK2 reports the whole thing as
 # "error 000E: One Path in PACKAGES_PATH doesn't exist", naming none of them.
 #
 # This script used to only warn, on the grounds that "our edk2-non-osi carries
@@ -94,7 +94,7 @@ step "3/6  Upstream dependency trees"
 # it is a fork".  That was never checked and is wrong: tianocore/edk2-non-osi
 # has both.  The upstreams are the ones edk2-porting/edk2-rk3588 uses in its
 # .gitmodules, except edk2-rockchip-non-osi, which that project keeps as a
-# plain in-tree directory rather than a submodule -- hence the sparse checkout.
+# plain in-tree directory rather than a submodule, hence the sparse checkout.
 DEPS_ROOT="${DEPS_DIR:-$ROOT/third_party}"
 mkdir -p "$DEPS_ROOT"
 
@@ -112,8 +112,8 @@ fetch_dep edk2-non-osi   https://github.com/tianocore/edk2-non-osi.git
 fetch_dep edk2-platforms https://github.com/tianocore/edk2-platforms.git
 
 # edk2-rockchip-non-osi is a directory inside edk2-porting/edk2-rk3588, not a
-# repository of its own -- github.com/edk2-porting/edk2-rockchip-non-osi is a
-# 404.  Take just that directory.  Its AMD GOP drivers are referenced by
+# repository of its own (github.com/edk2-porting/edk2-rockchip-non-osi is a
+# 404).  Take just that directory.  Its AMD GOP drivers are referenced by
 # Silicon/Rockchip/Rockchip.dsc.inc and FvMainModules.fdf.inc, so they really
 # do end up in the image; this is not an optional tree.
 if [ -e "$DEPS_ROOT/edk2-rockchip-non-osi" ]; then
@@ -137,14 +137,14 @@ step "4/6  EDK2 core patches"
 
 # edk2/ is an upstream checkout, so edits made inside it are invisible to this
 # repository and vanish on a re-clone.  Two of these are functional fixes (FD
-# cache flush before decompression; ESR/FAR reported on RELEASE faults) --
+# cache flush before decompression; ESR/FAR reported on RELEASE faults);
 # without them the build still produces an image, just a differently-behaving
 # one.  Applying them here is what keeps a fresh checkout equivalent.
 if [ -x "$ROOT/patches/apply.sh" ]; then
     EXTRA=""
     [ "${EDK2_CORE_DEBUG_PATCHES:-0}" = "1" ] && EXTRA="--with-debug"
     "$ROOT/patches/apply.sh" $EXTRA "$EDK2" \
-        || die "EDK2 core patches did not apply -- refusing to leave an untraceable checkout"
+        || die "EDK2 core patches did not apply; refusing to leave an untraceable checkout"
     ok "core patches applied"
 else
     warn "patches/apply.sh missing; EDK2 core is unpatched"
@@ -153,7 +153,7 @@ fi
 step "5/6  BaseTools"
 
 # The BaseTools binaries checked into upstream EDK2 are x86_64.  On an AArch64
-# host they have to be rebuilt, with the HOST compiler -- not the cross one.
+# host they have to be rebuilt, with the HOST compiler, not the cross one.
 BT_GENSEC="$EDK2/BaseTools/Source/C/bin/GenSec"
 BT_LIBCOMMON="$EDK2/BaseTools/Source/C/libs/libCommon.a"
 NEED_BUILD=1
@@ -184,4 +184,4 @@ fi
 ok "/Scripts/GccBase.lds present"
 
 echo
-ok "host ready -- next: scripts/build.sh <board>"
+ok "host ready; next: scripts/build.sh <board>"

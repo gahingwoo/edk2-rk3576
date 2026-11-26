@@ -2,12 +2,12 @@
  *
  *  RK3576 ACPI / Device Tree config table mode management.
  *
- *  SetupConfigTableVariables: called at driver entry — reads HII EFI variables
+ *  SetupConfigTableVariables: called at driver entry. Reads HII EFI variables
  *  and seeds the dynamic PCDs consumed by AcpiPlatformDxe and FdtPlatformDxe.
  *  When no saved variable exists the FixedPcd default is used.
  *
- *  ApplyConfigTableVariables: called after HII variables are applied — nothing
- *  to do here because the PCDs are read directly by the platform drivers.
+ *  ApplyConfigTableVariables: called after HII variables are applied. Nothing
+ *  to do here, because the PCDs are read directly by the platform drivers.
  *
  *  Copyright (c) 2020, Jeremy Linton
  *  Copyright (c) 2023-2025, Mario Bălănică <mariobalanica02@gmail.com>
@@ -68,7 +68,7 @@ ApplyConfigTableVariables (
   VOID
   )
 {
-  /* Nothing to do here — PCDs are read directly by AcpiPlatformDxe / FdtPlatformDxe. */
+  /* Nothing to do here: PCDs are read directly by AcpiPlatformDxe / FdtPlatformDxe. */
 }
 
 VOID
@@ -86,7 +86,7 @@ SetupConfigTableVariables (
   FDT_OVERRIDE_PATH_VARSTORE_DATA  FdtOverridePath;
 
   //
-  // ConfigTableMode — seeds PcdConfigTableMode used by both platform drivers.
+  // ConfigTableMode: seeds PcdConfigTableMode used by both platform drivers.
   //
   Size   = sizeof (UINT32);
   Status = gRT->GetVariable (
@@ -102,7 +102,7 @@ SetupConfigTableVariables (
   }
 
   //
-  // AcpiPcieEcamCompatMode — controls PCIe ECAM quirk in ACPI mode.
+  // AcpiPcieEcamCompatMode: controls PCIe ECAM quirk in ACPI mode.
   //
   Size   = sizeof (UINT32);
   Status = gRT->GetVariable (

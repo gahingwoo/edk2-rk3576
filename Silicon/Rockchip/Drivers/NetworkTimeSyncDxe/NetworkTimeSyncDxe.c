@@ -1121,8 +1121,8 @@ NtsHandleDatagram (
       ));
     if (Count == 0) {
       //
-      // An answer without an address (NXDOMAIN, or an ID that is not ours
-      // -- then the real answer may still come, so only a valid header
+      // An answer without an address (NXDOMAIN, or an ID that is not ours,
+      // in which case the real answer may still come, so only a valid header
       // counts as final).
       //
       if ((Length >= 2) && (((UINT16)Data[0] << 8 | Data[1]) == mNts.DnsId)) {

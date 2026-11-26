@@ -8,7 +8,7 @@
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
-  # ACPI tables — disabled: FDT-only build.
+  # ACPI tables are disabled: FDT-only build.
   # INF RuleOverride = ACPITABLE $(PLATFORM_DIRECTORY)/AcpiTables/AcpiTables.inf
 
   # Vendor Device Tree (pre-compiled DTB from U-Boot upstream)

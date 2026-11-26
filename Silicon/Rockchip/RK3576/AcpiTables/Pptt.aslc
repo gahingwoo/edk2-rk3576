@@ -10,7 +10,7 @@
  *    A53: 32KB/4-way L1D, 32KB/2-way L1I, 256KB L2 (per-cluster shared)
  *    A72: 32KB/2-way L1D, 48KB/3-way L1I, 512KB L2 (per-cluster shared)
  *    No L3 cache on RK3576.
- *  Associativity is not a field — RK3576_PPTT_CACHE_NODE_INIT derives it as
+ *  Associativity is not a field; RK3576_PPTT_CACHE_NODE_INIT derives it as
  *  Size / NumberOfSets / 64, so Size and NumberOfSets must both be exact.
  *  The macro does not parenthesise Size, so any Size passed as an expression
  *  MUST be wrapped in parens or precedence silently corrupts Associativity
@@ -212,7 +212,7 @@ STATIC RK3576_PPTT  Pptt = {
       0                                           /* NumberOfPrivateResources (no L3) */
     },
   },
-  {                                               /* Clusters — 2 clusters on RK3576 */
+  {                                               /* Clusters: 2 clusters on RK3576 */
     RK3576_PPTT_CLUSTER_NODE_INIT (9),            /* Cluster 0: 4x A53 (little) */
     RK3576_PPTT_CLUSTER_NODE_INIT (10),           /* Cluster 1: 4x A72 (big) */
   },
@@ -242,7 +242,7 @@ STATIC RK3576_PPTT  Pptt = {
     PPTT_INST_CACHE_ATTRIBUTES                    /* Attributes */
     ),
   RK3576_PPTT_CACHE_NODE_INIT (
-    /* A53L2Cache — per-cluster shared */
+    /* A53L2Cache: per-cluster shared */
     0,                                            /* NextLevelOfCache */
     SIZE_256KB,                                   /* Size (256KB on RK3576 A53 cluster) */
     512,                                          /* NumberOfSets */
@@ -250,23 +250,23 @@ STATIC RK3576_PPTT  Pptt = {
     ),
   /* Cortex-A72 caches (from ARM Cortex-A72 TRM) */
   RK3576_PPTT_CACHE_NODE_INIT (
-    /* A72L1DCache — A72 TRM: 32KB, 2-way (Size/Sets/64 = 32768/256/64 = 2) */
+    /* A72L1DCache, per the A72 TRM: 32KB, 2-way (Size/Sets/64 = 32768/256/64 = 2) */
     OFFSET_OF (RK3576_PPTT, A72L2Cache),          /* NextLevelOfCache */
     SIZE_32KB,                                    /* Size */
     256,                                          /* NumberOfSets (2-way) */
     PPTT_DATA_CACHE_ATTRIBUTES                    /* Attributes */
     ),
   RK3576_PPTT_CACHE_NODE_INIT (
-    /* A72L1ICache — A72 TRM: 48KB, 3-way (49152/256/64 = 3).
+    /* A72L1ICache, per the A72 TRM: 48KB, 3-way (49152/256/64 = 3).
      * Do NOT round to 64KB: the macro derives Associativity from Size, so a
      * rounded size reports both a cache that does not exist and 4-way. */
     OFFSET_OF (RK3576_PPTT, A72L2Cache),          /* NextLevelOfCache */
-    (SIZE_32KB + SIZE_16KB),                      /* Size (48KB) — parens required */
+    (SIZE_32KB + SIZE_16KB),                      /* Size (48KB), parens required */
     256,                                          /* NumberOfSets (3-way) */
     PPTT_INST_CACHE_ATTRIBUTES                    /* Attributes */
     ),
   RK3576_PPTT_CACHE_NODE_INIT (
-    /* A72L2Cache — per-cluster shared */
+    /* A72L2Cache: per-cluster shared */
     0,                                            /* NextLevelOfCache */
     SIZE_512KB,                                   /* Size */
     1024,                                         /* NumberOfSets */

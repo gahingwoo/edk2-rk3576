@@ -37,7 +37,7 @@
 #include <Library/ResetUtilityLib.h>
 
 /*
- * PMU0_GRF_OS_REG16 — used by BootROM and TF-A as the boot mode flag.
+ * PMU0_GRF_OS_REG16: used by BootROM and TF-A as the boot mode flag.
  *   PMU0_GRF_BASE = 0x26024000  (per RK3576 TRM / TF-A rk3576_def.h)
  *   PMU0GRF_OS_REG(n) = n * 4   (per TF-A pmu.h)
  *   OS_REG16 = 16 * 4 = 0x40
@@ -84,7 +84,7 @@ ResetCold (
 }
 
 /**
-  Warm reset — mapped to cold reset if PSCI SYSTEM_RESET2 is unsupported.
+  Warm reset, mapped to cold reset if PSCI SYSTEM_RESET2 is unsupported.
 **/
 VOID
 EFIAPI
@@ -121,13 +121,13 @@ ResetShutdown (
 }
 
 /**
-  Platform-specific reset — handles MaskROM entry for gRockchipResetTypeMaskromGuid.
+  Platform-specific reset. Handles MaskROM entry for gRockchipResetTypeMaskromGuid.
 
   Sequence:
     1. Write BOOT_BROM_DOWNLOAD to PMU0_GRF_OS_REG16 (0x26024040).
     2. Issue PSCI SYSTEM_RESET; TF-A detects the magic, copies it to the
        NPOR-persistent PMU1_GRF_OS_REG0, clears SGRF reset-hold bits,
-       and triggers CRU_GLB_SRST_FST — BootROM then enters USB download.
+       and triggers CRU_GLB_SRST_FST; BootROM then enters USB download.
 **/
 VOID
 EFIAPI
@@ -145,7 +145,7 @@ ResetPlatformSpecific (
   ResetSubtype = GetResetPlatformSpecificGuid (DataSize, ResetData);
 
   if (CompareGuid (ResetSubtype, &gRockchipResetTypeMaskromGuid)) {
-    DEBUG ((DEBUG_INFO, "RK3576: MaskROM reset — writing 0x%08X to 0x%08X\n",
+    DEBUG ((DEBUG_INFO, "RK3576: MaskROM reset: writing 0x%08X to 0x%08X\n",
             BOOT_BROM_DOWNLOAD, RK3576_BOOT_MODE_REG));
     MmioWrite32 (RK3576_BOOT_MODE_REG, BOOT_BROM_DOWNLOAD);
     /* TF-A handles SGRF reset-hold clearing in rockchip_soc_soft_reset_check_rstout() */

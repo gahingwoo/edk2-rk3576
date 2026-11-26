@@ -364,7 +364,7 @@ VariableStubDxeEntry (
   gRT->QueryVariableInfo   = StubQueryVariableInfo;
 
   //
-  // Now publish the arch protocols — DxeCore unblocks BDS dispatch.
+  // Now publish the arch protocols; DxeCore unblocks BDS dispatch.
   //
   Handle = NULL;
   Status = gBS->InstallMultipleProtocolInterfaces (

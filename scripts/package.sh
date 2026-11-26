@@ -25,7 +25,7 @@ CONF="$ROOT/boards/$BOARD.conf"
 BOOT_MEDIUM="${BOOT_MEDIUM:-spi}"
 
 FV="$ROOT/Build/$PLATFORM_NAME/RELEASE_GCC/FV/BL33_AP_UEFI.Fv"
-[ -f "$FV" ] || die "no firmware volume at $FV -- run scripts/build.sh $BOARD first"
+[ -f "$FV" ] || die "no firmware volume at $FV; run scripts/build.sh $BOARD first"
 
 OUTDIR="$ROOT/out/$PLATFORM_NAME"
 mkdir -p "$OUTDIR"
@@ -132,14 +132,14 @@ python3 "$ROOT/scripts/lib/gen_fit_its.py" "$WORK" "$DEVICE_TREE_NAME" "$BL31_EN
 [ -f "$WORK/${DEVICE_TREE_NAME}_EFI.its" ] || die "gen_fit_its.py produced no ITS"
 
 # mkimage must be >= 2020.07.  Older releases silently ignore -B, which makes
-# every SPL hash wrong -- a failure that only shows up as a dead board.
+# every SPL hash wrong, a failure that only shows up as a dead board.
 MKIMAGE="$(command -v mkimage || true)"
-[ -n "$MKIMAGE" ] || die "mkimage not found -- run scripts/setup-host.sh"
+[ -n "$MKIMAGE" ] || die "mkimage not found; run scripts/setup-host.sh"
 MK_YEAR="$("$MKIMAGE" -V 2>&1 | grep -oE '[0-9]{4}\.[0-9]+' | head -1 | cut -d. -f1)"
 [ -n "$MK_YEAR" ] && [ "$MK_YEAR" -ge 2020 ] \
     || die "mkimage $MK_YEAR is too old; -B is ignored before 2020.07"
 
-# -E:        external data -- the SPL mallocs only the FIT header and reads
+# -E:        external data: the SPL mallocs only the FIT header and reads
 #            each payload straight to its load address.
 # -B 0x1000: pad the header to 4 KB so the SPL's computed ext_base matches
 #            where mkimage actually wrote the data.
@@ -159,7 +159,7 @@ ok "FIT image: $((FIT_SIZE / 1024)) KB"
 # CM5-IO image once shipped with an SPL that had none of the CM5-IO fixes.  And
 # falling through to the generic SPL silently is how a post-restructure image
 # ended up with 2026.04 while every image it was being compared against used
-# 2026.07-rc3 -- an invalid comparison, and on the display path specifically,
+# 2026.07-rc3.  That made the comparison invalid, and on the display path specifically,
 # because the SPL is what leaves DCLK_VOP0 set up.
 IDBLOCK=""
 for cand in "$OUTDIR/idbloader.img" \
@@ -173,7 +173,7 @@ SPL_VER="$(strings -n 20 "$IDBLOCK" | grep -o 'U-Boot SPL [0-9][^ ]*' | head -1 
 info "idblock: ${IDBLOCK##*/}  (${SPL_VER:-no version string})"
 if [ -n "${IDBLOCK_OVERRIDE:-}" ] && [ "$IDBLOCK" != "$ROOT/$IDBLOCK_OVERRIDE" ] \
    && [ "$IDBLOCK" = "$ROOT/binaries/idblock_mainline.bin" ]; then
-    warn "$BOARD pins $IDBLOCK_OVERRIDE but it is missing -- falling back to the"
+    warn "$BOARD pins $IDBLOCK_OVERRIDE but it is missing; falling back to the"
     warn "generic SPL.  Anything you compare this image against is not a control."
 fi
 
@@ -182,7 +182,7 @@ step "Writing $OUT_IMG"
 if [ "$BOOT_MEDIUM" = "sdcard" ]; then
     SD_MB=32
     FIT_MAX=$(( SD_MB * 1024 * 1024 - 0x800000 ))
-    [ "$FIT_SIZE" -le "$FIT_MAX" ] || die "FIT is $FIT_SIZE bytes, limit is $FIT_MAX -- raise SD_MB"
+    [ "$FIT_SIZE" -le "$FIT_MAX" ] || die "FIT is $FIT_SIZE bytes, limit is $FIT_MAX; raise SD_MB"
 
     dd if=/dev/zero bs=1M count=$SD_MB of="$OUT_IMG" status=none
     dd if="$IDBLOCK" of="$OUT_IMG" bs=512 seek=64 conv=notrunc status=none
@@ -276,7 +276,7 @@ else
         dd if="$GPT" of="$OUT_IMG" conv=notrunc status=none
         ok "GPT at 0x000000"
     else
-        warn "no GPT image in binaries/ -- the SPI image will have no partition table"
+        warn "no GPT image in binaries/; the SPI image will have no partition table"
     fi
 
     dd if="$IDBLOCK" of="$OUT_IMG" bs=1K seek=32 conv=notrunc status=none
@@ -286,7 +286,7 @@ else
     # already 0xFF).  48 x 4 KB = 192 KB covers all three 64 KB regions:
     # store at 0xFC0000, FTW Working at 0xFD0000, FTW Spare at 0xFE0000.
     # This was count=3 once, which left Working and Spare as zeros from the
-    # dd above -- the FTW driver reads that as corrupt, not erased, and the
+    # dd above.  The FTW driver reads that as corrupt, not erased, and the
     # store never initialises ("Both working and spare block are invalid").
     FD="$ROOT/Build/$PLATFORM_NAME/RELEASE_GCC/FV/NOR_FLASH_IMAGE.fd"
     if [ -f "$FD" ]; then

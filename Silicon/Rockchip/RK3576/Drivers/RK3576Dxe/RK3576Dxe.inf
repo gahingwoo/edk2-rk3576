@@ -138,7 +138,7 @@
   gRockchipTokenSpaceGuid.PcdNetworkTimeSyncDefault
 
 [Pcd]
-  # Dynamic display PCDs — variable write service must be available (see [Depex]).
+  # Dynamic display PCDs: variable write service must be available (see [Depex]).
   gRK3588TokenSpaceGuid.PcdDisplayConnectorsMask
   gRK3588TokenSpaceGuid.PcdDisplayModePreset
   gRK3588TokenSpaceGuid.PcdDisplayModeCustom

@@ -40,7 +40,7 @@
 //
 // VOP2 register reads: the standing belief in this tree has been that a plain
 // MmioRead32() of a VOP2 OVL/VP/IF register during or after Vop2Enable is not
-// side-effect free -- that it perturbs the live overlay and drops HDMI sync --
+// side-effect free (that it perturbs the live overlay and drops HDMI sync),
 // so VOP2_DUMP_REG was compiled out in 2a1ee1d.
 //
 // That belief is now in doubt, and it matters because it is the reason we are
@@ -309,7 +309,7 @@ STATIC VOP2_DSC_DATA  mDscDataRK3588[] = {
  *
  * This firmware draws one image on one video port.  Attaching windows it
  * never enables is not free: each attached layer takes a mixer layer, so
- * listing four of them put the only window we do enable -- Esmart0 -- on
+ * listing four of them put the only window we do enable (Esmart0) on
  * mixer layer 2, blending over two mixers whose sources (Cluster0, Cluster1)
  * are disabled, with whatever alpha configuration RK3576's per-VP mixers
  * happen to reset to.  Mainline never produces that arrangement: with one
@@ -318,7 +318,7 @@ STATIC VOP2_DSC_DATA  mDscDataRK3588[] = {
  *
  * Esmart1 was also not a legal choice for VP0 in the first place.  mainline
  * rk3576_vop_win_data gives Esmart1 possible_vp_mask = BIT(1) | BIT(2) and
- * layer_sel_id[vp0] = 0xf (rockchip_vop2_reg.c:904-918) -- on RK3576 that
+ * layer_sel_id[vp0] = 0xf (rockchip_vop2_reg.c:904-918), so on RK3576 that
  * window cannot feed VP0 at all.  The vendor BSP has an explicit quirk for
  * exactly this request, forcing Esmart1/Esmart3 to VP1 (rockchip_drm_vop2.c
  * :6747).
@@ -411,15 +411,15 @@ STATIC UINT32  mRegsBackup[RK3568_MAX_REG] = { 0 };
 //
 // Deferred writes to VP_DSP_CTRL.
 //
-// Configuring a video port touches ten-odd fields of VP_DSP_CTRL -- out mode,
+// Configuring a video port touches ten-odd fields of VP_DSP_CTRL: out mode,
 // two dither enables, the channel swaps, interlace, field polarity, P2I, R2Y.
 // Each was a full 32-bit MmioWrite32 landing on a live register, so the port
 // was walked through a dozen configurations nobody designed on the way to the
 // one that was intended. Mainline builds the value in a local and writes it
 // once (rockchip_drm_vop2.c, vop2_crtc_atomic_enable).
 //
-// Rather than rewrite the field computation -- which is where the RK3588
-// rework went wrong before -- the writes are deferred: while armed, a write to
+// Rather than rewrite the field computation (which is where the RK3588
+// rework went wrong before), the writes are deferred: while armed, a write to
 // the deferred offset updates the shadow cache and skips the bus. Vop2Init
 // flushes it with a single write once every field is settled.
 //
@@ -907,11 +907,11 @@ Vop2GlobalInitial (
   // Both of these are RK3588 "make this register class take effect
   // immediately" bits, and neither register means the same thing on RK3576:
   //
-  //   0x600 is RK3576_OVL_CTRL(0) -- VP0's own overlay control, whose only
+  //   0x600 is RK3576_OVL_CTRL(0), VP0's own overlay control, whose only
   //         defined bit is YUV_MODE (mainline rockchip_drm_vop2.h:776).
   //         Bit 28 is reserved there.
   //   0x030 is RK3576_SYS_CLUSTER_PD_CTRL_IMD, not DSP_IF_POL
-  //         (rockchip_drm_vop2.h:412-413) -- it holds the VOP-internal
+  //         (rockchip_drm_vop2.h:412-413); it holds the VOP-internal
   //         cluster power domain.  The write happens to be inert, because
   //         that register is HIWORD-masked and this is a plain
   //         read-modify-write, so bit 28 lands in the mask half and rewrites
@@ -963,8 +963,8 @@ Vop2GlobalInitial (
     // 0x608, which RK3576 does not map.
     //
     // mainline rk3576_vop2_setup_layer_mixer() (rockchip_vop2_reg.c:2384)
-    // starts from 0xffff -- 0xf per nibble means "this mixer layer is
-    // disabled" -- and fills in only the layers actually attached, so a
+    // starts from 0xffff (0xf per nibble means "this mixer layer is
+    // disabled") and fills in only the layers actually attached, so a
     // mixer layer is never left pointed at a window nobody configured.
     //
     for (i = 0; i < Vop2->Data->NrVps; i++) {
@@ -1595,7 +1595,7 @@ Vop2IfConfig (
   if (OutputIf & VOP_OUTPUT_IF_HDMI0) {
     /*
      * RK3576: program a single per-port IF_CTRL register. There is no
-     * vop_grf / vo1_grf to write — sync polarity, mux, dividers and
+     * vop_grf / vo1_grf to write: sync polarity, mux, dividers and
      * enable all live in this 32-bit register. Mirrors mainline
      * rk3576_set_intf_mux() for the EP_HDMI0 case.
      */
@@ -2152,7 +2152,7 @@ Vop2PostConfig (
   // High half is the vertical factor, low half the horizontal one
   // (mainline vop2_post_config, rockchip_drm_vop2.c:1721-1723).  Both halves
   // held the vertical factor here, which is inert only while HDisplay ==
-  // HSize -- i.e. until someone sets a left/right margin or an overscan.
+  // HSize, i.e. until someone sets a left/right margin or an overscan.
   //
   Val  = SclCalScale2 (VDisplay, VSize) << 16;
   Val |= SclCalScale2 (HDisplay, HSize);
@@ -2186,8 +2186,8 @@ Vop2PostConfig (
     //
     // RK3576 derives that number differently and keeps it somewhere else.
     //
-    // The value is a fixed per-VP pipeline depth -- the sum of the window,
-    // layer-mix and HDR-mix delays -- not RK3588's "max delay minus the
+    // The value is a fixed per-VP pipeline depth (the sum of the window,
+    // layer-mix and HDR-mix delays), not RK3588's "max delay minus the
     // port-mux depth".  mainline rk3576_vop2_setup_bg_dly()
     // (rockchip_vop2_reg.c:2466) sums pre_scan_max_dly[] from
     // rk3576_vop_video_ports[] (:770): VP0 = 10 + 8 + 2 = 20,
@@ -2357,7 +2357,7 @@ Vop2PreInit (
     //
     // This bug has resisted register inspection for weeks because everything
     // readable *inside* VOP2 looks identical on a boot that shows a picture
-    // and one that does not -- and VOP2's own registers cannot be read
+    // and one that does not, and VOP2's own registers cannot be read
     // speculatively here anyway (RK_VOP2_DIAG_READS is 0 for a reason).
     // Every address below is outside the VOP2 window: PMU status, CRU
     // mux/gate state, PMU1CRU resets, and the PHY reference-clock select.
@@ -2365,7 +2365,7 @@ Vop2PreInit (
     // differs between a good boot and a bad one.
     //
     // Collect this on a boot that produces a picture and one that does not,
-    // and the difference -- if there is one -- is in these fourteen words.
+    // and the difference, if there is one, is in these fourteen words.
     //
     DEBUG ((
       DEBUG_ERROR,
@@ -2398,7 +2398,7 @@ Vop2PreInit (
     //
     // RK3576 has no SYS_PMU window at the address the shared register header
     // carries (0xFD8D8000, which is RK3588's and is ordinary DRAM here), and
-    // nothing on this SoC may dereference it — see Vop2WaitPowerDomainOn,
+    // nothing on this SoC may dereference it; see Vop2WaitPowerDomainOn,
     // which skips the BISR path entirely.  Left as 0 so a future accidental
     // use faults at a recognisable address rather than silently writing DRAM.
     //
@@ -3038,7 +3038,7 @@ Vop2Init (
   }
 
   /*
-   * Do NOT override PreDitherDownEn based on OutputMode alone — the switch
+   * Do NOT override PreDitherDownEn based on OutputMode alone. The switch
    * above already selects the correct value from BusFormat.  Forcing
    * PreDitherDownEn=1 for every non-AAAA output enables down-dither even when
    * source bpp == output bpp (e.g. RGB888 1X24 → P888), which adds a visible
@@ -3292,7 +3292,7 @@ Vop2Init (
   // Both halves.  This used to write NUM0 twice, leaving NUM1 at reset;
   // mainline writes (act_end << 16) | act_end in one go
   // (rockchip_drm_vop2.c:1878).  Nothing here consumes the line-flag
-  // interrupt, so the duplicate was harmless -- but it read as intent.
+  // interrupt, so the duplicate was harmless, but it read as intent.
   //
   Vop2MaskWrite (
     Vop2->BaseAddress,
@@ -3691,13 +3691,13 @@ Vop2SetSmartWin (
     //
     // On RK3576 a window says which video port it feeds; there is no global
     // OVL_PORT_SEL to say it for them (see Vop2GlobalInitial).  mainline
-    // writes this field on every window enable from VOP_VERSION_RK3576 up --
-    // rockchip_drm_vop2.c:1358, mapped to <win>+0xF4 bits[1:0] at
-    // rockchip_vop2_reg.c:506.
+    // writes this field on every window enable from VOP_VERSION_RK3576 up
+    // (rockchip_drm_vop2.c:1358, mapped to <win>+0xF4 bits[1:0] at
+    // rockchip_vop2_reg.c:506).
     //
     // Left unwritten, the window keeps whatever port it was pointed at by
     // reset or by whoever ran the display before us, and if that is not VP0
-    // then VP0 composites nothing but its background -- black, behind a
+    // then VP0 composites nothing but its background: black, behind a
     // perfectly correct sync.  Nothing this firmware reads back would say so.
     //
     Vop2MaskWrite (
@@ -3767,7 +3767,7 @@ Vop2SetSmartWin (
 
     //
     // Alpha map: fully opaque.  Neither kernel writes this on the plain
-    // opaque path, so its reset value is presumably already opaque -- but
+    // opaque path, so its reset value is presumably already opaque, but
     // "presumably" is the whole problem with this bug, the register is
     // per-window state nobody here has ever read, and a window that
     // composites transparent over a black background looks exactly like a
@@ -4213,20 +4213,20 @@ Vop2Enable (
   /*
    * Disable VOP2 auto clock gating.
    *
-   * SYS_AUTO_GATING_CTRL bit31 resets to 1, and so do its sub-gates --
+   * SYS_AUTO_GATING_CTRL bit31 resets to 1, and so do its sub-gates:
    * port_dclk_gating_en, hdmi_pix_clk_gating_en, overlay_aclk_gating_en and
    * the rest.  Mainline clears the top-level bit unconditionally for every
    * VOP2 generation, RK3576 included, in vop2_enable():
    *
    *   "Disable auto gating, this is a workaround to avoid display image
    *    shift when a window enabled."
-   *   -- drivers/gpu/drm/rockchip/rockchip_drm_vop2.c
+   *   (drivers/gpu/drm/rockchip/rockchip_drm_vop2.c)
    *
    * Nothing in this firmware ever wrote the register; Vop2Regs.h defined the
    * offset and no .c file used it.  That matters more here than the mainline
    * comment suggests: auto gating is an activity detector, not a config
    * field, so a boot where it gates a clock at the wrong moment reads back
-   * bit-for-bit identical to a boot where it does not -- which is exactly the
+   * bit-for-bit identical to a boot where it does not, which is exactly the
    * signature of the intermittent no-picture failure on this SoC.  The gates
    * it controls include the port dclk and the HDMI pixel clock, the two that
    * the dclk mux switch in DwHdmiQpLib stops and restarts.
@@ -4235,7 +4235,7 @@ Vop2Enable (
    * other bits are the per-domain sub-gates which follow the top-level bit.
    *
    * On RK3576 the top-level bit is not enough.  Bit 7 is a second, separate
-   * detector -- aclk_pre_auto_gating_en -- that exists only on RK3528, RK3562
+   * detector, aclk_pre_auto_gating_en, that exists only on RK3528, RK3562
    * and RK3576, which is why mainline has no name for it: mainline's VOP2
    * support covers RK3568/RK3576/RK3588 and its RK3576 path simply never
    * learned about the bit.  The vendor BSP clears it for exactly those three
@@ -4271,7 +4271,7 @@ Vop2Enable (
     //
     // mainline's vop2_setup_alpha() only touches a mixer from normalized_zpos
     // 1 upward, so a single-plane setup like ours leaves MIX0/MIX1/MIX2 at
-    // whatever they reset to -- values neither kernel documents.  The vendor
+    // whatever they reset to, values neither kernel documents.  The vendor
     // UEFI build that drives a clean picture on this silicon writes all three
     // explicitly, with the same four values each, and also writes SYS_PD_CTRL
     // as a plain zero (PD_ESMART powered, esmart_lb_mode 0).
@@ -4317,9 +4317,9 @@ Vop2Enable (
     //
     // Left at reset, ACM is an unconfigured post-processing block sitting in
     // the pixel path.  That fits the black vertical stripes this board has
-    // shown for months -- 1 px wide, evenly spaced, full screen, independent
+    // shown for months (1 px wide, evenly spaced, full screen, independent
     // of content, and unchanged when the mode goes from 1920x1080 to
-    // 2560x1440 -- after every VP, window, clock and HDMI register had
+    // 2560x1440) after every VP, window, clock and HDMI register had
     // already been matched against both mainline and the working vendor
     // firmware without finding a difference.
     //
@@ -4348,14 +4348,14 @@ Vop2Enable (
    *
    *   SError Exception  ESR=0xBF000002  EC=0x2F  ISS=0x01000002
    *
-   * between HDMI setup steps [1b] and [2] -- four boots, same place every
+   * between HDMI setup steps [1b] and [2]: four boots, same place every
    * time, and the three commits after it inherited the failure.  e2a9d52,
    * one commit earlier, completes all 22 steps.
    *
    * The mechanism: with VP0 held in standby, it does not scan, so dclk_vp0
    * and the HDMI TX video clock domain it feeds are not running.  Step [1b]
    * writes PKTSCHED_PKT_EN and PKT_CONTROL0, which live in that domain, and
-   * the access lands on an unclocked sub-block -- an implementation-defined
+   * the access lands on an unclocked sub-block, an implementation-defined
    * bus error, delivered asynchronously a moment later as an SError.  The
    * crash is at the first touch of a video-domain HDMI register after VP0 was
    * left quiet, which is exactly where it appears.
@@ -4365,7 +4365,7 @@ Vop2Enable (
    *
    * This restores the previous behaviour and leaves 586af04's other three
    * changes in place.  It does NOT fix the scanning-on-an-unprogrammed-clock
-   * window -- that needs dclk_vp0_src to be given a real rate, which is the
+   * window; that needs dclk_vp0_src to be given a real rate, which is the
    * VPLL plan (source it from VPLL through the CRU) and what the vendor firmware in
    * dirty/ actually does (VPLL 594 MHz, CLKSEL_CON145 = 0x07FF0203). Until
    * that lands, a boot with a correct clock is worth more than a boot that
@@ -4397,7 +4397,7 @@ Vop2Enable (
   // The settle delay is deliberately NOT behind the diag flag.  It was added
   // to let the shadow commit land before reading the timing back, but it has
   // been in every image that ever produced a picture, so removing it is a
-  // behaviour change and belongs in its own experiment — not bundled with
+  // behaviour change and belongs in its own experiment, not bundled with
   // turning the reads off.
   //
   MicroSecondDelay (20 * 1000);
@@ -4422,7 +4422,7 @@ Vop2Enable (
   //
   // The overlay side, which is what actually decides whether anything reaches
   // the panel once the timing is right. Printed as one block so two boots can
-  // be diffed directly -- the failure is intermittent, so a single sample of
+  // be diffed directly; the failure is intermittent, so a single sample of
   // any of these proves nothing on its own.
   //
   // Esmart0 is the plane the GOP framebuffer is attached to. If REGION0_CTRL

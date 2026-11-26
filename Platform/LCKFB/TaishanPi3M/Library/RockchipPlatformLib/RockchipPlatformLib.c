@@ -1,6 +1,6 @@
 /** @file
  *
- *  RockchipPlatformLib.c -- board glue for the LCKFB TaishanPi 3M (RK3576)
+ *  RockchipPlatformLib.c: board glue for the LCKFB TaishanPi 3M (RK3576)
  *
  *  Written from the ArmSoM CM5-IO library and the board's mainline device
  *  tree (arch/arm64/boot/dts/rockchip/rk3576-lckfb-tspi-3m.dts, Linux 7.3).
@@ -69,7 +69,7 @@ static struct regulator_init_data rk806_init_data[] = {
 };
 
 /*
- * SdmmcIoMux — SD card iomux (sdmmc: mmc@2a310000)
+ * SdmmcIoMux: SD card iomux (sdmmc: mmc@2a310000)
  *
  * From rk3576-pinctrl.dtsi (sdmmc0 groups, all function 1):
  *   sdmmc0_bus4:  GPIO2 PA0-PA3  (D0-D3)
@@ -113,7 +113,7 @@ SdmmcIoMux (
 }
 
 /*
- * SdhciEmmcIoMux — eMMC iomux (sdhci: mmc@2a330000)
+ * SdhciEmmcIoMux: eMMC iomux (sdhci: mmc@2a330000)
  *
  * Onboard eMMC.
  * From rk3576-pinctrl.dtsi (emmc groups, all function 1):
@@ -169,7 +169,7 @@ SdhciEmmcIoMux (
 }
 
 /*
- * Rk806SpiIomux -- the RK806 is on I2C1 here, not SPI.  No-op.
+ * Rk806SpiIomux: the RK806 is on I2C1 here, not SPI.  No-op.
  */
 VOID
 EFIAPI
@@ -211,7 +211,7 @@ SetCPULittleVoltage (
 }
 
 /*
- * NorFspiIomux — SPI NOR flash iomux (sfc0: spi@2a340000)
+ * NorFspiIomux: SPI NOR flash iomux (sfc0: spi@2a340000)
  * Same SFC0 on RK3576. SPL-initialized iomux is retained.
  */
 VOID
@@ -256,7 +256,7 @@ NorFspiEnableClock (
 }
 
 /*
- * GmacIomux -- GMAC0 pins, eth0 M0 group.
+ * GmacIomux: GMAC0 pins, eth0 M0 group.
  *
  * From the device tree's &gmac0 pinctrl-0 and rk3576-pinctrl.dtsi:
  *   eth0m0_miim:       GPIO3_PA5 (MDIO), GPIO3_PA6 (MDC)
@@ -318,7 +318,7 @@ GmacIomux (
 }
 
 /*
- * GmacIoPhyReset — Assert/deassert ETH PHY reset GPIO.
+ * GmacIoPhyReset: Assert/deassert ETH PHY reset GPIO.
  *
  * gmac0 PHY: GPIO2_PB3, GPIO_ACTIVE_LOW
  *   (&mdio0 rgmii_phy0: reset-gpios = <&gpio2 RK_PB3 GPIO_ACTIVE_LOW>)
@@ -341,7 +341,7 @@ GmacIoPhyReset (
 }
 
 /*
- * I2cIomux -- I2C pin configuration
+ * I2cIomux: I2C pin configuration
  * From rk3576-pinctrl.dtsi:
  *   i2c1m0: GPIO0 PB2 (fn 11) = SCL, GPIO0 PB3 (fn 11) = SDA  (RK806 PMIC)
  *   i2c2m0: GPIO0 PB7 (fn  9) = SCL, GPIO0 PC0 (fn  9) = SDA  (HYM8563 RTC, FUSB302)
@@ -502,7 +502,7 @@ Tspi3mTypeCProbeAndPower (
 }
 
 /*
- * UsbPortPowerEnable -- 5V to the USB-A ports, and to the USB-C port when a
+ * UsbPortPowerEnable: 5V to the USB-A ports, and to the USB-C port when a
  * sink is on it.
  *
  *   vcc_5v0_usb2_host: gpio = <&gpio2 RK_PB5 GPIO_ACTIVE_HIGH>  (two USB 2.0 ports)
@@ -540,7 +540,7 @@ UsbPortPowerEnable (
 }
 
 /*
- * UsbTypeCGetOrientation -- which way round the USB-C plug is.
+ * UsbTypeCGetOrientation: which way round the USB-C plug is.
  *
  * This board's USB-C port (DRD0, both SuperSpeed pairs wired to the USBDP
  * PHY) has an FUSB302BMPX (U40) at 0x22 on I2C2 (dts:636-673; schematic
@@ -574,7 +574,7 @@ UsbTypeCGetOrientation (
 }
 
 /*
- * Usb2PhyResume — USB2 PHY wakeup + USB clock enable
+ * Usb2PhyResume: USB2 PHY wakeup + USB clock enable
  *
  * Same RK3576 USB2 PHY sequence as the CM5-IO and the ROCK 4D.
  *
@@ -625,7 +625,7 @@ Usb2PhyResume (
 }
 
 /*
- * PcieIoInit — PCIe GPIO direction setup
+ * PcieIoInit: PCIe GPIO direction setup
  *
  * pcie0 is the mini-PCIe slot, shared with SATA and the EC20's USB:
  *   power:  GPIO1 PD5 (vcc_3v3_minipcie, active-high)
@@ -660,7 +660,7 @@ PciePowerEn (
   )
 {
   switch (Segment) {
-    case 0:  /* GPIO1 PD5 -- vcc_3v3_minipcie */
+    case 0:  /* GPIO1 PD5: vcc_3v3_minipcie */
       GpioPinWrite (1, GPIO_PIN_PD5, Enable);
       break;
     default:
@@ -676,7 +676,7 @@ PciePeReset (
   )
 {
   switch (Segment) {
-    case 0:  /* GPIO2 PB1 — pcie0 reset (active-high) */
+    case 0:  /* GPIO2 PB1: pcie0 reset (active-high) */
       //
       // PERST# is active low: the pin is driven LOW to hold the endpoint in
       // reset and HIGH to release it, so Enable ("assert reset") maps to LOW.
@@ -684,13 +684,13 @@ PciePeReset (
       // "assert" released the device and "release" drove it back into reset.
       // Every other reset line in this file already uses !Enable.
       //
-      // Mainline is unambiguous -- pcie-dw-rockchip requests the GPIO as
+      // Mainline is unambiguous: pcie-dw-rockchip requests the GPIO as
       // GPIOD_OUT_HIGH and rockchip_pcie_start_link() writes 0 under the
       // comment "Reset device", then 1 to release.
       //
       // Measured on the CM5-IO (same pin and polarity) 2026-09-17: with the inversion the link trained to
       // Recovery (LTSSM 0x0013000D) then collapsed to Polling.Compliance
-      // (0x00000003) within 50 ms -- exactly when the code believed it was
+      // (0x00000003) within 50 ms, exactly when the code believed it was
       // releasing PERST# and was in fact asserting it.  The endpoint's config
       // space read 0xFFFFFFFF at the instant of link-up, so the link was never
       // usable.
@@ -703,7 +703,7 @@ PciePeReset (
 }
 
 /*
- * HdmiTxIomux — HDMI TX pin mux & clock ungating
+ * HdmiTxIomux: HDMI TX pin mux & clock ungating
  *
  * GPIO4 PC6 enables the external level shifters.  The device tree has
  * "frl-enable-gpios = <&gpio4 RK_PC6 GPIO_ACTIVE_LOW>" with the comment "The
@@ -736,7 +736,7 @@ HdmiTxIomux (
       /*
        * CLKGATE_CON(63): VO0 root clocks, plus ACLK/HCLK/PCLK_HDCP0.
        *
-       * The HDCP0 clocks (bits 12/13/14) are not here for HDCP -- they are in
+       * The HDCP0 clocks (bits 12/13/14) are not here for HDCP; they are in
        * PD_VO0's devicetree clock list (rk3576.dtsi:1247), and Rockchip's
        * pm-domains driver enables a domain's clocks across the power-up
        * handshake (pm-domains.c:666).  The HDCP0 bus interface sits inside
@@ -766,7 +766,7 @@ HdmiTxIomux (
        *
        * These three used to be CRU SOFTRST_CON22 bit 6, CON28 bit 5 and
        * CON25 bit 5, derived by taking mainline's reset *index* and applying
-       * the vendor binding's ID/16 encoding to it -- two incompatible
+       * the vendor binding's ID/16 encoding to it, two incompatible
        * numbering schemes (the same mistake the HDPTX PHY resets carried;
        * see the note in DwHdmiQpLib.h).  Per rst-rk3576.c those addresses are
        * DDR and NPU reset registers, and the resets meant here are:
@@ -777,7 +777,7 @@ HdmiTxIomux (
        *
        * SRST_HDMITXHDP gates the hot-plug-detect block.  CLK_HDMITXHDP is
        * ungated above; the reset was never released, which is a candidate
-       * for ROCK 4D reading HPD low while DDC -- a separate block -- works.
+       * for ROCK 4D reading HPD low while DDC (a separate block) works.
        */
       MmioWrite32 (CRU_SOFTRST_CON (64), (BIT (9) << 16) | 0U);
       MmioWrite32 (CRU_SOFTRST_CON (75), (BIT (1) << 16) | 0U);
@@ -793,7 +793,7 @@ HdmiTxIomux (
 }
 
 /*
- * PwmFanIoSetup / PwmFanSetSpeed -- the 2-pin fan on CN2.
+ * PwmFanIoSetup / PwmFanSetSpeed: the 2-pin fan on CN2.
  *
  * Wiring, from three sources that agree:
  *   - LCKFB's vendor tree, rk3576-lckfb-tspi-3m.dts:164-188:
@@ -900,7 +900,7 @@ Tspi3mBluetoothIoInit (
   );
 
 /*
- * PlatformEarlyInit -- the DSI panel, the Bluetooth UART's pins and clock
+ * PlatformEarlyInit: the DSI panel, the Bluetooth UART's pins and clock
  * (Tspi3mBluetooth.c), and the ES8388 codec's SAI1 when PcdAnalogAudioPreset
  * is set (Tspi3mAudio.c).
  *
@@ -934,7 +934,7 @@ PlatformEarlyInit (
 }
 
 /*
- * PlatformGetDtbFileGuid — Return GUID for embedded DTB based on compat mode.
+ * PlatformGetDtbFileGuid: Return GUID for embedded DTB based on compat mode.
  * GUIDs must match FILE_GUID in DeviceTree/Vendor.inf and DeviceTree/Mainline.inf.
  */
 CONST EFI_GUID *

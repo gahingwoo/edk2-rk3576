@@ -552,7 +552,7 @@ DwMmcHcDriverBindingSupported (
   Put the controller back to sleep before the OS takes over.
 
   ExitBootServices notification.  This runs at TPL_NOTIFY with no memory
-  allocation and no protocol use, which is all that is allowed here -- MMIO
+  allocation and no protocol use, which is all that is allowed here: MMIO
   writes only.
 
   What it undoes: DwMmcHcEnableInterrupt leaves IDINTEN = ~0, and the
@@ -560,7 +560,7 @@ DwMmcHcDriverBindingSupported (
   the GIC is live.  The SD GSIV is level triggered.  An IDMAC interrupt is
   reported in IDSTS, not in RINTSTS, so an OS host driver that services
   MINTSTS sees nothing to do, declines the interrupt, and the line stays
-  asserted -- with no handler willing to clear it.
+  asserted, with no handler willing to clear it.
 
   @param[in] Event    The event.
   @param[in] Context  The DW_MMC_HC_PRIVATE_DATA for this controller.
@@ -763,7 +763,7 @@ DwMmcHcDriverBindingStart (
   // handed to the OS with its interrupt output enabled (DW_MMC_CTRL_INT_EN)
   // and every IDMAC interrupt unmasked (IDINTEN = ~0, set by
   // DwMmcHcEnableInterrupt).  The GSIV in Sdhc.asl is level triggered, and an
-  // IDMAC interrupt is reported in IDSTS rather than in RINTSTS -- so an OS
+  // IDMAC interrupt is reported in IDSTS rather than in RINTSTS, so an OS
   // driver that reads MINTSTS sees nothing, declines the interrupt, and the
   // line stays asserted with no one to clear it.
   //

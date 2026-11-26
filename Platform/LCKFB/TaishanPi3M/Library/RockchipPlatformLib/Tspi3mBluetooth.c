@@ -1,6 +1,6 @@
 /** @file
  *
- *  Tspi3mBluetooth.c -- pins and clocks of the TaishanPi 3M's Bluetooth UART,
+ *  Tspi3mBluetooth.c: pins and clocks of the TaishanPi 3M's Bluetooth UART,
  *  set up for an operating system that has no pin or clock driver of its own
  *  (Windows with the woa-rk3576 bcm4345bt driver, which binds \_SB.BTH0 in
  *  Bluetooth.asl).  Linux reprograms all of it from its device tree.

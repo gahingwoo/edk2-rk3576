@@ -212,14 +212,14 @@ XhciCoreInit (
      * placed in P3 and the SS port enters SSDisabled. Useful when USB3 PHY is
      * not connected."  SUSPHY alone achieves this without PHYSOFTRST:
      * adding PHYSOFTRST while SUSPHY is pending creates a deadlock on an
-     * uninitialised PHY — PIPE3 is held in hard reset so P3_ACK never
+     * uninitialised PHY: PIPE3 is held in hard reset so P3_ACK never
      * arrives, the LTSSM stays in Polling and the HS companion port is
      * blocked from enumerating the USB-A device.
      */
     MmioOr32 ((UINTN)&Dwc3Reg->GUsb3PipeCtl[0], DWC3_GUSB3PIPECTL_SUSPHY);
     DEBUG ((DEBUG_WARN,
-      "[USB] DWC3@0x%08x: SUSPHY set pre-HOST (SS→SSDisabled; SS PHY unavailable)"
-      " — HS-only\n", UsbReg));
+      "[USB] DWC3@0x%08x: SUSPHY set pre-HOST (SS->SSDisabled; SS PHY unavailable)"
+      ", HS-only\n", UsbReg));
   }
 
   Dwc3SetMode (Dwc3Reg, DWC3_GCTL_PRTCAP_HOST);
@@ -239,7 +239,7 @@ XhciCoreInit (
    *   XhcDriverBindingStart to fail for this controller.
    *
    *   Setting PORTSC[0].PP=0 (xHCI §4.15.2.1) unconditionally powers off the
-   *   SS port at the xHCI layer — no PHY cooperation needed.  The LTSSM stops
+   *   SS port at the xHCI layer, with no PHY cooperation needed.  The LTSSM stops
    *   immediately and DWC3 asserts HCH within microseconds of RS=0.
    *
    *   Note: XhciDxe's XhcResetHC (HCRST) will reset PORTSC back to defaults
@@ -259,7 +259,7 @@ XhciCoreInit (
                  Ps & ~((UINT32)(1u << 9) | (UINT32)(0x7Fu << 17)));  /* PP=0, RWC=0 */
     DEBUG ((DEBUG_WARN,
       "[USB] DWC3@0x%08x: PORTSC[0] PP cleared pre-XhciDxe (was 0x%08x now 0x%08x)"
-      " — LTSSM stopped; XhcHaltHC will complete cleanly\n",
+      ": LTSSM stopped; XhcHaltHC will complete cleanly\n",
       UsbReg, Ps, MmioRead32 (OpBase + 0x400U)));
     /*
      * 20 ms settle: give the DWC3 internal FSM time to fully acknowledge the
@@ -637,7 +637,7 @@ STATIC UINTN  gXhciNotifiedMask = 0;
 #define RK3576_U2PHY1_GRF_STATUS  0x26030080UL
 
 /*
- * EFI_USB2_HC_PROTOCOL notification callback — functional fixup only.
+ * EFI_USB2_HC_PROTOCOL notification callback: functional fixup only.
  *
  * Fires synchronously inside XhcDriverBindingStart (at InstallProtocolInterface),
  * while XhciDxe is already emitting its own startup burst.  This callback must
@@ -700,7 +700,7 @@ UsbHcProtocolNotify (
      * GetCapability() returns NumOfPort = number of USB2 HS ports (= 1 for
      * both DRD0 and DRD1).  HCSPARAMS1[31:24] is total xHCI ports including
      * SS (1 for DRD0 without UsbDpPhy, 2 for DRD1).  They count different
-     * things — comparing them produces an ambiguous or wrong match.
+     * things, so comparing them produces an ambiguous or wrong match.
      *
      * XhciDxe calls InstallProtocolInterface in the same order as
      * RegisterNonDiscoverableMmioDevice was called, which follows
@@ -735,7 +735,7 @@ UsbHcProtocolNotify (
      * we add here competes for the 1.5 Mbaud UART FIFO and causes overflow
      * that swallows the second controller's entire startup sequence.
      *
-     * Functional work only — no diagnostics.  Full register dumps happen in
+     * Functional work only, no diagnostics.  Full register dumps happen in
      * UsbReadyToBootCallback after all XhciDxe/UsbBusDxe activity is done.
      */
 
@@ -755,7 +755,7 @@ UsbHcProtocolNotify (
        * HDD spindle to complete its internal reset and present a stable
        * connection before UsbBusDxe starts enumeration.
        *
-       * No debug output — this callback fires synchronously inside XhciDxe's
+       * No debug output: this callback fires synchronously inside XhciDxe's
        * InstallProtocolInterface and must not flood the 1.5 Mbaud UART FIFO.
        */
 #define USB_CCS_POLL_MS    FixedPcdGet32 (PcdUsbCDeviceWaitMs)   /* max wait for device to appear; 0 on a board that does not power the port */
@@ -765,7 +765,7 @@ UsbHcProtocolNotify (
         UINTN   PollMs;
         for (PollMs = 0; PollMs < USB_CCS_POLL_MS; PollMs++) {
           if ((MmioRead32 (HsPortscAddr) & 0x1U) != 0) {
-            break;  /* device physically present — move to settle phase */
+            break;  /* device physically present, move to settle phase */
           }
           MicroSecondDelay (1000U);  /* 1 ms per iteration */
         }
@@ -839,8 +839,8 @@ UsbReadyToBootCallback (
     HandleBuffer = NULL;
   }
 
-  /* 2. Raw MMIO PORTSC dump - one line per port, always explicit.
-   * Iterate in REVERSE so DRD1 (USB-A, last entry) prints first — the
+  /* 2. Raw MMIO PORTSC dump: one line per port, always explicit.
+   * Iterate in REVERSE so DRD1 (USB-A, last entry) prints first; the
    * UEFI menu can appear within ~6 lines and would otherwise cut DRD1 data.
    */
   DEBUG ((DEBUG_WARN, "[USB-RTB] --- Raw MMIO PORTSC ---\n"));
@@ -894,7 +894,7 @@ UsbReadyToBootCallback (
     }
   }
 
-  /* 3. USB2PHY UTMI line-state — u2phy1 (USB-A) printed first */
+  /* 3. USB2PHY UTMI line-state, u2phy1 (USB-A) printed first */
   Sts = MmioRead32 (RK3576_U2PHY1_GRF_STATUS);
   DEBUG ((DEBUG_WARN,
     "[USB-RTB] u2phy1 GRF[0x80]=0x%08x utmi_ls=%d bvalid=%d avalid=%d\n",

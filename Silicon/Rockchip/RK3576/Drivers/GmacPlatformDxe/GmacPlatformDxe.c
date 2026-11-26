@@ -9,8 +9,8 @@
  *  DwcEqosSnpDxe can drive the MAC.
  *
  *  Hardware overview (rk3576.dtsi / rk3576-rock-4d.dts):
- *    gmac0: 0x2A220000 — RTL8211F PHY, RGMII-ID (delays in PHY)
- *    gmac1: 0x2A230000 — not connected on ROCK 4D
+ *    gmac0: 0x2A220000, RTL8211F PHY, RGMII-ID (delays in PHY)
+ *    gmac1: 0x2A230000, not connected on ROCK 4D
  *    sdgmac_grf: 0x26038000
  *      CON0 (gmac0), CON1 (gmac1): RW with HIWORD write-mask
  *        bit 3  = RMII mode (0 = RGMII)
@@ -49,7 +49,7 @@
 #define HIWORD_UPDATE(val, mask, shift) \
         (((val) << (shift)) | ((mask) << ((shift) + 16)))
 
-/* SDGMAC_GRF — syscon @ 0x26038000 */
+/* SDGMAC_GRF: syscon @ 0x26038000 */
 #define RK3576_SDGMAC_GRF_BASE  0x26038000UL
 #define RK3576_GRF_GMAC_CON0    (RK3576_SDGMAC_GRF_BASE + 0x0020)  /* gmac0 */
 #define RK3576_GRF_GMAC_CON1    (RK3576_SDGMAC_GRF_BASE + 0x0024)  /* gmac1 */
@@ -67,7 +67,7 @@
 #define RK3576_GMAC_CLK_25M   3  /* 100 Mbps */
 #define RK3576_GMAC_CLK_2_5M  2  /* 10 Mbps */
 
-/* IOC_GRF — syscon @ 0x26040000, VCCIO0_1_3_IOC registers */
+/* IOC_GRF: syscon @ 0x26040000, VCCIO0_1_3_IOC registers */
 #define RK3576_IOC_GRF_BASE            0x26040000UL
 #define RK3576_VCCIO0_1_3_IOC_CON2    (RK3576_IOC_GRF_BASE + 0x6408)  /* gmac0 m0 */
 #define RK3576_VCCIO0_1_3_IOC_CON3    (RK3576_IOC_GRF_BASE + 0x640C)  /* gmac0 m1 */

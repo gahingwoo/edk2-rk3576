@@ -176,7 +176,7 @@ Rk3576DitherSetup (
   // this path and only falls back to P888 when the port cannot do 10-bit.
   //
   // The switch above already turns pre-dither on for the case that actually
-  // needs it -- a wider internal pipeline than the output bus.
+  // needs it: a wider internal pipeline than the output bus.
   //
   // If this is ever revisited, revisit it with a measurement: set the bit,
   // photograph a flat mid-grey field, and compare. It has been asserted in
@@ -231,7 +231,7 @@ Rk3576VpComputeRegs (
 
   //
   // Every one of these packs two values into a 32-bit register as 16-bit
-  // halves. Refuse the mode rather than silently truncating it -- a wrapped
+  // halves. Refuse the mode rather than silently truncating it. A wrapped
   // htotal produces a picture that is subtly wrong rather than absent, which
   // is the expensive kind of failure to debug.
   //
@@ -490,7 +490,7 @@ Rk3576PowerDomainOn (
 {
   /*
    * repair_status: 1 = powered.  Mainline checks this before doing anything,
-   * and so do we -- if the SPL already brought the domain up, re-running the
+   * and so do we. If the SPL already brought the domain up, re-running the
    * sequence would drop and re-raise power under a VOP that may already be
    * scanning out.
    */

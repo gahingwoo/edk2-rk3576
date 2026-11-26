@@ -4,7 +4,7 @@
  *
  *  WARNING: the clock tree in this file is still RK3588's.  The PLL rate
  *  table, the clock IDs, and the register offsets in Clocks[]/Resets[] were
- *  all written for RK3588 -- the RK3588_* macro names below are left in
+ *  all written for RK3588. The RK3588_* macro names below are left in
  *  place deliberately so that stays visible.  Only the base addresses are
  *  RK3576's, and only because <Soc.h> now resolves to RK3576's copy.
  *

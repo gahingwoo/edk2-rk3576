@@ -31,7 +31,7 @@
 // than 1% over the bus limit.
 //
 
-  // I2C0 — SoC internal bus (DP/AUX or debug; usually disabled on carrier boards)
+  // I2C0: SoC internal bus (DP/AUX or debug; usually disabled on carrier boards)
   Device (I2C0) {
     Name (_HID, "RKCP3001")
     Name (_CID, "PRP0001")
@@ -266,7 +266,7 @@
     Method (_STA) { Return (0xf) }
   }
 
-  // I2C9 — additional I2C bus in GPIO4 domain
+  // I2C9: additional I2C bus in GPIO4 domain
   Device (I2C9) {
     Name (_HID, "RKCP3001")
     Name (_CID, "PRP0001")

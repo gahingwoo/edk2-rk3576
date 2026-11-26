@@ -4,7 +4,7 @@
 #
 # Why this exists: the Raspberry Pi Debug Probe on this host re-enumerates
 # (USB passthrough flap, or the board's power cycle taking the probe with it).
-# When it does, /dev/ttyACM0 is destroyed and recreated -- and a reader holding
+# When it does, /dev/ttyACM0 is destroyed and recreated, and a reader holding
 # the old character device does NOT get an error and does NOT exit.  It just
 # goes deaf, silently, forever.  minicom and Tabby behave the same way: the
 # window stays open and empty, which reads as "the board said nothing".
@@ -22,7 +22,7 @@ BAUD="${3:-1500000}"
 
 #
 # Refuse to start if something else already holds the device.  Two readers on
-# the same tty do not each get a copy -- the kernel hands each byte to exactly
+# the same tty do not each get a copy: the kernel hands each byte to exactly
 # one of them, so both logs come out shredded and neither is evidence.  This
 # cost a full test round on 2026-09-17: two orphaned `cat` processes from
 # earlier runs were still attached, and the resulting garbled output was first

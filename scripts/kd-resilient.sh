@@ -6,7 +6,7 @@
 #
 # 1. It reattaches when the debug probe re-enumerates.  kd-listen.py holds one
 #    fd and, when /dev/ttyACM0 is destroyed and recreated, does not get an
-#    error -- it goes deaf silently, which reads as "the board said nothing".
+#    error; it goes deaf silently, which reads as "the board said nothing".
 #
 # 2. It sets the line rate.  kd-listen.py opens the device and never calls
 #    tcsetattr, so whatever stty left behind is what it gets.  1.5 Mbaud here,
@@ -16,7 +16,7 @@
 # Why this replaces the plain serial logger rather than running beside it:
 # two readers on one tty split the stream between them and neither log is
 # evidence.  kd-listen.py already appends every received byte to its raw file,
-# so it is a full serial capture as well as a debugger peer -- the UEFI console
+# so it is a full serial capture as well as a debugger peer: the UEFI console
 # text before ExitBootServices lands there too.
 #
 # And it must be a debugger peer, not just a reader.  A target with `debug on`
@@ -26,7 +26,7 @@
 # storage regression.
 #
 # 3. It finds the probe by USB id rather than by node name.  A replug can
-#    bring it back as ttyACM1 instead of ttyACM0 -- that happened on
+#    bring it back as ttyACM1 instead of ttyACM0.  That happened on
 #    2026-09-20 and the listener sat waiting on a node that no longer existed,
 #    looking exactly like a wedged probe.  Pass a device explicitly to
 #    override.

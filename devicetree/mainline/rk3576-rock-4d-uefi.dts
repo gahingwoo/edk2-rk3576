@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
- * Radxa ROCK 4D — UEFI mainline FDT overlay
+ * Radxa ROCK 4D: UEFI mainline FDT overlay
  *
  * Extends the mainline upstream rk3576-rock-4d.dts with nodes that have
  * not yet reached the upstream kernel but are required for a fully-featured
@@ -30,7 +30,7 @@
 };
 
 /*
- * USB-DP PHY — provides a USB3 SuperSpeed lane to the USB-C port (DRD0).
+ * USB-DP PHY: provides a USB3 SuperSpeed lane to the USB-C port (DRD0).
  * Requires combphy0_ps to be active.
  */
 &usbdp_phy {
@@ -55,7 +55,7 @@
 };
 
 /*
- * DRD0 — USB-C port.
+ * DRD0: USB-C port.
  * The mainline DTS only configures usb_drd1_dwc3; usb_drd0_dwc3 (USB-C)
  * is not yet upstream.  Force host mode so both ports are available.
  */
@@ -74,7 +74,7 @@
 };
 
 /*
- * I2C6 — connects to a BL24C16F EEPROM at 0x50 holding board identity
+ * I2C6: connects to a BL24C16F EEPROM at 0x50 holding board identity
  * (serial number, hardware revision, etc.).
  * i2c6m3 muxing: SDA/SCL on GPIOH3/H4 (i2c6m3_xfer pinctrl group).
  */

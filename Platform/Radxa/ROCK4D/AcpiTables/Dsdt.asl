@@ -50,16 +50,16 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // SPI buses (SPI0..SPI2 on RK3576; SFC0 is a separate FSPI for SPI-NOR boot)
     include ("Spi.asl")
 
-    // USB (2x DWC3 OTG used as host — DRD0 @ 0x23000000, DRD1 @ 0x23400000)
+    // USB (2x DWC3 OTG used as host: DRD0 @ 0x23000000, DRD1 @ 0x23400000)
     include ("Usb3Host0.asl")
     include ("Usb3Host1.asl")
-    // XHC2 stub — disabled, RK3576 has only 2 USB DRD controllers
+    // XHC2 stub: disabled, RK3576 has only 2 USB DRD controllers
     include ("Usb3Host2.asl")
 
-    // SATA — disabled stub, RK3576 has no SATA controller
+    // SATA: disabled stub, RK3576 has no SATA controller
     include ("Sata.asl")
 
-    // Network (GMAC0 only — ROCK 4D has a single 1GbE port via GMAC0/RTL8211F)
+    // Network (GMAC0 only; ROCK 4D has a single 1GbE port via GMAC0/RTL8211F)
     include ("Gmac0.asl")
   }
 }

@@ -4,7 +4,7 @@
 #
 #  Same RK3576 silicon as Radxa ROCK 4D.  Board-level differences that affect
 #  the DSDT:
-#    - GMAC1 not present (single 1GbE via GMAC0 — identical to ROCK 4D)
+#    - GMAC1 not present (single 1GbE via GMAC0, as on ROCK 4D)
 #    - No I2C5 peripherals on carrier (no EMC2301 fan, no PCF85063 RTC)
 #    - eMMC onboard on CM5 module (same silicon path as ROCK 4D)
 #  All common ASL files come from Silicon/Rockchip/RK3576/AcpiTables/.

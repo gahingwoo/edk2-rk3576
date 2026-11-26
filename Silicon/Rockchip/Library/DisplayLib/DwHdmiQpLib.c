@@ -38,7 +38,7 @@
 //   - IOC_HDMI_HPD_STATUS is read five times during setup, and SetIomux leaves
 //     IOC_MISC_CON0's HPD_INT_CLR asserted (readback 0x03). Every HPD-based
 //     detector tried so far was sampling a register the firmware itself holds
-//     in a cleared state -- which is why three rounds of them produced
+//     in a cleared state, which is why three rounds of them produced
 //     incoherent readings rather than a signal.
 //   - At least one register in this block is already known not to be
 //     side-effect free. Without the TRM there is no way to know from source
@@ -53,7 +53,7 @@
 #endif
 
 //
-// A small, targeted probe -- the opposite of the ~135 dumps this flag turns off.
+// A small, targeted probe, the opposite of the ~135 dumps this flag turns off.
 //
 // Those were sprayed through the whole bring-up and could not be ruled out as a
 // cause of what they were meant to diagnose. This reads eight registers, all of
@@ -87,7 +87,7 @@
 
 /*
  * VOP2 reads from inside this file, kept on the same switch as VOP2_DUMP_REG in
- * Vop2Dxe.c -- see the long note there for why "VOP2 reads drop HDMI sync" is
+ * Vop2Dxe.c; see the long note there for why "VOP2 reads drop HDMI sync" is
  * being re-tested rather than assumed.  Reads of HDMITX/GRF/CRU registers were
  * never in question and stay unconditional; only the VOP2 ones move with the
  * flag, which is what makes the A/B meaningful.
@@ -103,7 +103,7 @@
 // executed, RESET_MANAGER_STATUS0 read 0x00000000 both before and after, and
 // the warm reboot still produced no output. Kept behind the flag rather than
 // deleted only because it is one A/B away from being useful if the picture
-// ever turns out to depend on controller state -- but it is not the bug, and
+// ever turns out to depend on controller state, but it is not the bug, and
 // leaving it on adds an unexplained variable to every future experiment.
 //
 #ifndef RK_HDMI_WARM_RESET
@@ -119,13 +119,13 @@
 //   bars      hpd=FB vis=00060560 vms=00200030 cmu=0255 phy=0E vp=0000000F ...
 //   no signal hpd=E9 vis=00060560 vms=00200030 cmu=0255 phy=0E vp=0000000F ...
 //
-// -- identical in every recorded field except those two bits. Mainline names
+// Identical in every recorded field except those two bits. Mainline names
 // only bit 3 here (RK3576_HDMI_LEVEL_INT) and reads the whole word as an
 // interrupt status in its HPD IRQ handler, so bits 1 and 4 are very likely edge
 // latches: the sink reacting to a link it has just acquired.
 //
 // This is a symptom of success, not its cause, which is exactly what makes it
-// usable as a completion test -- and it is the only thing the firmware has ever
+// usable as a completion test, and it is the only thing the firmware has ever
 // been able to see that tracks the outcome at all. Setup's own return value is
 // SUCCESS in every failing boot.
 //
@@ -200,7 +200,7 @@ STATIC EFI_GUID  mRkDisplayDiagGuid = {
 // Measured: the sink first raised bit 1 at 1850 ms on the boot that produced a
 // picture. The old 300 ms could not have observed that, and re-running Setup on
 // that cadence tore the link down roughly six times before the sink had any
-// chance to finish acquiring -- which is why the retry never once helped.
+// chance to finish acquiring, which is why the retry never once helped.
 //
 #define RK_HDMI_SINK_SETTLE_MS  3000
 #endif
@@ -218,8 +218,8 @@ STATIC EFI_GUID  mRkDisplayDiagGuid = {
 //
 //   FB  bit1=1  picture
 //   E9  bit1=0  no signal   (x3)
-//   FD  bit1=0  no signal   -- bit 4 set here, which is why the earlier
-//                              BIT(1)|BIT(4) test would have called it a success
+//   FD  bit1=0  no signal   (bit 4 set here, which is why the earlier
+//                              BIT(1)|BIT(4) test would have called it a success)
 //
 // So bit 4 is noise; on the first boot after a flash the accumulator came back
 // 0xFF, i.e. every bit toggled at some point while HPD settled. Use the final
@@ -379,7 +379,7 @@ DwHdmiQpSetIomux (
   //
   // Force GPIO4_PC1 (HPD) to INPUT in the GPIO DDR register BEFORE switching
   // the iomux to function 9.  GpioPinSetFunction() only writes the iomux
-  // register — it does not touch the GPIO DDR (direction) register.  If a
+  // register; it does not touch the GPIO DDR (direction) register.  If a
   // prior boot stage left PC1 as a GPIO OUTPUT driving LOW, the DDR register
   // retains that setting even after the iomux switch.  In alt-function mode
   // the iomux overrides the signal routing, but explicitly clearing the DDR
@@ -397,10 +397,10 @@ DwHdmiQpSetIomux (
   HDMI_DUMP_REG ("GPIO4_SWPORT_DDR_H  ", 0x2AE4000CUL);
 
   // rk3576-pinctrl.dtsi function map for GPIO4_PCx with fn9:
-  //   PC0 fn9 = hdmi_tx_cec_m0  (CEC — required by mainline hdmi_txm0_pins group)
-  //   PC1 fn9 = hdmi_tx_hpdin_m0 (HPD input — required for HPD detect path)
-  //   PC2 fn9 = hdmi_tx_scl      (DDC SCL — required for EDID/SCDC)
-  //   PC3 fn9 = hdmi_tx_sda      (DDC SDA — required for EDID/SCDC)
+  //   PC0 fn9 = hdmi_tx_cec_m0  (CEC, required by mainline hdmi_txm0_pins group)
+  //   PC1 fn9 = hdmi_tx_hpdin_m0 (HPD input, required for HPD detect path)
+  //   PC2 fn9 = hdmi_tx_scl      (DDC SCL, required for EDID/SCDC)
+  //   PC3 fn9 = hdmi_tx_sda      (DDC SDA, required for EDID/SCDC)
   //
   // Mainline Linux (rk3576.dtsi) configures pinctrl-0 = <&hdmi_txm0_pins &hdmi_tx_scl &hdmi_tx_sda>
   // which sets PC0-PC3 ALL to fn9.  In particular, hdmi_txm0_pins covers BOTH PC0 (CEC)
@@ -463,7 +463,7 @@ DwHdmiQpSetIomux (
   HDMI_TRACE ("SetIomux: write VO0_GRF_SOC_CON14 <- 0x%08x\n", Val);
   MmioWrite32 (RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON14, Val);
 
-  // Configure HPD detection: CLR=1, MSK=0 — matches Linux mainline
+  // Configure HPD detection: CLR=1, MSK=0, matching Linux mainline
   // dw_hdmi_qp_rk3576_setup_hpd() exactly:
   //   HIWORD_UPDATE(CLR, CLR | MSK)  →  mask=0x06, value=0x02  →  0x00060002
   //
@@ -499,7 +499,7 @@ DwHdmiQpSetIomux (
   HDMI_TRACE ("SetIomux: write IOC_MISC_CON1 <- 0xffff0102 (LNUM_MS=2ms, SET_DLY_EN=1)\n");
   MmioWrite32 (RK3588_SYS_GRF_BASE + 0xA404, 0xffff0102U);
   // Brief settle after debounce reconfiguration
-  MicroSecondDelay (5 * 1000);  /* 5 ms — allow HPD debounce to arm after CLR=1 write */
+  MicroSecondDelay (5 * 1000);  /* 5 ms: allow HPD debounce to arm after CLR=1 write */
   HDMI_DUMP_REG ("IOC_HDMI_HPD_STATUS (5ms post-write)", RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
 
   HDMI_TRACE ("SetIomux: post-state\n");
@@ -583,14 +583,14 @@ DwHdmiReadHpd (
   //
   // We read bit 6 as well as bit 3.  Bit 3 is what the vendor's *interrupt
   // handler* uses, and it only tracks the pad here because SetIomux leaves
-  // HPD_INT_CLR asserted -- there is no interrupt handler in UEFI to service
+  // HPD_INT_CLR asserted; there is no interrupt handler in UEFI to service
   // it.  Bit 6 needs no such assumption.
   //
   // These names also settle the 0xE9 / 0xFB values this file has been
   // reasoning about: 0xE9 is CHANGE_CNT=1 and 0xFB is CHANGE_CNT=3, and both
   // have PORT_LEVEL set.  HPD was asserted on both; the only difference is
   // that the sink toggled HPD twice more on one of them.  The low bits are a
-  // counter, not a state -- which is why treating BIT(1) as a
+  // counter, not a state, which is why treating BIT(1) as a
   // "sink acquired" flag read as 1 on some failures and 0 on a success.
   //
   // If the HPD wait loop in ConnectorPreInit timed out (HpdTimeoutFlag set),
@@ -629,7 +629,7 @@ DwHdmiReadHpd (
       return TRUE;
     }
     /* HPD is LOW.  HpdTimeoutFlag is set when the ConnectorPreInit wait loop
-     * exhausted its budget — proceed so capture cards / KVMs (which never
+     * exhausted its budget. Proceed so capture cards / KVMs (which never
      * assert HPD) still work. */
     if (Hdmi->HpdTimeoutFlag) {
       HDMI_TRACE ("ReadHpd: hw=LOW but HpdTimeoutFlag set -> FORCED=YES (no-HPD sink)\n");
@@ -988,7 +988,7 @@ DwHdmiI2cInit (
    *        SCL = 24 000 000 / (96 + 113) ≈ 115 kHz (DDC-compatible)
    *      Set BOTH SM and FM SCL registers with this value so either mode
    *      gets correct timing.
-   *   5. FM_EN = 0 (Standard Mode) — matches the Linux kernel.
+   *   5. FM_EN = 0 (Standard Mode), as in the Linux kernel.
    *      The FM_READ (BIT(2)) and FM_WRITE (BIT(1)) trigger bits work in BOTH
    *      SM and FM modes; FM_EN only selects which SCL timing register is used.
    *      Using FM_EN=1 breaks I2CM_FM_WRITE on this IP (writes time out with no
@@ -1003,7 +1003,7 @@ DwHdmiI2cInit (
    * DDC bus timing for the EDID read.
    *
    * I2CM_SM/FM_SCL_CONFIG0 holds raw counts of the controller's own clock, one
-   * half-period per 16-bit field. TIMER_BASE_CONFIG0 does not scale it -- that
+   * half-period per 16-bit field. TIMER_BASE_CONFIG0 does not scale it. That
    * was assumed once and the assumption is wrong, which the hardware settled:
    *
    *   0x00600071   209 counts    EDID fails, hundreds of timeouts
@@ -1016,7 +1016,7 @@ DwHdmiI2cInit (
    * it; picking a number between these is guesswork without a scope on SCL.
    *
    * This is what mainline writes too (dw_hdmi_qp_init_hw), and Setup step [0b]
-   * already writes the same pair later -- doing it here as well is what makes
+   * already writes the same pair later; doing it here as well is what makes
    * the EDID read, which happens before Setup, use it.
    */
   DwHdmiQpRegWrite (Hdmi, 0x179A7B00, TIMER_BASE_CONFIG0);  /* 396 MHz, as Setup uses */
@@ -1027,7 +1027,7 @@ DwHdmiI2cInit (
   DwHdmiQpRegWrite (Hdmi, 0x085c085c, I2CM_SM_SCL_CONFIG0);
   DwHdmiQpRegWrite (Hdmi, 0x085c085c, I2CM_FM_SCL_CONFIG0);
 
-  /* Standard Mode (FM_EN=0) — required for FM_WRITE to function correctly */
+  /* Standard Mode (FM_EN=0) is required for FM_WRITE to function correctly */
   DwHdmiQpRegMod (Hdmi, 0, I2CM_FM_EN, I2CM_INTERFACE_CONTROL0);
 
   /* Clear DONE and ERROR interrupts */
@@ -1231,7 +1231,7 @@ DwHdmiQpConnectorPreInit (
     if (!HpdHigh) {
       UINT32  Gpio4Ext = MmioRead32 (0x2AE40070U);
       DEBUG ((DEBUG_INFO,
-        "[RK3576-HDMI] HPD timeout after %u ms — GPIO4_PC1=%u — enabling bypass (HpdTimeoutFlag=TRUE)\n"
+        "[RK3576-HDMI] HPD timeout after %u ms (GPIO4_PC1=%u), enabling bypass (HpdTimeoutFlag=TRUE)\n"
         "[RK3576-HDMI] Hint: ensure the TV is powered on and its HDMI input is selected.\n",
         Elapsed, (Gpio4Ext >> 17) & 1U));
       Hdmi->HpdTimeoutFlag = TRUE;
@@ -1344,7 +1344,7 @@ DwHdmiQpConnectorGetEdid (
   // How long the transfer actually took settles which of two readings of the
   // DDC clock bug is right. Programming TIMER_BASE_CONFIG0 with 396 MHz gives
   // ~92 kHz SCL if that is the real reference rate, but ~5.6 kHz if the clock
-  // is really 24 MHz at this point -- legal, but twenty times slower than it
+  // is really 24 MHz at this point: legal, but twenty times slower than it
   // should be. Two EDID blocks is 256 bytes, so roughly 15 ms in the first case
   // and 250 ms in the second. The commit that changed this asserted the first
   // without measuring it.
@@ -1370,7 +1370,7 @@ Rk3576FallbackMode:
   // initialisation can proceed regardless.  Mark sink as HDMI so that AVI
   // and GCP infoframes are sent correctly.
   //
-  HDMI_TRACE ("GetEdid: RK3576 DDC failed — falling back to hardcoded 1920x1080@60\n");
+  HDMI_TRACE ("GetEdid: RK3576 DDC failed, falling back to hardcoded 1920x1080@60\n");
   ConnectorState->SinkInfo.IsHdmi                        = TRUE;
   ConnectorState->SinkInfo.PreferredMode.Vic              = 16;
   ConnectorState->SinkInfo.PreferredMode.OscFreq          = 148500;
@@ -1406,7 +1406,7 @@ Rk3588SetColorFormat (
   // YUV420 3), which the vendor BSP matches.
   //
   // This function used to compute a value into a local, then discard it and
-  // write a hardcoded 0x0600 -- the *10 bpc* depth code -- followed by an
+  // write a hardcoded 0x0600 (the *10 bpc* depth code) followed by an
   // unreachable RK3588 block.  On an 8 bpc link that told the TX video packer
   // to pack 10 bpc out of an 8 bpc stream: a rate mismatch at the
   // packer/serialiser boundary, whose FIFO behaviour depends on the phase the
@@ -1485,12 +1485,12 @@ HdmiConfigAviInfoframe (
   InfBuf[2] = 13;   /* Length */
 
   //
-  // PB1: [1:0] S = 0 (no scan information -- the vendor overrides the DRM
+  // PB1: [1:0] S = 0 (no scan information; the vendor overrides the DRM
   // default of UNDERSCAN to NONE, dw_hdmi_qp.c:706), [4] A0, [6:5] Y = 0 (RGB).
   //
   // A0 must be set whenever a non-zero active-format aspect ratio is sent
   // (drivers/video/hdmi.c:141-142).  It was clear here while PB2's R field was
-  // also zero, so the pair was self-consistent -- but it meant the sink was
+  // also zero, so the pair was self-consistent, but it meant the sink was
   // told "no active format information", and a sink that letterboxes on that
   // basis had nothing to go on.
   //
@@ -1505,7 +1505,7 @@ HdmiConfigAviInfoframe (
   // (u-boot common/edid.c, HDMI_ACTIVE_ASPECT_PICTURE) and what mainline packs.
   //
   // M was hardcoded to 16:9.  That is right for every mode this port has
-  // actually driven, and wrong the moment a 4:3 or 16:10 sink appears -- both
+  // actually driven, and wrong the moment a 4:3 or 16:10 sink appears. Both
   // references derive it from the mode.  Deriving it from the active
   // resolution gives the same answer as the CEA table for the ratios CEA
   // defines, and PICTURE_ASPECT_NONE for the ones it does not (5:4, 16:10),
@@ -1526,7 +1526,7 @@ HdmiConfigAviInfoframe (
   // The 2026-08-30 audit called for setting Q = Full unconditionally, "to
   // match the vendor".  Reading both references end to end, that is wrong:
   // vendor and mainline share one rule (u-boot common/edid.c:5851-5855,
-  // mainline drm_edid.c:7511-7515) -- send the requested range only if the
+  // mainline drm_edid.c:7511-7515): send the requested range only if the
   // sink advertises QS in its Video Capability Data Block, or if the range
   // already equals the mode's default.  For a CEA mode above VIC 1 the default
   // is Limited (drm_edid.c:6034-6040), so on a QS=0 sink both references send
@@ -1561,8 +1561,8 @@ HdmiConfigAviInfoframe (
    *
    * This used to also write InfBuf[0] (0x82) into bits[7:0], justified by a
    * mainline line that does not exist in this mainline.  It appears to be
-   * harmless either way -- the vendor UEFI build that produces a picture
-   * writes the type byte there too -- but "matches the reference" beats
+   * harmless either way (the vendor UEFI build that produces a picture
+   * writes the type byte there too), but "matches the reference" beats
    * "matches a line nobody can find".
    */
   val = ((UINT32)InfBuf[1] << 8) | ((UINT32)InfBuf[2] << 16);
@@ -1729,11 +1729,11 @@ DwHdmiQpSetup (
   /* ── STEP 0: Vendor-match: INT_MASK disable + TIMER_BASE_CONFIG0 ─────── */
   /*
    * Vendor EDK2 binary (VA=0x4234..0x4258) writes these three registers at
-   * the very start of HDMI TX initialisation — before any PHY or clock work.
+   * the very start of HDMI TX initialisation, before any PHY or clock work.
    *
-   *   MAINUNIT_0_INT_MASK_N = 0  (0x27DA3014) — mask all mainunit interrupts
-   *   MAINUNIT_1_INT_MASK_N = 0  (0x27DA3024) — mask all mainunit interrupts
-   *   TIMER_BASE_CONFIG0    (0x27DA0080) — HDMITX reference clock rate in Hz
+   *   MAINUNIT_0_INT_MASK_N = 0  (0x27DA3014): mask all mainunit interrupts
+   *   MAINUNIT_1_INT_MASK_N = 0  (0x27DA3024): mask all mainunit interrupts
+   *   TIMER_BASE_CONFIG0    (0x27DA0080): HDMITX reference clock rate in Hz
    *
    * The register holds the HDMITX reference clock frequency in Hz.  This
    * value is used for all internal DWC HDMI QP timing, including CEC.
@@ -1765,7 +1765,7 @@ DwHdmiQpSetup (
    *
    * Fix: reset I2CM and reprogram SCL timing for 396 MHz.
    * Linux uses 0x085c085c at ~428 MHz ref → 5.0 µs/half-period → 100 kHz.
-   * At 396 MHz: 0x085c = 2140 cycles = 5.4 µs → 92 kHz DDC — valid.
+   * At 396 MHz: 0x085c = 2140 cycles = 5.4 µs → 92 kHz DDC, which is valid.
    *
    * Matches Linux kernel dw_hdmi_qp_init_hw() sequence.
    */
@@ -1823,7 +1823,7 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  PKTSCHED_PKT_EN cleared", Hdmi->Base + PKTSCHED_PKT_EN);
 
   /* ── STEP 2: Enable HDMI TX QP clocks ───────────────────────────────── */
-  HDMI_TRACE ("Setup: [2] Enable QP clocks (CMU_CONFIG0) — keep SWDISABLE set until after PHY\n");
+  HDMI_TRACE ("Setup: [2] Enable QP clocks (CMU_CONFIG0); keep SWDISABLE set until after PHY\n");
   /*
    * Clear VIDQPCLK_OFF (bit3) and LINKQPCLK_OFF (bit5) in CMU_CONFIG0 to
    * un-gate the video/link QP clocks inside the HDMI TX controller.
@@ -1836,22 +1836,22 @@ DwHdmiQpSetup (
    * described something the code was not doing: nothing in this firmware ever
    * *sets* the bit, mainline never touches it (dw-hdmi-qp.c:471 and :518 are
    * the audio bit, not this one), and the vendor only toggles it during FRL
-   * link training -- never for TMDS.  So on a cold boot step [10e] was
+   * link training, never for TMDS.  So on a cold boot step [10e] was
    * clearing a bit that was already clear.
    *
-   * Where it stopped being harmless is if the bit were ever inherited set --
+   * Where it stopped being harmless is if the bit were ever inherited set,
    * a warm boot after a Linux FRL session, say.  Then the packet scheduler
    * and the AVI InfoFrame RAM, written in steps [1b] and [9], would have been
    * programmed while the AVP video sub-block was held in software disable,
    * and on this IP a disabled sub-block does not necessarily latch register
    * writes.  The AVMUTE GCP at step [11] comes after the old clear and would
-   * still land -- so the result is a link that comes up, unmutes, and carries
+   * still land, so the result is a link that comes up, unmutes, and carries
    * no AVI InfoFrame.  Clearing it before anything is programmed removes the
    * question.
    */
   //
   // The CMU_CONFIG0 write that was here is removed.  VIDQPCLK_OFF and
-  // LINKQPCLK_OFF are CMU_STATUS fields -- mainline, the vendor BSP and
+  // LINKQPCLK_OFF are CMU_STATUS fields: mainline, the vendor BSP and
   // vendor U-Boot all define them that way, and across all three the only
   // CMU access is a *read* of CMU_STATUS.  Nobody writes CMU_CONFIG0, and
   // the RK3576 TRM does not document offset 0x00A0 at all (the summary goes
@@ -1861,7 +1861,7 @@ DwHdmiQpSetup (
   //
   // It is not harmless territory: RESET_MANAGER_CONFIG0 bits 0-4 select, at
   // their reset value, "value of cmu_status.linkqpclk_off_st used" and the
-  // vidqpclk equivalent -- the Reset Manager decides reset overlap across
+  // vidqpclk equivalent; the Reset Manager decides reset overlap across
   // those clock domains from what the CMU reports.
   //
   // For a clock-presence gate, read CMU_STATUS (0x27DA00B0) and test
@@ -1879,7 +1879,7 @@ DwHdmiQpSetup (
    * at all.  That was root-caused once already (27c0b03) and the reasoning
    * still holds: a cold start hands us a controller at hardware reset
    * defaults, while a warm reboot hands us whatever the *previous firmware
-   * run* left behind -- frame composer stopped mid-frame, video interface
+   * run* left behind: frame composer stopped mid-frame, video interface
    * armed against a PHY that no longer exists, TMDS serialiser feed
    * half-configured.  Our init is incremental and cannot recover from that.
    *
@@ -1903,7 +1903,7 @@ DwHdmiQpSetup (
    *     -> SOFTRST_CON64 = 0xA00 + 64*4 = 0xB00, bit 9
    *
    * Only the "ref" reset is pulsed.  SRST_HDMITXHDP covers hot-plug detect,
-   * and HPD plus the EDID read are already established by this point -- there
+   * and HPD plus the EDID read are already established by this point. There
    * is no reason to disturb them and a good chance it would cost us the
    * detection state we depend on.
    *
@@ -1937,7 +1937,7 @@ DwHdmiQpSetup (
   //
   //
   // The CMU_CONFIG0 write that was here is removed.  VIDQPCLK_OFF and
-  // LINKQPCLK_OFF are CMU_STATUS fields -- mainline, the vendor BSP and
+  // LINKQPCLK_OFF are CMU_STATUS fields: mainline, the vendor BSP and
   // vendor U-Boot all define them that way, and across all three the only
   // CMU access is a *read* of CMU_STATUS.  Nobody writes CMU_CONFIG0, and
   // the RK3576 TRM does not document offset 0x00A0 at all (the summary goes
@@ -1947,7 +1947,7 @@ DwHdmiQpSetup (
   //
   // It is not harmless territory: RESET_MANAGER_CONFIG0 bits 0-4 select, at
   // their reset value, "value of cmu_status.linkqpclk_off_st used" and the
-  // vidqpclk equivalent -- the Reset Manager decides reset overlap across
+  // vidqpclk equivalent; the Reset Manager decides reset overlap across
   // those clock domains from what the CMU reports.
   //
   // For a clock-presence gate, read CMU_STATUS (0x27DA00B0) and test
@@ -1975,10 +1975,10 @@ DwHdmiQpSetup (
     HDMI_DUMP_REG ("  HDPTX_GRF_CON0    ", 0x26032000UL + 0x00);
     return Status;
   }
-  HDMI_TRACE ("Setup: [3] PHY PLL OK — PHY_CLK_RDY locked\n");
+  HDMI_TRACE ("Setup: [3] PHY PLL OK, PHY_CLK_RDY locked\n");
   HDMI_DUMP_REG ("  HDPTX_STATUS post ", 0x26032000UL + 0x80);
   HDMI_DUMP_REG ("  CMU_STATUS postPLL", Hdmi->Base + CMU_STATUS);
-  /* Link QP clock domain now running — safe to read link registers. */
+  /* Link QP clock domain now running, so it is safe to read link registers. */
   HDMI_DUMP_REG ("  LINK_CONFIG0 postPLL", Hdmi->Base + LINK_CONFIG0);
   HDMI_DUMP_REG ("  TMDS_FIFO_CFG0 postPLL", Hdmi->Base + TMDS_FIFO_CONFIG0);
 
@@ -2002,7 +2002,7 @@ DwHdmiQpSetup (
    * VP0 must be in STANDBY when switching CLKSEL_CON147.
    *
    * In Linux, clk_set_parent(DCLK_VP0, hdptxphy_pll) is called from
-   * vop2_crtc_atomic_enable() while VP0 is still in standby — before the
+   * vop2_crtc_atomic_enable() while VP0 is still in standby, before the
    * STANDBY bit is cleared.  Switching a live DCLK mux corrupts VOP2 output
    * and the HDMITX never sees a valid video stream.
    *
@@ -2024,7 +2024,7 @@ DwHdmiQpSetup (
     HDMI_TRACE ("Setup: [4a] VP0 -> STANDBY (before DCLK mux switch)\n");
     MmioWrite32 (0x27D00000UL + 0xC00U, DspCtrl | BIT (31));
     MmioWrite32 (0x27D00000UL + 0x000U, 0x00018001U);   /* REG_CFG_DONE: commit VP0 */
-    MicroSecondDelay (20 * 1000);   /* 20 ms — one full frame at 60 Hz */
+    MicroSecondDelay (20 * 1000);   /* 20 ms: one full frame at 60 Hz */
     /* Report the value just written; do not read VOP2 back here. */
     HDMI_TRACE ("Setup: [4a] VP0_DSP_CTRL after STANDBY commit = 0x%08x  STANDBY=1\n",
                 DspCtrl | BIT (31));
@@ -2041,14 +2041,14 @@ DwHdmiQpSetup (
     HDMI_DUMP_REG ("  CLKGATE_CON61 post", 0x27200000UL + 0x8F4U);
     HDMI_DUMP_REG ("  CLKSEL_CON145 src ", 0x27200000UL + 0x0544);  /* dclk_vp0_src mux/div */
     HDMI_DUMP_REG ("  CMU_STATUS postMux", Hdmi->Base + CMU_STATUS);
-    MicroSecondDelay (2 * 1000);    /* 2 ms — let new clock stabilise */
+    MicroSecondDelay (2 * 1000);    /* 2 ms: let new clock stabilise */
 
     /* [4c] Deassert VP0 STANDBY */
     HDMI_TRACE ("Setup: [4c] VP0 -> active (after DCLK mux switch)\n");
     MmioWrite32 (0x27D00000UL + 0xC00U, DspCtrl & ~(UINT32)BIT (31));
     MmioWrite32 (0x27D00000UL + 0x000U, 0x00018001U);   /* REG_CFG_DONE: commit VP0 */
-    MicroSecondDelay (20 * 1000);   /* 20 ms — allow VP0 to re-sync output */
-    /* Likewise — and this one sat inside the 20 ms VP0 re-sync window. */
+    MicroSecondDelay (20 * 1000);   /* 20 ms: allow VP0 to re-sync output */
+    /* Likewise, and this one sat inside the 20 ms VP0 re-sync window. */
     HDMI_TRACE ("Setup: [4]  VP0_DSP_CTRL post-mux = 0x%08x  STANDBY=0\n",
                 DspCtrl & ~(UINT32)BIT (31));
   }
@@ -2083,7 +2083,7 @@ DwHdmiQpSetup (
   DwHdmiQpRegMod (Hdmi, HDCP2_BYPASS, HDCP2_BYPASS, HDCP2LOGIC_CONFIG0);
 
   /* ── STEP 7: HDMI / DVI mode ──────────────────────────────────────────
-   * Force HDMI mode regardless of sink EDID parsing — user demand: always
+   * Force HDMI mode regardless of sink EDID parsing (user demand): always
    * drive the link in HDMI TMDS mode (not DVI). This guarantees AVI
    * infoframes, SCDC, GCP, and HDMI-specific signalling are emitted.
    * Only honour an explicit DVI selection from the user via SignalingMode. */
@@ -2139,7 +2139,7 @@ DwHdmiQpSetup (
    * so the TV decodes our unscrambled TMDS correctly.
    *
    * SCDC_TMDS_CONFIG = 0x20 in the HDMI SCDC address space.
-   * This is an I2C write to slave 0x54 — same path as EDID DDC.
+   * This is an I2C write to slave 0x54, the same path as EDID DDC.
    * Non-fatal: if the write fails, log and continue (EDID read already
    * proved DDC is working, so this is extremely unlikely to fail).
    */
@@ -2178,13 +2178,13 @@ DwHdmiQpSetup (
         HDMI_TRACE ("Setup: [7c] SCDC TMDS_CONFIG=0 OK (attempt %u)\n", ScdcRetry + 1);
         break;
       }
-      HDMI_TRACE ("Setup: [7c] SCDC write attempt %u FAILED Status=%r — retrying\n",
+      HDMI_TRACE ("Setup: [7c] SCDC write attempt %u FAILED Status=%r, retrying\n",
                   ScdcRetry + 1, ScdcSt);
-      MicroSecondDelay (2000);   /* 2 ms — let I2C bus settle between attempts */
+      MicroSecondDelay (2000);   /* 2 ms: let I2C bus settle between attempts */
     }
 
     if (!ScdcWriteOk) {
-      HDMI_TRACE ("Setup: [7c] SCDC write all retries FAILED — sink may stay scrambled\n");
+      HDMI_TRACE ("Setup: [7c] SCDC write all retries FAILED; sink may stay scrambled\n");
     } else {
       /* Readback for diagnostic.  If the read times out the write still
        * succeeded (ACK confirmed by DwHdmiScdcWrite); the sink has applied it. */
@@ -2209,7 +2209,7 @@ DwHdmiQpSetup (
   }
 
   /* ── STEP 10: PHY lane configure + PostEnableLane ────────────────────── */
-  HDMI_TRACE ("Setup: [10] HdptxRopllTmdsModeConfig — lane init + deassert lane reset\n");
+  HDMI_TRACE ("Setup: [10] HdptxRopllTmdsModeConfig: lane init + deassert lane reset\n");
   HDMI_DUMP_REG ("  HDPTX_STATUS preLN", 0x26032000UL + 0x80);
   Status = HdptxRopllTmdsModeConfig (Hdptx, BitRate);
   if (EFI_ERROR (Status)) {
@@ -2219,14 +2219,14 @@ DwHdmiQpSetup (
     HDMI_DUMP_REG ("  HDPTX_GRF_CON0    ", 0x26032000UL + 0x00);
     return Status;
   }
-  HDMI_TRACE ("Setup: [10] Lanes OK — PHY_RDY + PLL_LOCK_DONE\n");
+  HDMI_TRACE ("Setup: [10] Lanes OK: PHY_RDY + PLL_LOCK_DONE\n");
   HDMI_DUMP_REG ("  HDPTX_STATUS postLN", 0x26032000UL + 0x80);
   HDMI_DUMP_REG ("  CMU_STATUS  postLN ", Hdmi->Base + CMU_STATUS);
 
   /* ── STEP 10e: settle after the lanes report ready ───────────────────── */
   /*
    * AVP_DATAPATH_VIDEO_SWDISABLE is cleared back in step [2], before anything
-   * is programmed -- see the note there.  What remains here is the settle.
+   * is programmed; see the note there.  What remains here is the settle.
    */
   HDMI_TRACE ("Setup: [10e] PHY stable; AVP video path already enabled in [2]\n");
   MicroSecondDelay (5000);  /* 5 ms: allow HDMI TX to sync to incoming video */
@@ -2250,7 +2250,7 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("  LN0_R030A(amp)     ", HDMI0TX_PHY_BASE + 0x0C28); /* want 0x17                */
   HDMI_DUMP_REG ("  LN0_R030B(swing)   ", HDMI0TX_PHY_BASE + 0x0C2C); /* want 0x77                */
   HDMI_DUMP_REG ("  LN0_R0312(rate)    ", HDMI0TX_PHY_BASE + 0x0C48); /* want 0x00 = RBR rate     */
-  /* EI (Electrical Idle) state — LANEx_REG01 bit7=OVRD bit6=EI_EN; want 0x80 (OVRD=1 EI_EN=0) */
+  /* EI (Electrical Idle) state: LANEx_REG01 bit7=OVRD bit6=EI_EN; want 0x80 (OVRD=1 EI_EN=0) */
   HDMI_DUMP_REG ("  LN0_R0301(EI)      ", HDMI0TX_PHY_BASE + 0x0C04); /* data lane 0; want 0x80   */
   HDMI_DUMP_REG ("  LN1_R0401(EI)      ", HDMI0TX_PHY_BASE + 0x1004); /* data lane 1; want 0x80   */
   HDMI_DUMP_REG ("  LN2_R0501(EI)      ", HDMI0TX_PHY_BASE + 0x1404); /* data lane 2; want 0x80   */
@@ -2295,10 +2295,10 @@ DwHdmiQpSetup (
    *
    * The previous code wrote 0 here and used MicroSecondDelay(50) (50 µs,
    * not 50 ms).  Both are bugs aligned with the observed "no signal"
-   * symptom — corrected against vendor U-Boot. */
+   * symptom. Corrected against vendor U-Boot. */
   if (HdmiMode) {
     HDMI_TRACE ("Setup: [11] Clear avmute (PKT_CTL0=2 vendor), enable GCP_TX\n");
-    MicroSecondDelay (50000);  /* 50 ms — match vendor mdelay(50) */
+    MicroSecondDelay (50000);  /* 50 ms to match vendor mdelay(50) */
     DwHdmiQpRegWrite (Hdmi, 2, PKTSCHED_PKT_CONTROL0);
     DwHdmiQpRegMod (Hdmi, PKTSCHED_GCP_TX_EN, PKTSCHED_GCP_TX_EN, PKTSCHED_PKT_EN);
     HDMI_DUMP_REG ("  PKTSCHED_PKT_CTL0  ", Hdmi->Base + PKTSCHED_PKT_CONTROL0);
@@ -2311,8 +2311,8 @@ DwHdmiQpSetup (
      *
      * GCP is a repeated packet.  While GCP_TX_EN is set the scheduler emits
      * it every frame, so it cannot be missed, and there was nothing to force.
-     * The toggle was also off->on with no delay between the two APB writes --
-     * far less than a frame -- so what it could actually do is disable the
+     * The toggle was also off->on with no delay between the two APB writes
+     * (far less than a frame), so what it could actually do is disable the
      * packet mid-transmission and truncate a data island into a BCH error at
      * a sink that is still acquiring the link.  Neither mainline
      * (dw-hdmi-qp.c:932) nor the vendor (dw-hdmi-qp.c:3563) does this.
@@ -2330,21 +2330,21 @@ DwHdmiQpSetup (
      * pixel data to the TMDS serialiser.
      *
      * Vendor U-Boot writes BIT(21) last with the comment "Mark uboot hdmi
-     * is enabled" — this is a U-Boot-specific bookkeeping flag that has no
+     * is enabled"; this is a U-Boot-specific bookkeeping flag that has no
      * bearing on hardware functionality and actively breaks the VIF here. */
     HDMI_TRACE ("Setup: [11b] VIDEO_INTERFACE_CONFIG0 = 0 (not written; Linux-confirmed correct)\n");
     HDMI_DUMP_REG ("  VID_IF_CFG0 pre-final   ", Hdmi->Base + VIDEO_INTERFACE_CONFIG0);
     HDMI_DUMP_REG ("  VID_IF_STATUS pre-final ", Hdmi->Base + VIDEO_INTERFACE_STATUS0);
   }
 
-  /* [11b] 500ms TMDS wait removed — mainline does not block here. */
+  /* [11b] 500ms TMDS wait removed; mainline does not block here. */
 
   /* ── STEP 12: Final status dump ─────────────────────────────────────── */
 #if RK_HDMI_LINK_PROBE
   /*
    * Eight registers, read once, after everything is configured.
    *
-   * Nothing here touches VOP2 -- that block has a standing warning about reads
+   * Nothing here touches VOP2. That block has a standing warning about reads
    * during and after Vop2Enable, and the last time the diagnostics ignored it
    * they sat sixteen reads deep inside exactly that window for every
    * measurement taken over several days.
@@ -2359,7 +2359,7 @@ DwHdmiQpSetup (
    *   VID_IF_STATUS0   whether video is arriving at the TX at all
    *   VID_MON_ST0      the TX's own measurement of the incoming timing
    *   MAIN_STATUS0     main unit state
-   *   PKTSCHED_PKT_EN  which packets are being transmitted -- if AVI never goes
+   *   PKTSCHED_PKT_EN  which packets are being transmitted; if AVI never goes
    *                    out a sink has no format to decode
    *   GRF_HDPTX_STATUS PHY lock as the GRF sees it, for cross-checking
    */
@@ -2393,7 +2393,7 @@ DwHdmiQpSetup (
    * VP0 post-buffer-empty status.
    *
    * RK3568_VP_INT_RAW_STATUS(0) = VOP2_BASE + 0xAC, VP_INT_POST_BUF_EMPTY =
-   * BIT(4) -- from rockchip_drm_vop2.h:432 and :768.  Mainline enables this
+   * BIT(4), from rockchip_drm_vop2.h:432 and :768.  Mainline enables this
    * interrupt on every crtc enable and logs it as an error
    * (rockchip_drm_vop2.c:1798, :2364), because it means the display timing
    * generator asked the post pipeline for pixels and got none.
@@ -2411,7 +2411,7 @@ DwHdmiQpSetup (
               MmioRead32 (0x27D00000UL + 0xACU),
               (MmioRead32 (0x27D00000UL + 0xACU) & BIT (4)) ? 1 : 0);
 
-  HDMI_TRACE ("Setup: [12] SUCCESS — ConnectorEnable exit Success\n");
+  HDMI_TRACE ("Setup: [12] SUCCESS, ConnectorEnable exit Success\n");
   HDMI_DUMP_REG ("VO0_GRF_SOC_CON1    ", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON1);
   HDMI_DUMP_REG ("VO0_GRF_SOC_CON8    ", RK3588_VO1_GRF_BASE + RK3576_VO0_GRF_SOC_CON8);
   HDMI_DUMP_REG ("IOC_HDMI_HPD_STATUS ", RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
@@ -2425,7 +2425,7 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("HDMITX MAIN_STATUS0 ", Hdmi->Base + MAINUNIT_STATUS0);
   HDMI_DUMP_REG ("HDMITX VID_IF_CFG0  ", Hdmi->Base + VIDEO_INTERFACE_CONFIG0);
   /* VID_IF_CFG1/CFG2/CTL0/FC_CONFIG0/SCRAMB_CFG0 (0x804-0x960) trigger synchronous external abort
-   * when the video interface sub-block is ungated but VID_IF_CONFIG0=0 — skip these reads.
+   * when the video interface sub-block is ungated but VID_IF_CONFIG0=0, so skip these reads.
    * SCRAMB_CONFIG0 (0x960) specifically causes the abort; removed from this dump. */
   HDMI_DUMP_REG ("HDMITX VID_IF_STAT  ", Hdmi->Base + VIDEO_INTERFACE_STATUS0);
   HDMI_DUMP_REG ("HDMITX VID_MON_CFG0 ", Hdmi->Base + VIDEO_MONITOR_CONFIG0);
@@ -2443,7 +2443,7 @@ DwHdmiQpSetup (
   HDMI_DUMP_REG ("HDMITX PKTSCHED_ST0 ", Hdmi->Base + PKTSCHED_PKT_STATUS0);
   HDMI_DUMP_REG ("HDMITX PKTSCHED_ST1 ", Hdmi->Base + PKTSCHED_PKT_STATUS1);
   HDMI_DUMP_REG ("HDMITX TMDS_FIFO_C0 ", Hdmi->Base + TMDS_FIFO_CONFIG0);
-  /* TMDS_FIFO_CONTROL0 @ 0x974 is a hole — triggers synchronous external abort, skip */
+  /* TMDS_FIFO_CONTROL0 @ 0x974 is a hole: it triggers a synchronous external abort, skip */
   HDMI_DUMP_REG ("IOC_MISC_CON0       ", RK3588_SYS_GRF_BASE + RK3576_IOC_MISC_CON0);
   HDMI_DUMP_REG ("IOC_MISC_CON1       ", RK3588_SYS_GRF_BASE + 0xA404);
   HDMI_DUMP_REG ("IOC_HDMI_HPD_ST_end ", RK3588_SYS_GRF_BASE + RK3576_IOC_HDMI_HPD_STATUS);
@@ -2488,7 +2488,7 @@ STATIC EFI_EVENT  mRkDiagReadyToBootEvent       = NULL;
 // So sample rather than read once, and OR every sample together. A latch that
 // sets and self-clears between two samples still lands in the accumulator.
 // Nothing here writes the register or re-runs any part of the setup, so the
-// measurement cannot disturb what it is measuring -- which the retry could,
+// measurement cannot disturb what it is measuring, which the retry could,
 // since re-running Setup tears the link down and a sink that needs longer than
 // one retry interval to acquire would never be given the chance.
 //
@@ -2519,7 +2519,7 @@ STATIC UINT32     mRkHpdFinal                   = 0;    // last sample
 //
 // A detector matters beyond diagnostics: without one, retrying is pointless.
 // Each retry tears down what the last built, so the outcome is decided by the
-// final attempt whether we run one or four -- which is exactly what the last
+// final attempt whether we run one or four, which is exactly what the last
 // run showed, 2 successes in 8 either way. Retrying only pays if it can stop
 // when it has won.
 //
@@ -2607,7 +2607,7 @@ STATIC UINT32     mRkDiagHpdSeen[RK_HDMI_ENABLE_RETRIES];
  * Everything the display path emits lands in a stretch of serial output the
  * host terminal discards, so the one line per boot that actually matters has
  * never survived a capture. By ReadyToBoot the console has finished clearing
- * the screen and output gets through -- BDS's boot-option dump is legible in
+ * the screen and output gets through; BDS's boot-option dump is legible in
  * every log we have.
  */
 STATIC
@@ -2628,7 +2628,7 @@ DwHdmiQpDiagReadyToBoot (
  *
  * Everything recorded here is read straight from hardware after Setup has
  * finished, so the record describes the state the picture (or the lack of one)
- * was actually produced from -- not what Setup believes it configured. Setup's
+ * was actually produced from, not what Setup believes it configured. Setup's
  * own return value is stored too, but only so the log shows how little it is
  * worth: it has read SUCCESS in every failing boot so far.
  *
@@ -2691,7 +2691,7 @@ DwHdmiQpRecordDiag (
     //
     // Which build is actually running. Every round so far has spent time on
     // "is the board even running the image we just flashed", answered by
-    // guessing from whether some new field was present -- circular, since that
+    // guessing from whether some new field was present: circular, since that
     // field is the thing in question. __TIME__ of this file is a direct answer:
     // it changes whenever this file is recompiled, which is every build that
     // touches the diagnostics.
@@ -2740,7 +2740,7 @@ DwHdmiQpRecordDiag (
   // The variable only reaches the SD card when RkFvbDxe dumps it, and it does
   // that on exactly two triggers: a reset notification and ReadyToBoot. A hard
   // power cut hits neither, so on a bench where every test is a power-cycle the
-  // ring resets to a single entry every boot -- which is precisely what the
+  // ring resets to a single entry every boot, which is precisely what the
   // first eight-boot run produced. The variable is still written (it is worth
   // having whenever the board is reset cleanly), but it cannot be the only copy.
   //
@@ -2800,21 +2800,21 @@ DwHdmiQpConnectorEnable (
    * register reads BYTE-IDENTICAL between a boot that produces a picture and
    * one that produces nothing.  There is exactly one observable that tracks
    * the outcome: IOC_HDMI_HPD_STATUS ends at 0xFB when the picture appears and
-   * stays at 0xE9 when it does not -- bits 1 and 4 get set only in the good
+   * stays at 0xE9 when it does not; bits 1 and 4 get set only in the good
    * case.
    *
    * Mainline names only bit 3 in this register (RK3576_HDMI_LEVEL_INT, the HPD
    * level) and reads the whole word as an interrupt status in its IRQ handler,
    * so bits 1 and 4 are almost certainly HPD edge latches: the sink pulsing
    * HPD as it re-acquires the link.  That makes them a symptom of success
-   * rather than a cause of it -- which is exactly what makes them useful to
+   * rather than a cause of it, which is exactly what makes them useful to
    * poll on.
    *
    * So: wait for the sink to respond, and if it does not, do the whole thing
    * again.  This is a measurement first and a mitigation second. Whatever the
    * failure turns out to be, one boot now yields several samples instead of
    * needing the user to power-cycle repeatedly, and the log says whether a
-   * second attempt succeeds where the first did not -- which by itself
+   * second attempt succeeds where the first did not, which by itself
    * settles whether DwHdmiQpSetup is idempotent.
    *
    * Deliberately NOT gated on Status: Setup already returns SUCCESS in the
@@ -2836,7 +2836,7 @@ DwHdmiQpConnectorEnable (
     // the moment retries went in: failures stopped being "no signal" and became
     // "signal present, picture black" on three boots out of four. A link that
     // comes up carrying no pixels is what re-running the HDMI side while VOP2 is
-    // already running would produce -- so the video port gets re-enabled here
+    // already running would produce, so the video port gets re-enabled here
     // too, ahead of each retry, rather than leaving it mid-flight.
     //
     Crtc = (ROCKCHIP_CRTC_PROTOCOL *)DisplayState->CrtcState.Crtc;

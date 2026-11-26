@@ -1,6 +1,6 @@
 ## @file
 #
-#  DwcSdhciDxe platform helper library — RK3576 variant.
+#  DwcSdhciDxe platform helper library, RK3576 variant.
 #  Programs eMMC clock via direct CRU writes.
 #
 #  Copyright (c) 2023, Mario Bălănică <mariobalanica02@gmail.com>

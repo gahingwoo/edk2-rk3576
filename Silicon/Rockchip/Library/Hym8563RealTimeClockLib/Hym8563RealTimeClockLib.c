@@ -56,7 +56,7 @@
  *  Runtime (after ExitBootServices):
  *
  *    The OS may drive the same I2C controller itself, and two masters on one
- *    controller with no lock between them corrupt each other's transfers --
+ *    controller with no lock between them corrupt each other's transfers;
  *    on the TaishanPi 3M that bus also carries the FUSB302 USB-C controller.
  *    So the chip is used at runtime only when ExitBootServicesHookDxe
  *    identified the OS loader as Windows: under ACPI Windows has no driver
