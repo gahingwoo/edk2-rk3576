@@ -20,9 +20,8 @@
 |---|---|
 | ![UEFI front page on the ROCK 4D](imgs/monitor-4d.png) | ROCK 4D 上的首页，通过 HDMI 输出 2560x1440。 |
 | ![UEFI front page on the CM5-IO](imgs/monitor-cm5io.jpeg) | CM5-IO 上的首页，通过 HDMI 输出 2560x1440。 |
-| ![Front page](imgs/tspi3m-uefi-front-page.png) | 泰山派 3M 的首页，带 Shut Down（关机）和 About（关于），由固件自己截图保存。竖屏面板上的菜单按横屏方向绘制。 |
-| ![Front page in Simplified Chinese](imgs/tspi3m-uefi-front-page-zh.png) | 同一个首页的简体中文版。 |
-| ![About](imgs/tspi3m-uefi-about.png) | About（关于）：固件构建、板子、时钟，以及启动时找到的设备。 |
-| ![Boot Manager](imgs/tspi3m-uefi-boot-manager.png) | Boot Manager（启动管理器）：eMMC、Touch Test、UEFI Shell、MaskROM、网络启动、一个 U 盘。 |
-| ![Platform configuration](imgs/tspi3m-uefi-platform.png) | 平台配置。 |
-| ![Display settings](imgs/tspi3m-uefi-display.png) | 显示设置。 |
+| ![Front page](imgs/rock4d-uefi-front-page-zh.png) | ROCK 4D 的首页，由固件自己截图保存（F12）。平台配置是第一项。 |
+| ![Platform configuration](imgs/rock4d-uefi-platform-zh.png) | 平台配置：关于、显示、ComboPHY、ACPI / 设备树、CPU 频率、GPU 电压、截图、网络对时。 |
+| ![Display settings](imgs/rock4d-uefi-display-zh.png) | 显示设置。 |
+| ![Boot Manager](imgs/rock4d-uefi-boot-manager-zh.png) | 启动管理器：Windows、UEFI Shell、MaskROM、Reset All Settings（重置所有设置）、NVMe、Armbian (U-Boot)、SD 卡、网络启动。 |
+| ![About](imgs/rock4d-uefi-about-zh.png) | 关于：固件构建、板子、时钟，以及启动时找到的设备。 |
