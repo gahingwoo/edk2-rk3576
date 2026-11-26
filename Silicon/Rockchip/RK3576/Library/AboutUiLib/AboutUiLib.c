@@ -308,7 +308,47 @@ AboutCpuClusterRates (
 }
 
 /**
-  The year this file was compiled, from __DATE__ ("Mmm dd yyyy").
+  The date this file was compiled, from __DATE__ ("Mmm dd yyyy", the day
+  padded with a space when it has one digit).
+
+  @param[out] Year   The year.
+  @param[out] Month  The month, 1 to 12; 0 if the name is not recognised.
+  @param[out] Day    The day of the month.
+**/
+STATIC
+VOID
+AboutBuildDate (
+  OUT UINT16  *Year,
+  OUT UINT8   *Month,
+  OUT UINT8   *Day
+  )
+{
+  STATIC CONST CHAR8  MonthNames[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+  CONST CHAR8         *Date;
+  UINTN               Index;
+
+  Date   = __DATE__;
+  *Month = 0;
+  for (Index = 0; Index < 12; Index++) {
+    if (CompareMem (Date, &MonthNames[Index * 3], 3) == 0) {
+      *Month = (UINT8)(Index + 1);
+      break;
+    }
+  }
+
+  *Day = (UINT8)(Date[5] - '0');
+  if (Date[4] != ' ') {
+    *Day = (UINT8)(*Day + (Date[4] - '0') * 10);
+  }
+
+  *Year = 0;
+  for (Index = 7; Index < 11; Index++) {
+    *Year = (UINT16)(*Year * 10 + (Date[Index] - '0'));
+  }
+}
+
+/**
+  The year this file was compiled.
 **/
 STATIC
 UINT16
@@ -316,16 +356,11 @@ AboutBuildYear (
   VOID
   )
 {
-  CONST CHAR8  *Date;
-  UINT16       Year;
-  UINTN        Index;
+  UINT16  Year;
+  UINT8   Month;
+  UINT8   Day;
 
-  Date = __DATE__;
-  Year = 0;
-  for (Index = 7; Index < 11; Index++) {
-    Year = (UINT16)(Year * 10 + (Date[Index] - '0'));
-  }
-
+  AboutBuildDate (&Year, &Month, &Day);
   return Year;
 }
 
@@ -428,6 +463,9 @@ AboutFillValues (
   UINT64  LittleHz;
   UINT64  BigHz;
   UINT64  MemoryMiB;
+  UINT16  BuildYear;
+  UINT8   BuildMonth;
+  UINT8   BuildDay;
 
   AboutSetLine (
     STRING_TOKEN (STR_ABOUT_VERSION),
@@ -438,9 +476,11 @@ AboutFillValues (
 
   //
   // When this file was compiled; scripts/build.sh touches it on every build
-  // so that this moves.
+  // so that this moves.  Written as yyyy-mm-dd, the same in every language,
+  // not as __DATE__'s English month name.
   //
-  UnicodeSPrint (Value, sizeof (Value), L"%a %a", __DATE__, __TIME__);
+  AboutBuildDate (&BuildYear, &BuildMonth, &BuildDay);
+  UnicodeSPrint (Value, sizeof (Value), L"%04u-%02u-%02u %a", (UINT32)BuildYear, (UINT32)BuildMonth, (UINT32)BuildDay, __TIME__);
   AboutSetLine (STRING_TOKEN (STR_ABOUT_BUILD), STRING_TOKEN (STR_ABOUT_BUILD_LABEL), Value, 0);
 
   AboutFillClock ();
