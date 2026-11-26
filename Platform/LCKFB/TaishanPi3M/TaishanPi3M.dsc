@@ -264,6 +264,10 @@
   # the card and the Wi-Fi SSDT (AcpiTables/Wifi.asl) is installed.  See
   # woa-rk3576 docs/WIFI.md.
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|TRUE
+  # USB-C DisplayPort Alt Mode (docs/usbc-dp.md): the option exists on this
+  # board (DP AUX on SBU1/2 biased by GPIO4_C4/C5, schematic v1.4) and is
+  # off by default.
+  gRK3576TokenSpaceGuid.PcdUsbcDpSupported|TRUE
   # The 40-pin header: Tspi3mPin40.c describes it, AcpiTables has its UART
   # and RhProxy SSDTs.  Both setup options stay off by default.
   gRK3576TokenSpaceGuid.PcdPin40Supported|TRUE

@@ -486,16 +486,25 @@ UsbPortPowerEnable (
 #define PMU1CRU_CLKSEL_CON6     (PMU1CRU_BASE + 0x300 + 6 * 4)
 #define PMU1CRU_GATE_CON5       (PMU1CRU_BASE + 0x800 + 5 * 4)
 
+STATIC CONST RK3576_FUSB302_BUS  mCm5ioFusb302Bus = {
+  I2C0_BASE, PMU1CRU_CLKSEL_CON6, 7, 3, "CM5-IO I2C0",
+  // DP alt mode only: 900 mA in the 5 V PDO, and VCONN (the V1.1
+  // schematic's FUSB302 VCONN pin net reads VCC5V0_DEVICE_S0; not measured).
+  900, TRUE
+};
+
+//
+// The last CC measurement, for UsbTypeCDpAltModeEnter right after it.
+//
+STATIC RK3576_FUSB302_STATE  mCm5ioTypeCState;
+STATIC BOOLEAN               mCm5ioTypeCStateValid;
+
 USB_TYPEC_ORIENTATION
 EFIAPI
 UsbTypeCGetOrientation (
   IN UINT32  Port
   )
 {
-  STATIC CONST RK3576_FUSB302_BUS  Bus = {
-    I2C0_BASE, PMU1CRU_CLKSEL_CON6, 7, 3, "CM5-IO I2C0"
-  };
-
   if (Port != 0) {
     return UsbTypeCOrientationUnknown;
   }
@@ -503,7 +512,92 @@ UsbTypeCGetOrientation (
   GpioPinSetFunction (0, GPIO_PIN_PC1, 9);
   GpioPinSetFunction (0, GPIO_PIN_PC2, 9);
   MmioWrite32 (PMU1CRU_GATE_CON5, (BIT1 | BIT2) << 16);   // ungate pclk/clk_i2c0
-  return Rk3576Fusb302GetOrientation (&Bus);
+  // Rk3576Fusb302GetOrientation is this Probe; the state is kept for
+  // UsbTypeCDpAltModeEnter.
+  Rk3576Fusb302Probe (&mCm5ioFusb302Bus, &mCm5ioTypeCState);
+  mCm5ioTypeCStateValid = TRUE;
+  return mCm5ioTypeCState.Orientation;
+}
+
+/*
+ * The USB-C port's VBUS switch: vcc_5v0_typec0 in rk3576-armsom-cm5-io.dts,
+ * gpio2 RK_PB6 active high (pinctrl usb_otg0_pwren; on the carrier
+ * schematic the net is USB_OTG0_PWREN_H at the CM5 connector).  This
+ * firmware leaves it alone except for DisplayPort Alt Mode, where a bus
+ * powered adapter needs 5 V before it can answer PD.
+ */
+#define CM5IO_TYPEC_VBUS_GROUP  2
+#define CM5IO_TYPEC_VBUS_PIN    GPIO_PIN_PB6
+
+STATIC
+VOID
+EFIAPI
+Cm5ioTypeCVbusSet (
+  IN BOOLEAN  On
+  )
+{
+  GpioPinWrite (CM5IO_TYPEC_VBUS_GROUP, CM5IO_TYPEC_VBUS_PIN, On);
+  GpioPinSetDirection (CM5IO_TYPEC_VBUS_GROUP, CM5IO_TYPEC_VBUS_PIN, GPIO_PIN_OUTPUT);
+  GpioPinSetFunction (CM5IO_TYPEC_VBUS_GROUP, CM5IO_TYPEC_VBUS_PIN, 0);
+}
+
+/*
+ * UsbTypeCDpAltModeEnter -- DisplayPort Alt Mode on the USB-C port.
+ *
+ * TYPEC_AUXP/N reach the receptacle's SBU1/SBU2 (carrier schematic V1.1);
+ * their bias is sbu1-dc-gpios GPIO4_C4 and sbu2-dc-gpios GPIO4_C5 in the
+ * DTS, driven by orientation as mainline phy-rockchip-usbdp.c does:
+ * normal sbu1 = 0, sbu2 = 1; flipped the other way round.  VBUS goes on
+ * here, only for a sink, by the same rule as the TaishanPi 3M's.
+ */
+EFI_STATUS
+EFIAPI
+UsbTypeCDpAltModeEnter (
+  IN  UINT32              Port,
+  OUT USB_TYPEC_DP_STATE  *State
+  )
+{
+  RK3576_FUSB302_DP  Dp;
+  BOOLEAN            Flip;
+
+  State->Active        = FALSE;
+  State->Hpd           = FALSE;
+  State->PinAssignment = '-';
+  State->Orientation   = UsbTypeCOrientationUnknown;
+  if ((Port != 0) || !mCm5ioTypeCStateValid) {
+    return EFI_SUCCESS;
+  }
+
+  State->Orientation = mCm5ioTypeCState.Orientation;
+  if ((mCm5ioTypeCState.Partner != Rk3576Fusb302Sink) || !mCm5ioTypeCState.RpPresented) {
+    return EFI_SUCCESS;
+  }
+
+  Cm5ioTypeCVbusSet (TRUE);
+  MicroSecondDelay (20000);
+
+  Flip = mCm5ioTypeCState.Orientation == UsbTypeCOrientationReverse;
+  GpioPinWrite (4, GPIO_PIN_PC4, Flip);
+  GpioPinWrite (4, GPIO_PIN_PC5, !Flip);
+  GpioPinSetDirection (4, GPIO_PIN_PC4, GPIO_PIN_OUTPUT);
+  GpioPinSetDirection (4, GPIO_PIN_PC5, GPIO_PIN_OUTPUT);
+  GpioPinSetFunction (4, GPIO_PIN_PC4, 0);
+  GpioPinSetFunction (4, GPIO_PIN_PC5, 0);
+
+  Rk3576Fusb302DpAltMode (&mCm5ioFusb302Bus, &mCm5ioTypeCState, Cm5ioTypeCVbusSet, &Dp);
+  State->Active        = Dp.Configured;
+  State->Hpd           = Dp.Hpd;
+  State->PinAssignment = Dp.PinName;
+  DEBUG ((
+    DEBUG_INFO,
+    "CM5-IO USB-C DP: %a, pin %c, HPD %u, VBUS GPIO2_B6 on, SBU GPIO4_C4 %u GPIO4_C5 %u\n",
+    Dp.Configured ? "alt mode entered" : "not entered",
+    Dp.PinName,
+    Dp.Hpd,
+    Flip,
+    !Flip
+    ));
+  return EFI_SUCCESS;
 }
 
 /*

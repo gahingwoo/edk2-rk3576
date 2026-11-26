@@ -88,6 +88,10 @@
 #string STR_ACPI_VDEC_PROMPT                               #language en-US "Video Decoder (VDPU383, experimental)"
 #string STR_ACPI_VDEC_HELP                                 #language en-US "Disabled - the video decoder stays powered off and the OS is not told about it.\n\n"
                                                                            "Enabled - the firmware powers the decoder, turns on its clocks and describes it in an ACPI SSDT for a Windows driver (vdpu383 in woa-rk3576). Only in ACPI mode. Has no effect on Linux with a device tree."
+#string STR_USBC_DP_PROMPT                                 #language en-US "USB-C DisplayPort (experimental)"
+#string STR_USBC_DP_HELP                                   #language en-US "Disabled - the USB-C port carries USB only, as before.\n\n"
+                                                                           "Enabled - when the OS starts, the firmware negotiates USB Power Delivery and DisplayPort Alt Mode with a monitor, dock or adapter that was plugged into the USB-C port before power-on, gives it two DisplayPort lanes next to USB 3 and powers the DisplayPort controller for the Windows display driver (wddm-mali-g52, its UsbcDp setting). Up to a few seconds more at OS start when the device does not answer. No hot-plug. A monitor that powers this port (one that charges laptops) is not supported. Not yet run on hardware."
+
 #string STR_ACPI_SDIO_WIFI_PROMPT                          #language en-US "SDIO Wi-Fi (experimental)"
 #string STR_ACPI_SDIO_WIFI_HELP                            #language en-US "Disabled - the Wi-Fi module stays off and the OS is not told about its SDIO controller.\n\n"
                                                                            "Enabled - the firmware sets up the SDIO pins and clocks, powers the Wi-Fi module (WL_REG_ON), checks that it answers on SDIO and logs what it found on the serial console, then describes the SDIO controller in an ACPI SSDT for the Windows drivers (woa-rk3576 docs/WIFI.md). Only in ACPI mode. Adds about half a second to boot. Linux with a device tree is not affected."
@@ -366,6 +370,10 @@
 #string STR_ACPI_VDEC_PROMPT                               #language zh-Hans "\wide视频解码器（\narrowVDPU383\wide，实验性）\narrow"
 #string STR_ACPI_VDEC_HELP                                 #language zh-Hans "\wide禁用\narrow - \wide视频解码器保持断电，操作系统看不到它。\narrow\n\n"
                                                                              "\wide启用\narrow - \wide固件为解码器上电、打开它的时钟，并通过\narrow ACPI SSDT \wide提供给\narrow Windows \wide驱动（\narrowwoa-rk3576 \wide的\narrow vdpu383\wide）。仅在\narrow ACPI \wide模式下生效。使用设备树的\narrow Linux \wide不受此选项影响。\narrow"
+#string STR_USBC_DP_PROMPT                                 #language zh-Hans "USB-C DisplayPort\wide（实验性）\narrow"
+#string STR_USBC_DP_HELP                                   #language zh-Hans "\wide禁用\narrow - USB-C \wide口只走\narrow USB\wide，与以前相同。\narrow\n\n"
+                                                                             "\wide启用\narrow - \wide操作系统启动时，固件与开机前插在\narrow USB-C \wide口上的显示器、扩展坞或转接头协商\narrow USB PD \wide和\narrow DisplayPort Alt Mode\wide，在\narrow USB 3 \wide旁边给它两条\narrow DisplayPort \wide通道，并为\narrow Windows \wide显示驱动（\narrowwddm-mali-g52 \wide的\narrow UsbcDp \wide设置）打开\narrow DisplayPort \wide控制器的电源。设备不应答时操作系统启动最多多花几秒。不支持热插拔。不支持给这个口供电的显示器。尚未在硬件上运行。\narrow"
+
 #string STR_ACPI_SDIO_WIFI_PROMPT                          #language zh-Hans "SDIO Wi-Fi\wide（实验性）\narrow"
 #string STR_ACPI_SDIO_WIFI_HELP                            #language zh-Hans "\wide禁用\narrow - Wi-Fi \wide模块保持断电，操作系统看不到它的\narrow SDIO \wide控制器。\narrow\n\n"
                                                                              "\wide启用\narrow - \wide固件设置\narrow SDIO \wide引脚和时钟，给\narrow Wi-Fi \wide模块上电（\narrowWL_REG_ON\wide），检查它在\narrow SDIO \wide上是否应答并把结果写到串口日志，然后通过\narrow ACPI SSDT \wide把\narrow SDIO \wide控制器提供给\narrow Windows \wide驱动（\narrowwoa-rk3576 docs/WIFI.md\wide）。仅在\narrow ACPI \wide模式下生效。启动多花约半秒。使用设备树的\narrow Linux \wide不受影响。\narrow"

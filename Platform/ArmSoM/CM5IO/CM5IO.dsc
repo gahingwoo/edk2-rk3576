@@ -127,6 +127,11 @@
 
 ################################################################################
 [PcdsFixedAtBuild.common]
+  # USB-C DisplayPort Alt Mode (docs/usbc-dp.md): the option exists on this
+  # board (TYPEC_AUXP/N on SBU1/2, sbu1/2-dc-gpios GPIO4_C4/C5) and is off
+  # by default.
+  gRK3576TokenSpaceGuid.PcdUsbcDpSupported|TRUE
+
   #
   # Everything the SoC decides (memory map, UART, GIC, CRU, SD/eMMC/FSPI
   # bases, I2C, ComboPHY, FDT defaults, network defaults) is in

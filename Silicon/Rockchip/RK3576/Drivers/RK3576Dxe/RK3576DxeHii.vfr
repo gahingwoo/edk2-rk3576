@@ -177,6 +177,16 @@ formset
 
     efivarstore UINT8,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = UsbcDp,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      name  = UsbcDpSupported,
+      guid  = RK3576DXE_FORMSET_GUID;
+
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
       name  = Pin40Uart,
       guid  = RK3576DXE_FORMSET_GUID;
 
@@ -494,6 +504,16 @@ formset
             option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
             option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
           endoneof;
+          suppressif ideqval UsbcDpSupported == 0;
+            oneof varid = UsbcDp,
+              prompt      = STRING_TOKEN(STR_USBC_DP_PROMPT),
+              help        = STRING_TOKEN(STR_USBC_DP_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              default     = FixedPcdGet8 (PcdUsbcDpDefault),
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+              option text = STRING_TOKEN(STR_ENABLED),  value = 1, flags = 0;
+            endoneof;
+          endif;
           suppressif ideqval AcpiSdioWifiSupported == 0;
             oneof varid = AcpiSdioWifi,
               prompt      = STRING_TOKEN(STR_ACPI_SDIO_WIFI_PROMPT),

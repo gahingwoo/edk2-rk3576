@@ -300,6 +300,16 @@
   # registers the regulators and loses a USB stick it is booting from.
   gRK3576TokenSpaceGuid.PcdFdtUsbAVbusAlwaysOn|FALSE|BOOLEAN|0x00010704
 
+  # "USB-C DisplayPort (experimental)" setup option (PcdUsbcDp): 1 makes
+  # UsbHcd ask the board to enter DisplayPort Alt Mode on its USB-C port at
+  # ExitBootServices (PD contract and VDMs with the FUSB302), mux two DP
+  # lanes next to USB3 in the USBDP PHY and power the DP controller for the
+  # OS display driver (docs/usbc-dp.md).  Off by default: nothing changes.
+  # Shown only where PcdUsbcDpSupported is TRUE (a board whose
+  # UsbTypeCDpAltModeEnter does the work: CM5-IO, TaishanPi 3M).
+  gRK3576TokenSpaceGuid.PcdUsbcDpDefault|0|UINT8|0x0001070A
+  gRK3576TokenSpaceGuid.PcdUsbcDpSupported|FALSE|BOOLEAN|0x0001070B
+
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   # Runtime dynamic PCDs (set by RK3576Dxe at DXE phase from *Default FixedAtBuild values)
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode|0|UINT32|0x00000101
@@ -316,6 +326,7 @@
   gRK3576TokenSpaceGuid.PcdAcpiSdioWifi|0|UINT8|0x00000306
   gRK3576TokenSpaceGuid.PcdPin40Uart|0|UINT8|0x00000307
   gRK3576TokenSpaceGuid.PcdPin40RhProxy|0|UINT8|0x00000308
+  gRK3576TokenSpaceGuid.PcdUsbcDp|0|UINT8|0x00000309
   gRK3576TokenSpaceGuid.PcdHwWatchdog|0|UINT8|0x00000A00
   gRK3576TokenSpaceGuid.PcdAcpiPwrKey|0|UINT8|0x00000A01
   gRK3576TokenSpaceGuid.PcdAcpiLeds|0|UINT8|0x00000A02

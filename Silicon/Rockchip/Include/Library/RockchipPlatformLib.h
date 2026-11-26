@@ -109,6 +109,32 @@ UsbTypeCGetOrientation (
   IN UINT32  Port
   );
 
+//
+// DisplayPort Alt Mode on a USB-C port, entered by the board when the
+// "USB-C DisplayPort" setup option is on (docs/usbc-dp.md).  Called by
+// UsbHcd's ExitBootServices handler right after UsbTypeCGetOrientation,
+// before the USBDP PHY's lanes are set up.  The board negotiates PD and the
+// alt mode with its Type-C controller and sets the SBU (AUX) bias; the PHY,
+// the DP controller's clocks and HPD are UsbHcd's.
+//
+typedef struct {
+  BOOLEAN                  Active;         // DP Configure acknowledged
+  BOOLEAN                  Hpd;            // the partner's HPD_State
+  CHAR8                    PinAssignment;  // 'C', 'D' or 'E'
+  USB_TYPEC_ORIENTATION    Orientation;
+} USB_TYPEC_DP_STATE;
+
+/**
+  @retval EFI_SUCCESS      State says what happened (Active may be FALSE).
+  @retval EFI_UNSUPPORTED  This board's port does not carry DisplayPort.
+**/
+EFI_STATUS
+EFIAPI
+UsbTypeCDpAltModeEnter (
+  IN  UINT32              Port,
+  OUT USB_TYPEC_DP_STATE  *State
+  );
+
 VOID
 EFIAPI
 PcieIoInit (

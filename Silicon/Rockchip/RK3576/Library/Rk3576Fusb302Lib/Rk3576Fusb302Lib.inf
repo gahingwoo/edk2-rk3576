@@ -18,6 +18,9 @@
 
 [Sources]
   Rk3576Fusb302Lib.c
+  Rk3576Fusb302Pd.c
+  Fusb302Internal.h
+  UsbPdDp.h
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -25,6 +28,8 @@
   Silicon/Rockchip/RK3576/RK3576.dec
 
 [LibraryClasses]
+  BaseLib
+  BaseMemoryLib
   DebugLib
   IoLib
   TimerLib
