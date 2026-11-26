@@ -1,0 +1,32 @@
+name: docs
+
+# The docs against the source tree, without a firmware build:
+#   scripts/check-docs  relative links, repository paths in backticks, Pcd
+#                       and DEFINE names, em and en dashes;
+#   scripts/gen-docs    the generated sections that come from the source
+#                       (boards, image names, image layout); the sections
+#                       made from features.json are checked in build.yml,
+#                       after the boards are built.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: Docs drift
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host tools for the FIT layout
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq u-boot-tools device-tree-compiler python3-pyelftools
+      - name: Links, paths, names and dashes
+        run: scripts/check-docs --edk2
+      - name: Generated sections (run scripts/gen-docs to update)
+        run: scripts/gen-docs --check
