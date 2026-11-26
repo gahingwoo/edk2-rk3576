@@ -17,7 +17,7 @@ board pages ([ROCK 4D](boards/rock4d.md), [CM5-IO](boards/cm5io.md),
 | Feature | CM5-IO | ROCK 4D | TaishanPi 3M |
 |---|---|---|---|
 | Windows (ACPI tables) | yes | yes | yes |
-| Armbian (U-Boot) once | no | no | yes |
+| Armbian (U-Boot) once | no | yes | yes |
 | HDMI output | yes | yes | yes |
 | MIPI DSI screen | no | no | yes |
 | USB-C DisplayPort | yes, off | no | yes, off |

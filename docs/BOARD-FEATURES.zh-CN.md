@@ -14,7 +14,7 @@
 | 功能 | CM5-IO | ROCK 4D | 泰山派 3M |
 |---|---|---|---|
 | Windows（ACPI 表） | 有 | 有 | 有 |
-| Armbian (U-Boot) 一次启动 | 无 | 无 | 有 |
+| Armbian (U-Boot) 一次启动 | 无 | 有 | 有 |
 | HDMI 输出 | 有 | 有 | 有 |
 | MIPI DSI 屏 | 无 | 无 | 有 |
 | USB-C DisplayPort | 有，关 | 无 | 有，关 |
