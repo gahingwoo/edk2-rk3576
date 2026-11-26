@@ -21,7 +21,7 @@
 | CPU 空闲状态 | 有，关 | 有，关 | 有，关 |
 | 风扇控制 | 有，常开 | 有，常开 | 有，常开 |
 | 网络启动（PXE） | 有，开 | 有，开 | 有，开 |
-| HTTP 启动 | 无 | 有，关 | 无 |
+| HTTP 启动 | 有，关 | 有，关 | 有，关 |
 | 安全启动 | 有 | 有 | 有 |
 | CPU 最高频率 (`PcdCpuMaxFreqSupported`) | 隐藏 | 1608 MHz | 1608 MHz |
 | 702 MHz 用的 GPU 电压（775 mV） (`PcdGpuRail775Supported`) | 隐藏 | 关（750 mV） | 开（775 mV） |
