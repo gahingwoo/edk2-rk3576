@@ -20,8 +20,8 @@ English | [简体中文](gallery.zh-CN.md)
 |---|---|
 | ![UEFI front page on the ROCK 4D](imgs/monitor-4d.png) | Front page on the ROCK 4D, 2560x1440 over HDMI. |
 | ![UEFI front page on the CM5-IO](imgs/monitor-cm5io.jpeg) | Front page on the CM5-IO, 2560x1440 over HDMI. |
-| ![Front page](imgs/rock4d-uefi-front-page.png) | ROCK 4D front page, saved by the firmware itself (F12). Platform configuration is the first entry. |
-| ![Platform configuration](imgs/rock4d-uefi-platform.png) | Platform configuration: About, Display, ComboPHY, ACPI / Device Tree, CPU clock, GPU voltage, screenshots, network time. |
-| ![Display settings](imgs/rock4d-uefi-display.png) | Display settings. |
-| ![Boot Manager](imgs/rock4d-uefi-boot-manager.png) | Boot Manager: Windows, UEFI Shell, MaskROM, Reset All Settings, NVMe, Armbian (U-Boot), SD card, network. |
-| ![About](imgs/rock4d-uefi-about.png) | About: firmware build, board, clocks, what was found at boot. |
+| ![Front page on the ROCK 4D](imgs/rock4d-uefi-front-page.png) | Front page on the ROCK 4D, from an older build, saved by the firmware itself (F12). Platform configuration is the first entry. |
+| ![Platform configuration on the TaishanPi 3M](imgs/tspi3m-uefi-platform.png) | Platform configuration on the TaishanPi 3M, 0.5.0: About, Display, ComboPHY, ACPI / Device Tree, CPU clock, GPU voltage, screenshots, network time, UEFI variables. |
+| ![Display settings on the TaishanPi 3M](imgs/tspi3m-uefi-display.png) | Display settings: mode, output priority (MIPI, HDMI), forced and duplicate output, rotation, brightness, HDMI signaling. |
+| ![Boot Manager on the TaishanPi 3M](imgs/tspi3m-uefi-boot-manager.png) | Boot Manager on the TaishanPi 3M: Windows, Armbian, the eMMC, Touch Test, UEFI Shell, MaskROM, Reset All Settings, Armbian (U-Boot), SD card, network. |
+| ![About on the TaishanPi 3M](imgs/tspi3m-uefi-about.png) | About: firmware version and build time, clock set from the network, board, CPU clocks, memory, what was found at boot. |
