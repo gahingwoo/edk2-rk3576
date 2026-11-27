@@ -8,9 +8,7 @@ HDMI. Results are from one board, sponsored by JLC (嘉立创).
 ## What works
 
 Board-tested with `main` builds through 2026-11-24. Touch, Bluetooth, audio
-and USB-C under Windows need the [`ci` build](../flash.md#the-rolling-ci-build);
-release 0.4.1 has the DSI screen, touch in the menus, Chinese menus and
-Windows.
+and USB-C under Windows need firmware [0.5.0](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.5.0) or later.
 
 | | In the firmware | Windows 11 23H2 | Linux (Armbian edge) |
 |---|---|---|---|

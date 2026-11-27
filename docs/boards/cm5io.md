@@ -41,11 +41,12 @@ column was seen with firmware 0.2.0 and woa-rk3576 0.1.0.
 
 Then [Windows](../windows.md) or [Linux](../linux.md).
 
-## Parity with the TaishanPi 3M (branch `cm5io-parity`)
+## Parity with the TaishanPi 3M
 
 Everything the TaishanPi 3M firmware has, checked against this board's
 hardware (mainline device tree, ArmSoM's vendor tree, the CM5 and CM5-IO
-V1.1 schematics). Built, and nothing in this section has run on the board.
+V1.1 schematics). In release 0.5.0. Only "Armbian (U-Boot)" has run on the
+board so far (2026-11-27).
 
 | Feature | On this board | Notes |
 |---|---|---|

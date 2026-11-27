@@ -16,8 +16,8 @@ applied with DISM by one of:
   following its [install guide](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.md);
 - [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio), from the PC
   over USB without a stick. Run on the ROCK 4D (Windows to NVMe). On the
-  ROCK 4D it also offers Windows on NVMe with Armbian on an SD card; that
-  needs the SPL of branch `rock4d-parity`, not on `main` yet.
+  ROCK 4D it also offers Windows on NVMe with Armbian on an SD card
+  (firmware 0.5.0 or later).
 
 Both need this firmware written first ([flashing](flash.md)): as a whole
 image to the eMMC (CM5-IO, TaishanPi 3M) or to the SPI NOR (ROCK 4D).
@@ -31,17 +31,17 @@ boot with bugcheck 0x5C ([firmware menus](firmware-menus.md#options-for-operatin
 |---|---|
 | eMMC, SD, Ethernet, USB-A, NVMe (CM5-IO) | 0.4.0 or later. Older images ran the eMMC at 148.5 MHz and could silently corrupt files written under Windows. |
 | TaishanPi 3M DSI screen | 0.4.0 or later |
-| Touch, Bluetooth, headphone jack, HDMI audio, USB-C (TaishanPi 3M) | the [`ci` build](flash.md#the-rolling-ci-build) until the next release |
-| Anything on the ROCK 4D | the `ci` build until the next release (0.4.1 has no ACPI tables for it). Ethernet needs a build from 2026-11-26 or later: older ones get a link but no DHCP address. |
+| Touch, Bluetooth, headphone jack, HDMI audio, USB-C (TaishanPi 3M) | [0.5.0](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.5.0) or later |
+| Anything on the ROCK 4D | 0.5.0 or later (older releases have no ACPI tables for it) |
 
 ## More drivers
 
 - GPU and display: [wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52)
-  (rotation, brightness, HDMI hot-plug and audio). Run on the TaishanPi 3M
-  and the ROCK 4D; no release yet. Without it the CPU draws the desktop into the firmware's
+  (rotation, brightness, HDMI hot-plug and audio), in the [woa-rk3576 0.5.0](https://github.com/gahingwoo/woa-rk3576/releases/tag/0.5.0)
+  driver package. Without it the CPU draws the desktop into the firmware's
   framebuffer at one fixed mode.
 - NPU: [woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu), with
-  "NPU (experimental)" on in setup. TaishanPi 3M and ROCK 4D.
+  "NPU (experimental)" on in setup. Also in the driver package.
 - ROCK 4D Wi-Fi and Bluetooth (USB AIC8800D80): no driver yet.
 
 ## The clock

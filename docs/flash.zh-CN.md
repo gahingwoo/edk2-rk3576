@@ -35,7 +35,7 @@
   按住 MaskROM 键再插电源。
 - **ArmSoM CM5-IO：** 按住 MaskROM 键再上电。MaskROM 口就是 USB-C 口，先拔掉上面接的其他东西。
 - **立创泰山派 3M：** 没有按键。断电，短接 `RK3576` 丝印正下方标着 `MSK` 的两个焊盘
-  （照片见 0.4.1 正式版附件 `TaishanPi3M-msk-pads.png`），把标着 `OTG+DP` 的 USB-C 口接到电脑，上电。
+  （照片见正式版附件 `TaishanPi3M-msk-pads.png`），把标着 `OTG+DP` 的 USB-C 口接到电脑，上电。
 - 已经在跑本固件的板子，也可以在启动倒计时按 F4 进入 MaskROM。
 
 之后电脑上会出现 USB 设备 `2207:350e`。在 Windows 上，先用 [Zadig](https://zadig.akeo.ie/)

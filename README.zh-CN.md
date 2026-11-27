@@ -36,12 +36,11 @@ BootROM -> U-Boot SPL -> TF-A BL31 -> EDK2 (BL33) -> 操作系统
 - CM5-IO：Linux（从 NVMe 启动 Fedora），从 eMMC 启动 Windows 11 23H2 能进桌面。
 - 泰山派 3M：Windows 11 23H2：GPU、DSI 触摸屏、音频、蓝牙、NPU；Armbian edge [有限制](docs/linux.zh-CN.md#立创泰山派-3m)。
 
-每个构建里有什么：[板子功能](docs/BOARD-FEATURES.zh-CN.md)。泰山派 3M 在 Windows 下的触摸、蓝牙、
-音频和 USB-C，以及 ROCK 4D 上的 Windows，需要 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)，0.4.1 正式版没有。串口：1500000 8N1。
+每个构建里有什么：[板子功能](docs/BOARD-FEATURES.zh-CN.md)。串口：1500000 8N1。
 
 ## 上手
 
-1. 下载映像：[最新正式版](https://github.com/gahingwoo/edk2-rk3576/releases/latest)（0.4.1），
+1. 下载映像：[最新正式版](https://github.com/gahingwoo/edk2-rk3576/releases/latest)（0.5.0），
    或 `main` 的 [`ci` 构建](docs/flash.zh-CN.md#滚动的-ci-构建)。
 2. 写入（见[刷写固件](docs/flash.zh-CN.md)）：用 [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)、
    [flash.gahingwoo.com](https://flash.gahingwoo.com/)（Chrome 或 Edge）或 `rkdeveloptool`。

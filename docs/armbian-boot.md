@@ -21,9 +21,9 @@ U-Boot it can start.
 
 | Board | Firmware | Where Armbian can be | Tested |
 |---|---|---|---|
-| LCKFB TaishanPi 3M | the [`ci` build](flash.md#the-rolling-ci-build) of `main` on the eMMC; release 0.4.1 does not have it | SD card, a partition of the eMMC next to Windows, or a USB disk | SD card: yes, on one board. eMMC partition and USB disk: not yet |
-| ArmSoM CM5-IO | not in a release or the `ci` build yet (branch `cm5io-parity`) | SD card, firmware on the eMMC | no |
-| Radxa ROCK 4D | not in a release or the `ci` build yet (branch `rock4d-parity`) | SD card only | no |
+| LCKFB TaishanPi 3M | [0.5.0](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.5.0) or later, on the eMMC | SD card, a partition of the eMMC next to Windows, or a USB disk | SD card: yes, on one board. eMMC partition and USB disk: not yet |
+| ArmSoM CM5-IO | 0.5.0 or later | SD card, firmware on the eMMC | SD card: yes, on one board |
+| Radxa ROCK 4D | 0.5.0 or later | SD card only | SD card: yes, on one board |
 
 You need an Armbian image made for your board. It has to use Armbian's
 mainline U-Boot. On the TaishanPi 3M, Armbian edge was tested. Images with
@@ -32,7 +32,7 @@ are not supported. On the CM5-IO, use an edge image.
 
 To get the firmware onto a TaishanPi 3M that already has Windows, use
 [Updating the firmware and keeping everything else](flash.md#updating-the-firmware-and-keeping-everything-else)
-with the `ci` image. It keeps Windows and your settings, and it also
+with the 0.5.0 image. It keeps Windows and your settings, and it also
 writes the new boot loader stage the entry needs.
 
 Where Armbian goes on the TaishanPi 3M:
@@ -77,8 +77,7 @@ eMMC. Getting the firmware back then needs MaskROM ([flashing](flash.md)).
 
 **The entry is not in the boot manager.**
 
-- The firmware is older than the `ci` build of `main`, or the board is a
-  CM5-IO or a ROCK 4D, where the feature is not released yet.
+- The firmware is older than 0.5.0.
 - The SD card or USB disk went in after power-on. The firmware looks once
   per boot. Reboot.
 - The card or disk has no Armbian U-Boot, for example an image with a

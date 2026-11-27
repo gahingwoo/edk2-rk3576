@@ -16,14 +16,14 @@ Armbian。这一次启动不经过 UEFI 固件。
 
 | 板子 | 固件 | Armbian 可以放在哪 | 测试情况 |
 |---|---|---|---|
-| 立创泰山派 3M | eMMC 上装 `main` 的 [`ci` 构建](flash.zh-CN.md#滚动的-ci-构建)；0.4.1 版没有这个功能 | SD 卡、eMMC 上和 Windows 并排的分区，或 U 盘/移动硬盘 | SD 卡：在一块板上测过。eMMC 分区和 USB 盘：还没测 |
-| ArmSoM CM5-IO | 还不在任何发布版或 `ci` 构建里（分支 `cm5io-parity`） | SD 卡，固件在 eMMC 上 | 没测 |
-| Radxa ROCK 4D | 还不在任何发布版或 `ci` 构建里（分支 `rock4d-parity`） | 只能是 SD 卡 | 没测 |
+| 立创泰山派 3M | eMMC 上装 [0.5.0](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.5.0) 或更新的版本 | SD 卡、eMMC 上和 Windows 并排的分区，或 U 盘/移动硬盘 | SD 卡：在一块板上测过。eMMC 分区和 USB 盘：还没测 |
+| ArmSoM CM5-IO | 0.5.0 或更新 | SD 卡，固件在 eMMC 上 | SD 卡：在一块板上测过 |
+| Radxa ROCK 4D | 0.5.0 或更新 | 只能是 SD 卡 | SD 卡：在一块板上测过 |
 
 需要一个给你这块板子做的 Armbian 映像，而且要用 Armbian 的主线 U-Boot。泰山派 3M 上测的是 Armbian edge。
 用 Rockchip 厂商 U-Boot 的映像（比如板厂自己的 Debian 或 Ubuntu）不支持。CM5-IO 请用 edge 映像。
 
-泰山派 3M 上已经装了 Windows 的话，用 `ci` 映像按
+泰山派 3M 上已经装了 Windows 的话，用 0.5.0 映像按
 [只更新固件，保留其他内容](flash.zh-CN.md#只更新固件保留其他内容)写入固件。Windows 和设置都会保留，
 同时也会写入这个启动项需要的新引导程序。
 
@@ -59,7 +59,7 @@ Armbian。这一次启动不经过 UEFI 固件。
 
 **启动管理器里没有这个启动项。**
 
-- 固件比 `main` 的 `ci` 构建旧，或者板子是 CM5-IO 或 ROCK 4D，这个功能在那里还没发布。
+- 固件比 0.5.0 旧。
 - SD 卡或 USB 盘是开机之后才插的。固件每次启动只查一次。重启即可。
 - 卡或盘上没有 Armbian 的 U-Boot，比如映像用的是别的 U-Boot，或者卡上只复制了 Armbian 的分区。
 - Armbian 是手工装进 eMMC 分区的。固件启动时不搜索文件系统。Maskrom Studio 的安装会把 Armbian 的

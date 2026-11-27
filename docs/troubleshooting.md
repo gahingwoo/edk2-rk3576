@@ -19,7 +19,7 @@ and attach it to an [issue](https://github.com/gahingwoo/edk2-rk3576/issues).
 | Ventoy stick does not boot WinPE | Ventoy's UDF driver hits a synchronous exception on this firmware. Write the WinPE image directly. |
 | Windows 11 24H2 does not start | RK3576 is ARMv8.0; 24H2 needs ARMv8.1. Use 23H2. |
 | Windows stops at boot with bugcheck 0x5C | Set "CPU Idle States" to Disabled (the default) in setup. |
-| ROCK 4D, Windows: Ethernet link up, no DHCP address | Update the firmware to a `ci` build from 2026-11-26 or later (it sets the RTL8211F RGMII delays). |
+| ROCK 4D, Windows: Ethernet link up, no DHCP address | Update the firmware to 0.5.0 or later (it sets the RTL8211F RGMII delays). |
 
 ## Recovery
 
