@@ -66,6 +66,17 @@ except BootNext, unless "Save OS Variable Changes to eMMC" (experimental,
 off by default) is on; then the firmware writes them when the OS restarts
 or shuts down. Tested on the TaishanPi 3M only.
 
+## Windows boot entry
+
+Each boot the firmware looks for Windows on every EFI System Partition. If
+no boot entry starts it, it adds one named after the Windows version
+("Windows 11"), read from that partition's BCD store, and puts it first in
+the boot order. An entry called "Windows Boot Manager" is renamed the same
+way. With two Windows disks the name gets the disk: "Windows 11 (NVMe)".
+Moving the entry down in the boot order by hand sticks; deleting it brings
+it back at the next boot. The serial log lines `PlatformSyncWindowsBootOptions:`
+show what was found and done.
+
 ## Display
 
 - Display setup page: "Display Mode", "Output Priority", "Force Output",

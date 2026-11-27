@@ -51,6 +51,14 @@ Google 地址。它在后台运行，不会拖慢启动；拿到地址后 10 秒
 除了 BootNext，这些改动在下次复位时丢失，除非打开 "Save OS Variable Changes to eMMC"（实验性，默认关）；
 打开后固件会在操作系统重启或关机时写入 eMMC。只在泰山派 3M 上测过。
 
+## Windows 启动项
+
+每次启动时固件在每个 EFI 系统分区上找 Windows。如果没有启动项能启动它，就新加一个，
+名字取自该分区 BCD 中的 Windows 版本（"Windows 11"），并放在启动顺序最前。名为
+"Windows Boot Manager" 的启动项也照此改名。有两块装了 Windows 的盘时，名字带上盘的类型：
+"Windows 11 (NVMe)"。手动把它在启动顺序里往后挪会保留；删掉它，下次启动会重新加回来。
+串口日志里 `PlatformSyncWindowsBootOptions:` 开头的行说明找到了什么、做了什么。
+
 ## 显示
 
 - 显示设置页："Display Mode"、"Output Priority"、"Force Output"、"Duplicate Output"、"HDMI Signaling"。

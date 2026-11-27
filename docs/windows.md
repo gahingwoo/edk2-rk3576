@@ -22,6 +22,9 @@ applied with DISM by one of:
 Both need this firmware written first ([flashing](flash.md)): as a whole
 image to the eMMC (CM5-IO, TaishanPi 3M) or to the SPI NOR (ROCK 4D).
 
+After the install the firmware lists Windows by its version ("Windows 11")
+and boots it first ([firmware menus](firmware-menus.md#windows-boot-entry)).
+
 Keep "CPU Idle States" Disabled (the default): with it on, Windows stops at
 boot with bugcheck 0x5C ([firmware menus](firmware-menus.md#options-for-operating-systems)).
 

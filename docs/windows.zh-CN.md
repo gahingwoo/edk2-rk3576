@@ -18,6 +18,8 @@ Windows 安装程序在这里用不了（没有 eMMC 驱动，也没有 TPM）�
 两种方法都要求先写入本固件（见[刷写固件](flash.zh-CN.md)）：作为完整映像写到 eMMC（CM5-IO、泰山派 3M），
 或写到 SPI NOR（ROCK 4D）。
 
+装好后固件按版本名列出 Windows（"Windows 11"），并且优先启动它（见[固件菜单](firmware-menus.zh-CN.md#windows-启动项)）。
+
 "CPU Idle States" 要保持 Disabled（默认）：打开后 Windows 启动时蓝屏 0x5C
 （见[固件菜单](firmware-menus.zh-CN.md#给操作系统用的选项)）。
 
