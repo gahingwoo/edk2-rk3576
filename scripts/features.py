@@ -539,7 +539,9 @@ def settings_from_formset(formset, varstores, forms, refs, questions, pcds, modu
     return out, omitted
 
 
-def hii_settings(arch_dir, modules, pcds):
+def hii_settings(arch_dir, modules, pcds, stores=None):
+    """The settings of the compiled setup forms.  With stores, also appends
+    (module, module source directory, efivarstore) for every efivarstore."""
     settings, omitted = [], []
     for root, dirs, files in sorted(os.walk(arch_dir)):
         if os.path.basename(root) != 'DEBUG':
@@ -565,6 +567,9 @@ def hii_settings(arch_dir, modules, pcds):
             formset, varstores, forms, refs, questions = decode_ifr(ifr, strings, mod)
             if not formset:
                 continue
+            if stores is not None:
+                src = os.path.relpath(os.path.dirname(moddir), arch_dir)
+                stores += [(mod, src, v) for v in varstores.values() if v]
             for q in questions:
                 t = {lang: tbl.get(q['prompt_id']) for lang, tbl in strings.items() if tbl.get(q['prompt_id'])}
                 q['prompt'] = t
@@ -592,6 +597,107 @@ def qid_map(ifr, varstores):
                 m[qid] = (vs['name'], voff)
         o += ln
     return m
+
+
+# ---------------------------------------- setup variables that are created
+
+def _c_calls(text, func):
+    """The argument lists of every call of func in C text, split at the
+    top-level commas."""
+    calls = []
+    for m in re.finditer(r'\b' + func + r'\s*\(', text):
+        depth, args, cur, i = 1, [], '', m.end()
+        while i < len(text) and depth:
+            c = text[i]
+            if c == '(':
+                depth += 1
+            elif c == ')':
+                depth -= 1
+                if not depth:
+                    break
+            if c == ',' and depth == 1:
+                args.append(cur.strip())
+                cur = ''
+            else:
+                cur += c
+            i += 1
+        args.append(cur.strip())
+        calls.append(args)
+    return calls
+
+
+def created_variables(dirs, dsc_dirs):
+    """Names of the variables some C source in dirs creates: a SetVariable
+    whose name is L"..." (or a macro for one) that is not a delete (0, 0), or
+    a PcdSet*S of a DynamicHii PCD bound to the name in a .dsc in dsc_dirs
+    (PcdDxe creates a missing HII variable on a set)."""
+    sources = []
+    for d in dirs:
+        for r, _ds, fs in os.walk(d):
+            sources += [os.path.join(r, f) for f in fs if f.endswith(('.c', '.h'))]
+    texts = [open(p, errors='replace').read() for p in sorted(set(sources))]
+    macros = {}
+    for t in texts:
+        for m in re.finditer(r'^\s*#\s*define\s+(\w+)\s+L"(\w+)"', t, re.M):
+            macros[m.group(1)] = m.group(2)
+    hii = {}
+    for d in dsc_dirs:
+        for r, _ds, fs in os.walk(d):
+            for f in fs:
+                if f.endswith(('.dsc', '.dsc.inc')):
+                    for m in re.finditer(r'\.(Pcd\w+)\|L"(\w+)"\|', open(os.path.join(r, f), errors='replace').read()):
+                        hii[m.group(1)] = m.group(2)
+    names = set()
+    for t in texts:
+        for a in _c_calls(t, 'SetVariable'):
+            if len(a) >= 4 and a[2] == '0' and a[3] == '0':
+                continue
+            m = re.fullmatch(r'L"(\w+)"', a[0])
+            n = m.group(1) if m else macros.get(a[0])
+            if n:
+                names.add(n)
+        for m in re.finditer(r'\bPcdSet\w*S\s*\(\s*(Pcd\w+)', t):
+            if m.group(1) in hii:
+                names.add(hii[m.group(1)])
+    return names
+
+
+# Variables whose SetVariable takes the name from a table, which
+# created_variables cannot follow: name -> the file with the table.  Each
+# must still be in that file.
+CREATED_FROM_TABLE = {
+    'FdtCompatModeVendorSupported': 'Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/ConfigTable.c',
+    'FdtCompatModeMainlineSupported': 'Silicon/Rockchip/RK3576/Drivers/RK3576Dxe/ConfigTable.c',
+}
+
+
+def check_setup_variables(root, stores):
+    """Every efivarstore of a compiled setup form needs code that creates
+    the variable: the setup browser saves an efivarstore only when the
+    variable exists (HiiDatabaseDxe RouteConfigRespForEfiVarStore), so one
+    that is never created fails every F10 in its formset with "The variable
+    does not exist!".  Returns the stores nothing creates."""
+    edk2 = os.environ.get('EDK2_DIR') or os.path.join(root, 'third_party', 'edk2')
+    deps = os.environ.get('DEPS_DIR') or os.path.join(root, 'third_party')
+    trees = [root, edk2] + [os.path.join(deps, d) for d in ('edk2-non-osi', 'edk2-platforms', 'edk2-rockchip-non-osi')]
+    ours = [os.path.join(root, 'Silicon'), os.path.join(root, 'Platform')]
+    created = {}
+    missing = []
+    for mod, src, vs in stores:
+        name = vs['name']
+        if name in CREATED_FROM_TABLE:
+            p = os.path.join(root, CREATED_FROM_TABLE[name])
+            if os.path.isfile(p) and f'L"{name}"' in open(p, errors='replace').read():
+                continue
+        srcdir = next((os.path.join(t, src) for t in trees if os.path.isdir(os.path.join(t, src))), None)
+        if srcdir is None:
+            missing.append(f'{name} ({mod}: source {src} not found)')
+            continue
+        if srcdir not in created:
+            created[srcdir] = created_variables([srcdir] + ours, ours)
+        if name not in created[srcdir]:
+            missing.append(f'{name} ({mod}, {src})')
+    return missing
 
 
 # ---------------------------------------------------------------- board
@@ -697,7 +803,9 @@ def board(args):
         if not v['built']:
             v.pop('default', None)
 
-    settings, omitted = hii_settings(os.path.join(build, 'AARCH64'), modules, pcds)
+    stores = []
+    settings, omitted = hii_settings(os.path.join(build, 'AARCH64'), modules, pcds, stores)
+    uncreated = check_setup_variables(root, stores)
 
     commit = subprocess.run(['git', '-C', root, 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip() or None
     doc = {
@@ -724,6 +832,9 @@ def board(args):
         json.dump(doc, fh, indent=2, ensure_ascii=False)
         fh.write('\n')
     print(f'{out}: ' + ', '.join(k for k, v in f.items() if v['built']) + f'; {len(settings)} settings')
+    if uncreated:
+        die('setup variable stores no code creates (F10 in their form fails on a fresh variable store): '
+            + ', '.join(uncreated))
     if missing:
         die(f'boards/{args.board}.conf expects {" ".join(missing)}, which the {plat} build does not have')
 

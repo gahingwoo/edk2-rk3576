@@ -94,7 +94,8 @@ jobs:
         # out/<PLATFORM>/features.json, from the build output (FV contents,
         # PCD values, compiled setup forms, spl.config).  Fails when the
         # build lacks a feature FEATURES_EXPECTED in boards/<board>.conf
-        # claims.  docs/dev/features-json.md.
+        # claims, or when no code creates the variable of a setup form's
+        # efivarstore.  docs/dev/features-json.md.
         run: python3 scripts/features.py board ${{ matrix.board }}
 
       - uses: actions/upload-artifact@v4
