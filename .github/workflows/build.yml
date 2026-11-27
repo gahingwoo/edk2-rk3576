@@ -32,6 +32,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          # The tags, so that scripts/build.sh's `git describe` stamps a
+          # release build "rk3576-<Board>-0.5.0" instead of a commit.
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Install host packages
         run: |
