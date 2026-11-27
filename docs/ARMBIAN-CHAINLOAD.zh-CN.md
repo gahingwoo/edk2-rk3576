@@ -5,8 +5,8 @@
 只是想用、不需要构建？请看用户指南：[Armbian (U-Boot)](armbian-boot.zh-CN.md)。
 
 启动管理器里 **Armbian (U-Boot)** 启动项的开发说明。已在泰山派 3M 上板测（插着卡的正常启动、一次性启动 Armbian、
-重启和断电后回到 UEFI）；"只在找到 U-Boot 时才列出启动项"还没有在板子上跑过。ROCK 4D：在 `rock4d-parity`
-分支上构建，没有上板。CM5-IO：没有编译进去。
+重启和断电后回到 UEFI）；"只在找到 U-Boot 时才列出启动项"还没有在板子上跑过。ROCK 4D 和 CM5-IO：
+2026-11-27 上板测过（从 SD 卡单次启动 Armbian，请求被清掉，重启回到 UEFI 和 Windows）。
 
 ## 它做什么
 
@@ -79,7 +79,7 @@ eMMC 用户区，512 字节扇区：
 
 ## EDK2 这边
 
-`Silicon/Rockchip/Applications/ArmbianOnce` 编译进设置了 `RK_ARMBIAN_ONCE_ENABLE` 的板子（泰山派 3M；ROCK 4D 在分支 `rock4d-parity` 上）。
+`Silicon/Rockchip/Applications/ArmbianOnce` 编译进设置了 `RK_ARMBIAN_ONCE_ENABLE` 的板子（泰山派 3M、ROCK 4D、CM5-IO）。
 每次启动，磁盘连接之后，`PlatformBootManagerLib` 会连接 SD 控制器并调用 `ArmbianOnceProbe()`（`ArmbianOnceLib`）。
 当 SPL 支持请求，并且在 SD 卡、eMMC（固件在 SD 卡上时）、USB 或 NVMe 盘的 0x4000 扇区，或已经在 eMMC 槽位里，
 有一个 arm64 U-Boot FIT（`os = "u-boot"`、`arch = "arm64"`，没有其他架构的镜像）时，列出这个启动项。
@@ -113,9 +113,9 @@ SPL 不方便写 SPI NOR，所以请求放在 SD 卡的 0x3FFF 扇区。两个�
 - EDK2 `PcdArmbianOnceRequestOnSd`（RockchipPkg.dec）：在 SPI NOR（0x8000..0x5FFFF）里找 SPL 标记，只在 SD 卡 0x4000
   扇区找 FIT，把请求写到 SD 卡 0x3FFF 扇区。没有槽位，也不复制：Armbian 卡的 0x10000 扇区在它的根分区里。
 
-在分支 `rock4d-parity` 上（`main` 上没有），`boards/rock4d.conf` 让 `build-spl.sh` 用 U-Boot v2026.10 自带的 `rock-4d-rk3576_defconfig` 和 DT，加上两个补丁、
+`boards/rock4d.conf` 让 `build-spl.sh` 用 U-Boot v2026.10 自带的 `rock-4d-rk3576_defconfig` 和 DT，加上两个补丁、
 该分支的 `rock4d/spl.config`（v1.12 板子的 XMC 闪存、`SPL_MMC_WRITE`、两个开关）和 DDR 程序 v1.09 构建。
-它会替换每个 ROCK 4D 映像带的 SPL，所以在有板子启动过之前只放在 `rock4d-parity` 分支上。
+它会替换每个 ROCK 4D 映像带的 SPL；2026-11-27 已在板子上启动过。
 
 ## 用这种方法能启动什么
 
@@ -140,8 +140,8 @@ SPL 不方便写 SPI NOR，所以请求放在 SD 卡的 0x3FFF 扇区。两个�
 | NVMe | eMMC 槽位，同 USB | 同一条代码路径；没测过（泰山派 3M 没有 M.2） |
 | 和固件同一块 eMMC 上的分区 | eMMC 槽位，每次使用时从 `u-boot-rockchip.bin` 复制 | 支持；Armbian 绝不能把引导程序写到那里（R5） |
 | 和固件 FIT 同一块盘的 0x4000 | 不可能 | |
-| ROCK 4D：SD 卡，固件在 SPI NOR | SD 卡 0x4000 扇区 | `rock4d-parity` 分支，没上板；不支持 USB/NVMe（没有 eMMC 槽位） |
-| CM5-IO | | 没编译进去：`build-spl.sh` 还不重建它的 SPL，而且需要先 SD 的启动顺序 |
+| ROCK 4D：SD 卡，固件在 SPI NOR | SD 卡 0x4000 扇区 | 2026-11-27 上板测过；不支持 USB/NVMe（没有 eMMC 槽位） |
+| CM5-IO：SD 卡，固件在 eMMC | SD 卡 0x4000 扇区，请求写在 eMMC 上 | 2026-11-27 上板测过（`build-spl.sh` 构建的 SPL v2026.10） |
 
 Armbian 只有在 `FORCE_UBOOT_UPDATE=yes` 或 `armbian-install` 时才把引导程序写到盘上，所以 Armbian 卡 0x4000 处的 FIT
 是最后一次放上去的那个，ArmbianOnce 原样使用。

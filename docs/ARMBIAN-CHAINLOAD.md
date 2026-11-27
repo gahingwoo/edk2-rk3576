@@ -7,8 +7,9 @@ Using it, not building it? Read the user guide: [Armbian (U-Boot)](armbian-boot.
 Developer notes for the boot manager entry **Armbian (U-Boot)**. Board-tested
 on the TaishanPi 3M (normal boot with the card in, the one-shot Armbian boot,
 return to UEFI after reboot and power cycle); listing the entry only when a
-U-Boot is found has not been run on a board. ROCK 4D: built on branch
-`rock4d-parity`, not run. CM5-IO: not built in.
+U-Boot is found has not been run on a board. ROCK 4D and CM5-IO:
+board-tested 2026-11-27 (one-shot Armbian boot from the SD card, request
+erased, reboot back to UEFI and Windows).
 
 ## What it does
 
@@ -100,7 +101,7 @@ firmware.
 ## The EDK2 side
 
 `Silicon/Rockchip/Applications/ArmbianOnce` is built into boards that set
-`RK_ARMBIAN_ONCE_ENABLE` (TaishanPi 3M; ROCK 4D on branch `rock4d-parity`). On every boot, after disks connect,
+`RK_ARMBIAN_ONCE_ENABLE` (TaishanPi 3M, ROCK 4D, CM5-IO). On every boot, after disks connect,
 `PlatformBootManagerLib` connects the SD controller and calls
 `ArmbianOnceProbe()` (`ArmbianOnceLib`). The option is listed when the SPL
 takes requests and an arm64 U-Boot FIT (`os = "u-boot"`, `arch = "arm64"`,
@@ -152,12 +153,11 @@ both off by default:
   writes the request to SD sector 0x3FFF. No slot and no copying: sector
   0x10000 of an Armbian card is inside its root partition.
 
-On branch `rock4d-parity` (not on `main`), `boards/rock4d.conf` has
+`boards/rock4d.conf` has
 `build-spl.sh` build U-Boot v2026.10's own `rock-4d-rk3576_defconfig` and DT
 with both patches, that branch's `rock4d/spl.config` (XMC flash for v1.12
-boards, `SPL_MMC_WRITE`, the two switches) and DDR blob v1.09. Because it
-replaces the SPL every ROCK 4D image ships, it stays on that branch until a
-board has booted it.
+boards, `SPL_MMC_WRITE`, the two switches) and DDR blob v1.09. It replaces the SPL
+every ROCK 4D image ships; a board booted it on 2026-11-27.
 
 ## What can be booted this way
 
@@ -184,8 +184,8 @@ own BL31 runs.
 | NVMe | eMMC slot, as USB | same code path; untested (no M.2 on the TaishanPi 3M) |
 | a partition of the firmware's eMMC | eMMC slot, copied from `u-boot-rockchip.bin` at each use | supported; Armbian must never write its bootloader there (R5) |
 | same disk as the firmware FIT at 0x4000 | impossible | |
-| ROCK 4D: SD card, firmware on SPI NOR | SD sector 0x4000 | branch `rock4d-parity`, not run; no USB/NVMe (no eMMC slot) |
-| CM5-IO | | not built in: its SPL is not rebuilt by `build-spl.sh` yet and needs SD-first order |
+| ROCK 4D: SD card, firmware on SPI NOR | SD sector 0x4000 | board-tested 2026-11-27; no USB/NVMe (no eMMC slot) |
+| CM5-IO: SD card, firmware on eMMC | SD sector 0x4000, request on the eMMC | board-tested 2026-11-27 (SPL v2026.10 from `build-spl.sh`) |
 
 Armbian writes its bootloader to a disk only with `FORCE_UBOOT_UPDATE=yes` or
 `armbian-install`, so the FIT at 0x4000 of an Armbian card is whatever was

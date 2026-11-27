@@ -20,8 +20,8 @@
 | Device Manager > Network Stack Configuration | IPv6 协议栈 | `NetworkStackConfigData` @2 | Disabled, Enabled | Disabled | Disabled | Disabled |
 | Device Manager > Network Stack Configuration | PXE 启动 | `NetworkStackConfigData` @3 | Disabled, Enabled | Enabled | Enabled | Enabled |
 | Device Manager > Network Stack Configuration | HTTP 启动 | `NetworkStackConfigData` @4 | Disabled, Enabled | Disabled | Disabled | Disabled |
-| RK3576 Platform Configuration | CPU 最高频率 | `CpuMaxFreq` | 1608 MHz, 最高（2208 / 2016 MHz） | 隐藏 | 1608 MHz | 1608 MHz |
-| RK3576 Platform Configuration | GPU 电压 | `GpuRail775` | 750 mV（594 MHz）, 775 mV（702 MHz） | 隐藏 | 750 mV（594 MHz） | 775 mV（702 MHz） |
+| RK3576 Platform Configuration | CPU 最高频率 | `CpuMaxFreq` | 1608 MHz, 最高（2208 / 2016 MHz） | 1608 MHz | 1608 MHz | 1608 MHz |
+| RK3576 Platform Configuration | GPU 电压 | `GpuRail775` | 750 mV（594 MHz）, 775 mV（702 MHz） | 750 mV（594 MHz） | 750 mV（594 MHz） | 775 mV（702 MHz） |
 | RK3576 Platform Configuration | 截图保存位置 | `ScreenshotTarget` | 自动（U盘优先）, 仅 U盘, 仅 SD 卡, 仅内部存储 | 自动（U盘优先） | 自动（U盘优先） | 自动（U盘优先） |
 | RK3576 Platform Configuration | 网络对时 | `NetworkTimeSync` | 禁用, 启用 | 启用 | 启用 | 启用 |
 | RK3576 Platform Configuration | 将系统修改的变量保存到 eMMC | `RtVarEmmcCommit` | 禁用, 启用 | 禁用 | 禁用 | 禁用 |
@@ -32,12 +32,12 @@
 | RK3576 Platform Configuration > ACPI / Device Tree | NPU（实验性） | `AcpiNpu` | 禁用, 启用 | 启用 | 启用 | 启用 |
 | RK3576 Platform Configuration > ACPI / Device Tree | 视频解码器（实验性） | `AcpiVdec` | 禁用, 启用 | 启用 | 启用 | 启用 |
 | RK3576 Platform Configuration > ACPI / Device Tree | USB-C DisplayPort（实验性） | `UsbcDp` | 禁用, 启用 | 禁用 | 隐藏 | 禁用 |
-| RK3576 Platform Configuration > ACPI / Device Tree | SDIO Wi-Fi（实验性） | `AcpiSdioWifi` | 禁用, 启用 | 隐藏 | 隐藏 | 禁用 |
-| RK3576 Platform Configuration > ACPI / Device Tree | 40针 UART（实验性） | `Pin40Uart` | 禁用, 启用 | 隐藏 | 禁用 | 禁用 |
-| RK3576 Platform Configuration > ACPI / Device Tree | 40针 GPIO/I2C/SPI 供应用使用 | `Pin40RhProxy` | 禁用, 启用 | 隐藏 | 禁用 | 禁用 |
+| RK3576 Platform Configuration > ACPI / Device Tree | SDIO Wi-Fi（实验性） | `AcpiSdioWifi` | 禁用, 启用 | 禁用 | 隐藏 | 禁用 |
+| RK3576 Platform Configuration > ACPI / Device Tree | 40针 UART（实验性） | `Pin40Uart` | 禁用, 启用 | 禁用 | 禁用 | 禁用 |
+| RK3576 Platform Configuration > ACPI / Device Tree | 40针 GPIO/I2C/SPI 供应用使用 | `Pin40RhProxy` | 禁用, 启用 | 禁用 | 禁用 | 禁用 |
 | RK3576 Platform Configuration > ACPI / Device Tree | 硬件看门狗（实验性） | `HwWatchdog` | 禁用, 启用 | 禁用 | 禁用 | 禁用 |
 | RK3576 Platform Configuration > ACPI / Device Tree | 电源键（实验性） | `AcpiPwrKey` | 禁用, 启用 | 禁用 | 禁用 | 隐藏 |
-| RK3576 Platform Configuration > ACPI / Device Tree | 板载指示灯（实验性） | `AcpiLeds` | 禁用, 启用 | 隐藏 | 禁用 | 禁用 |
+| RK3576 Platform Configuration > ACPI / Device Tree | 板载指示灯（实验性） | `AcpiLeds` | 禁用, 启用 | 禁用 | 禁用 | 禁用 |
 | RK3576 Platform Configuration > ACPI / Device Tree | ADC 按键（实验性） | `AcpiSaradc` | 禁用, 启用 | 隐藏 | 隐藏 | 启用 |
 | RK3576 Platform Configuration > ACPI / Device Tree | 兼容模式 | `FdtCompatMode` | 厂商, 主线 | 主线 | 主线 | 主线 |
 | RK3576 Platform Configuration > ACPI / Device Tree | 强制使用 UEFI GOP 显示 | `FdtForceGop` | 禁用, 启用 | 禁用 | 禁用 | 禁用 |
