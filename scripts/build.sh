@@ -90,7 +90,7 @@ touch "$ROOT/Silicon/Rockchip/RK3576/Library/AboutUiLib/AboutUiLib.c"
 # The revision in the version string.  "-dirty" is for edits to this
 # repository's own files only: setup-host.sh patches the vendored EDK2 tree,
 # which made every build, CI's included, call itself dirty.
-FW_REV="$(git -C "$ROOT" describe --always 2>/dev/null || echo dev)"
+FW_REV="$(git -C "$ROOT" describe --tags --always 2>/dev/null || echo dev)"
 if ! git -C "$ROOT" diff --quiet --ignore-submodules=all HEAD -- 2>/dev/null; then
   FW_REV="${FW_REV}-dirty"
 fi
