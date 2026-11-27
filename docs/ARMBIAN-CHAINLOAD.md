@@ -100,7 +100,7 @@ firmware.
 ## The EDK2 side
 
 `Silicon/Rockchip/Applications/ArmbianOnce` is built into boards that set
-`RK_ARMBIAN_ONCE_ENABLE` (TaishanPi 3M). On every boot, after disks connect,
+`RK_ARMBIAN_ONCE_ENABLE` (TaishanPi 3M; ROCK 4D on branch `rock4d-parity`). On every boot, after disks connect,
 `PlatformBootManagerLib` connects the SD controller and calls
 `ArmbianOnceProbe()` (`ArmbianOnceLib`). The option is listed when the SPL
 takes requests and an arm64 U-Boot FIT (`os = "u-boot"`, `arch = "arm64"`,

@@ -79,7 +79,7 @@ eMMC 用户区，512 字节扇区：
 
 ## EDK2 这边
 
-`Silicon/Rockchip/Applications/ArmbianOnce` 编译进设置了 `RK_ARMBIAN_ONCE_ENABLE` 的板子（泰山派 3M）。
+`Silicon/Rockchip/Applications/ArmbianOnce` 编译进设置了 `RK_ARMBIAN_ONCE_ENABLE` 的板子（泰山派 3M；ROCK 4D 在分支 `rock4d-parity` 上）。
 每次启动，磁盘连接之后，`PlatformBootManagerLib` 会连接 SD 控制器并调用 `ArmbianOnceProbe()`（`ArmbianOnceLib`）。
 当 SPL 支持请求，并且在 SD 卡、eMMC（固件在 SD 卡上时）、USB 或 NVMe 盘的 0x4000 扇区，或已经在 eMMC 槽位里，
 有一个 arm64 U-Boot FIT（`os = "u-boot"`、`arch = "arm64"`，没有其他架构的镜像）时，列出这个启动项。

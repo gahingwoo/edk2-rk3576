@@ -104,6 +104,11 @@
   # PCDs (DwcXhci base addresses) are set further down. RK3576 has no
   # EHCI/OHCI -> set count to 0 below.
   DEFINE RK_USB_ENABLE             = TRUE
+  # Boot option "Armbian (U-Boot)" for an Armbian SD card.  Needs the SPL
+  # from scripts/build-spl.sh (SPL_ROCKCHIP_ARMBIAN_ONCE_SD_REQUEST): this
+  # board has no eMMC, so the request goes to the SD card
+  # (PcdArmbianOnceRequestOnSd below, docs/ARMBIAN-CHAINLOAD.md).
+  DEFINE RK_ARMBIAN_ONCE_ENABLE  = TRUE
 
 !include Silicon/Rockchip/RK3576/RK3576Base.dsc.inc
 
@@ -130,6 +135,11 @@
   gRockchipTokenSpaceGuid.PcdFamilyName|"ROCK 4"
   gRockchipTokenSpaceGuid.PcdProductUrl|"https://radxa.com/products/rock4/4d"
   gRockchipTokenSpaceGuid.PcdDeviceTreeName|"rk3576-rock-4d"
+
+  # "Armbian (U-Boot)": the SPL and this firmware are in the SPI NOR and
+  # there is no eMMC, so the one-shot request lives at sector 0x3FFF of the
+  # SD card, and the only U-Boot the SPL can boot is that card's.
+  gRockchipTokenSpaceGuid.PcdArmbianOnceRequestOnSd|TRUE
 
   # NV variable store lives in this board's SPI NOR (16 MB), at the offset the
   # SPI layout reserves for it.  CM5-IO has only a 64 KB carrier SPI and has to
