@@ -7,14 +7,17 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Arithmetic that can be checked without a board: the USB PD and
-  # DisplayPort Alt Mode messages of Rk3576Fusb302Lib (UsbPdDp.h).
+  # Code that can be checked without a board: the USB PD and DisplayPort
+  # Alt Mode messages of Rk3576Fusb302Lib (UsbPdDp.h), and the BCD reader
+  # that names the Windows boot option (WindowsBcd.h).
   host-tests:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: USB PD / DP Alt Mode messages (UsbPdDp.h)
         run: make -C scripts/tests/usbpd-host run
+      - name: Windows BCD reader (WindowsBcd.h)
+        run: make -C scripts/tests/bcd-host run
 
   firmware:
     # aarch64: scripts/build.sh uses the native toolchain there, so there is no

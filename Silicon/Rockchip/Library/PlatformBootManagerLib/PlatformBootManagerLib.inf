@@ -30,6 +30,8 @@
   PlatformBm.c
   PlatformBm.h
   PlatformBmStrings.uni
+  WindowsBcd.h
+  WindowsBoot.c
 
 [Packages]
   EmbeddedPkg/EmbeddedPkg.dec
@@ -102,6 +104,7 @@
   gEfiGraphicsOutputProtocolGuid
   gEfiFirmwareVolume2ProtocolGuid
   gEfiLoadedImageProtocolGuid
+  gEfiPartitionInfoProtocolGuid
   gEfiPciRootBridgeIoProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
   gEfiAbsolutePointerProtocolGuid

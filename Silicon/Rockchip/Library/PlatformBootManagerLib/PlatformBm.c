@@ -1608,7 +1608,10 @@ PlatformBootManagerAfterConsole (
 
   //
   // Disks are connected and the boot manager has not read the options yet.
+  // Windows first: an option it adds goes to the front of BootOrder, and
+  // Armbian once is then kept off the front behind it.
   //
+  PlatformSyncWindowsBootOptions ();
   PlatformSyncArmbianOnceOption ();
 
   //

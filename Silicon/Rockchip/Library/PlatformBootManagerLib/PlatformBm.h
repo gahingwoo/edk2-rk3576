@@ -59,4 +59,13 @@ PlatformAskCpuMaxFreqOnce (
   VOID
   );
 
+/**
+  Give each Windows installation a boot option named after its version,
+  first in BootOrder when it is added (WindowsBoot.c).
+**/
+VOID
+PlatformSyncWindowsBootOptions (
+  VOID
+  );
+
 #endif // PLATFORM_BM_H_
