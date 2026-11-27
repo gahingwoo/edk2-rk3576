@@ -20,11 +20,9 @@
  *      PCIe power: GPIO0_PC3; PCIe reset: GPIO2_PB1
  *    - GMAC0 reset: GPIO2_PB3 (same as ROCK 4D)
  *
- *  NOTE: ACPI mode is not the default boot mode for this platform.
- *  The default image uses FDT (Device Tree) for maximum Linux compatibility.
- *  To build with ACPI support, enable the AcpiTables.inf and
- *  RK3576AcpiPlatformDxe.inf entries in CM5IO.dsc and
- *  CM5IO.Modules.fdf.inc, then rebuild.
+ *  The image installs these tables next to the device tree
+ *  (PcdConfigTableModeDefault 0x3 in CM5IO.dsc): Linux keeps the DTB,
+ *  Windows on Arm uses this table.
  *
  *  Copyright (c) 2020, Pete Batard <pete@akeo.ie>
  *  Copyright (c) 2018-2020, Andrey Warkentin <andrey.warkentin@gmail.com>
@@ -63,8 +61,16 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     // DMA controllers (DMA0 @ 0x2ab90000, DMA1 @ 0x2abb0000, DMA2 @ 0x2abd0000)
     include ("Dma.asl")
 
-    // Serial: UART2 @ 0x2AD50000 (ttyS2 userspace UART; UART0 is SPCR debug console)
-    include ("Uart.asl")
+    // UART2 (header pins 3/5) is not declared here.  It used to be, as
+    // Uart.asl's HISI0031, a device no Windows driver binds; it is now the
+    // 40-pin UART SSDT's URT2 (Pin40Uart.asl, RKCP3006 for woa-rk3576
+    // rk3xuart), installed only with "40-pin UART" on in setup, when the
+    // firmware also muxes its pins.  UART0 is the SPCR/DBG2 console.
+
+    // Bluetooth: the CM5 module's BCM43752 (BCM4362A2 core) on UART4, with
+    // BT_REG_ON and BT_WAKE as GPIOs.  The device claims the UART itself;
+    // Bluetooth.asl says why.
+    include ("Bluetooth.asl")
 
     // I2C buses (SoC-level; CM5-IO carrier has no I2C5 devices)
     include ("I2c.asl")
@@ -151,11 +157,82 @@ DefinitionBlock ("Dsdt.aml", "DSDT", 2, "RKCP  ", "RK3576  ", 2)
     include ("Sai.asl")
 #endif
 
+#if FixedPcdGetBool (PcdAnalogAudioPreset)
+    // The ES8388 codec on the carrier.  Not in the mainline device tree;
+    // the wiring is ArmSoM's vendor tree (rockchip-kernel
+    // linux-6.1-stan-rkr6.1, rk3576-armsom-cm5-io.dts) and the CM5-IO
+    // schematic (AUDIO CODEC page):
+    //
+    //   es8388@10 on &i2c0 (i2c0m1_xfer, shared with the FUSB302 at 0x22),
+    //     MCLK from mclkout_sai1 at 12.288 MHz on sai1m0_mclk.
+    //   &sai1: sai1m0_lrck, _sclk, _sdi0, _sdo0; no rockchip,sai-tx-route,
+    //     so lane 0 goes out on SDO0.  Written as the identity route
+    //     <0 1 2 3> (0x0123) rather than 0, so the driver programs
+    //     SAI_PATH_SEL instead of trusting whatever an earlier OS left there.
+    //   LOUT1/ROUT1 -> the 3-pin header CN3 (HPR, HPL, HP_GND).  LOUT2/ROUT2
+    //     (AUD_LINEOUT_L/R) go only to the test pads T36/T37, not to the
+    //     40-pin header.  No amplifier.
+    //   Microphone: MIC2P/MIC2N on the test pads T34/T35, biased through
+    //     R56/R57/R58 from VCCA3V3_CODEC, into LIN2/RIN2 ("Differential
+    //     routing" on the schematic).  LIN1/RIN1 are not connected.
+    //
+    // CN3 has no detect contact (HP_DET_L is held low by R411) and the
+    // vendor sound card has no hp-det-gpios, so BOARD_CODEC_NO_HPDET: no
+    // jack detection, and Windows keeps the headphone endpoint plugged.
+    // es8323 creates its interrupt only when _CRS has a GpioInt
+    // (woa-rk3576 es83-optional-irq, 111de2c).
+    //
+    // BOARD_CODEC_OUTPUT_ROUTE 3: LOUT1/ROUT1 and LOUT2/ROUT2 on (ES8388
+    // reg 0x04 = 0x3C, reg 0x30/0x31 = 0 dB), so the pads carry line out
+    // too.  BOARD_CODEC_INPUT_SELECT 4: LIN2 - RIN2 differential (reg 0x0A
+    // = 0xF0, reg 0x0B = 0x82).
+    //
+    // The board library (Cm5ioAnalogAudioInit) powers PD_AUDIO, sets
+    // mclk_sai1 and the MCLK output, muxes the SAI1 and I2C0 pins and
+    // ungates the I2C0 clocks.  NOT RUN WITH ANY OPERATING SYSTEM.
+#define BOARD_SAI1_TX_ROUTE       0x0123
+#define BOARD_SAI1_RX_ROUTE       0
+    include ("Sai1.asl")
+
+#define BOARD_CODEC_I2C           "\\_SB.I2C0"
+#define BOARD_CODEC_I2C_ADDR      0x10
+#define BOARD_CODEC_NO_HPDET
+#define BOARD_CODEC_OUTPUT_ROUTE  3
+#define BOARD_CODEC_INPUT_SELECT  4
+    Scope (I2C0) {
+      include ("Es8388.asl")
+    }
+#endif
+
     // SoC temperature: TSADC channels 0-2 as thermal zones TZ00..TZ02, with
     // a 115 C _CRT below the 120 C hardware TSHUT the firmware arms
     // (PcdTsadcEnable in CM5IO.dsc).  The fan and its active trip points on
     // TZ01 are in Fan.asl, a separate SSDT installed only when fan control is
     // enabled in setup.
     include ("Thermal.asl")
+
+    // SARADC (adc@2ae00000; vref vcca_1v8_s0 = 1.8 V, rk3576-armsom-cm5.dtsi
+    // &saradc), for the woa-rk3576 rk3xsaradc driver.  No adc-keys node in
+    // either device tree; the wiring is the schematics':
+    //
+    //   channel 0  SARADC_VIN0_BOOT.  On the CM5 (CM5 schematic, "BOOT MODE
+    //              CONFIG"): R1103 100K up to VCCA_1V8_S0, R1102 11.3K down,
+    //              Config2, ADC value 416 = 183 mV.  On the carrier
+    //              (CM5-IO V1.1, "MASKROM_Key"): SW3 to ground through R3
+    //              100R, ~2 mV pressed.  Declared as an adc-keys button:
+    //              key-up 183 mV, pressed 0, code KEY_VENDOR (0x168),
+    //              reported as vendor-page button 1.  The BootROM samples
+    //              this pin only at reset.
+    //   channel 1  SARADC_VIN1_KEY/RECOVERY stays on the module (pull-up
+    //              only); the carrier has no recovery key.  Not declared.
+    //
+    // No jack: the ES8388 output is the CN3 header with HP_DET_L tied low.
+    // RK3576Dxe sets the converter clock (PcdRk3576SaradcClockInit in
+    // CM5IO.dsc).
+#define BOARD_SARADC_KEYS_CHANNEL     0
+#define BOARD_SARADC_KEYS_KEYUP_UV    183000
+#define BOARD_SARADC_KEYS_PRESS_UV    0
+#define BOARD_SARADC_KEYS_CODE        0x168
+    include ("Saradc.asl")
   }
 }

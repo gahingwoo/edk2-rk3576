@@ -23,6 +23,10 @@
 
 [Sources]
   RockchipPlatformLib.c
+  Cm5ioAudio.c
+  Cm5ioBluetooth.c
+  Cm5ioWifi.c
+  Cm5ioPin40.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -45,3 +49,4 @@
 
 [FixedPcd]
   gRK3576TokenSpaceGuid.PcdPwmFanPeriodNs
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset

@@ -37,6 +37,13 @@
 [Sources]
   Dsdt.asl
   Fan.asl
+  # Wi-Fi SDIO controller SSDT, installed only when "SDIO Wi-Fi" is enabled
+  # in setup (PcdAcpiSdioWifi).
+  Wifi.asl
+  # 40-pin header SSDTs, each installed only with its setup option on:
+  # the UART (PcdPin40Uart) and RhProxy for GPIO/I2C/SPI (PcdPin40RhProxy).
+  Pin40Uart.asl
+  Pin40RhProxy.asl
   $(RK_COMMON_ACPI_DIR)/Madt.aslc
   $(RK_COMMON_ACPI_DIR)/Fadt.aslc
   $(RK_COMMON_ACPI_DIR)/Gtdt.aslc
@@ -57,6 +64,9 @@
   # RK806 power button SSDT, installed only when enabled in setup
   # (PcdAcpiPwrKey) on a board that reaches its RK806 (PcdRk806I2cBase).
   $(RK_COMMON_ACPI_DIR)/PwrKey.asl
+  # LED SSDT, installed only when "Board LEDs for the OS" is enabled in
+  # setup (PcdAcpiLeds).
+  Leds.asl
 
 [Packages]
   ArmPkg/ArmPkg.dec
@@ -79,3 +89,4 @@
   gRockchipTokenSpaceGuid.PcdRkMtlMailBoxSize
   gRockchipTokenSpaceGuid.PcdRkSdmmcCardDetectBroken
   gRK3588TokenSpaceGuid.PcdHdmiAudioPreset
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset

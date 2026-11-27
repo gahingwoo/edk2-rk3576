@@ -11,8 +11,9 @@
 #  SoC:    RK3576 (4xA72 + 4xA53, same silicon as Radxa ROCK 4D)
 #  PMIC:   RK806 @ I2C1 0x23 (interrupt GPIO0 PA6)
 #  RTC:    HYM8563 @ I2C2 0x51 (interrupt GPIO0 PA0)
-#  WiFi:   SYN43752 (reported as rtl8852bs) via SDIO (sdio/sdmmc1)
-#  BT:     SYN43752 via UART4
+#  WiFi:   BW3752-50B1 (Synaptics/Broadcom BCM43752) via SDIO (sdio/sdmmc1);
+#          ArmSoM's vendor DTS still says rtl8852bs, the CM5 V1.0 module
+#  BT:     the same module's BCM4362A2 core via UART4 M1
 #  Debug:  UART0 @ 0x2AD40000, 1.5 Mbaud
 #
 #  Key differences vs Radxa ROCK 4D (same RK3576):
@@ -116,6 +117,10 @@
   # USB: DWC3 DRD0 @ 0x23000000 (USB-C, USBDP PHY SS+HS)
   #       DWC3 DRD1 @ 0x23400000 (USB-A, combphy1 SS+HS)
   DEFINE RK_USB_ENABLE           = TRUE
+
+  # Boot option "Armbian (U-Boot)".  Needs the SPL from scripts/build-spl.sh
+  # (SPL_* in boards/cm5io.conf); with any other SPL the option is not listed.
+  DEFINE RK_ARMBIAN_ONCE_ENABLE  = TRUE
 
 !include Silicon/Rockchip/RK3576/RK3576Base.dsc.inc
 
@@ -225,6 +230,9 @@
   # driver had no over-temperature protection at all before this.
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
+  # SARADC converter clock (1 MHz from xin24m) for the DSDT's \_SB.ADC0,
+  # which carries the Maskrom key (Saradc.asl).  Clocks only.
+  gRK3576TokenSpaceGuid.PcdRk3576SaradcClockInit|TRUE
   # A real button on the RK806's PWRON_L: SW4 "PWR_KEY" (carrier schematic 1V1, KEY page, TS_1088).  The
   # "Power button" setup option is offered once the firmware also
   # reaches the RK806 (PcdRk806I2cBase).
@@ -243,6 +251,19 @@
   # behaviour at partial duty have been seen on the board.
   gRK3576TokenSpaceGuid.PcdAcpiFanControlSupported|TRUE
   gRK3576TokenSpaceGuid.PcdAcpiFanControlDefault|0
+
+  # SDIO Wi-Fi (the CM5 module's BW3752-50B1, BCM43752) for an ACPI OS: the
+  # setup option exists on this board and is off by default.  When on,
+  # Cm5ioWifi.c sets the pins and clock, cycles WL_REG_ON and probes the
+  # card, and the Wi-Fi SSDT (AcpiTables/Wifi.asl) is installed.  See
+  # woa-rk3576 docs/dev/wifi.md.  Not run on hardware.
+  gRK3576TokenSpaceGuid.PcdAcpiSdioWifiSupported|TRUE
+  # The 40-pin header (J4): Cm5ioPin40.c describes it, AcpiTables has its
+  # UART and RhProxy SSDTs.  Both setup options stay off by default.
+  gRK3576TokenSpaceGuid.PcdPin40Supported|TRUE
+  # The LEDs for an ACPI OS (AcpiTables/Leds.asl, woa-rk3576 rkled): the
+  # setup option exists on this board and is off by default.
+  gRK3576TokenSpaceGuid.PcdAcpiLedsSupported|TRUE
 
   # Default display mode.
   #
@@ -282,6 +303,67 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   #
   gRockchipTokenSpaceGuid.PcdRtc8563ClkoutEnable|TRUE
 
+  #
+  # Analog audio: the ES8388 on I2C0 (0x10) and SAI1, output on the 3-pin
+  # header CN3 and the 40-pin header.  Cm5ioAudio.c powers PD_AUDIO, sets
+  # mclk_sai1 = 12.288 MHz and the pins; the DSDT publishes \_SB.SAI1 and
+  # \_SB.I2C0.ES83 for the woa-rk3576 audio drivers.  Not run on hardware.
+  #
+  gRK3576TokenSpaceGuid.PcdAnalogAudioPreset|TRUE
+
+  #
+  # I2C.  The base file lists the RTC only; this board's devices are:
+  #   I2C1 0x23  the RK806 PMIC (pmic@23 under &i2c1 in
+  #              rk3576-armsom-cm5.dtsi, the same bus, address and part as
+  #              the TaishanPi 3M).  Listed so that I2cDxe sets that bus up
+  #              (pins, clock divider) and maps it for runtime;
+  #              Rk806I2cPowerOffDxe switches the PMIC off through it when an
+  #              OS asks for a shutdown.
+  #   I2C2 0x51  the LK8563S RTC (rtc@51 under &i2c2), for
+  #              Hym8563RealTimeClockLib; mapped for runtime because Windows
+  #              gets its time from it.
+  # I2C0 (FUSB302 0x22, ES8388 0x10) is not listed: the firmware reaches the
+  # FUSB302 without I2cDxe (Rk3576Fusb302Lib), and the codec is the OS's.
+  #
+  gRockchipTokenSpaceGuid.PcdI2cSlaveAddresses|{ 0x23, 0x51 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBuses|{ 0x1, 0x2 }
+  gRockchipTokenSpaceGuid.PcdI2cSlaveBusesRuntimeSupport|{ TRUE, TRUE }
+
+  # PSCI SYSTEM_OFF only raises PWR_CTRL1, which the RK806 ignores unless
+  # told otherwise; see Rk806I2cPowerOffDxe.  On the CM5 GPIO0_A3 is
+  # PMIC_PWR_CTRL1 (ArmSoM-CM5-1V1 schematic p4 and p13), as on the
+  # TaishanPi 3M.  Setting the base also offers the NPU setup option (Npu.c
+  # sets vdd_npu_s0, dcdc-reg2 under the same pmic@23).
+  gRK3576TokenSpaceGuid.PcdRk806I2cBase|0x2AC40000
+  gRK3576TokenSpaceGuid.PcdRk806I2cAddress|0x23
+  gRK3576TokenSpaceGuid.PcdRk806I2cBus|1
+
+  # "CPU Maximum Frequency" (RK3576Dxe CpuMaxFreq.c).  vdd_cpu_big_s0 is
+  # dcdc-reg1 (BUCK1) and vdd_cpu_lit_s0 dcdc-reg3 (BUCK3) under pmic@23 in
+  # rk3576-armsom-cm5.dtsi, with 550000/950000 uV limits, the same as the
+  # TaishanPi 3M; CpuMaxFreq.c also checks the PMIC's chip ID and the SoC
+  # variant in OTP before it raises anything.  Default stays 1608 MHz.  NOT
+  # RUN on this board.
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqSupported|TRUE
+  gRK3576TokenSpaceGuid.PcdCpuMaxFreqDefault|0
+
+  # Log vdd_gpu_s0 (BUCK5, dcdc-reg5 under the same pmic@23) and the GPU OTP
+  # bytes at boot, and hand them to the Windows GPU driver as the GpuRail
+  # variable (RK3576Dxe GpuRail.c).
+  gRK3576TokenSpaceGuid.PcdGpuRailReport|TRUE
+
+  # "GPU voltage for 702 MHz (775 mV)" (RK3576Dxe GpuRail.c): offered, off
+  # by default (the user's decision, 2026-11-25).  vdd_gpu_s0 is dcdc-reg5
+  # (BUCK5) under pmic@23 on &i2c1 in rk3576-armsom-cm5.dtsi, 550000/900000 uV,
+  # mali-supply of &gpu; the ArmSoM-CM5-1V1 schematic has the same RK806S-5
+  # as the TaishanPi 3M, BUCK5 = VDD_GPU_S0 (p2 power table, p13 VOUT5/FB5),
+  # on I2C1_M0 (GPIO0_B2/B3, p4).  On, the firmware raises it from 750 to
+  # 775 mV only if the PMIC reads 0x80 0x6A, BUCK5 reads exactly 0x28, the
+  # chip is a plain RK3576 and TSHUT is armed; then maliwddm runs 702 MHz.
+  # Off, maliwddm stays at 594 MHz.  NOT RUN on this board.
+  gRK3576TokenSpaceGuid.PcdGpuRail775Supported|TRUE
+  gRK3576TokenSpaceGuid.PcdGpuRail775Default|0
+
 ################################################################################
 [Components.common]
   # ACPI tables (Windows ARM64, FreeBSD, ACPI-capable OS)
@@ -306,6 +388,9 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   # from the live ComboPHY mode; runs only when ConfigTableMode has the ACPI bit.
   # Board-level because only the boards with ACPI tables carry it.
   Silicon/Rockchip/RK3576/Drivers/RK3576AcpiPlatformDxe/RK3576AcpiPlatformDxe.inf
+
+  # Power the board off through the RK806 at a shutdown (PcdRk806I2cBase).
+  Silicon/Rockchip/RK3576/Drivers/Rk806I2cPowerOffDxe/Rk806I2cPowerOffDxe.inf
 
   # RK3576Dxe, FdtPlatformDxe, the PCIe stack and the GMAC stack are common to
   # every RK3576 board and are declared in RK3576Base.dsc.inc.
