@@ -57,6 +57,14 @@ Every feature has `built` (true or false). A runtime option also has
 `FEATURES_EXPECTED` in `boards/<board>.conf` lists the features the board's
 image must have. `features.py board` fails when one of them is not built.
 
+It also fails when an efivarstore of a compiled setup form has no code that
+creates the variable: a `SetVariable` with that name (not a delete), or a
+`PcdSet*S` of the DynamicHii PCD bound to it, in the module's source or in
+`Silicon/` or `Platform/`. The setup browser only saves a variable that
+already exists, so a missing one makes F10 fail in the whole form on a fresh
+variable store. Names set through a table go in `CREATED_FROM_TABLE` in
+`scripts/features.py`.
+
 ## settings
 
 The setup options stored in an EFI variable, for tools that change them
