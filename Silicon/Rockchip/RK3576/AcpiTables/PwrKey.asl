@@ -2,7 +2,7 @@
  *
  *  The RK806's power key as the OS's power button.
  *
- *  Installed only with "Power button (RK806)" on in setup (PcdAcpiPwrKey,
+ *  Installed only with "Power button" on in setup (PcdAcpiPwrKey,
  *  default off) on a board with a button on the RK806's PWRON pin
  *  (PcdAcpiPwrKeySupported) whose RK806 the firmware reaches
  *  (PcdRk806I2cBase): RK3576AcpiPlatformDxe drops this SSDT otherwise

@@ -27,16 +27,16 @@ board pages ([ROCK 4D](boards/rock4d.md), [CM5-IO](boards/cm5io.md),
 | HTTP boot | no | yes, off | no |
 | Secure Boot | yes | yes | yes |
 | CPU Maximum Frequency (`PcdCpuMaxFreqSupported`) | hidden | 1608 MHz | 1608 MHz |
-| GPU voltage for 702 MHz (775 mV) (`PcdGpuRail775Supported`) | hidden | Off (750 mV) | On (775 mV) |
+| GPU voltage (`PcdGpuRail775Supported`) | hidden | 750 mV (594 MHz) | 775 mV (702 MHz) |
 | Fan Mode (`PcdAcpiFanControlSupported`) | Always on | Always on | Always on |
 | NPU (experimental) (`AcpiNpuSupported`) | Enabled * | Enabled * | Enabled * |
 | USB-C DisplayPort (experimental) (`PcdUsbcDpSupported`) | Disabled | hidden | Disabled |
 | SDIO Wi-Fi (experimental) (`PcdAcpiSdioWifiSupported`) | hidden | hidden | Disabled |
 | 40-pin UART (experimental) (`PcdPin40Supported`) | hidden | Disabled | Disabled |
-| 40-pin GPIO/I2C/SPI for apps (experimental) (`PcdPin40Supported`) | hidden | Disabled | Disabled |
-| Power button (RK806, experimental) (`PcdAcpiPwrKeySupported`) | Disabled | Disabled | hidden |
-| Board LEDs for the OS (experimental) (`PcdAcpiLedsSupported`) | hidden | Disabled | Disabled |
-| ADC keys for the OS (experimental) (`PcdAcpiSaradcSupported`) | hidden | hidden | Enabled |
+| 40-pin GPIO/I2C/SPI for apps (`PcdPin40Supported`) | hidden | Disabled | Disabled |
+| Power button (experimental) (`PcdAcpiPwrKeySupported`) | Disabled | Disabled | hidden |
+| Board LEDs (experimental) (`PcdAcpiLedsSupported`) | hidden | Disabled | Disabled |
+| ADC keys (experimental) (`PcdAcpiSaradcSupported`) | hidden | hidden | Enabled |
 
 \* shown only when RK3576Dxe sets the variable at boot (a probe, not a build setting)
 

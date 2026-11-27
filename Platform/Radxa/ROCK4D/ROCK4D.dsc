@@ -167,7 +167,7 @@
   gRK3576TokenSpaceGuid.PcdTsadcEnable|TRUE
 
   # A real button on the RK806's PWRON_L: SW1 (schematic V1.12, Power-DC
-  # IN/RTC page, TS_018B).  The "Power button (RK806)" setup option is
+  # IN/RTC page, TS_018B).  The "Power button" setup option is
   # offered once the firmware also reaches the RK806 (PcdRk806I2cBase).
   gRK3576TokenSpaceGuid.PcdAcpiPwrKeySupported|TRUE
 
@@ -216,7 +216,7 @@
   # the Windows GPU driver as the GpuRail variable (RK3576Dxe GpuRail.c).
   gRK3576TokenSpaceGuid.PcdGpuRailReport|TRUE
 
-  # "GPU voltage for 702 MHz (775 mV)" (RK3576Dxe GpuRail.c): offered, off
+  # "GPU voltage" (RK3576Dxe GpuRail.c): offered, 750 mV
   # by default (the user's decision, 2026-11-25).  vdd_gpu_s0 is dcdc-reg5
   # (BUCK5) under pmic@23 on &i2c1 in rk3576-rock-4d.dts, 550000/900000 uV,
   # mali-supply of &gpu; schematic V1.12 p25 has the same RK806S-5 as the

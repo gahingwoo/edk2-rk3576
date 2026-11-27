@@ -46,7 +46,7 @@
  *      is TRUE, without a jack-detect line: the jack's detect is an analog
  *      SARADC input here, not a GPIO.
  *    - HDMI itself: not declared on the CM5-IO either.  The LEDs (dts:48-66)
- *      are in Leds.asl, an SSDT installed only with "Board LEDs for the OS".
+ *      are in Leds.asl, an SSDT installed only with "Board LEDs".
  *
  *  The fan header (J16, "40PIN/FAN/LED/KEY" page) is in Fan.asl, a separate
  *  SSDT installed only when "Fan Mode" in setup is not Always on.

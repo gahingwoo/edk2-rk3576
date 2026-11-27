@@ -2,7 +2,7 @@
  *
  *  Secondary System Description Table (SSDT): the ROCK 4D's LEDs for the OS.
  *
- *  Installed only with "Board LEDs for the OS" on in setup (PcdAcpiLeds,
+ *  Installed only with "Board LEDs" on in setup (PcdAcpiLeds,
  *  default off): RK3576AcpiPlatformDxe skips any SSDT with OEM table ID
  *  "RKLED" otherwise.  The driver is woa-rk3576 rkled (RKCP1ED0).
  *

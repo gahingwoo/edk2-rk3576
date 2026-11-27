@@ -1,0 +1,28 @@
+diff --git a/MdeModulePkg/Application/UiApp/FrontPage.c b/MdeModulePkg/Application/UiApp/FrontPage.c
+--- a/MdeModulePkg/Application/UiApp/FrontPage.c
++++ b/MdeModulePkg/Application/UiApp/FrontPage.c
+@@ -405,6 +405,12 @@
+     FreqMhz = 0;
+   }
+ 
++  //
++  // patches/0020: round to the nearest 10 MHz, the last digit shown, rather
++  // than cut it off: 2208 MHz is 2.21 GHz, not 2.20.
++  //
++  FreqMhz += 5;
++
+   DestMax      = 0x20 / sizeof (CHAR16);
+   StringBuffer = AllocateZeroPool (0x20);
+   ASSERT (StringBuffer != NULL);
+diff --git a/MdeModulePkg/Application/UiApp/FrontPageStrings.uni b/MdeModulePkg/Application/UiApp/FrontPageStrings.uni
+--- a/MdeModulePkg/Application/UiApp/FrontPageStrings.uni
++++ b/MdeModulePkg/Application/UiApp/FrontPageStrings.uni
+@@ -45,7 +45,7 @@
+                                        #language fr-FR  "Cette sélection dirigera le système pour continuer au processus d'amorçage"
+ #string STR_LANGUAGE_SELECT            #language en-US  "Select Language"
+                                        #language fr-FR  "Choisir la Langue"
+-#string STR_LANGUAGE_SELECT_HELP       #language en-US  "This is the option one adjusts to change the language for the current system"
++#string STR_LANGUAGE_SELECT_HELP       #language en-US  "Changes the language the system uses."
+                                        #language fr-FR  "Ceci est l'option qu'on ajuste pour changer la langue pour le système actuel"
+ #string STR_MISSING_STRING             #language en-US  "Missing String"
+                                        #language fr-FR  "Missing String"

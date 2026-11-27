@@ -54,11 +54,11 @@ unless noted.
 | CPU idle states (SSDT `RKLPI`) | | C R T | option "CPU Idle States" |
 | NPU (`Npu.asl`) | `RKCP3576` | R T | option "NPU (experimental)"; needs `PcdRk806I2cBase` |
 | 40-pin UARTs (SSDT `RKUART40`) | `RKCP3006`, `_CID` `PRP0001` | R T | option "40-pin UART (experimental)" with `PcdPin40Supported`; `SerCx-FriendlyName` gives COM ports for rk3xuart |
-| RhProxy (SSDT `RKRHPX`, `\_SB.RHPX`) | `MSFT8000` | R T | option "40-pin GPIO/I2C/SPI for apps (experimental)", same boards |
+| RhProxy (SSDT `RKRHPX`, `\_SB.RHPX`) | `MSFT8000` | R T | option "40-pin GPIO/I2C/SPI for apps", same boards |
 | Hardware watchdog (WDAT) | | C R T | option "Hardware watchdog (experimental)", see below |
-| Power button (SSDT `RKPWRKEY`, `\_SB.I2C1.PWRK`) | `RKCP806B` | R | option "Power button (RK806, experimental)"; needs `PcdAcpiPwrKeySupported` (ROCK 4D SW1, CM5-IO SW4) and `PcdRk806I2cBase`; only the ROCK 4D sets both on `main`. For rk806pwrkey |
-| LEDs (SSDT `RKLED`, `\_SB.LEDS`) | `RKCP1ED0` | R T | option "Board LEDs for the OS (experimental)" with `PcdAcpiLedsSupported`; for rkled |
-| SARADC and keys (SSDT `RKSARADC`, `\_SB.ADC0`) | `RKCP0ADC` | R T | option "ADC keys for the OS (experimental)" with `PcdAcpiSaradcSupported` (on by default on T); always in R's DSDT. Off, the SARADC clock is not set either. T's Recovery key reports HID System Power Down (`0x00010081`), Windows' power button. For rk3xsaradc |
+| Power button (SSDT `RKPWRKEY`, `\_SB.I2C1.PWRK`) | `RKCP806B` | R | option "Power button (experimental)"; needs `PcdAcpiPwrKeySupported` (ROCK 4D SW1, CM5-IO SW4) and `PcdRk806I2cBase`; only the ROCK 4D sets both on `main`. For rk806pwrkey |
+| LEDs (SSDT `RKLED`, `\_SB.LEDS`) | `RKCP1ED0` | R T | option "Board LEDs (experimental)" with `PcdAcpiLedsSupported`; for rkled |
+| SARADC and keys (SSDT `RKSARADC`, `\_SB.ADC0`) | `RKCP0ADC` | R T | option "ADC keys (experimental)" with `PcdAcpiSaradcSupported` (on by default on T); always in R's DSDT. Off, the SARADC clock is not set either. T's Recovery key reports HID System Power Down (`0x00010081`), Windows' power button. For rk3xsaradc |
 
 Rule for optional SSDTs: refer (`External`) only to objects in the DSDT,
 never to a device in another optional SSDT. SSDTs are installed in FV order,

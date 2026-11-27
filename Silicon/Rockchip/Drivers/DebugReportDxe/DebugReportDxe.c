@@ -227,7 +227,7 @@ ReportPopUp (
   if ((First != NULL) && (Last != NULL)) {
     do {
       CreatePopUp (EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE, &Key, First, Line2, Last, NULL);
-    } while (Key.UnicodeChar != CHAR_CARRIAGE_RETURN);
+    } while ((Key.UnicodeChar != CHAR_CARRIAGE_RETURN) && (Key.ScanCode != SCAN_ESC));
   }
 
   if (First != NULL) {
