@@ -41,7 +41,7 @@ change that is not released yet, and keep the release image to go back to.
   port is the USB-C port; unplug anything else from it.
 - **LCKFB TaishanPi 3M:** no button. Power off, short the two `MSK` pads
   directly under the `RK3576` silkscreen (photo: `TaishanPi3M-msk-pads.png`
-  in the 0.4.1 release), connect the USB-C port marked `OTG+DP` and power on.
+  in the release), connect the USB-C port marked `OTG+DP` and power on.
 - A board running this firmware also enters MaskROM with F4 during the boot
   countdown.
 

@@ -38,13 +38,10 @@ This resets the UEFI settings, which live on the same flash. Then
 
 ## Windows
 
-- Use the [`ci` build](../flash.md#the-rolling-ci-build): release 0.4.1 has
-  no ACPI tables for this board. Ethernet needs a build from 2026-11-26 or
-  later (the RTL8211F RGMII delays); older ones get a link but no DHCP
-  address.
+- Use firmware [0.5.0](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.5.0) or later: older releases have no ACPI tables for
+  this board.
 - Install with [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)
-  (Windows to NVMe). It can also put Armbian on an SD card next to Windows;
-  that needs the SPL of branch `rock4d-parity`, not on `main` yet.
+  (Windows to NVMe). It can also put Armbian on an SD card next to Windows.
 - Keep "CPU Idle States" Disabled (the default), or Windows stops at boot
   with bugcheck 0x5C.
 - Built, not run yet: the LEDs, the EEPROM, the 40-pin header (off by

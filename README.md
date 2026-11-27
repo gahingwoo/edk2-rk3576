@@ -39,15 +39,13 @@ What has run, on one unit of each board ([testing](docs/dev/testing.md)):
   Bluetooth, NPU; Armbian edge [with limits](docs/linux.md#lckfb-taishanpi-3m).
 
 What each build contains: [board features](docs/BOARD-FEATURES.md).
-Windows touch, Bluetooth, audio and USB-C on the TaishanPi 3M, and Windows
-on the ROCK 4D, need the [`ci` build](docs/flash.md#the-rolling-ci-build);
-release 0.4.1 does not have them. Serial console: 1500000 8N1.
+Serial console: 1500000 8N1.
 
 ## Get started
 
 1. Download an image: the
    [latest release](https://github.com/gahingwoo/edk2-rk3576/releases/latest)
-   (0.4.1), or the [`ci` build](docs/flash.md#the-rolling-ci-build) of `main`.
+   (0.5.0), or the [`ci` build](docs/flash.md#the-rolling-ci-build) of `main`.
 2. Write it ([flashing](docs/flash.md)) with
    [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio),
    [flash.gahingwoo.com](https://flash.gahingwoo.com/) (Chrome or Edge) or

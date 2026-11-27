@@ -7,7 +7,7 @@ eMMC 上跑 Windows 11 23H2 和 Armbian，接立创的 DSI 触摸屏，也接 HD
 ## 能用什么
 
 用截至 2026-11-24 的 `main` 构建在板子上测过。Windows 下的触摸、蓝牙、音频和 USB-C 需要
-[`ci` 构建](../flash.zh-CN.md#滚动的-ci-构建)；0.4.1 正式版已经有 DSI 屏、菜单里的触摸、中文菜单和 Windows。
+[0.5.0](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.5.0) 或更新的固件。
 
 | | 固件里 | Windows 11 23H2 | Linux（Armbian edge） |
 |---|---|---|---|

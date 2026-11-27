@@ -33,10 +33,9 @@ Windows：2026-11-26 的 `main`，12 GB 板。
 
 ## Windows
 
-- 用 [`ci` 构建](../flash.zh-CN.md#滚动的-ci-构建)：0.4.1 正式版没有这块板的 ACPI 表。以太网需要 2026-11-26
-  或之后的构建（RTL8211F 的 RGMII 延时）；更早的构建能连上链路，但拿不到 DHCP 地址。
+- 用 [0.5.0](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.5.0) 或更新的固件：更早的正式版没有这块板的 ACPI 表。
 - 用 [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio) 安装（把 Windows 装到 NVMe）。它还能在 Windows
-  之外把 Armbian 装到 SD 卡上；这需要分支 `rock4d-parity` 的 SPL，`main` 上还没有。
+  之外把 Armbian 装到 SD 卡上。
 - "CPU Idle States" 保持 Disabled（默认），否则 Windows 启动时蓝屏 0x5C。
 - 已构建、还没跑过：LED、EEPROM、40-pin 排针（默认关）、J16 风扇控制、Maskrom 键和耳机插孔检测（SARADC）、
   775 mV GPU 选项。详见[板子功能对照](../BOARD-FEATURES.zh-CN.md)、[Windows](../windows.zh-CN.md)。

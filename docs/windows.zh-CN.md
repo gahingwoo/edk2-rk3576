@@ -13,8 +13,7 @@ Windows 安装程序在这里用不了（没有 eMMC 驱动，也没有 TPM）�
 - [woa-rk3576](https://github.com/gahingwoo/woa-rk3576) 的 WinPE U 盘，按它的
   [安装说明](https://github.com/gahingwoo/woa-rk3576/blob/main/docs/INSTALL.zh-CN.md)操作；
 - [Maskrom Studio](https://github.com/gahingwoo/maskrom-studio)：在电脑上通过 USB 安装，不用 U 盘。在 ROCK 4D 上跑过
-  （把 Windows 装到 NVMe）。在 ROCK 4D 上它还能装 NVMe 上的 Windows 加 SD 卡上的 Armbian；这需要分支
-  `rock4d-parity` 的 SPL，`main` 上还没有。
+  （把 Windows 装到 NVMe）。在 ROCK 4D 上它还能装 NVMe 上的 Windows 加 SD 卡上的 Armbian（固件 0.5.0 或更新）。
 
 两种方法都要求先写入本固件（见[刷写固件](flash.zh-CN.md)）：作为完整映像写到 eMMC（CM5-IO、泰山派 3M），
 或写到 SPI NOR（ROCK 4D）。
@@ -28,14 +27,14 @@ Windows 安装程序在这里用不了（没有 eMMC 驱动，也没有 TPM）�
 |---|---|
 | eMMC、SD、以太网、USB-A、NVMe（CM5-IO） | 0.4.0 或更新。更早的映像把 eMMC 跑在 148.5 MHz，Windows 下写入的文件可能悄悄损坏。 |
 | 泰山派 3M 的 DSI 屏 | 0.4.0 或更新 |
-| 泰山派 3M 的触摸、蓝牙、耳机孔、HDMI 音频、USB-C | 下一个正式版之前用 [`ci` 构建](flash.zh-CN.md#滚动的-ci-构建) |
-| ROCK 4D 上的一切 | 下一个正式版之前用 `ci` 构建（0.4.1 没有它的 ACPI 表）。以太网需要 2026-11-26 或之后的构建：更早的构建能连上链路，但拿不到 DHCP 地址。 |
+| 泰山派 3M 的触摸、蓝牙、耳机孔、HDMI 音频、USB-C | [0.5.0](https://github.com/gahingwoo/edk2-rk3576/releases/tag/0.5.0) 或更新 |
+| ROCK 4D 上的一切 | 0.5.0 或更新（更早的版本没有它的 ACPI 表） |
 
 ## 更多驱动
 
-- GPU 和显示：[wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52)（旋转、亮度、HDMI 热插拔和音频）。
-  在泰山派 3M 和 ROCK 4D 上跑过，还没有正式版。没有它时，桌面由 CPU 画到固件的帧缓冲里，只有一个固定分辨率。
-- NPU：[woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu)，需要在设置里打开 "NPU (experimental)"。泰山派 3M 和 ROCK 4D。
+- GPU 和显示：[wddm-mali-g52](https://github.com/gahingwoo/wddm-mali-g52)（旋转、亮度、HDMI 热插拔和音频），
+  在 [woa-rk3576 0.5.0](https://github.com/gahingwoo/woa-rk3576/releases/tag/0.5.0) 的驱动包里。没有它时，桌面由 CPU 画到固件的帧缓冲里，只有一个固定分辨率。
+- NPU：[woa-rk3576-npu](https://github.com/gahingwoo/woa-rk3576-npu)，需要在设置里打开 "NPU (experimental)"。也在驱动包里。
 - ROCK 4D 的 Wi-Fi 和蓝牙（USB 的 AIC8800D80）：还没有驱动。
 
 ## 时钟

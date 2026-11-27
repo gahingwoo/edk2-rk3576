@@ -18,7 +18,7 @@
 | Ventoy 做的 U 盘启动不了 WinPE | Ventoy 的 UDF 驱动在本固件上会触发同步异常。直接写入 WinPE 映像。 |
 | Windows 11 24H2 启动不了 | RK3576 是 ARMv8.0，24H2 需要 ARMv8.1。用 23H2。 |
 | Windows 启动时蓝屏 0x5C | 在设置里把 "CPU Idle States" 设为 Disabled（默认值）。 |
-| ROCK 4D 的 Windows：以太网有链路，拿不到 DHCP 地址 | 把固件更新到 2026-11-26 或之后的 `ci` 构建（它会设置 RTL8211F 的 RGMII 延时）。 |
+| ROCK 4D 的 Windows：以太网有链路，拿不到 DHCP 地址 | 把固件更新到 0.5.0 或更新（它会设置 RTL8211F 的 RGMII 延时）。 |
 
 ## 恢复
 
