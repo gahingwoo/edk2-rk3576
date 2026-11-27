@@ -24,7 +24,7 @@ board pages ([ROCK 4D](boards/rock4d.md), [CM5-IO](boards/cm5io.md),
 | CPU idle states | yes, off | yes, off | yes, off |
 | Fan control | yes, always-on | yes, always-on | yes, always-on |
 | Network boot (PXE) | yes, on | yes, on | yes, on |
-| HTTP boot | no | yes, off | no |
+| HTTP boot | yes, off | yes, off | yes, off |
 | Secure Boot | yes | yes | yes |
 | CPU Maximum Frequency (`PcdCpuMaxFreqSupported`) | hidden | 1608 MHz | 1608 MHz |
 | GPU voltage (`PcdGpuRail775Supported`) | hidden | 750 mV (594 MHz) | 775 mV (702 MHz) |
