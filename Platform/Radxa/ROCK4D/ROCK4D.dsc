@@ -96,8 +96,9 @@
   # UiApp banner shows "<NNNN> MB RAM" and OS sees system info.
   DEFINE RK_PLATFORM_SMBIOS_ENABLE = TRUE
   # USB hosts:
-  #   DWC3 DRD0 @ 0x23000000 (USB-C, u2phy0 + Samsung USBDP combo PHY)
-  #     UEFI phase: HS-only (UsbDpPhyDxe not ported to RK3576).
+  #   DWC3 DRD0 @ 0x23000000 (upper USB 3.0 Type-A port, the OTG port
+  #     MaskROM uses; u2phy0 + USBDP combo PHY).  The USB-C port is power only.
+  #     UEFI phase: HS-only (the USBDP PHY is not brought up for this port).
   #     Kernel phase: SS+HS (phy-rockchip-usbdp.c in mainline Linux inits USBDP PHY).
   #   DWC3 DRD1 @ 0x23400000 (USB-A, u2phy1 + combphy1): SS + HS.
   # PCDs (DwcXhci base addresses) are set further down. RK3576 has no
@@ -139,6 +140,12 @@
   # GMAC0 runs rgmii-id: the PHY applies both delays, so the MAC adds none.
   # CM5-IO uses rgmii-rxid with a 0x21 MAC-side TX delay.
   gRK3576TokenSpaceGuid.PcdGmac0TxDelay|0
+
+  # DRD0 is the upper USB-A port here, not a USB-C port: no wait for a
+  # device to appear on it.  The 5 s default ran to the end on every boot
+  # with the port empty (XhcInitSched to "XHCI started" took 4.95 s), and
+  # a device already plugged in added 3 s more.
+  gRK3576TokenSpaceGuid.PcdUsbCDeviceWaitMs|0
 
   # FDT + ACPI both installed (0x3), as on the CM5-IO and the TaishanPi 3M.
   # Linux keeps booting from the mainline device tree: with a real DTB
