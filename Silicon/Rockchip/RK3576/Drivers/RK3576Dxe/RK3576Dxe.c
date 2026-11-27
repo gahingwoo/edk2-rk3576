@@ -373,6 +373,44 @@ SetupNetworkTimeSyncVariables (
 }
 
 /**
+  The same for RtVarEmmcCommit, which RkFvbDxe (RkFvbRt.c) reads at
+  EndOfDxe.  It has no PCD, so it is written here directly, with the
+  attributes of its efivarstore in RK3576DxeHii.vfr and the form's
+  default (0, off).
+
+  The setup browser saves an efivarstore only when the variable already
+  exists (HiiDatabaseDxe RouteConfigRespForEfiVarStore).  Without this, a
+  fresh variable store failed every F10 in the form with "The variable
+  does not exist!", although the other variable stores were saved.
+**/
+STATIC
+VOID
+SetupRtVarEmmcCommitVariables (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       Size;
+  UINT8       Var8;
+
+  Size   = sizeof (Var8);
+  Status = gRT->GetVariable (L"RtVarEmmcCommit", &gRK3576DxeFormSetGuid, NULL, &Size, &Var8);
+  if (EFI_ERROR (Status) || (Size != sizeof (Var8)) || (Var8 > 1)) {
+    Var8   = 0;
+    Status = gRT->SetVariable (
+                    L"RtVarEmmcCommit",
+                    &gRK3576DxeFormSetGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    sizeof (Var8),
+                    &Var8
+                    );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "RK3576Dxe: could not create RtVarEmmcCommit: %r\n", Status));
+    }
+  }
+}
+
+/**
   The NPU, at EndOfDxe: its rail is set over I2C, and the bus is set up by
   I2cDxe, whose entry point may run after this driver's.
 **/
@@ -440,6 +478,9 @@ RK3576EntryPoint (
 
   /* Whether NetworkTimeSyncDxe sets the clock from NTP */
   SetupNetworkTimeSyncVariables ();
+
+  /* Whether RkFvbDxe saves OS variable changes to the eMMC at reset */
+  SetupRtVarEmmcCommitVariables ();
 
   /* Seed the GPU 775 mV option (GpuRail.c) */
   RK3576GpuRailSetupVariables ();
