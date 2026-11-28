@@ -16,12 +16,25 @@
   BCD store ("Windows 11"), "Windows" when the store cannot be read, with
   the disk kind added ("Windows 11 (NVMe)") when more than one ESP has
   Windows.  An existing option called exactly "Windows Boot Manager" is
-  renamed the same way.  An option is moved to the front of BootOrder only
-  when it is added or renamed, so an order changed by hand stays.
+  renamed the same way.  Several options for the same partition become one
+  (WindowsBootPlan.h).
 
-  The cost on a normal boot is one file open per ESP and one read of the
-  Boot#### variables; the BCD is read only when an option is added or
-  renamed.
+  An option is moved to the front of BootOrder only the first time the
+  firmware sees Windows on that partition; the partitions are remembered in
+  the variable WindowsBootPartitions.  After that an option that has to be
+  added again goes to the end and a rename does not move it, so an order
+  changed by hand stays.
+
+  The options the firmware adds carry no optional data.  bcdboot's entries
+  carry "WINDOWS" + BCDOBJECT={bootmgr}, and a Windows that finds that tag
+  on an entry for another partition's boot manager deletes it: an entry
+  for the eMMC's Windows 10 written with the tag was gone after every boot
+  of the NVMe's Windows 11 (CM5-IO, 2026-11-28).  Without the tag the entry
+  is a plain firmware application to Windows.
+
+  The cost on a normal boot is one file open per ESP, one read of the
+  Boot#### variables and one of WindowsBootPartitions; the BCD is read only
+  when an option is added or renamed.
 
   Copyright (c) 2026, Jiaxing Hu <gahing@gahingwoo.com>
 
@@ -39,12 +52,14 @@
 
 #include "PlatformBm.h"
 #include "WindowsBcd.h"
+#include "WindowsBootPlan.h"
 
 #define WINDOWS_BOOTMGR_PATH  L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi"
 #define WINDOWS_BCD_PATH      L"\\EFI\\Microsoft\\Boot\\BCD"
 #define WINDOWS_BOOTMGR_NAME  L"Windows Boot Manager"
 #define WINDOWS_FALLBACK_NAME L"Windows"
 #define WINDOWS_MAX_ESPS      8
+#define WINDOWS_MAX_MATCHES   16
 #define WINDOWS_NAME_CHARS    64
 #define WINDOWS_BCD_MAX_SIZE  SIZE_4MB
 
@@ -56,41 +71,28 @@ typedef struct {
 } WINDOWS_ESP;
 
 //
-// The optional data bcdboot puts in the firmware entry of the Windows boot
-// manager: "WINDOWS", version 1, the length of the whole, an offset, the
-// boot manager's BCD object as text, and an empty device path.  With it
-// Windows takes this option for its own and updates it instead of adding a
-// second one.  Copied from an entry bcdboot wrote on a TaishanPi 3M.
+// WindowsBootPartitions: the partitions Windows was seen on (put first once).
 //
-#pragma pack(1)
-typedef struct {
-  CHAR8     Signature[8];
-  UINT32    Version;
-  UINT32    Length;
-  UINT32    Offset;
-  CHAR16    Object[49];
-  UINT16    Pad;
-  UINT32    DpType;
-  UINT32    DpLength;
-  UINT32    DpSize;
-  UINT8     DpEnd[4];
-} WINDOWS_BOOT_OPTION_DATA;
-#pragma pack()
-
-STATIC CONST WINDOWS_BOOT_OPTION_DATA  mWindowsOptionData = {
-  { 'W', 'I', 'N', 'D', 'O', 'W', 'S', '\0' },
-  1,
-  sizeof (WINDOWS_BOOT_OPTION_DATA),
-  sizeof (WINDOWS_BOOT_OPTION_DATA) - 16,
-  L"BCDOBJECT={9dea862c-5cdd-4e70-acc1-f32b344d4795}",
-  0,
-  1,
-  16,
-  4,
-  { END_DEVICE_PATH_TYPE, END_ENTIRE_DEVICE_PATH_SUBTYPE, 4, 0 }
+STATIC EFI_GUID  mWindowsBootVarGuid = {
+  0x6b57d6bf, 0x5d25, 0x4798, { 0x86, 0x3a, 0x86, 0xb9, 0xd4, 0x64, 0xa5, 0xba }
 };
 
-STATIC_ASSERT (sizeof (WINDOWS_BOOT_OPTION_DATA) == 0x88, "the size bcdboot writes");
+#define WINDOWS_PARTITIONS_VAR  L"WindowsBootPartitions"
+
+/**
+  TRUE if Option carries bcdboot's optional data ("WINDOWS\0..."), that is,
+  it is Windows' own entry.
+**/
+STATIC
+BOOLEAN
+WindowsOptionIsBcdboot (
+  IN CONST EFI_BOOT_MANAGER_LOAD_OPTION  *Option
+  )
+{
+  return (Option->OptionalData != NULL)
+         && (Option->OptionalDataSize >= 8)
+         && (CompareMem (Option->OptionalData, "WINDOWS", 8) == 0);
+}
 
 /**
   The kind of disk a device path is on, for telling two Windows apart.
@@ -483,8 +485,94 @@ WindowsOptionName (
 }
 
 /**
-  Add, name and order the Windows boot options (see the file header).
-  Called once per boot, after the disks are connected.
+  The partition of Esp as WindowsBootPartitions remembers it.
+**/
+STATIC
+VOID
+WindowsPartitionKey (
+  IN  CONST WINDOWS_ESP  *Esp,
+  OUT WBP_PARTITION      *Key
+  )
+{
+  ZeroMem (Key, sizeof (*Key));
+  CopyMem (Key->Signature, Esp->Hd->Signature, sizeof (Key->Signature));
+  Key->PartitionNumber = Esp->Hd->PartitionNumber;
+  Key->SignatureType   = Esp->Hd->SignatureType;
+}
+
+/**
+  Make the options in Match (indices into BootOptions, in BootOrder order)
+  one: see WbpMerge.  Returns the index of the one kept.
+**/
+STATIC
+UINTN
+WindowsMergeOptions (
+  IN EFI_BOOT_MANAGER_LOAD_OPTION  *BootOptions,
+  IN CONST UINTN                   *Match,
+  IN UINTN                         MatchCount,
+  IN CONST WINDOWS_ESP             *Esp
+  )
+{
+  EFI_STATUS  Status;
+  UINT16      Numbers[WINDOWS_MAX_MATCHES];
+  UINT8       Tagged[WINDOWS_MAX_MATCHES];
+  UINT16      Delete[WINDOWS_MAX_MATCHES];
+  UINT16      Keep;
+  UINT16      *BootOrder;
+  UINTN       Size;
+  wbp_u32     Count;
+  wbp_u32     Deleted;
+  UINTN       Index;
+  UINTN       Kept;
+
+  for (Index = 0; Index < MatchCount; Index++) {
+    Numbers[Index] = (UINT16)BootOptions[Match[Index]].OptionNumber;
+    Tagged[Index]  = WindowsOptionIsBcdboot (&BootOptions[Match[Index]]) ? 1 : 0;
+  }
+
+  GetEfiGlobalVariable2 (EFI_BOOT_ORDER_VARIABLE_NAME, (VOID **)&BootOrder, &Size);
+  if (BootOrder == NULL) {
+    return Match[0];
+  }
+
+  Count   = (wbp_u32)(Size / sizeof (UINT16));
+  Deleted = WbpMerge (BootOrder, &Count, Numbers, Tagged, (wbp_u32)MatchCount, &Keep, Delete);
+  Status  = gRT->SetVariable (
+                   EFI_BOOT_ORDER_VARIABLE_NAME,
+                   &gEfiGlobalVariableGuid,
+                   EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+                   Count * sizeof (UINT16),
+                   BootOrder
+                   );
+  FreePool (BootOrder);
+
+  if (!EFI_ERROR (Status)) {
+    for (Index = 0; Index < Deleted; Index++) {
+      EfiBootManagerDeleteLoadOptionVariable (Delete[Index], LoadOptionTypeBoot);
+      DEBUG ((
+        DEBUG_INFO,
+        "%a: Boot%04x deleted, it boots the same Windows on %s as Boot%04x\n",
+        __func__,
+        (UINT32)Delete[Index],
+        Esp->Kind,
+        (UINT32)Keep
+        ));
+    }
+  }
+
+  Kept = Match[0];
+  for (Index = 0; Index < MatchCount; Index++) {
+    if (Numbers[Index] == Keep) {
+      Kept = Match[Index];
+    }
+  }
+
+  return Kept;
+}
+
+/**
+  Add, name, merge and order the Windows boot options (see the file
+  header).  Called once per boot, after the disks are connected.
 **/
 VOID
 PlatformSyncWindowsBootOptions (
@@ -498,13 +586,22 @@ PlatformSyncWindowsBootOptions (
   EFI_BOOT_MANAGER_LOAD_OPTION  *BootOptions;
   UINTN                         BootOptionCount;
   UINTN                         Index;
-  BOOLEAN                       Found;
+  UINTN                         Match[WINDOWS_MAX_MATCHES];
+  UINTN                         MatchCount;
+  UINTN                         Kept;
   CHAR16                        Name[WINDOWS_NAME_CHARS + 16];
   CHAR16                        *NewDescription;
   EFI_DEVICE_PATH_PROTOCOL      *FileNode;
   EFI_DEVICE_PATH_PROTOCOL      *ShortForm;
   EFI_DEVICE_PATH_PROTOCOL      *HdOnly;
   EFI_BOOT_MANAGER_LOAD_OPTION  NewOption;
+  WBP_PARTITION                 Seen[WBP_MAX_PARTITIONS];
+  WBP_PARTITION                 *Stored;
+  WBP_PARTITION                 Key;
+  wbp_u32                       SeenCount;
+  BOOLEAN                       SeenChanged;
+  UINTN                         Size;
+  BOOLEAN                       WasSeen;
 
   EspCount = WindowsFindEsps (Esps);
   if (EspCount == 0) {
@@ -512,23 +609,46 @@ PlatformSyncWindowsBootOptions (
     return;
   }
 
+  SeenCount = 0;
+  Status    = GetVariable2 (WINDOWS_PARTITIONS_VAR, &mWindowsBootVarGuid, (VOID **)&Stored, &Size);
+  if (!EFI_ERROR (Status) && (Stored != NULL)) {
+    if ((Size % sizeof (WBP_PARTITION)) == 0) {
+      SeenCount = (wbp_u32)MIN (Size / sizeof (WBP_PARTITION), WBP_MAX_PARTITIONS);
+      CopyMem (Seen, Stored, SeenCount * sizeof (WBP_PARTITION));
+    }
+
+    FreePool (Stored);
+  }
+
+  SeenChanged = FALSE;
+
   BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
 
   for (EspIndex = 0; EspIndex < EspCount; EspIndex++) {
-    Found = FALSE;
-    for (Index = 0; Index < BootOptionCount; Index++) {
-      if (!WindowsOptionBootsEsp (&BootOptions[Index], &Esps[EspIndex])) {
-        continue;
-      }
+    WindowsPartitionKey (&Esps[EspIndex], &Key);
+    WasSeen   = WbpSeen (Seen, SeenCount, &Key) != 0;
+    if (!WasSeen) {
+      SeenCount   = WbpRemember (Seen, SeenCount, &Key);
+      SeenChanged = TRUE;
+    }
 
-      Found = TRUE;
-      if (StrCmp (BootOptions[Index].Description, WINDOWS_BOOTMGR_NAME) != 0) {
+    MatchCount = 0;
+    for (Index = 0; (Index < BootOptionCount) && (MatchCount < WINDOWS_MAX_MATCHES); Index++) {
+      if (WindowsOptionBootsEsp (&BootOptions[Index], &Esps[EspIndex])) {
+        Match[MatchCount++] = Index;
+      }
+    }
+
+    if (MatchCount > 0) {
+      Kept = (MatchCount > 1) ? WindowsMergeOptions (BootOptions, Match, MatchCount, &Esps[EspIndex]) : Match[0];
+
+      if (StrCmp (BootOptions[Kept].Description, WINDOWS_BOOTMGR_NAME) != 0) {
         DEBUG ((
           DEBUG_INFO,
           "%a: Boot%04x \"%s\" boots Windows on %s\n",
           __func__,
-          (UINT32)BootOptions[Index].OptionNumber,
-          BootOptions[Index].Description,
+          (UINT32)BootOptions[Kept].OptionNumber,
+          BootOptions[Kept].Description,
           Esps[EspIndex].Kind
           ));
         continue;
@@ -540,32 +660,30 @@ PlatformSyncWindowsBootOptions (
         continue;
       }
 
-      FreePool (BootOptions[Index].Description);
-      BootOptions[Index].Description = NewDescription;
-      Status                         = EfiBootManagerLoadOptionToVariable (&BootOptions[Index]);
-      if (!EFI_ERROR (Status)) {
-        WindowsMoveToFront (BootOptions[Index].OptionNumber);
+      FreePool (BootOptions[Kept].Description);
+      BootOptions[Kept].Description = NewDescription;
+      Status                        = EfiBootManagerLoadOptionToVariable (&BootOptions[Kept]);
+      if (!EFI_ERROR (Status) && !WasSeen) {
+        WindowsMoveToFront (BootOptions[Kept].OptionNumber);
       }
 
       DEBUG ((
         DEBUG_INFO,
-        "%a: Boot%04x \"%s\" renamed \"%s\" and moved to the front of BootOrder: %r\n",
+        "%a: Boot%04x \"%s\" renamed \"%s\"%a: %r\n",
         __func__,
-        (UINT32)BootOptions[Index].OptionNumber,
+        (UINT32)BootOptions[Kept].OptionNumber,
         WINDOWS_BOOTMGR_NAME,
         Name,
+        WasSeen ? ", BootOrder kept" : " and moved to the front of BootOrder",
         Status
         ));
-    }
-
-    if (Found) {
       continue;
     }
 
     //
     // HD(...)/\EFI\Microsoft\Boot\bootmgfw.efi, the short form bcdboot
     // writes: the boot manager finds the partition wherever the disk is
-    // plugged in.
+    // plugged in.  No optional data (file header).
     //
     HdOnly    = AppendDevicePathNode (NULL, &Esps[EspIndex].Hd->Header);
     FileNode  = FileDevicePath (NULL, WINDOWS_BOOTMGR_PATH);
@@ -579,17 +697,18 @@ PlatformSyncWindowsBootOptions (
                  LOAD_OPTION_ACTIVE,
                  Name,
                  ShortForm,
-                 (UINT8 *)&mWindowsOptionData,
-                 sizeof (mWindowsOptionData)
+                 NULL,
+                 0
                  );
       if (!EFI_ERROR (Status)) {
-        Status = EfiBootManagerAddLoadOptionVariable (&NewOption, 0);
+        Status = EfiBootManagerAddLoadOptionVariable (&NewOption, WasSeen ? MAX_UINTN : 0);
         DEBUG ((
           DEBUG_INFO,
-          "%a: Boot%04x \"%s\" added at the front of BootOrder for Windows on %s: %r\n",
+          "%a: Boot%04x \"%s\" added at the %a of BootOrder for Windows on %s: %r\n",
           __func__,
           (UINT32)NewOption.OptionNumber,
           Name,
+          WasSeen ? "end" : "front",
           Esps[EspIndex].Kind,
           Status
           ));
@@ -611,4 +730,15 @@ PlatformSyncWindowsBootOptions (
   }
 
   EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
+
+  if (SeenChanged) {
+    Status = gRT->SetVariable (
+                    WINDOWS_PARTITIONS_VAR,
+                    &mWindowsBootVarGuid,
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+                    SeenCount * sizeof (WBP_PARTITION),
+                    Seen
+                    );
+    DEBUG ((DEBUG_INFO, "%a: %u partition(s) remembered: %r\n", __func__, SeenCount, Status));
+  }
 }

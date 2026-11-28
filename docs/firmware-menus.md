@@ -73,9 +73,10 @@ no boot entry starts it, it adds one named after the Windows version
 ("Windows 11"), read from that partition's BCD store, and puts it first in
 the boot order. An entry called "Windows Boot Manager" is renamed the same
 way. With two Windows disks the name gets the disk: "Windows 11 (NVMe)".
-Moving the entry down in the boot order by hand sticks; deleting it brings
-it back at the next boot. The serial log lines `PlatformSyncWindowsBootOptions:`
-show what was found and done.
+Several entries for the same Windows are merged into one. Only the first
+time a Windows is found does its entry go first: moving it down by hand
+sticks, and an entry deleted by hand comes back at the end. The serial log
+lines `PlatformSyncWindowsBootOptions:` show what was found and done.
 
 ## Display
 

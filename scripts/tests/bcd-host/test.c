@@ -14,12 +14,17 @@
  *    buffer of exactly the file's size so that AddressSanitizer sees any
  *    read past the end.
  *
+ * WindowsBootPlan.h: merging several options for one partition (the
+ * CM5-IO's NVMe had two "Windows Boot Manager" entries, 2026-11-28), and
+ * the list of partitions already put first once.
+ *
  * Arguments are real BCD files: what is read from each is printed.
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "../../../Silicon/Rockchip/Library/PlatformBootManagerLib/WindowsBcd.h"
+#include "../../../Silicon/Rockchip/Library/PlatformBootManagerLib/WindowsBootPlan.h"
 
 static int fails, checks;
 
@@ -185,6 +190,84 @@ static int read_name(const unsigned char *file, unsigned size, char *ascii, unsi
     return r;
 }
 
+static int same_order(const wbp_u16 *a, wbp_u32 n, const wbp_u16 *b, wbp_u32 m)
+{
+    return n == m && !memcmp(a, b, n * sizeof *a);
+}
+
+static void plan_tests(void)
+{
+    wbp_u16 keep, del[8];
+    wbp_u32 n, d;
+
+    /* the CM5-IO: 0009, 000A both bcdboot's, 0000 eMMC user data, 0001 PXE */
+    {
+        wbp_u16 order[] = { 0x0009, 0x0000, 0x000A, 0x0001 }, want[] = { 0x0009, 0x0000, 0x0001 };
+        wbp_u16 match[] = { 0x0009, 0x000A };
+        wbp_u8 tag[] = { 1, 1 };
+        n = 4;
+        d = WbpMerge(order, &n, match, tag, 2, &keep, del);
+        CHECK(keep == 0x0009 && d == 1 && del[0] == 0x000A && same_order(order, n, want, 3), "two bcdboot entries: keep the first");
+    }
+
+    /* ours first, bcdboot's later: bcdboot's survives in our slot */
+    {
+        wbp_u16 order[] = { 0x0002, 0x000D, 0x0003, 0x0009 }, want[] = { 0x0002, 0x0009, 0x0003 };
+        wbp_u16 match[] = { 0x000D, 0x0009 };
+        wbp_u8 tag[] = { 0, 1 };
+        n = 4;
+        d = WbpMerge(order, &n, match, tag, 2, &keep, del);
+        CHECK(keep == 0x0009 && d == 1 && del[0] == 0x000D && same_order(order, n, want, 3), "tagged survives at the first slot");
+    }
+
+    /* three untagged, one listed twice in BootOrder */
+    {
+        wbp_u16 order[] = { 0x0005, 0x0001, 0x0004, 0x0006, 0x0005 }, want[] = { 0x0005, 0x0001, 0x0004 };
+        wbp_u16 match[] = { 0x0005, 0x0006, 0x0005 };
+        wbp_u8 tag[] = { 0, 0, 0 };
+        n = 5;
+        d = WbpMerge(order, &n, match, tag, 3, &keep, del);
+        CHECK(keep == 0x0005 && d == 1 && del[0] == 0x0006 && same_order(order, n, want, 3), "untagged, repeated number: %u left", n);
+    }
+
+    /* one match: nothing deleted, order untouched */
+    {
+        wbp_u16 order[] = { 0x0001, 0x0007 }, want[] = { 0x0001, 0x0007 };
+        wbp_u16 match[] = { 0x0007 };
+        wbp_u8 tag[] = { 0 };
+        n = 2;
+        d = WbpMerge(order, &n, match, tag, 1, &keep, del);
+        CHECK(keep == 0x0007 && d == 0 && same_order(order, n, want, 2), "single match");
+        n = 2;
+        CHECK(WbpMerge(order, &n, match, tag, 0, &keep, del) == 0 && n == 2, "no match");
+    }
+
+    /* seen list: membership, no duplicates, oldest dropped when full */
+    {
+        WBP_PARTITION list[WBP_MAX_PARTITIONS], p;
+        wbp_u32 count = 0, i;
+        memset(&p, 0, sizeof p);
+        p.SignatureType = 2;
+        for (i = 0; i < WBP_MAX_PARTITIONS + 3; i++) {
+            p.Signature[0] = (wbp_u8)i;
+            p.PartitionNumber = 1;
+            count = WbpRemember(list, count, &p);
+            count = WbpRemember(list, count, &p);
+        }
+        CHECK(count == WBP_MAX_PARTITIONS, "full list: %u", count);
+        p.Signature[0] = 2;
+        CHECK(!WbpSeen(list, count, &p), "oldest dropped");
+        p.Signature[0] = 3;
+        CHECK(WbpSeen(list, count, &p), "kept");
+        p.PartitionNumber = 2;
+        CHECK(!WbpSeen(list, count, &p), "partition number counts");
+        p.PartitionNumber = 1;
+        p.SignatureType = 1;
+        CHECK(!WbpSeen(list, count, &p), "signature type counts");
+        CHECK(sizeof(WBP_PARTITION) == 24, "record size %zu", sizeof(WBP_PARTITION));
+    }
+}
+
 #define G "{2b693006-ca28-11f1-a7e0-a4e441d70d63}"
 
 int main(int argc, char **argv)
@@ -193,6 +276,8 @@ int main(int argc, char **argv)
     char name[80];
     unsigned size, k, i, s;
     int r;
+
+    plan_tests();
 
     for (k = 0; k < 8; k++) {
         utf16_names = k >= 4;

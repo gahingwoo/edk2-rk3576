@@ -31,6 +31,7 @@
   PlatformBm.h
   PlatformBmStrings.uni
   WindowsBcd.h
+  WindowsBootPlan.h
   WindowsBoot.c
 
 [Packages]
