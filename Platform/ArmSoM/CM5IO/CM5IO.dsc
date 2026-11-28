@@ -353,17 +353,21 @@ gRK3588TokenSpaceGuid.PcdDisplayModePresetDefault|{ 0x00, 0x00, 0x00, 0x80 }
   # variable (RK3576Dxe GpuRail.c).
   gRK3576TokenSpaceGuid.PcdGpuRailReport|TRUE
 
-  # "GPU voltage for 702 MHz (775 mV)" (RK3576Dxe GpuRail.c): offered, off
-  # by default (the user's decision, 2026-11-25).  vdd_gpu_s0 is dcdc-reg5
+  # "GPU voltage for 702 MHz (775 mV)" (RK3576Dxe GpuRail.c): offered, on
+  # by default (the user's decision, 2026-11-28, after 2026-11-25 had it
+  # off).  vdd_gpu_s0 is dcdc-reg5
   # (BUCK5) under pmic@23 on &i2c1 in rk3576-armsom-cm5.dtsi, 550000/900000 uV,
   # mali-supply of &gpu; the ArmSoM-CM5-1V1 schematic has the same RK806S-5
   # as the TaishanPi 3M, BUCK5 = VDD_GPU_S0 (p2 power table, p13 VOUT5/FB5),
   # on I2C1_M0 (GPIO0_B2/B3, p4).  On, the firmware raises it from 750 to
   # 775 mV only if the PMIC reads 0x80 0x6A, BUCK5 reads exactly 0x28, the
-  # chip is a plain RK3576 and TSHUT is armed; then maliwddm runs 702 MHz.
-  # Off, maliwddm stays at 594 MHz.  NOT RUN on this board.
+  # chip is a plain RK3576 and TSHUT is armed, reading every step back;
+  # then maliwddm runs 702 MHz.  If any of that does not hold, the rail is
+  # left as it is, the reason is logged ("GpuRail: not raising BUCK5: ..."),
+  # and maliwddm stays at 594 MHz, as it does with the option off.  The
+  # PMIC ID and BUCK5 have NOT been read on this board yet.
   gRK3576TokenSpaceGuid.PcdGpuRail775Supported|TRUE
-  gRK3576TokenSpaceGuid.PcdGpuRail775Default|0
+  gRK3576TokenSpaceGuid.PcdGpuRail775Default|1
 
 ################################################################################
 [Components.common]

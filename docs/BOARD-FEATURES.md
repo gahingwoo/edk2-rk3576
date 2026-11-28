@@ -27,7 +27,7 @@ board pages ([ROCK 4D](boards/rock4d.md), [CM5-IO](boards/cm5io.md),
 | HTTP boot | yes, off | yes, off | yes, off |
 | Secure Boot | yes | yes | yes |
 | CPU Maximum Frequency (`PcdCpuMaxFreqSupported`) | 1608 MHz | 1608 MHz | 1608 MHz |
-| GPU voltage (`PcdGpuRail775Supported`) | 750 mV (594 MHz) | 750 mV (594 MHz) | 775 mV (702 MHz) |
+| GPU voltage (`PcdGpuRail775Supported`) | 775 mV (702 MHz) | 775 mV (702 MHz) | 775 mV (702 MHz) |
 | Fan Mode (`PcdAcpiFanControlSupported`) | Always on | Always on | Always on |
 | NPU (experimental) (`AcpiNpuSupported`) | Enabled * | Enabled * | Enabled * |
 | USB-C DisplayPort (experimental) (`PcdUsbcDpSupported`) | Disabled | hidden | Disabled |

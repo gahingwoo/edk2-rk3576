@@ -147,7 +147,8 @@ typedef struct {
 // The raise to 775 mV (setup option GpuRail775, PcdGpuRail775), approved
 // first for the TaishanPi 3M after its BUCK5 read 0x28 = 750 mV on
 // 2026-11-23, then as an opt-in on boards that set PcdGpuRail775Supported
-// (the user's decision, 2026-11-25): 775 mV is mainline's
+// (the user's decision, 2026-11-25), on by default on all three boards
+// since 2026-11-28 (PcdGpuRail775Default): 775 mV is mainline's
 // voltage for the 800 MHz operating point, which governs SPLL / 1 =
 // 702 MHz.  The ceiling is this constant and nothing else; no PCD, setup
 // option or variable can move it.

@@ -21,7 +21,7 @@
 | Device Manager > Network Stack Configuration | PXE 启动 | `NetworkStackConfigData` @3 | Disabled, Enabled | Enabled | Enabled | Enabled |
 | Device Manager > Network Stack Configuration | HTTP 启动 | `NetworkStackConfigData` @4 | Disabled, Enabled | Disabled | Disabled | Disabled |
 | RK3576 Platform Configuration | CPU 最高频率 | `CpuMaxFreq` | 1608 MHz, 最高（2208 / 2016 MHz） | 1608 MHz | 1608 MHz | 1608 MHz |
-| RK3576 Platform Configuration | GPU 电压 | `GpuRail775` | 750 mV（594 MHz）, 775 mV（702 MHz） | 750 mV（594 MHz） | 750 mV（594 MHz） | 775 mV（702 MHz） |
+| RK3576 Platform Configuration | GPU 电压 | `GpuRail775` | 750 mV（594 MHz）, 775 mV（702 MHz） | 775 mV（702 MHz） | 775 mV（702 MHz） | 775 mV（702 MHz） |
 | RK3576 Platform Configuration | 截图保存位置 | `ScreenshotTarget` | 自动（U盘优先）, 仅 U盘, 仅 SD 卡, 仅内部存储 | 自动（U盘优先） | 自动（U盘优先） | 自动（U盘优先） |
 | RK3576 Platform Configuration | 网络对时 | `NetworkTimeSync` | 禁用, 启用 | 启用 | 启用 | 启用 |
 | RK3576 Platform Configuration | 将系统修改的变量保存到 eMMC | `RtVarEmmcCommit` | 禁用, 启用 | 禁用 | 禁用 | 禁用 |

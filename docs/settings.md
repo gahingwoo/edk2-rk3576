@@ -25,7 +25,7 @@ several.
 | Device Manager > Network Stack Configuration | PXE Boot | `NetworkStackConfigData` @3 | Disabled, Enabled | Enabled | Enabled | Enabled |
 | Device Manager > Network Stack Configuration | HTTP Boot | `NetworkStackConfigData` @4 | Disabled, Enabled | Disabled | Disabled | Disabled |
 | RK3576 Platform Configuration | CPU Maximum Frequency | `CpuMaxFreq` | 1608 MHz, Max (2208 / 2016 MHz) | 1608 MHz | 1608 MHz | 1608 MHz |
-| RK3576 Platform Configuration | GPU voltage | `GpuRail775` | 750 mV (594 MHz), 775 mV (702 MHz) | 750 mV (594 MHz) | 750 mV (594 MHz) | 775 mV (702 MHz) |
+| RK3576 Platform Configuration | GPU voltage | `GpuRail775` | 750 mV (594 MHz), 775 mV (702 MHz) | 775 mV (702 MHz) | 775 mV (702 MHz) | 775 mV (702 MHz) |
 | RK3576 Platform Configuration | Save Screenshots To | `ScreenshotTarget` | Automatic (USB stick first), USB stick only, SD card only, Internal storage only | Automatic (USB stick first) | Automatic (USB stick first) | Automatic (USB stick first) |
 | RK3576 Platform Configuration | Network Time Sync | `NetworkTimeSync` | Disabled, Enabled | Enabled | Enabled | Enabled |
 | RK3576 Platform Configuration | Save OS Variable Changes to eMMC | `RtVarEmmcCommit` | Disabled, Enabled | Disabled | Disabled | Disabled |
