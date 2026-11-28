@@ -373,6 +373,28 @@ SetupNetworkTimeSyncVariables (
 }
 
 /**
+  The same for DefaultBootOs (PlatformBootManagerLib's DefaultBoot.c reads
+  it through PcdDefaultBootOs): 0 to 4 and 255 mean something.
+**/
+STATIC
+VOID
+SetupDefaultBootOsVariables (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       Size;
+  UINT8       Var8;
+
+  Size   = sizeof (Var8);
+  Status = gRT->GetVariable (L"DefaultBootOs", &gRK3576DxeFormSetGuid, NULL, &Size, &Var8);
+  if (EFI_ERROR (Status) || ((Var8 > 4) && (Var8 != 255))) {
+    Status = PcdSet8S (PcdDefaultBootOs, FixedPcdGet8 (PcdDefaultBootOsDefault));
+    ASSERT_EFI_ERROR (Status);
+  }
+}
+
+/**
   The same for RtVarEmmcCommit, which RkFvbDxe (RkFvbRt.c) reads at
   EndOfDxe.  It has no PCD, so it is written here directly, with the
   attributes of its efivarstore in RK3576DxeHii.vfr and the form's
@@ -478,6 +500,9 @@ RK3576EntryPoint (
 
   /* Whether NetworkTimeSyncDxe sets the clock from NTP */
   SetupNetworkTimeSyncVariables ();
+
+  /* Which boot entry PlatformBootManagerLib puts first */
+  SetupDefaultBootOsVariables ();
 
   /* Whether RkFvbDxe saves OS variable changes to the eMMC at reset */
   SetupRtVarEmmcCommitVariables ();

@@ -71,13 +71,21 @@ typedef struct {
 } WINDOWS_ESP;
 
 //
-// WindowsBootPartitions: the partitions Windows was seen on (put first once).
+// WindowsBootPartitions: the partitions Windows was seen on (put first once),
+// and DefaultBootTarget (DefaultBoot.c).
 //
-STATIC EFI_GUID  mWindowsBootVarGuid = {
+EFI_GUID  gPlatformWindowsBootVarGuid = {
   0x6b57d6bf, 0x5d25, 0x4798, { 0x86, 0x3a, 0x86, 0xb9, 0xd4, 0x64, 0xa5, 0xba }
 };
 
 #define WINDOWS_PARTITIONS_VAR  L"WindowsBootPartitions"
+
+//
+// What the last PlatformSyncWindowsBootOptions found, for DefaultBoot.c.
+//
+STATIC WINDOWS_ESP    mFoundEsps[WINDOWS_MAX_ESPS];
+STATIC UINT32         mFoundSeen[WINDOWS_MAX_ESPS];
+STATIC UINTN          mFoundEspCount;
 
 /**
   TRUE if Option carries bcdboot's optional data ("WINDOWS\0..."), that is,
@@ -348,9 +356,8 @@ WindowsReadName (
   Move Boot#### OptionNumber to the front of BootOrder, adding it there if
   BootOrder does not list it.
 **/
-STATIC
 VOID
-WindowsMoveToFront (
+PlatformMoveBootOptionToFront (
   IN UINTN  OptionNumber
   )
 {
@@ -485,6 +492,33 @@ WindowsOptionName (
 }
 
 /**
+  HD(...)/\EFI\Microsoft\Boot\bootmgfw.efi for Esp, allocated, or NULL.
+**/
+STATIC
+EFI_DEVICE_PATH_PROTOCOL *
+WindowsShortForm (
+  IN CONST WINDOWS_ESP  *Esp
+  )
+{
+  EFI_DEVICE_PATH_PROTOCOL  *HdOnly;
+  EFI_DEVICE_PATH_PROTOCOL  *FileNode;
+  EFI_DEVICE_PATH_PROTOCOL  *ShortForm;
+
+  HdOnly    = AppendDevicePathNode (NULL, &Esp->Hd->Header);
+  FileNode  = FileDevicePath (NULL, WINDOWS_BOOTMGR_PATH);
+  ShortForm = ((HdOnly != NULL) && (FileNode != NULL)) ? AppendDevicePath (HdOnly, FileNode) : NULL;
+  if (HdOnly != NULL) {
+    FreePool (HdOnly);
+  }
+
+  if (FileNode != NULL) {
+    FreePool (FileNode);
+  }
+
+  return ShortForm;
+}
+
+/**
   The partition of Esp as WindowsBootPartitions remembers it.
 **/
 STATIC
@@ -591,9 +625,7 @@ PlatformSyncWindowsBootOptions (
   UINTN                         Kept;
   CHAR16                        Name[WINDOWS_NAME_CHARS + 16];
   CHAR16                        *NewDescription;
-  EFI_DEVICE_PATH_PROTOCOL      *FileNode;
   EFI_DEVICE_PATH_PROTOCOL      *ShortForm;
-  EFI_DEVICE_PATH_PROTOCOL      *HdOnly;
   EFI_BOOT_MANAGER_LOAD_OPTION  NewOption;
   WBP_PARTITION                 Seen[WBP_MAX_PARTITIONS];
   WBP_PARTITION                 *Stored;
@@ -603,14 +635,15 @@ PlatformSyncWindowsBootOptions (
   UINTN                         Size;
   BOOLEAN                       WasSeen;
 
-  EspCount = WindowsFindEsps (Esps);
+  mFoundEspCount = 0;
+  EspCount       = WindowsFindEsps (Esps);
   if (EspCount == 0) {
     DEBUG ((DEBUG_INFO, "%a: no EFI System Partition with Windows\n", __func__));
     return;
   }
 
   SeenCount = 0;
-  Status    = GetVariable2 (WINDOWS_PARTITIONS_VAR, &mWindowsBootVarGuid, (VOID **)&Stored, &Size);
+  Status    = GetVariable2 (WINDOWS_PARTITIONS_VAR, &gPlatformWindowsBootVarGuid, (VOID **)&Stored, &Size);
   if (!EFI_ERROR (Status) && (Stored != NULL)) {
     if ((Size % sizeof (WBP_PARTITION)) == 0) {
       SeenCount = (wbp_u32)MIN (Size / sizeof (WBP_PARTITION), WBP_MAX_PARTITIONS);
@@ -664,7 +697,7 @@ PlatformSyncWindowsBootOptions (
       BootOptions[Kept].Description = NewDescription;
       Status                        = EfiBootManagerLoadOptionToVariable (&BootOptions[Kept]);
       if (!EFI_ERROR (Status) && !WasSeen) {
-        WindowsMoveToFront (BootOptions[Kept].OptionNumber);
+        PlatformMoveBootOptionToFront (BootOptions[Kept].OptionNumber);
       }
 
       DEBUG ((
@@ -685,9 +718,7 @@ PlatformSyncWindowsBootOptions (
     // writes: the boot manager finds the partition wherever the disk is
     // plugged in.  No optional data (file header).
     //
-    HdOnly    = AppendDevicePathNode (NULL, &Esps[EspIndex].Hd->Header);
-    FileNode  = FileDevicePath (NULL, WINDOWS_BOOTMGR_PATH);
-    ShortForm = ((HdOnly != NULL) && (FileNode != NULL)) ? AppendDevicePath (HdOnly, FileNode) : NULL;
+    ShortForm = WindowsShortForm (&Esps[EspIndex]);
     if (ShortForm != NULL) {
       WindowsOptionName (&Esps[EspIndex], EspCount, Name, ARRAY_SIZE (Name));
       Status = EfiBootManagerInitializeLoadOption (
@@ -716,14 +747,6 @@ PlatformSyncWindowsBootOptions (
       }
     }
 
-    if (HdOnly != NULL) {
-      FreePool (HdOnly);
-    }
-
-    if (FileNode != NULL) {
-      FreePool (FileNode);
-    }
-
     if (ShortForm != NULL) {
       FreePool (ShortForm);
     }
@@ -731,14 +754,59 @@ PlatformSyncWindowsBootOptions (
 
   EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
 
+  for (EspIndex = 0; EspIndex < EspCount; EspIndex++) {
+    WindowsPartitionKey (&Esps[EspIndex], &Key);
+    mFoundEsps[EspIndex] = Esps[EspIndex];
+    mFoundSeen[EspIndex] = WbpSeenIndex (Seen, SeenCount, &Key);
+  }
+
+  mFoundEspCount = EspCount;
+
   if (SeenChanged) {
     Status = gRT->SetVariable (
                     WINDOWS_PARTITIONS_VAR,
-                    &mWindowsBootVarGuid,
+                    &gPlatformWindowsBootVarGuid,
                     EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_NON_VOLATILE,
                     SeenCount * sizeof (WBP_PARTITION),
                     Seen
                     );
     DEBUG ((DEBUG_INFO, "%a: %u partition(s) remembered: %r\n", __func__, SeenCount, Status));
   }
+}
+
+/**
+  How many Windows ESPs the last PlatformSyncWindowsBootOptions found, and
+  for each its disk kind (WBP_DEFAULT_EMMC..USB, 0 for another) and its
+  place in the first-sighting list (WBP_NOT_SEEN when not there).
+**/
+UINTN
+PlatformWindowsFound (
+  OUT UINT8   *Kind,
+  OUT UINT32  *SeenIndex,
+  IN  UINTN   Max
+  )
+{
+  UINTN  Index;
+
+  for (Index = 0; (Index < mFoundEspCount) && (Index < Max); Index++) {
+    Kind[Index] = (StrCmp (mFoundEsps[Index].Kind, L"eMMC") == 0) ? WBP_DEFAULT_EMMC
+                  : (StrCmp (mFoundEsps[Index].Kind, L"NVMe") == 0) ? WBP_DEFAULT_NVME
+                  : (StrCmp (mFoundEsps[Index].Kind, L"SD") == 0) ? WBP_DEFAULT_SD
+                  : (StrCmp (mFoundEsps[Index].Kind, L"USB") == 0) ? WBP_DEFAULT_USB
+                  : 0;
+    SeenIndex[Index] = mFoundSeen[Index];
+  }
+
+  return MIN (mFoundEspCount, Max);
+}
+
+/**
+  The boot target of found ESP Index (short form, allocated), or NULL.
+**/
+EFI_DEVICE_PATH_PROTOCOL *
+PlatformWindowsTarget (
+  IN UINTN  Index
+  )
+{
+  return (Index < mFoundEspCount) ? WindowsShortForm (&mFoundEsps[Index]) : NULL;
 }

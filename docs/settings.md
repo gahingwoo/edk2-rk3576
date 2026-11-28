@@ -27,6 +27,7 @@ several.
 | RK3576 Platform Configuration | CPU Maximum Frequency | `CpuMaxFreq` | 1608 MHz, Max (2208 / 2016 MHz) | 1608 MHz | 1608 MHz | 1608 MHz |
 | RK3576 Platform Configuration | GPU voltage | `GpuRail775` | 750 mV (594 MHz), 775 mV (702 MHz) | 750 mV (594 MHz) | 750 mV (594 MHz) | 775 mV (702 MHz) |
 | RK3576 Platform Configuration | Save Screenshots To | `ScreenshotTarget` | Automatic (USB stick first), USB stick only, SD card only, Internal storage only | Automatic (USB stick first) | Automatic (USB stick first) | Automatic (USB stick first) |
+| RK3576 Platform Configuration | Default Boot Entry | `DefaultBootOs` | Remembered, Windows on eMMC, Windows on NVMe, Windows on SD card, Windows on USB, Off | Remembered | Remembered | Remembered |
 | RK3576 Platform Configuration | Network Time Sync | `NetworkTimeSync` | Disabled, Enabled | Enabled | Enabled | Enabled |
 | RK3576 Platform Configuration | Save OS Variable Changes to eMMC | `RtVarEmmcCommit` | Disabled, Enabled | Disabled | Disabled | Disabled |
 | RK3576 Platform Configuration > ACPI / Device Tree | Config Table Mode | `ConfigTableMode` | ACPI, Device Tree, Both | Both | Both | Both |
@@ -82,6 +83,7 @@ several.
 | `CpuMaxFreq` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `GpuRail775` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `ScreenshotTarget` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
+| `DefaultBootOs` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `NetworkTimeSync` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `RtVarEmmcCommit` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `ConfigTableMode` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 4 |
@@ -120,3 +122,13 @@ Attributes: NV non-volatile, BS boot services, RT runtime. An OS can change
 an RT variable with `efibootmgr`-style tools; on eMMC boards that change is
 kept only with "Save OS Variable Changes to eMMC"
 ([firmware menus](firmware-menus.md#boot-entries-written-by-an-os)).
+
+## Variables outside the setup pages
+
+For tools that set the default boot entry offline. GUID
+`6b57d6bf-5d25-4798-863a-86b9d464a5ba`, attributes NV, BS.
+
+| Variable | Contents |
+|---|---|
+| `DefaultBootTarget` | The entry "Default Boot Entry" = Remembered puts first: a device path, from the `HD()` node on for a disk entry, e.g. `HD(1,GPT,<partition GUID>,...)/\EFI\Microsoft\Boot\bootmgfw.efi`. Matched by partition GUID, partition number and file path (no case), not by Boot#### number. Absent: the first Windows found. |
+| `WindowsBootPartitions` | The partitions Windows was found on, first sighting first: 24-byte records (16-byte signature, UINT32 partition number, UINT8 signature type, 3 zero bytes), 16 at most. |

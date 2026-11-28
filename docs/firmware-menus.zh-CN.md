@@ -56,9 +56,21 @@ Google 地址。它在后台运行，不会拖慢启动；拿到地址后 10 秒
 每次启动时固件在每个 EFI 系统分区上找 Windows。如果没有启动项能启动它，就新加一个，
 名字取自该分区 BCD 中的 Windows 版本（"Windows 11"），并放在启动顺序最前。名为
 "Windows Boot Manager" 的启动项也照此改名。有两块装了 Windows 的盘时，名字带上盘的类型：
-"Windows 11 (NVMe)"。同一个 Windows 的多个启动项会合并成一个。只有第一次发现某个 Windows 时
-才把它放到最前：手动往后挪会保留，手动删掉的会在下次启动时加回到最后。
+"Windows 11 (NVMe)"。同一个 Windows 的多个启动项会合并成一个；手动删掉的会在下次启动时加回到最后。
 串口日志里 `PlatformSyncWindowsBootOptions:` 开头的行说明找到了什么、做了什么。
+
+## 默认启动项
+
+每个 Windows 运行时都会把自己放到启动顺序最前，不加干预的话，下次启动的总是上次用过的那个。
+"Default Boot Entry"（RK3576 Platform Configuration > Boot）让一个启动项每次启动都排在最前：
+
+- Remembered（默认）：你在 Boot Maintenance Manager > Boot Options > Change Boot Order
+  （或 UEFI Shell 的 `bcfg`）里移到最上面的启动项。还没这样做时，是固件最先找到的 Windows。
+- Windows on eMMC / NVMe / SD card / USB：那块盘上的 Windows。
+- Off：启动顺序保持操作系统设的样子。
+
+启动菜单和操作系统的"重启到"（BootNext）仍然可以启动一次。串口日志里
+`PlatformApplyDefaultBootEntry:` 和 `PlatformWatchDefaultBootEntry:` 开头的行说明选了哪个。
 
 ## 显示
 

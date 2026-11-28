@@ -207,6 +207,13 @@
   gRockchipTokenSpaceGuid.PcdNetworkTimeSyncDefault|1|UINT8|0x05000010
 
   #
+  # Setup "Default Boot Entry" default (PlatformBootManagerLib, DefaultBoot.c):
+  # 0 the remembered entry (first Windows found), 1 to 4 Windows on eMMC, NVMe,
+  # SD, USB, 255 off (BootOrder as the OS left it).
+  #
+  gRockchipTokenSpaceGuid.PcdDefaultBootOsDefault|0|UINT8|0x05000012
+
+  #
   # Shared display PCDs: build-time defaults.
   # Moved here verbatim from RK3588.dec (token numbers unchanged) so the
   # SoC-independent display stack no longer has to pull in another SoC's
@@ -287,3 +294,5 @@
   gRK3588TokenSpaceGuid.PcdScreenshotTarget|0|UINT8|0x0000080A
   # Setup "Network Time Sync": the variable NetworkTimeSync (RK3576Dxe formset)
   gRockchipTokenSpaceGuid.PcdNetworkTimeSync|1|UINT8|0x05000011
+  # Setup "Default Boot Entry": the variable DefaultBootOs (RK3576Dxe formset)
+  gRockchipTokenSpaceGuid.PcdDefaultBootOs|0|UINT8|0x05000013

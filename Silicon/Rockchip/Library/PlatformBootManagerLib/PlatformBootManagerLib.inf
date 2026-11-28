@@ -27,6 +27,7 @@
 
 [Sources]
   CpuMaxFreqAsk.c
+  DefaultBoot.c
   PlatformBm.c
   PlatformBm.h
   PlatformBmStrings.uni
@@ -76,6 +77,7 @@
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultParity
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultStopBits
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy
+  gRockchipTokenSpaceGuid.PcdDefaultBootOs
 
 [Guids]
   gEfiGlobalVariableGuid
@@ -89,6 +91,7 @@
   gEfiFileSystemInfoGuid
   gEfiFileSystemVolumeLabelInfoIdGuid
   gEfiEndOfDxeEventGroupGuid
+  gEfiEventExitBootServicesGuid
   gEfiTtyTermGuid
   gUefiShellFileGuid
   gRockchipEventPlatformBmAfterConsoleGuid
@@ -101,6 +104,7 @@
 [Protocols]
   gEdkiiNonDiscoverableDeviceProtocolGuid
   gEfiBootManagerPolicyProtocolGuid
+  gEdkiiPlatformSpecificResetFilterProtocolGuid
   gEfiDevicePathProtocolGuid
   gEfiGraphicsOutputProtocolGuid
   gEfiFirmwareVolume2ProtocolGuid

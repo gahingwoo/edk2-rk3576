@@ -18,6 +18,11 @@
  * CM5-IO's NVMe had two "Windows Boot Manager" entries, 2026-11-28), and
  * the list of partitions already put first once.
  *
+ * And the default boot entry: device paths matched by partition and file
+ * (full and short form, case, Boot#### renumbering does not matter, other
+ * partitions and files do not match, malformed paths match nothing), and
+ * which ESP the setting picks.
+ *
  * Arguments are real BCD files: what is read from each is printed.
  */
 #include <stdio.h>
@@ -268,6 +273,149 @@ static void plan_tests(void)
     }
 }
 
+
+/* ---- device paths for the default entry ---- */
+
+static unsigned dp_node(unsigned char *p, unsigned type, unsigned sub, const void *data, unsigned len)
+{
+    p[0] = type;
+    p[1] = sub;
+    put16(p + 2, 4 + len);
+    if (len)
+        memcpy(p + 4, data, len);
+    return 4 + len;
+}
+
+static unsigned dp_hd(unsigned char *p, unsigned part, unsigned char sig0, unsigned long long start)
+{
+    unsigned char d[38];
+    memset(d, 0, sizeof d);
+    put32(d, part);
+    put32(d + 4, (unsigned)start);
+    put32(d + 12, 0x100000);
+    memset(d + 20, 0x5A, 16);
+    d[20] = sig0;
+    d[36] = 2;   /* GPT */
+    d[37] = 2;   /* GUID signature */
+    return dp_node(p, 4, 1, d, 38);
+}
+
+static unsigned dp_file(unsigned char *p, const char *path)
+{
+    unsigned short w[80];
+    unsigned n = strlen(path), i;
+    for (i = 0; i < n; i++)
+        w[i] = (unsigned char)path[i];
+    w[n] = 0;
+    return dp_node(p, 4, 4, w, 2 * (n + 1));
+}
+
+static unsigned dp_end(unsigned char *p) { return dp_node(p, 0x7F, 0xFF, 0, 0); }
+
+/* full path: VenHw/eMMC/Ctrl/HD/File, or short HD/File */
+static unsigned dp_make(unsigned char *p, int full, unsigned part, unsigned char sig0, unsigned long long start, const char *file)
+{
+    unsigned o = 0;
+    if (full) {
+        unsigned char ven[16] = { 1, 2, 3 }, emmc = 0;
+        unsigned ctrl = 0;
+        o += dp_node(p + o, 1, 4, ven, 16);
+        o += dp_node(p + o, 3, 0x1D, &emmc, 1);
+        o += dp_node(p + o, 1, 5, &ctrl, 4);
+    }
+    o += dp_hd(p + o, part, sig0, start);
+    if (file)
+        o += dp_file(p + o, file);
+    o += dp_end(p + o);
+    return o;
+}
+
+static void default_tests(void)
+{
+    unsigned char a[256], b[256];
+    unsigned na, nb, i;
+
+    na = dp_make(a, 0, 1, 0x11, 2048, "\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+    nb = dp_make(b, 1, 1, 0x11, 2048, "\\efi\\microsoft\\boot\\BOOTMGFW.EFI");
+    CHECK(WbpDpSameTarget(a, na, b, nb) && WbpDpSameTarget(b, nb, a, na), "short and full form, any case");
+    CHECK(WbpDpFindHd(b, nb) == 20 + 5 + 8, "HD() offset %u", WbpDpFindHd(b, nb));
+
+    nb = dp_make(b, 1, 1, 0x11, 4096, "\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+    CHECK(WbpDpSameTarget(a, na, b, nb), "partition start does not count (the signature does)");
+
+    nb = dp_make(b, 0, 1, 0x12, 2048, "\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+    CHECK(!WbpDpSameTarget(a, na, b, nb), "another partition GUID");
+    nb = dp_make(b, 0, 2, 0x11, 2048, "\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+    CHECK(!WbpDpSameTarget(a, na, b, nb), "another partition number");
+    nb = dp_make(b, 0, 1, 0x11, 2048, "\\EFI\\debian\\shimaa64.efi");
+    CHECK(!WbpDpSameTarget(a, na, b, nb), "another file");
+    nb = dp_make(b, 0, 1, 0x11, 2048, "\\EFI\\Microsoft\\Boot\\bootmgfw.ef");
+    CHECK(!WbpDpSameTarget(a, na, b, nb), "a prefix of the file");
+    nb = dp_make(b, 0, 1, 0x11, 2048, NULL);
+    CHECK(!WbpDpSameTarget(a, na, b, nb), "the partition without a file");
+
+    /* entries without HD(): whole path, byte for byte */
+    {
+        unsigned char guid[16] = { 0xAB }, other[16] = { 0xAC };
+        unsigned char x[64], y[64];
+        unsigned nx = dp_node(x, 4, 6, guid, 16), ny = dp_node(y, 4, 6, guid, 16);
+        nx += dp_end(x + nx);
+        ny += dp_end(y + ny);
+        CHECK(WbpDpSameTarget(x, nx, y, ny), "FvFile equal");
+        CHECK(!WbpDpSameTarget(x, nx, a, na), "FvFile against a disk entry");
+        dp_node(y, 4, 6, other, 16);
+        CHECK(!WbpDpSameTarget(x, nx, y, ny), "FvFile other GUID");
+    }
+
+    /* malformed: no end node, zero-length node, node past the buffer, every truncation */
+    nb = dp_make(b, 1, 1, 0x11, 2048, "\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+    CHECK(WbpDpSize(b, nb) == nb, "size of a good path");
+    CHECK(!WbpDpSameTarget(a, na, b, nb - 4), "no end node");
+    for (i = 0; i <= nb; i++) {
+        unsigned char *copy = malloc(i ? i : 1);
+        memcpy(copy, b, i);
+        CHECK(i == nb || !WbpDpSameTarget(a, na, copy, i), "truncated at %u matched", i);
+        free(copy);
+    }
+    {
+        unsigned char c[256];
+        memcpy(c, b, nb);
+        put16(c + 2, 0);
+        CHECK(WbpDpSize(c, nb) == 0 && !WbpDpSameTarget(a, na, c, nb), "zero-length node");
+        memcpy(c, b, nb);
+        put16(c + 2, 250);
+        CHECK(WbpDpSize(c, nb) == 0, "node past the end");
+    }
+
+    /* which ESP: kinds 1 eMMC, 2 NVMe; seen order */
+    {
+        wbp_u8 kind[] = { WBP_DEFAULT_NVME, WBP_DEFAULT_EMMC };
+        wbp_u32 seen[] = { 1, 0 }, unseen[] = { WBP_NOT_SEEN, WBP_NOT_SEEN }, mixed[] = { WBP_NOT_SEEN, 3 };
+        CHECK(WbpPickDefault(0, 0, kind, seen, 2) == 1, "first sighting wins, not the order found");
+        CHECK(WbpPickDefault(0, 1, kind, seen, 2) == WBP_PICK_TARGET, "a remembered target wins");
+        CHECK(WbpPickDefault(0, 0, kind, unseen, 2) == 0, "nothing seen yet: the first found");
+        CHECK(WbpPickDefault(0, 0, kind, mixed, 2) == 1, "the seen one over an unseen one");
+        CHECK(WbpPickDefault(WBP_DEFAULT_NVME, 1, kind, seen, 2) == 0, "NVMe asked for");
+        CHECK(WbpPickDefault(WBP_DEFAULT_EMMC, 0, kind, seen, 2) == 1, "eMMC asked for");
+        CHECK(WbpPickDefault(WBP_DEFAULT_USB, 0, kind, seen, 2) == WBP_PICK_NONE, "no USB Windows");
+        CHECK(WbpPickDefault(WBP_DEFAULT_OFF, 1, kind, seen, 2) == WBP_PICK_NONE, "off");
+        CHECK(WbpPickDefault(0, 0, kind, seen, 0) == WBP_PICK_NONE, "no Windows at all");
+    }
+    {
+        WBP_PARTITION l[3], p;
+        unsigned c = 0, k;
+        memset(&p, 0, sizeof p);
+        for (k = 0; k < 3; k++) {
+            p.Signature[0] = (wbp_u8)(k + 1);
+            c = WbpRemember(l, c, &p);
+        }
+        p.Signature[0] = 2;
+        CHECK(WbpSeenIndex(l, c, &p) == 1, "seen index");
+        p.Signature[0] = 9;
+        CHECK(WbpSeenIndex(l, c, &p) == WBP_NOT_SEEN, "not seen");
+    }
+}
+
 #define G "{2b693006-ca28-11f1-a7e0-a4e441d70d63}"
 
 int main(int argc, char **argv)
@@ -278,6 +426,7 @@ int main(int argc, char **argv)
     int r;
 
     plan_tests();
+    default_tests();
 
     for (k = 0; k < 8; k++) {
         utf16_names = k >= 4;

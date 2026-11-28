@@ -73,10 +73,25 @@ no boot entry starts it, it adds one named after the Windows version
 ("Windows 11"), read from that partition's BCD store, and puts it first in
 the boot order. An entry called "Windows Boot Manager" is renamed the same
 way. With two Windows disks the name gets the disk: "Windows 11 (NVMe)".
-Several entries for the same Windows are merged into one. Only the first
-time a Windows is found does its entry go first: moving it down by hand
-sticks, and an entry deleted by hand comes back at the end. The serial log
-lines `PlatformSyncWindowsBootOptions:` show what was found and done.
+Several entries for the same Windows are merged into one; an entry deleted
+by hand comes back at the end. The serial log lines
+`PlatformSyncWindowsBootOptions:` show what was found and done.
+
+## Default boot entry
+
+Each Windows puts itself first in the boot order when it runs, so without
+help the last one used would always boot next. "Default Boot Entry"
+(RK3576 Platform Configuration > Boot) keeps one entry first at every boot:
+
+- Remembered (default): the entry you moved to the top in Boot Maintenance
+  Manager > Boot Options > Change Boot Order (or with `bcfg` in the UEFI
+  Shell). Until you do, the first Windows the firmware found.
+- Windows on eMMC / NVMe / SD card / USB: that disk's Windows.
+- Off: the boot order is left as the OS set it.
+
+The boot menu and an OS's "restart into" (BootNext) still boot once. The
+serial log lines `PlatformApplyDefaultBootEntry:` and
+`PlatformWatchDefaultBootEntry:` show the choice.
 
 ## Display
 

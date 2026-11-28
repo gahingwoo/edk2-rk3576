@@ -1608,10 +1608,11 @@ PlatformBootManagerAfterConsole (
 
   //
   // Disks are connected and the boot manager has not read the options yet.
-  // Windows first: an option it adds goes to the front of BootOrder, and
-  // Armbian once is then kept off the front behind it.
+  // Windows first, then the default entry to the front of BootOrder
+  // (DefaultBoot.c); Armbian once is kept off the front behind it.
   //
   PlatformSyncWindowsBootOptions ();
+  PlatformApplyDefaultBootEntry ();
   PlatformSyncArmbianOnceOption ();
 
   //
@@ -1702,6 +1703,12 @@ PlatformBootManagerAfterConsole (
       }
     }
   }
+
+  //
+  // Last: BootOrder is final for this boot unless someone changes it in
+  // setup or the Shell, which then sets the default (DefaultBoot.c).
+  //
+  PlatformWatchDefaultBootEntry ();
 }
 
 /**

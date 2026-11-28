@@ -138,6 +138,7 @@
   gRK3576TokenSpaceGuid.PcdDisplayBrightnessDefault
   gRK3588TokenSpaceGuid.PcdScreenshotTargetDefault
   gRockchipTokenSpaceGuid.PcdNetworkTimeSyncDefault
+  gRockchipTokenSpaceGuid.PcdDefaultBootOsDefault
 
 [Pcd]
   # Dynamic display PCDs: variable write service must be available (see [Depex]).
@@ -152,6 +153,7 @@
   gRK3576TokenSpaceGuid.PcdDisplayBrightness
   gRK3588TokenSpaceGuid.PcdScreenshotTarget
   gRockchipTokenSpaceGuid.PcdNetworkTimeSync
+  gRockchipTokenSpaceGuid.PcdDefaultBootOs
   # ComboPHY dynamic PCDs
   gRK3576TokenSpaceGuid.PcdComboPhy0Mode
   gRK3576TokenSpaceGuid.PcdComboPhy1Mode

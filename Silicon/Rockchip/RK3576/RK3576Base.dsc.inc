@@ -592,6 +592,8 @@
   gRockchipTokenSpaceGuid.PcdNetworkStackHttpBootEnabledDefault|FALSE
   # Set the clock from NTP at boot (NetworkTimeSyncDxe)
   gRockchipTokenSpaceGuid.PcdNetworkTimeSyncDefault|1
+  # Default boot entry: the remembered one (PlatformBootManagerLib)
+  gRockchipTokenSpaceGuid.PcdDefaultBootOsDefault|0
 
 [PcdsPatchableInModule]
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|1500000
@@ -693,6 +695,11 @@
   # Network
   #
   gRockchipTokenSpaceGuid.PcdNetworkTimeSync|L"NetworkTimeSync"|gRK3576DxeFormSetGuid|0x0|gRockchipTokenSpaceGuid.PcdNetworkTimeSyncDefault
+
+  #
+  # Boot
+  #
+  gRockchipTokenSpaceGuid.PcdDefaultBootOs|L"DefaultBootOs"|gRK3576DxeFormSetGuid|0x0|gRockchipTokenSpaceGuid.PcdDefaultBootOsDefault
 
 ################################################################################
 #

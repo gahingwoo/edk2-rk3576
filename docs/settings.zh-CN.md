@@ -23,6 +23,7 @@
 | RK3576 Platform Configuration | CPU 最高频率 | `CpuMaxFreq` | 1608 MHz, 最高（2208 / 2016 MHz） | 1608 MHz | 1608 MHz | 1608 MHz |
 | RK3576 Platform Configuration | GPU 电压 | `GpuRail775` | 750 mV（594 MHz）, 775 mV（702 MHz） | 750 mV（594 MHz） | 750 mV（594 MHz） | 775 mV（702 MHz） |
 | RK3576 Platform Configuration | 截图保存位置 | `ScreenshotTarget` | 自动（U盘优先）, 仅 U盘, 仅 SD 卡, 仅内部存储 | 自动（U盘优先） | 自动（U盘优先） | 自动（U盘优先） |
+| RK3576 Platform Configuration | 默认启动项 | `DefaultBootOs` | 记住的, eMMC 上的 Windows, NVMe 上的 Windows, SD 卡上的 Windows, USB 上的 Windows, 关 | 记住的 | 记住的 | 记住的 |
 | RK3576 Platform Configuration | 网络对时 | `NetworkTimeSync` | 禁用, 启用 | 启用 | 启用 | 启用 |
 | RK3576 Platform Configuration | 将系统修改的变量保存到 eMMC | `RtVarEmmcCommit` | 禁用, 启用 | 禁用 | 禁用 | 禁用 |
 | RK3576 Platform Configuration > ACPI / Device Tree | 系统配置表模式 | `ConfigTableMode` | ACPI, 设备树, 两者都提供 | 两者都提供 | 两者都提供 | 两者都提供 |
@@ -78,6 +79,7 @@
 | `CpuMaxFreq` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `GpuRail775` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `ScreenshotTarget` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
+| `DefaultBootOs` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `NetworkTimeSync` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `RtVarEmmcCommit` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 1 |
 | `ConfigTableMode` | `8b4f2e3d-ac5e-4f9b-c2d6-3e7e9f1b4d8c` | NV, BS, RT | 4 |
@@ -114,3 +116,12 @@
 
 属性：NV 非易失，BS 启动服务，RT 运行时。操作系统可以改 RT 变量；在 eMMC 板子上，只有打开
 "Save OS Variable Changes to eMMC" 才会保存这种改动（见[固件菜单](firmware-menus.zh-CN.md#操作系统写入的启动项)）。
+
+## 设置页以外的变量
+
+供离线设置默认启动项的工具使用。GUID `6b57d6bf-5d25-4798-863a-86b9d464a5ba`，属性 NV、BS。
+
+| 变量 | 内容 |
+|---|---|
+| `DefaultBootTarget` | "Default Boot Entry" 为 Remembered 时放在最前的启动项：一个设备路径，磁盘上的启动项从 `HD()` 节点开始，例如 `HD(1,GPT,<分区 GUID>,...)/\EFI\Microsoft\Boot\bootmgfw.efi`。按分区 GUID、分区号和文件路径（不分大小写）匹配，不按 Boot#### 编号。没有这个变量时用最先找到的 Windows。 |
+| `WindowsBootPartitions` | 找到过 Windows 的分区，最先找到的在前：每条 24 字节（16 字节签名、UINT32 分区号、UINT8 签名类型、3 个零字节），最多 16 条。 |

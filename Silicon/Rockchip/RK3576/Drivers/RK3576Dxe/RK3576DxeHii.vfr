@@ -113,6 +113,12 @@ formset
       name  = NetworkTimeSync,
       guid  = RK3576DXE_FORMSET_GUID;
 
+    // PlatformBootManagerLib (DefaultBoot.c) reads it once per boot (PcdDefaultBootOs)
+    efivarstore UINT8,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = DefaultBootOs,
+      guid  = RK3576DXE_FORMSET_GUID;
+
     //
     // ComboPHY variable stores
     //
@@ -402,6 +408,25 @@ formset
         option text = STRING_TOKEN(STR_SCREENSHOT_TARGET_USB),      value = SCREENSHOT_TARGET_USB,      flags = 0;
         option text = STRING_TOKEN(STR_SCREENSHOT_TARGET_SD),       value = SCREENSHOT_TARGET_SD,       flags = 0;
         option text = STRING_TOKEN(STR_SCREENSHOT_TARGET_INTERNAL), value = SCREENSHOT_TARGET_INTERNAL, flags = 0;
+      endoneof;
+
+      //
+      // PlatformBootManagerLib (DefaultBoot.c).  Read at the next boot.
+      //
+      subtitle text = STRING_TOKEN(STR_NULL_STRING);
+      subtitle text = STRING_TOKEN(STR_BOOT_SUBTITLE);
+
+      oneof varid = DefaultBootOs,
+        prompt      = STRING_TOKEN(STR_DEFAULT_BOOT_PROMPT),
+        help        = STRING_TOKEN(STR_DEFAULT_BOOT_HELP),
+        flags       = NUMERIC_SIZE_1,
+        default     = FixedPcdGet8 (PcdDefaultBootOsDefault),
+        option text = STRING_TOKEN(STR_DEFAULT_BOOT_REMEMBERED), value = 0,   flags = 0;
+        option text = STRING_TOKEN(STR_DEFAULT_BOOT_EMMC),       value = 1,   flags = 0;
+        option text = STRING_TOKEN(STR_DEFAULT_BOOT_NVME),       value = 2,   flags = 0;
+        option text = STRING_TOKEN(STR_DEFAULT_BOOT_SD),         value = 3,   flags = 0;
+        option text = STRING_TOKEN(STR_DEFAULT_BOOT_USB),        value = 4,   flags = 0;
+        option text = STRING_TOKEN(STR_DEFAULT_BOOT_OFF),        value = 255, flags = 0;
       endoneof;
 
       //

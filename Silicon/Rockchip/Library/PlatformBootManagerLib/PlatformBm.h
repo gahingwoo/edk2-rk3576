@@ -68,4 +68,53 @@ PlatformSyncWindowsBootOptions (
   VOID
   );
 
+/**
+  Move Boot#### OptionNumber to the front of BootOrder, adding it there if
+  BootOrder does not list it (WindowsBoot.c).
+**/
+VOID
+PlatformMoveBootOptionToFront (
+  IN UINTN  OptionNumber
+  );
+
+//
+// Vendor GUID of WindowsBootPartitions and DefaultBootTarget.
+//
+extern EFI_GUID  gPlatformWindowsBootVarGuid;
+
+/**
+  The Windows ESPs the last PlatformSyncWindowsBootOptions found: kind and
+  first-sighting place of each, and its boot target (WindowsBoot.c).
+**/
+UINTN
+PlatformWindowsFound (
+  OUT UINT8   *Kind,
+  OUT UINT32  *SeenIndex,
+  IN  UINTN   Max
+  );
+
+EFI_DEVICE_PATH_PROTOCOL *
+PlatformWindowsTarget (
+  IN UINTN  Index
+  );
+
+/**
+  Put the default boot entry first in BootOrder (DefaultBoot.c).  After
+  PlatformSyncWindowsBootOptions.
+**/
+VOID
+PlatformApplyDefaultBootEntry (
+  VOID
+  );
+
+/**
+  Note the first boot option now, and from here on take a different first
+  option, put there in setup or the UEFI Shell before the OS starts, as the
+  new default (DefaultBoot.c).  At the end of AfterConsole.
+**/
+VOID
+PlatformWatchDefaultBootEntry (
+  VOID
+  );
+
 #endif // PLATFORM_BM_H_
