@@ -489,8 +489,10 @@
   #
   # GPU 775 mV (setup option, backs PcdGpuRail775 below): hidden unless a
   # board sets PcdGpuRail775Supported, and off unless the board says
-  # otherwise.  With the fan off the TaishanPi 3M idles at 67-68 C at
-  # 594 MHz, so the higher rail and clock are a choice, not a default.
+  # otherwise.  The three boards that offer it turn it on: the Windows
+  # driver drops to 594 MHz at 85 C (and locks there after repeated
+  # faults), and the firmware leaves the rail alone unless the PMIC and
+  # BUCK5 read exactly as expected (GpuRail.c RaiseRail).
   #
   gRK3576TokenSpaceGuid.PcdGpuRail775Default|0
   # NPU for an ACPI OS (setup option, backs PcdAcpiNpu below): on since
